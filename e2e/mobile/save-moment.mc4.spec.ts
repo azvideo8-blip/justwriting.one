@@ -8,7 +8,7 @@ async function saveNote(page: Page, text: string): Promise<void> {
   const area = page.locator('textarea').first();
   await area.waitFor({ state: 'visible', timeout: 30_000 });
   await area.fill(text);
-  await page.getByRole('button', { name: /^Готово$/ }).click();
+  await page.locator('[data-write-toolbar]').getByRole('button', { name: /^Сохранить$/ }).click();
   const sheet = page.locator('[aria-labelledby="finish-modal-title"]');
   await expect(sheet, 'лист завершения не открылся').toBeVisible({ timeout: 15_000 });
   await sheet.getByRole('button', { name: /^Сохранить$/ }).click();

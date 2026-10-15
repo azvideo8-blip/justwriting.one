@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { Sparkles, Check, X } from 'lucide-react';
 
@@ -325,7 +325,7 @@ function FinishActions({
   t: (key: string, params?: Record<string, string | number>) => string;
 }) {
   const ghost = isMobile
-    ? 'flex-1 px-3 py-3.5 rounded-2xl border border-border-subtle text-text-main hover:bg-white/5 min-h-[44px] text-sm font-bold'
+    ? 'flex-1 px-3 py-3.5 rounded-2xl border border-border-subtle text-text-main hover:bg-text-main/5 min-h-[44px] text-sm font-bold'
     : 'flex-1 px-3 py-3.5 rounded-2xl border border-border-subtle text-text-main hover:bg-white/5 text-sm font-bold';
   return (
     <div className="flex flex-wrap gap-2">
@@ -368,7 +368,20 @@ function FinishActions({
 // и раньше, переживать «Отмену» и повторное открытие.
 export function WritingFinishModal(props: WritingFinishModalProps) {
   const [editTitle, setEditTitle] = useState('');
-  if (!props.isOpen) return null;
+  // MF-20 (SA-6): после закрытия тело живёт ещё 250 мс — лист успевает уйти
+  // вниз, а не исчезнуть за кадр; потом размонтируется, как требует EA-9.
+  const [lingering, setLingering] = useState(false);
+  const [wasOpen, setWasOpen] = useState(props.isOpen);
+  if (wasOpen !== props.isOpen) {
+    setWasOpen(props.isOpen);
+    setLingering(!props.isOpen);
+  }
+  useEffect(() => {
+    if (!lingering) return;
+    const id = setTimeout(() => setLingering(false), 250);
+    return () => clearTimeout(id);
+  }, [lingering]);
+  if (!props.isOpen && !lingering) return null;
   return <WritingFinishModalBody {...props} editTitle={editTitle} setEditTitle={setEditTitle} />;
 }
 
@@ -682,11 +695,7 @@ function WritingFinishModalBody({
               {finishSubline && (
                 <p className="mt-1 text-[15px] leading-[1.4] text-text-muted">{finishSubline}</p>
               )}
-              {firstSentence && (
-                <p className="mt-4 line-clamp-2 font-serif text-[16px] italic leading-[1.45] text-text-muted">
-                  {firstSentence}
-                </p>
-              )}
+              {/* MF-6: курсивной первой фразы нет — она уже в подсказке поля названия. */}
 
               <div className="mt-6">
                 <FinishModalTags

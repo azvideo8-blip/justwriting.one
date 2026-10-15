@@ -186,8 +186,8 @@ export function AIChatHeader(props: AIChatHeaderProps) {
           onCreate={onCreatePersona}
         />
 
-        {moreOpen && (
-          <ModalShell open onClose={() => setMoreOpen(false)} labelId="ai-header-more-title" variant="sheet">
+        {/* MF-20: смонтирован всегда — open даёт листу уйти с анимацией. */}
+          <ModalShell open={moreOpen} onClose={() => setMoreOpen(false)} labelId="ai-header-more-title" variant="sheet">
             <div className="p-4 space-y-2">
               <h2 id="ai-header-more-title" className="text-sm font-semibold text-text-main truncate">
                 {dialogueTitle ?? activePersonaName}
@@ -288,7 +288,7 @@ export function AIChatHeader(props: AIChatHeaderProps) {
               </button>
             </div>
           </ModalShell>
-        )}
+
       </div>
     );
   }

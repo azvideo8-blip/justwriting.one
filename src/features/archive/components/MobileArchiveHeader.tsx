@@ -4,6 +4,7 @@ import { useLanguage } from '../../../shared/i18n';
 
 interface MobileArchiveHeaderProps {
   title: string;
+  count: number;
   countLabel: string;
   searchQuery: string;
   searchInputRef: RefObject<HTMLInputElement | null>;
@@ -21,7 +22,7 @@ interface MobileArchiveHeaderProps {
  * лист: первая строка заметки начиналась с y ≈ 600 из 844.
  */
 export function MobileArchiveHeader({
-  title, countLabel, searchQuery, searchInputRef, onSearchChange, onOpenMenu,
+  title, count, countLabel, searchQuery, searchInputRef, onSearchChange, onOpenMenu,
   allTags, selectedTags, onToggleTag,
 }: MobileArchiveHeaderProps) {
   const { t } = useLanguage();
@@ -33,7 +34,7 @@ export function MobileArchiveHeader({
     <div className="shrink-0">
       <div className="flex items-center gap-3">
         <h1 className="flex-1 min-w-0 font-serif text-[22px] font-bold text-text-main truncate">{title}</h1>
-        <span className="font-mono text-[13px] text-text-main/55 shrink-0">{countLabel}</span>
+        <span className="font-mono text-[13px] text-text-main/55 shrink-0">{count} {countLabel}</span>
         <button
           type="button"
           onClick={onOpenMenu}

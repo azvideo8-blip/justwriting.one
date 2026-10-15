@@ -34,7 +34,7 @@ test.describe('MB-7: ничего не висит над нижней панел
     const editor = page.locator('textarea').first();
     await editor.waitFor({ state: 'visible', timeout: 30_000 });
     await editor.fill('Одна строка для проверки отступа под панелью. Раз два три.');
-    await page.getByRole('button', { name: /^Готово$/ }).click();
+    await page.locator('[data-write-toolbar]').getByRole('button', { name: /^Сохранить$/ }).click();
     const finish = page.getByRole('dialog').first();
     await expect(finish).toBeVisible({ timeout: 15_000 });
     const titleInput = finish.getByLabel(/Название/).first();

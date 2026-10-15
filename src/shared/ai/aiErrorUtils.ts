@@ -34,7 +34,7 @@ export function aiErrorToText(code: string | undefined | null, opts?: AiErrorToT
     case 'REASONING_LIMIT':
       return 'Лимит рассуждений исчерпан';
     case 'SERVICE_UNAVAILABLE':
-      return 'Сервис временно не может проверить лимит. Попробуйте позже.';
+      return 'Сервис временно не может проверить лимит. Попробуй позже.';
     case 'GLOBAL_LIMIT':
       return 'Лимит приложения исчерпан — попробуйте позже';
     case 'AUTH_REQUIRED':
@@ -58,10 +58,10 @@ export function aiErrorToText(code: string | undefined | null, opts?: AiErrorToT
         ? t('ai_error_disallowed_phrase')
         : 'Эта формулировка не проходит проверку — перефразируйте, пожалуйста';
     case 'EMPTY_RESPONSE':
-      return 'ИИ не ответил — сервис временно недоступен (возможно, исчерпан лимит). Попробуйте позже.';
+      return 'ИИ не ответил — сервис временно недоступен (возможно, исчерпан лимит). Попробуй позже.';
     case 'UPSTREAM':
     case 'UPSTREAM_ERROR':
-      return 'Модель сейчас не отвечает — это сбой на стороне сервиса ИИ, а не в ваших заметках. Мы уже повторили запрос несколько раз. Попробуйте ещё раз через минуту.';
+      return 'Модель сейчас не отвечает — это сбой на стороне сервиса ИИ, а не в твоих заметках. Мы уже повторили запрос несколько раз. Попробуй ещё раз через минуту.';
     case 'TOO_LONG':
       return t ? t('ai_error_too_long') : 'Запрос слишком длинный';
     case 'NO_CONTENT':

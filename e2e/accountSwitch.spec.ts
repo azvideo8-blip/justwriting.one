@@ -41,7 +41,7 @@ async function dismissFirstLoginDialogs(page: Page): Promise<void> {
     for (const dialog of await page.getByRole('dialog').all()) {
       if (!(await dialog.isVisible().catch(() => false))) continue;
       open = true;
-      for (const name of [/Код сохранён|Я сохранил/, /Обязательно: Я прочитал/]) {
+      for (const name of [/Код сохранён|Я сохранил/, /Обязательно: (Я прочитал|Текст прочитан)/]) {
         const box = dialog.getByRole('checkbox', { name });
         if (await box.isVisible().catch(() => false) && !(await box.isChecked().catch(() => true))) {
           await box.check({ timeout: 2_000 }).catch(() => {});
@@ -135,7 +135,7 @@ test('1. выход: перезагрузка страницы, /login и тос
   await signOut(page);
   await expectReloaded(page);
   await page.waitForURL('**/login', { timeout: 15_000 });
-  await expect(page.getByText('Вы вышли из аккаунта')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('Выход из аккаунта выполнен')).toBeVisible({ timeout: 10_000 });
 });
 
 test('2. вход другим: ничего от A ни на экране, ни в базе B', async ({ page }) => {
@@ -179,7 +179,7 @@ async function inviteOverOpenAccount(page: Page): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Как мы обращаемся с данными' })).toBeVisible();
   await page.getByRole('checkbox', { name: /Обязательно/ }).check();
   await page.getByRole('button', { name: 'Далее' }).click();
-  await expect(page.getByRole('heading', { name: 'Придумайте пароль' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Придумай пароль' })).toBeVisible();
 }
 
 test('3. приглашение при открытом аккаунте: вопрос → перезагрузка → мастер; обновление без «ссылка устарела» и без повторного вопроса', async ({ page }) => {
@@ -187,7 +187,7 @@ test('3. приглашение при открытом аккаунте: воп
 
   await page.reload();
   // После перезагрузки — снова мастер приглашения (3b), а не форма восстановления.
-  await expect(page.getByRole('heading', { name: /Добро пожаловать в justwriting|Придумайте пароль/ })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('heading', { name: /Добро пожаловать в justwriting|Придумай пароль/ })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('Ссылка уже использована или устарела')).toHaveCount(0);
   await expect(page.getByTestId('invite-switch-account')).toHaveCount(0);
 });
@@ -198,7 +198,7 @@ test('3. приглашение при открытом аккаунте: воп
 test('3b. после обновления страницы приглашённый остаётся в мастере', async ({ page }) => {
   await inviteOverOpenAccount(page);
   await page.reload();
-  await expect(page.getByRole('heading', { name: /Добро пожаловать в justwriting|Придумайте пароль/ })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('heading', { name: /Добро пожаловать в justwriting|Придумай пароль/ })).toBeVisible({ timeout: 20_000 });
 });
 
 test('4. две вкладки: смена аккаунта во второй перезагружает первую, текст A остаётся у A и не попадает к B', async ({ context }) => {

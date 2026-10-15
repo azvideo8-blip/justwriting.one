@@ -7,6 +7,7 @@ import { Label } from '../../../types';
 import { ArchiveSession } from '../types';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
+import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { cn } from '../../../core/utils/utils';
 import { toDate, getDateLocale } from '../../../core/utils/dateUtils';
 import { exportAsTxt, exportAsMd, exportAsPdf, exportAsDocx, ExportStrings, isExportable } from '../../../core/services/ArchiveExportService';
@@ -32,7 +33,7 @@ const relatedNotesCache = new Map<string, RelatedNote[]>();
 
 export function DocumentPreview({
   session: propSession, onClose, onContinue, onTagsChange, onLabelChange, onAddLabel, onTitleChange, labels, allTags, onAttach,
-  onAnalyzeNote, fetchSummary, fetchRelatedNotes, context, onDelete, onStorageChange,
+  onAnalyzeNote, onClearAnalysis, fetchSummary, fetchRelatedNotes, context, onDelete, onStorageChange,
 }: {
   session: ArchiveSession | null;
   onClose: () => void;
@@ -46,6 +47,8 @@ export function DocumentPreview({
   allTags?: string[] | undefined;
   onAttach?: ((documentId: string) => void) | undefined;
   onAnalyzeNote?: ((sessionId: string) => Promise<{ ok: boolean; error?: string }>) | undefined;
+  /** MF-12: «Удалить разбор ИИ» из листа действий читалки (телефон). */
+  onClearAnalysis?: ((sessionId: string) => Promise<void>) | undefined;
   fetchSummary?: ((sessionId: string) => Promise<AIDocumentSummary | null>) | undefined;
   fetchRelatedNotes?: ((sessionId: string) => Promise<RelatedNote[]>) | undefined;
   context?: string | undefined;
@@ -90,6 +93,7 @@ export function DocumentPreview({
   const [newLabelColor, setNewLabelColor] = useState<string>(LABEL_PRESET_COLORS[0]!);
 
   const [summary, setSummary] = useState<AIDocumentSummary | null>(null);
+  const { confirm: confirmDialog } = useConfirmDialog();
   const [summaryExpanded, setSummaryExpanded] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [justFinished, setJustFinished] = useState(false);
@@ -139,6 +143,25 @@ export function DocumentPreview({
       active = false;
     };
   }, [session?.id, session?.sittings]);
+
+  // MF-12: тот же путь, что второе нажатие ✨ в списке: подтверждение, удаление
+  // сводки и вектора, тост.
+  const handleClearAnalysis = async () => {
+    if (!session?.id || analyzing || !onClearAnalysis) return;
+    const ok = await confirmDialog({ title: t('ai_note_clear_confirm'), message: t('ai_note_clear_confirm_hint') });
+    if (!ok) return;
+    setAnalyzing(true);
+    try {
+      await onClearAnalysis(session.id);
+      setSummary(null);
+      showToast(t('ai_note_cleared'), 'success');
+    } catch (e) {
+      reportError(e, { action: 'reader_clear_analysis', documentId: session.id });
+      showToast(t('error_generic_action'), 'error');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
   const handleAnalyzeNote = async () => {
     if (!session?.id || analyzing || session.excludedFromAI || !onAnalyzeNote) return;
@@ -398,6 +421,7 @@ export function DocumentPreview({
         justFinished={justFinished}
         analyzeError={analyzeError}
         onAnalyze={() => void handleAnalyzeNote()}
+        onClearAnalysis={onClearAnalysis ? () => void handleClearAnalysis() : undefined}
         {...(onAddLabel ? { onAddLabel } : {})}
         {...(onTitleChange ? { onTitleChange: (s: ArchiveSession, title: string) => { onTitleChange(s, title); setSession({ ...s, title }); } } : {})}
         relatedNotes={relatedNotes}

@@ -87,7 +87,7 @@ describe('DocumentPreview — AI Analysis button states', () => {
     fireEvent.click(button);
 
     await waitFor(() => {
-      expect(screen.getByText('Обновите страницу, чтобы увидеть разбор')).toBeInTheDocument();
+      expect(screen.getByText('Обнови страницу, чтобы увидеть разбор')).toBeInTheDocument();
     });
   });
 

@@ -8,7 +8,6 @@ import { NotFoundPage } from '../pages/NotFoundPage';
 import { AboutPage } from '../pages/AboutPage';
 import { LandingPage } from '../pages/LandingPage';
 import { LegalPage } from '../pages/LegalPage';
-import { MobileGoalSheet } from '../../writing/components/MobileGoalSheet';
 import { ArchiveHeader } from '../../archive/components/ArchiveHeader';
 
 vi.mock('../../../shared/components/Toast', () => ({
@@ -92,19 +91,6 @@ describe('T-1 (e) Screens and components English localization (no Cyrillic chara
     expect(screen.getByText('Back')).toBeInTheDocument();
     expect(screen.getByText(/Last updated: Jan 1, 2026/)).toBeInTheDocument();
     expect(screen.getByText(/Draft revision/)).toBeInTheDocument();
-  });
-
-  it('MobileGoalSheet has no Cyrillic in English presets', () => {
-    const { container } = renderEn(
-      <MobileGoalSheet
-        isOpen={true}
-        onClose={vi.fn()}
-      />
-    );
-    const text = container.textContent || '';
-    expect(text).not.toMatch(CYRILLIC);
-    expect(screen.getByText('100 words')).toBeInTheDocument();
-    expect(screen.getByText('5 min.')).toBeInTheDocument();
   });
 
   it('ArchiveHeader has no Cyrillic in English tab labels', () => {

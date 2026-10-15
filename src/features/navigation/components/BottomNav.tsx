@@ -109,7 +109,7 @@ export function BottomNav() {
     <nav
       data-testid="mobile-bottom-nav"
       className={cn(
-        'fixed bottom-0 left-0 right-0 z-[var(--z-sidebar)] bg-surface-card/85 backdrop-blur-xl border-t border-white/[0.06] flex justify-around pt-2 pb-safe',
+        'fixed bottom-0 left-0 right-0 z-[var(--z-sidebar)] bg-surface-card/85 backdrop-blur-xl border-t border-border-subtle flex justify-around pt-2 pb-safe',
         hidesForKeyboard && 'translate-y-full',
       )}
       style={{

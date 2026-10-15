@@ -5,6 +5,11 @@ import { renderWithProviders } from '../../../test/utils/render';
 import { SettingsPage } from '../SettingsPage';
 import { ThemeProvider } from '../../../core/theme/ThemeProvider';
 
+const layout = vi.hoisted(() => ({ mode: 'desktop' as 'desktop' | 'mobile' }));
+vi.mock('../../../shared/hooks/useLayoutMode', () => ({
+  useLayoutMode: () => ({ layoutMode: layout.mode, setLayoutMode: vi.fn() }),
+}));
+
 vi.mock('../../../shared/components/Toast', () => ({
   useToast: () => ({ showToast: vi.fn() }),
 }));
@@ -56,6 +61,7 @@ vi.mock('../../../core/services/EncryptionService', () => ({
 describe('SettingsPage', () => {
   beforeEach(() => {
     mockIsAdmin = false;
+    layout.mode = 'desktop';
     vi.clearAllMocks();
     sessionStorage.clear();
     mockIsAuthenticated = true;
@@ -85,6 +91,19 @@ describe('SettingsPage', () => {
     for (const expected of [/Синхронизация|Sync/, /Безопасность|Security/, /Резервная копия|Backup/, /О приложении|About/, /Удаление аккаунта|Delete account/]) {
       expect(headings.some(h => expected.test(h))).toBe(true);
     }
+  });
+
+  // MF-10: на телефоне у /settings есть путь назад — «‹ Профиль»; на десктопе нет.
+  it('mobile: a «‹ Профиль» back control; desktop: none', () => {
+    layout.mode = 'mobile';
+    const { unmount } = renderWithProviders(
+      <MemoryRouter><ThemeProvider><SettingsPage /></ThemeProvider></MemoryRouter>
+    );
+    expect(screen.getByRole('button', { name: /^Профиль$|^Profile$/ })).toBeInTheDocument();
+    unmount();
+    layout.mode = 'desktop';
+    renderWithProviders(<MemoryRouter><ThemeProvider><SettingsPage /></ThemeProvider></MemoryRouter>);
+    expect(screen.queryByRole('button', { name: /^Профиль$|^Profile$/ })).toBeNull();
   });
 
   it('triggers diagnostics easter egg after 5 taps on version', async () => {

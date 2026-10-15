@@ -64,7 +64,7 @@ describe('S-40: AIPage wires the consent hint to the settings section', () => {
     pageData.consentRequired = 'AI_CONSENT_REQUIRED';
     renderWithProviders(<MemoryRouter><AIPage /></MemoryRouter>);
 
-    expect(screen.getByText(/разрешите его использование в настройках/)).toBeInTheDocument();
+    expect(screen.getByText(/разреши его использование в настройках/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Открыть настройки' }));
     expect(navigate).toHaveBeenCalledWith('/settings#security');
   });
@@ -72,6 +72,6 @@ describe('S-40: AIPage wires the consent hint to the settings section', () => {
   it('no hint without the state', () => {
     pageData.consentRequired = null;
     renderWithProviders(<MemoryRouter><AIPage /></MemoryRouter>);
-    expect(screen.queryByText(/разрешите его использование в настройках/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/разреши его использование в настройках/)).not.toBeInTheDocument();
   });
 });

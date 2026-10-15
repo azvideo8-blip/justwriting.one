@@ -9,6 +9,7 @@ import { ArchiveHeader } from '../ArchiveHeader';
 
 const mobileProps = {
   title: 'Заметки',
+  count: 2,
   countLabel: 'записи',
   searchQuery: '',
   searchInputRef: { current: null },

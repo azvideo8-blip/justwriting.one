@@ -1,11 +1,10 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { differenceInCalendarDays, format } from 'date-fns';
 import { useLanguage } from '../../shared/i18n';
 import { UserProfile } from '../../types';
 import type { AppUser } from '../../core/auth/types';
-import { Settings, ChevronRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { useUserId } from '../../shared/hooks/useUserId';
-import { IconButton } from '../../shared/components/IconButton';
 import { ProfileHero } from '../../features/profile/components/ProfileHero';
 import { KPIStrip } from '../../features/profile/components/KPIStrip';
 import { StreakRibbon } from '../../features/profile/components/StreakRibbon';
@@ -24,6 +23,9 @@ import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
 import { useEncryptionStore } from '../../core/crypto/useEncryptionStore';
 import { useAdminStatus } from '../../features/auth/hooks/useAdminStatus';
 import { getDateLocale } from '../../core/utils/dateUtils';
+import { syncStatusText } from './syncStatusText';
+import { SignOutConfirmModal } from '../../features/auth/components/SignOutConfirmModal';
+import { useConfirmSignOut } from '../../features/settings/hooks/useConfirmSignOut';
 
 interface MobileMeScreenProps {
   user: AppUser | null;
@@ -51,17 +53,7 @@ function MobileStatusCard({ uid }: { uid: string | null }) {
     : warnCount > 0 ? tp('activity_warnings', warnCount)
     : t('me_status_quiet');
 
-  const syncText = t(
-    syncStatus.status === 'synced' ? 'synced_compact'
-      : syncStatus.status === 'sync_off' ? 'me_status_sync_off'
-      : syncStatus.status === 'offline' ? 'sync_paused_no_network'
-      : syncStatus.status === 'cloud_unavailable' ? 'sync_paused_cloud_unavailable'
-      : syncStatus.status === 'ai_store_unsynced' ? 'sync_ai_store_pending'
-      : 'sync_paused_pending',
-    syncStatus.status === 'pending' ? { count: String(syncStatus.pendingCount) }
-      : syncStatus.status === 'ai_store_unsynced' ? { count: String(syncStatus.aiStorePendingCount + syncStatus.aiStoreDeadCount) }
-      : undefined
-  );
+  const syncText = syncStatusText(syncStatus, t, tp);
 
   const rows: { label: string; value: string; dot?: boolean; onTap: () => void; href?: never }[] = [
     { label: t('sync_indicator_label'), value: syncText, dot: syncStatus.status !== 'synced' && syncStatus.status !== 'sync_off', onTap: () => void navigate('/settings#sync') },
@@ -71,13 +63,13 @@ function MobileStatusCard({ uid }: { uid: string | null }) {
   if (isAdmin) rows.push({ label: t('admin_tab_diagnostics'), value: '', dot: false, onTap: () => void navigate('/diagnostics') });
 
   return (
-    <div className="rounded-2xl border border-white/[0.04] bg-white/[0.01] overflow-hidden">
+    <div className="rounded-2xl border border-border-subtle bg-text-main/[0.02] overflow-hidden">
       {rows.map(r => (
         <button
           key={r.label}
           type="button"
           onClick={r.onTap}
-          className="w-full h-12 flex items-center gap-3 px-4 text-left border-b border-white/[0.04] last:border-b-0"
+          className="w-full h-12 flex items-center gap-3 px-4 text-left border-b border-border-subtle last:border-b-0"
         >
           <span className="flex-1 min-w-0 text-sm text-text-main truncate">{r.label}</span>
           <span className="text-[11px] text-text-muted truncate max-w-[45%]">{r.value}</span>
@@ -106,6 +98,8 @@ export function MobileMeScreen({ user, profile }: MobileMeScreenProps) {
   const userId = useUserId(user);
   const { openLoginModal } = useLoginModal();
   const isGuest = !user;
+  const [signOutOpen, setSignOutOpen] = useState(false);
+  const confirmSignOut = useConfirmSignOut();
 
   const { sessions, kpiStats, loading: loadingSessions, refresh: _refresh } = useProfileStats(userId, user);
 
@@ -117,29 +111,18 @@ export function MobileMeScreen({ user, profile }: MobileMeScreenProps) {
   return (
     <>
       {/* not-a-modal: fullscreen mobile screen */}
-      <div className="fixed inset-0 bg-[var(--color-surface-base,#0b0d0c)] z-30 flex flex-col pt-0">
-      {/* Top Header with title and Settings gear icon */}
-      <MobilePageHeader
-        title={t('nav_profile_short')}
-        titleFont="sans"
-        right={
-          <IconButton
-            icon={<Settings size={20} />}
-            label={t('nav_settings')}
-            onClick={() => void navigate('/settings')}
-            className="w-11 h-11 p-0 text-text-muted hover:text-text-main"
-          />
-        }
-      />
+      <div className="fixed inset-0 bg-surface-base z-30 flex flex-col pt-0">
+      {/* MF-9: шестерни нет — настройки открывает строка «Настройки» ниже. */}
+      <MobilePageHeader title={t('nav_profile_short')} titleFont="sans" />
 
       {/* Section Content */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 pb-20">
         {(
           loadingSessions ? (
             <div className="space-y-4">
-              <LoadingSkeleton lines={3} className="p-4 bg-white/[0.02] border border-white/[0.04] rounded-2xl" />
-              <LoadingSkeleton lines={4} className="p-4 bg-white/[0.02] border border-white/[0.04] rounded-2xl" />
-              <LoadingSkeleton lines={4} className="p-4 bg-white/[0.02] border border-white/[0.04] rounded-2xl" />
+              <LoadingSkeleton lines={3} className="p-4 bg-text-main/[0.03] border border-border-subtle rounded-2xl" />
+              <LoadingSkeleton lines={4} className="p-4 bg-text-main/[0.03] border border-border-subtle rounded-2xl" />
+              <LoadingSkeleton lines={4} className="p-4 bg-text-main/[0.03] border border-border-subtle rounded-2xl" />
             </div>
           ) : (
             <div className="space-y-5">
@@ -167,7 +150,7 @@ export function MobileMeScreen({ user, profile }: MobileMeScreenProps) {
                   )}
                 </div>
                 {streakDays > 0 && (
-                  <div className="flex items-center justify-between gap-3 px-1 py-2.5 text-sm border-t border-white/[0.04]">
+                  <div className="flex items-center justify-between gap-3 px-1 py-2.5 text-sm border-t border-border-subtle">
                     <span className="shrink-0 text-text-main/70">{t('me_streak_row')}</span>
                     <span className="min-w-0 truncate text-right text-[var(--text-muted)]">
                       {streakDays} {tp('home_streak_days', streakDays)}
@@ -184,7 +167,7 @@ export function MobileMeScreen({ user, profile }: MobileMeScreenProps) {
               {/* MR-5: переключателя «Статистика / Аккаунт» нет — карточка аккаунта
               идёт сразу за статусами; язык и выход при этом доступны и в
               /settings#account. */}
-              <MeAccountSection user={user} onSignOut={() => void navigate('/settings#account')} onSignIn={openLoginModal} />
+              <MeAccountSection user={user} onSignOut={() => setSignOutOpen(true)} onSignIn={openLoginModal} />
 
               {/* 2. KPI Strip (Metrics row) */}
               <KPIStrip stats={kpiStats} />
@@ -218,6 +201,7 @@ export function MobileMeScreen({ user, profile }: MobileMeScreenProps) {
         )}
       </div>
     </div>
+      <SignOutConfirmModal open={signOutOpen} onClose={() => setSignOutOpen(false)} onConfirm={confirmSignOut} />
     </>
   );
 }

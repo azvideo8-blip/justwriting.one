@@ -173,3 +173,26 @@ export function setSessionConfig(config: Record<string, unknown>) {
 
 // wordGoalReached is now computed inside checkGoals() in useTimerStore
 // to avoid cross-store subscription side-effects at module level.
+
+/**
+ * Начало (или продолжение) сессии письма — один путь для первой буквы и для
+ * диктовки (MF-1). `baselineWords` — сколько слов было до ввода, который
+ * начинает сессию; без него берётся текущий счётчик стора.
+ */
+export function startWritingSession(baselineWords?: number) {
+  const timer = useTimerStore.getState();
+  const currentStatus = timer.status;
+  const baseline = baselineWords ?? useContentStore.getState().wordCount;
+  if (currentStatus === 'paused') timer.resumeSession();
+  else timer.setStatus('writing');
+  timer.setTimeGoalReached(false);
+  timer.setWordGoalReached(false);
+  if (!useSessionMetaStore.getState().sessionStartTime) {
+    useContentStore.getState().setInitialWordCount(baseline);
+    useSessionMetaStore.getState().setSessionStartTime(Date.now());
+  }
+  if (currentStatus === 'idle') {
+    useTimerStore.setState({ _startWallMs: performance.now(), _accumulatedMs: 0, seconds: 0, sessionStartSeconds: 0 });
+    useTimerStore.getState().setSessionStart(baseline);
+  }
+}

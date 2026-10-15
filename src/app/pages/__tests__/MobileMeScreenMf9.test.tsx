@@ -1,6 +1,7 @@
-// MR-5: шестерёнка в «Профиле» открывает настройки приложения, а не панель
-// редактора. Панель редактора остаётся только в редакторе («Aa»).
-import { describe, it, expect, vi } from 'vitest';
+// MR-5 → MF-9: шестерни в шапке «Профиля» больше нет; строка «Настройки»
+// открывает настройки приложения (на телефоне), «Выйти» — окно подтверждения.
+// Панель редактора остаётся в редакторе («Aa») и на десктопе.
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { MobileMeScreen } from '../MobileMeScreen';
@@ -13,7 +14,7 @@ vi.mock('react-router-dom', async () => {
 
 const openSettings = vi.hoisted(() => vi.fn());
 vi.mock('../../../core/settings/SettingsContext', () => ({ useSettings: () => ({ openSettings }) }));
-vi.mock('../../profile/hooks/useProfileStats', () => ({
+vi.mock('../../../features/profile/hooks/useProfileStats', () => ({
   useProfileStats: () => ({ sessions: [], kpiStats: {}, loading: false, refresh: vi.fn() }),
 }));
 vi.mock('../../../features/profile/components/ProfileHero', () => ({ ProfileHero: () => null }));
@@ -32,22 +33,50 @@ vi.mock('../../../core/crypto/useEncryptionStore', () => ({
   useEncryptionStore: (cb: (s: { isVaultUnlocked: boolean }) => unknown) => cb({ isVaultUnlocked: true }),
 }));
 vi.mock('../../../features/auth/hooks/useAdminStatus', () => ({ useAdminStatus: () => ({ isAdmin: false }) }));
+const layout = vi.hoisted(() => ({ mode: 'mobile' as 'mobile' | 'desktop' }));
+vi.mock('../../../shared/hooks/useLayoutMode', () => ({ useLayoutMode: () => ({ layoutMode: layout.mode, setLayoutMode: vi.fn() }) }));
+vi.mock('../../../shared/components/Toast', () => ({ useToast: () => ({ showToast: vi.fn() }) }));
+vi.mock('../../../features/auth/components/SignOutConfirmModal', () => ({
+  SignOutConfirmModal: ({ open }: { open: boolean }) => (open ? <div role="dialog" aria-label="signout-confirm" /> : null),
+}));
 vi.mock('../../../shared/i18n', () => ({ useLanguage: () => ({ t: (k: string) => k, tp: (k: string) => k, language: 'ru', setLanguage: vi.fn() }) }));
 
-function renderScreen() {
+function renderScreen(user: { uid: string; email: string } | null = null) {
   return render(
     <MemoryRouter>
-      <MobileMeScreen user={null} profile={null} />
+      <MobileMeScreen user={user as never} profile={null} />
     </MemoryRouter>,
   );
 }
 
-describe('MR-5: шестерёнка «Профиля»', () => {
-  it('ведёт в настройки приложения, а не в панель редактора', () => {
+describe('MF-9: Profile settings and sign-out', () => {
+  beforeEach(() => { navigate.mockClear(); openSettings.mockClear(); layout.mode = 'mobile'; });
+
+  it('mobile: «Открыть» in the «Настройки» row → /settings, no editor drawer', () => {
     renderScreen();
-    fireEvent.click(screen.getByRole('button', { name: /nav_settings/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'settings_open_panel' }));
     expect(navigate).toHaveBeenCalledWith('/settings');
     expect(openSettings).not.toHaveBeenCalled();
+  });
+
+  it('no gear button in the profile header', () => {
+    renderScreen();
+    expect(screen.queryByRole('button', { name: /nav_settings/ })).toBeNull();
+  });
+
+  it('desktop MeAccountSection still opens the editor drawer', () => {
+    layout.mode = 'desktop';
+    renderScreen();
+    fireEvent.click(screen.getByRole('button', { name: 'settings_open_panel' }));
+    expect(openSettings).toHaveBeenCalledTimes(1);
+    expect(navigate).not.toHaveBeenCalledWith('/settings');
+  });
+
+  it('«Выйти» opens the sign-out confirm modal instead of navigating', () => {
+    renderScreen({ uid: 'u1', email: 'u1@example.test' });
+    fireEvent.click(screen.getByRole('button', { name: 'nav_logout' }));
+    expect(screen.getByRole('dialog', { name: 'signout-confirm' })).toBeInTheDocument();
+    expect(navigate).not.toHaveBeenCalledWith('/settings#account');
   });
 
   it('переключателя «Статистика / Аккаунт» больше нет', () => {

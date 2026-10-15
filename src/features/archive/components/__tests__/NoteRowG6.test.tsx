@@ -99,9 +99,10 @@ describe('G-6: строка архива', () => {
     fireEvent.click(screen.getByRole('button', { name: 'archive_note_actions' }));
     const sheet = screen.getByRole('dialog');
     const ids = within(sheet).getAllByRole('button').map(b => b.textContent);
-    // Порядок из DESIGN.md: Открыть · Переименовать · теги · копии · Удалить.
+    // MF-12: Открыть · теги · копии · Удалить; переименование — карандаш в шапке.
     expect(ids.filter(x => ['archive_preview', 'archive_rename_title', 'archive_add_tag_aria', 'archive_delete'].includes(x ?? '')))
-      .toEqual(['archive_preview', 'archive_rename_title', 'archive_add_tag_aria', 'archive_delete']);
+      .toEqual(['archive_preview', 'archive_add_tag_aria', 'archive_delete']);
+    expect(within(sheet).getByRole('button', { name: 'archive_rename_title' })).toBeInTheDocument();
 
     fireEvent.click(within(sheet).getByRole('button', { name: 'archive_add_tag_aria' }));
 

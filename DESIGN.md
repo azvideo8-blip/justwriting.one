@@ -278,7 +278,7 @@ components:
 ### Modals & Sheets (`ModalShell.tsx`)
 
 - **Modal:** по центру, `max-w-lg`, вход `scale 0.95 → 1` + opacity, 220 мс `easeOut`.
-- **Sheet (мобильный):** выезд снизу пружиной (`damping 28, stiffness 280`), верхние углы 28px, `max-h-[85vh]`, `pb-safe`.
+- **Sheet (мобильный):** фон непрозрачный — `--surface-popup` (лист — поднятый слой; полупрозрачная `--surface-card` остаётся ленте). Вход снизу пружиной без перелёта (`duration 0.32, bounce 0`), уход вниз 200 мс `cubic-bezier(0.32, 0.72, 0, 1)` — быстрее входа; затемнение появляется и уходит за 200 мс по opacity. Уход работает, если вызывающий держит `ModalShell` смонтированным и передаёт `open`. `prefers-reduced-motion` — без сдвига (`MotionConfig reducedMotion="user"`). Верхние углы 28px, `max-h-[85vh]`, `pb-safe`.
 - **Behaviour:** `role="dialog"`, `aria-modal`, `aria-labelledby`, фокус-трап, Escape, блокировка прокрутки фона. Новые модалки строятся только на `ModalShell`.
 
 ### Toasts (`Toast.tsx`)

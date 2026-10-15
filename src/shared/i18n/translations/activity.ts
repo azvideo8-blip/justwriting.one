@@ -101,7 +101,7 @@ export const activityTranslations: Translations = {
     en: 'Sync deferred: cannot decrypt or compare cloud version',
   },
   activity_cloud_restored_from_trash: {
-    ru: 'Заметка была в корзине на другом устройстве — после вашей правки она восстановлена',
+    ru: 'Заметка была в корзине на другом устройстве — после твоей правки она восстановлена',
     en: 'Note was in trash on another device — restored after your edit',
   },
   activity_cloud_new_identity: {

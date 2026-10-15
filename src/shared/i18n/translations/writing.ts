@@ -6,8 +6,10 @@ export const writingTranslations: Translations = {
   writing_mode_flow: { ru: 'Свободный поток', en: 'Free Flow' },
   // MR-6: токен режима под шапкой на телефоне.
   writing_mode_token: { ru: 'Режим сессии', en: 'Session mode' },
-  writing_done: { ru: 'Готово', en: 'Done' },
-  writing_mode_flow_desc: { ru: 'Просто секундомер. Пишите сколько угодно.', en: 'Just a stopwatch. Write as much as you want.' },
+  // MF-3: чип панели письма — «120 сл».
+  writing_words_short: { ru: 'сл', en: 'w' },
+  writing_resume: { ru: 'Продолжить', en: 'Resume' },
+  writing_mode_flow_desc: { ru: 'Просто секундомер. Пиши сколько угодно.', en: 'Just a stopwatch. Write as much as you want.' },
   writing_mode_timer: { ru: 'По таймеру', en: 'Timer' },
   writing_mode_timer_desc: { ru: 'Установи время. Фокусируйся до звонка.', en: 'Set a time. Focus until the bell.' },
   writing_mode_words: { ru: 'Цель по словам', en: 'Word Goal' },
@@ -28,7 +30,7 @@ export const writingTranslations: Translations = {
   writing_words_few: { ru: 'слова', en: 'words' },
   writing_words_many: { ru: 'слов', en: 'words' },
   writing_time: { ru: 'время', en: 'time' },
-  error_target_time_in_past: { ru: 'Выберите время в будущем', en: 'Select a time in the future' },
+  error_target_time_in_past: { ru: 'Выбери время в будущем', en: 'Select a time in the future' },
   writing_continue_session: { ru: 'Выбери сессию для продолжения', en: 'Choose a session to continue' },
   writing_no_sessions: { ru: 'У тебя пока нет сохранённых сессий', en: 'You don\'t have any saved sessions yet' },
   writing_cancel_confirm: { ru: 'Отменить сессию?', en: 'Cancel session?' },
@@ -40,7 +42,7 @@ export const writingTranslations: Translations = {
   stream_mode_label: { ru: 'Поток сознания', en: 'Stream Mode' },
   stream_mode_blocked: { ru: 'В режиме потока удаление отключено', en: 'Deletion is disabled in Stream Mode' },
   stream_mode_exit_confirm: { ru: 'Выйти из режима потока сознания?', en: 'Exit Stream Mode?' },
-  stream_mode_exit_desc: { ru: 'Вы вернетесь к обычному режиму написания. Все ограничения на удаление текста будут сняты.', en: 'You will return to the regular writing mode. All text deletion restrictions will be lifted.' },
+  stream_mode_exit_desc: { ru: 'Вернётся обычный режим письма. Все ограничения на удаление текста будут сняты.', en: 'You will return to the regular writing mode. All text deletion restrictions will be lifted.' },
   zen_hint: { ru: 'Двигай мышь, чтобы вернуть интерфейс', en: 'Move the mouse to bring the interface back' },
   zen_hint_silence: { ru: 'Подведи мышь к краю экрана', en: 'Move the mouse to the screen edge' },
   // MB-2: на экране без мыши эти две строки обманывают человека — интерфейс
@@ -78,10 +80,6 @@ export const writingTranslations: Translations = {
   goal_popup_time_title:  { ru: 'Цель по времени', en: 'Time goal' },
   goal_popup_clear:       { ru: 'Убрать',          en: 'Clear' },
   goal_time_short:        { ru: 'мин',           en: 'mins' },
-  writing_goal_words_preset_one: { ru: '{count} слово', en: '{count} word' },
-  writing_goal_words_preset_few: { ru: '{count} слова', en: '{count} words' },
-  writing_goal_words_preset_many: { ru: '{count} слов', en: '{count} words' },
-  writing_goal_mins_preset: { ru: '{count} мин.', en: '{count} min.' },
 
   // DC-W3: заголовок итогов — одна тёплая строка вместо «Сессия завершена.»
   finish_written_heading: { ru: 'Записано {words} {time}', en: 'Written {words} in {time}' },
@@ -130,8 +128,6 @@ export const writingTranslations: Translations = {
   prompts_category_reflect: { ru: 'Рефлексия', en: 'Reflection' },
   prompts_category_creative: { ru: 'Творчество', en: 'Creativity' },
 
-  settings_goals: { ru: 'Цели', en: 'Goals' },
-  apply: { ru: 'Применить', en: 'Apply' },
   stats_writing:       { ru: 'пишу',            en: 'writing' },
 
   prompt_morning_1:  { ru: 'Что мне предстоит сегодня и как я к этому отношусь?', en: 'What lies ahead today and how do I feel about it?' },
@@ -173,7 +169,7 @@ export const writingTranslations: Translations = {
   voice_no_punctuation_reason_error: { ru: 'сервис не ответил', en: 'service did not answer' },
   voice_no_punctuation_reason_words_changed: { ru: 'модель изменила слова', en: 'the model changed words' },
   voice_no_punctuation_reason_too_long: { ru: 'слишком длинный кусок', en: 'chunk too long' },
-  voice_not_inserted_note_changed: { ru: 'Текст диктовки не вставлен: открыта другая заметка. Скопируйте его и вставьте куда нужно', en: 'Dictation was not inserted: another note is open. Copy it and paste where needed' },
+  voice_not_inserted_note_changed: { ru: 'Текст диктовки не вставлен: открыта другая заметка. Скопируй его и вставь куда нужно', en: 'Dictation was not inserted: another note is open. Copy it and paste where needed' },
   voice_cancelled_note_changed: { ru: 'Запись остановлена: открыта другая заметка. Сказанное можно скопировать', en: 'Recording stopped: another note is open. You can copy what you said' },
   voice_copy_text: { ru: 'Скопировать', en: 'Copy' },
   voice_ai_request_notice: { ru: 'Будет потрачен 1 запрос к ИИ (осталось {remaining})', en: 'One AI request will be spent ({remaining} left)' },
@@ -184,14 +180,14 @@ export const writingTranslations: Translations = {
   ai_apply: { ru: 'Применить', en: 'Apply' },
   ai_applied: { ru: 'Применено', en: 'Applied' },
   ai_from_ai: { ru: 'от ИИ', en: 'from AI' },
-  ai_no_content: { ru: 'Напишите текст, чтобы использовать ИИ', en: 'Write some text to use AI' },
+  ai_no_content: { ru: 'Напиши текст, чтобы использовать ИИ', en: 'Write some text to use AI' },
   ai_error_auth: { ru: 'Нужна регистрация', en: 'Sign up required' },
   ai_error_session: { ru: 'Не удалось подтвердить сессию — похоже, пропала связь. Попробуй ещё раз.', en: 'Could not confirm your session — the connection seems to be down. Try again.' },
   ai_error_rate_limit: { ru: 'Слишком много запросов. Подожди минуту.', en: 'Too many requests. Wait a minute.' },
   ai_error_daily_limit: { ru: 'Дневной лимит достигнут. Попробуй завтра.', en: 'Daily limit reached. Try again tomorrow.' },
   ai_error_too_long: { ru: 'Текст слишком длинный', en: 'Text is too long' },
   ai_error_server: { ru: 'Ошибка сервиса. Попробуй позже.', en: 'Service error. Try again later.' },
-  ai_error_disallowed_phrase: { ru: 'Эта формулировка не проходит проверку — перефразируйте, пожалуйста', en: 'This wording doesn’t pass the check — please rephrase it' },
+  ai_error_disallowed_phrase: { ru: 'Эта формулировка не проходит проверку — перефразируй, пожалуйста', en: 'This wording doesn’t pass the check — please rephrase it' },
   ai_note_analyze: { ru: 'Разобрать заметку через ИИ', en: 'Analyse this note with AI' },
   ai_note_clear: { ru: 'Удалить разбор ИИ', en: 'Delete AI analysis' },
   ai_note_analyzed: { ru: 'Заметка разобрана', en: 'Note analysed' },
@@ -212,7 +208,7 @@ export const writingTranslations: Translations = {
   ai_persona_desc_coach: { ru: 'Коуч помогает найти скрытую цель, переосмыслить ограничивающие убеждения и сформулировать конкретный следующий шаг.', en: 'A coach helps uncover hidden goals, reframe limiting beliefs, and define a concrete next step.' },
 
   sync_version_saved_as_copy: {
-    ru: 'В облаке уже была более новая версия. Ваша сохранена отдельно: «{title}»',
+    ru: 'В облаке уже была более новая версия. Твоя сохранена отдельно: «{title}»',
     en: 'A newer version was already in the cloud. Yours was saved separately as “{title}”',
   },
   reading_time: { ru: '~{n} мин чтения', en: '~{n} min read' },

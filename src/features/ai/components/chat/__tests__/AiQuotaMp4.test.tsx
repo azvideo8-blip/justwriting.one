@@ -9,7 +9,6 @@ import { AIChatHeader, type AIChatHeaderProps } from '../AIChatHeader';
 
 const composerBase: AIChatComposerProps = {
   isMobile: true,
-  keyboardHeight: 0,
   inputText: 'Текст запроса',
   setInputText: vi.fn(),
   inputRef: { current: null },
@@ -71,14 +70,15 @@ describe('MP-4: лимит на телефоне', () => {
     expect(screen.queryByText('59/60')).toBeNull();
   });
 
-  it('при 2/60 предупреждение показано', () => {
+  // MF-7: на телефоне вместо полосы — тихая строка остатка; у нуля — цвет предупреждения.
+  it('при 2/60 строка остатка — цветом предупреждения', () => {
     renderWithProviders(<AIChatComposer {...composerBase} dailyLimitRemaining={2} />);
-    expect(screen.getByText('2/60'), 'предупреждения о лимите нет').toBeInTheDocument();
+    expect(screen.getByText('Осталось 2 запроса').className, 'предупреждения о лимите нет').toContain('text-accent-warning');
   });
 
-  it('при 0/60 предупреждение показано', () => {
+  it('при 0/60 строка остатка — цветом опасности', () => {
     renderWithProviders(<AIChatComposer {...composerBase} dailyLimitRemaining={0} />);
-    expect(screen.getByText(/0\/60/)).toBeInTheDocument();
+    expect(screen.getByText('Осталось 0 запросов').className).toContain('text-accent-danger');
   });
 
   it('десктопная полоса не изменилась', () => {

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { format, isSameDay } from 'date-fns';
 import { SlidersHorizontal, X } from 'lucide-react';
 import { ArchiveSession } from '../types';
@@ -19,7 +20,7 @@ interface MobileArchiveSidebarSheetProps {
   onReset?: (() => void) | undefined;
   sessions: ArchiveSession[];
   sessionsByDate: Record<string, number>;
-  wordsByDate?: Record<string, number>;
+  wordsByDate?: Record<string, number> | undefined;
   selectedDate: Date | null;
   onSelectDate: (d: Date | null) => void;
   onSelectMonth: (d: Date | null) => void;
@@ -45,11 +46,7 @@ export function MobileArchiveSidebarSheet({
   maxCount,
   onWordClick,
 }: MobileArchiveSidebarSheetProps) {
-  const { t, tp, language } = useLanguage();
-  const locale = getDateLocale(language);
-  // MC-7: счётчики ушли из заголовков списка сюда — в прокрутке заметки
-  // читаются как текст, а цифры живут там, где их и спрашивают.
-  const dayKeys = Object.keys(sessionsByDate).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()).slice(0, 10);
+  const { t } = useLanguage();
 
   const handleSelectWord = (word: string) => {
     onWordClick(word);
@@ -60,7 +57,7 @@ export function MobileArchiveSidebarSheet({
     <ModalShell open={isOpen} onClose={onClose} labelId="archive-sidebar-sheet-title" variant="sheet">
         {/* Grab Handle */}
         <div className="flex justify-center py-3">
-          <div className="w-12 h-1.5 rounded-full bg-white/10" />
+          <div className="w-12 h-1.5 rounded-full bg-text-main/10" />
         </div>
 
         {/* Header */}
@@ -71,7 +68,7 @@ export function MobileArchiveSidebarSheet({
           </div>
           <IconButton
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/[0.04] border-none flex items-center justify-center text-text-main/60 hover:text-text-main/70 cursor-pointer"
+            className="w-8 h-8 rounded-full bg-text-main/[0.05] border-none flex items-center justify-center text-text-main/60 hover:text-text-main/70 cursor-pointer"
             label={t('common_close')}
             icon={<X size={18} />}
           />
@@ -79,8 +76,49 @@ export function MobileArchiveSidebarSheet({
 
         {/* Content */}
         <div className="px-6 overflow-y-auto no-scrollbar flex-1 space-y-6 pb-[calc(env(safe-area-inset-bottom,0px)+88px)]">
+          <ArchiveSidebarContent
+            filteredByFilters={filteredByFilters} streakDays={streakDays} statsTitle={statsTitle} onReset={onReset}
+            sessions={sessions} sessionsByDate={sessionsByDate} wordsByDate={wordsByDate} selectedDate={selectedDate}
+            onSelectDate={onSelectDate} onSelectMonth={onSelectMonth} wordCloud={wordCloud} maxCount={maxCount}
+            onWordClick={handleSelectWord}
+          />
+
+          {/* Close Button */}
+          <div className="pt-2">
+            <Button
+              onClick={onClose}
+              className="w-full py-3.5 rounded-2xl font-bold text-sm text-surface-base border-none cursor-pointer text-center active:scale-[0.98] transition-colors bg-[var(--brand-primary)]"
+            >
+              {t('common_close')}
+            </Button>
+          </div>
+        </div>
+    </ModalShell>
+  );
+}
+
+type SidebarContentProps = Omit<MobileArchiveSidebarSheetProps, 'isOpen' | 'onClose'> & {
+  /** MF-17: во встроенной панели облако слов свёрнуто за «Облако слов ›» — иначе панель выше экрана. */
+  collapseCloud?: boolean | undefined;
+};
+
+/** Календарь, статистика, дни и облако слов — общее содержимое листа (десктоп
+ *  на узком окне) и встроенной панели над заметками на телефоне (MF-17). */
+export function ArchiveSidebarContent({
+  filteredByFilters, streakDays, statsTitle, onReset, sessions, sessionsByDate, wordsByDate,
+  selectedDate, onSelectDate, onSelectMonth, wordCloud, maxCount, onWordClick, collapseCloud,
+}: SidebarContentProps) {
+  const [cloudOpen, setCloudOpen] = useState(!collapseCloud);
+  const { t, tp, language } = useLanguage();
+  const locale = getDateLocale(language);
+  // MC-7: счётчики ушли из заголовков списка сюда — в прокрутке заметки
+  // читаются как текст, а цифры живут там, где их и спрашивают.
+  const dayKeys = Object.keys(sessionsByDate).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()).slice(0, 10);
+  const handleSelectWord = onWordClick;
+  return (
+    <>
           {/* Stats section */}
-          <div className="bg-white/[0.01] border border-white/[0.04] rounded-2xl p-4">
+          <div className="bg-text-main/[0.02] border border-border-subtle rounded-2xl p-4">
             <ArchiveStats
               sessions={filteredByFilters}
               streakDays={streakDays}
@@ -89,7 +127,7 @@ export function MobileArchiveSidebarSheet({
             />
           </div>
 
-          <div className="h-px bg-white/[0.06]" />
+          <div className="h-px bg-border-subtle" />
 
           {/* Calendar Picker Section */}
           <div className="space-y-3">
@@ -107,7 +145,7 @@ export function MobileArchiveSidebarSheet({
               )}
             </div>
 
-            <div className="flex justify-center bg-white/[0.01] border border-white/[0.04] rounded-2xl p-2">
+            <div className="flex justify-center bg-text-main/[0.02] border border-border-subtle rounded-2xl p-2">
               <Calendar
                 sessions={sessions}
                 sessionsByDate={sessionsByDate}
@@ -131,13 +169,13 @@ export function MobileArchiveSidebarSheet({
 
           {dayKeys.length > 0 && (
             <>
-              <div className="h-px bg-white/[0.06]" />
+              <div className="h-px bg-border-subtle" />
 
               <div className="space-y-3">
                 <span className="font-mono text-label text-text-main/60 uppercase tracking-widest block">
                   {t('archive_days_counts_title')}
                 </span>
-                <div className="rounded-2xl border border-white/[0.04] bg-white/[0.01] divide-y divide-white/[0.04]">
+                <div className="rounded-2xl border border-border-subtle bg-text-main/[0.02] divide-y divide-border-subtle">
                   {dayKeys.map(key => (
                     <div key={key} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[13px]">
                       <span className="min-w-0 truncate text-text-main">{formatDayHeader(key, t, locale)}</span>
@@ -151,16 +189,21 @@ export function MobileArchiveSidebarSheet({
             </>
           )}
 
-          {wordCloud.length > 0 && (
+          {wordCloud.length > 0 && !cloudOpen && (
+            <Button onClick={() => setCloudOpen(true)} className="min-h-11 w-full justify-between px-0 text-sm text-text-main/70">
+              {t('archive_wordcloud_title')} ›
+            </Button>
+          )}
+          {wordCloud.length > 0 && cloudOpen && (
             <>
-              <div className="h-px bg-white/[0.06]" />
+              <div className="h-px bg-border-subtle" />
 
               {/* Word Cloud Tag list */}
               <div className="space-y-3">
                 <span className="font-mono text-label text-text-main/60 uppercase tracking-widest block">
                   {t('archive_wordcloud_title')}
                 </span>
-                <div className="flex flex-wrap gap-x-3 gap-y-2 bg-white/[0.01] border border-white/[0.04] rounded-2xl p-4">
+                <div className="flex flex-wrap gap-x-3 gap-y-2 bg-text-main/[0.02] border border-border-subtle rounded-2xl p-4">
                   {wordCloud.map(({ word, count }) => {
                     const size = 11 + Math.round((count / maxCount) * 8);
                     const opacity = 0.4 + (count / maxCount) * 0.6;
@@ -179,17 +222,6 @@ export function MobileArchiveSidebarSheet({
               </div>
             </>
           )}
-
-          {/* Close Button */}
-          <div className="pt-2">
-            <Button
-              onClick={onClose}
-              className="w-full py-3.5 rounded-2xl font-bold text-sm text-surface-base border-none cursor-pointer text-center active:scale-[0.98] transition-colors bg-[var(--brand-primary)]"
-            >
-              {t('common_close')}
-            </Button>
-          </div>
-        </div>
-    </ModalShell>
+    </>
   );
 }

@@ -6,6 +6,7 @@ import { useWritingSettings } from '../../../core/settings/WritingSettingsContex
 import { useLanguage } from '../../../shared/i18n';
 import { formatTime } from '../../../core/utils/formatTime';
 import { getFontStack } from '../utils/fontStack';
+import { sessionClockSeconds } from '../utils/sessionModeLabels';
 
 interface MobileFocusScreenProps {
   onExit: () => void;
@@ -21,9 +22,8 @@ export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
   const { fontFamily, fontSize } = useWritingSettings();
 
   const sessionSeconds = Math.max(0, seconds - sessionStartSeconds);
-  const timeRemaining = timerDuration > 0
-    ? Math.max(0, timerDuration - sessionSeconds)
-    : sessionSeconds;
+  const sessionType = useTimerStore(s => s.sessionType);
+  const clockSeconds = sessionClockSeconds(sessionType, timerDuration, sessionSeconds);
 
   const [timerVisible, setTimerVisible] = useState(true);
   const timerHideRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -113,7 +113,7 @@ export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
             transition={{ duration: 0.4 }}
             className="absolute right-5 font-mono text-xs text-text-muted tracking-wider pointer-events-none tabular-nums top-[calc(env(safe-area-inset-top,0px)+16px)]"
           >
-            {timerDuration > 0 ? formatTime(timeRemaining) : formatTime(sessionSeconds)}
+            {formatTime(clockSeconds)}
           </motion.div>
         )}
       </AnimatePresence>
@@ -127,7 +127,7 @@ export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
             transition={{ duration: 0.4 }}
             className="absolute left-0 right-0 flex justify-center pointer-events-none bottom-[calc(env(safe-area-inset-bottom,0px)+90px)]"
           >
-            <div className="text-[11px] text-[rgba(74,81,77,0.7)] font-mono tracking-wider flex items-center gap-2">
+            <div className="text-[11px] text-[var(--text-subtle)] font-mono tracking-wider flex items-center gap-2">
               <span>↑</span>
               <span>{t('focus_exit_hint')}</span>
             </div>

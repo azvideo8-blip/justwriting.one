@@ -5,7 +5,6 @@ import { renderWithProviders } from '../../../../../test/utils/render';
 
 const defaultProps: AIChatComposerProps = {
   isMobile: false,
-      keyboardHeight: 0,
       inputText: 'Hello',
   setInputText: vi.fn(),
   inputRef: { current: null },
@@ -98,7 +97,6 @@ describe('AIChatComposer — приложенная заметка без воп
   const noteProps = {
     ...defaultProps,
     isMobile: false,
-      keyboardHeight: 0,
       inputText: '',
     pendingAttachments: [{ title: 'Аскеза 6', lastSessionAt: new Date(2026, 8, 29, 12).getTime() }],
     onAnalyzeNote: vi.fn(),

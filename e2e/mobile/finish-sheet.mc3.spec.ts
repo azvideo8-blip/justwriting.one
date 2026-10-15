@@ -12,7 +12,7 @@ async function openFinish(page: Page): Promise<Page> {
   const area = page.locator('textarea').first();
   await area.waitFor({ state: 'visible', timeout: 30_000 });
   await area.fill(TEXT);
-  await page.getByRole('button', { name: /^Готово$/ }).click();
+  await page.locator('[data-write-toolbar]').getByRole('button', { name: /^Сохранить$/ }).click();
   const sheet = page.locator('[aria-labelledby="finish-modal-title"]');
   await expect(sheet, 'лист завершения не открылся').toBeVisible({ timeout: 15_000 });
   return page;
@@ -36,7 +36,7 @@ for (const { w, h } of [{ w: 360, h: 640 }, { w: 390, h: 844 }]) {
       const controls = await page.locator('[aria-labelledby="finish-modal-title"]').locator('button, input, [role="button"]').count();
       expect(controls, `контролов в листе: ${controls}`).toBeLessThanOrEqual(14);
 
-      const save = page.getByRole('button', { name: /^Сохранить$/ });
+      const save = sheet.getByRole('button', { name: /^Сохранить$/ });
       await expect(save).toBeVisible();
       expect(await fullyInViewport(save), '«Сохранить» уехала за экран').toBe(true);
       await shot(page, `mc3-finish-sheet-${w}`);
@@ -53,7 +53,7 @@ for (const { w, h } of [{ w: 360, h: 640 }, { w: 390, h: 844 }]) {
       const title = `Обжиг ${w}`;
       await page.getByLabel(/Название/).first().fill(title);
 
-      await page.getByRole('button', { name: /^Сохранить$/ }).click();
+      await page.locator('[aria-labelledby="finish-modal-title"]').getByRole('button', { name: /^Сохранить$/ }).click();
       await expect(page.locator('[aria-labelledby="finish-modal-title"]'), 'лист не закрылся — сохранение не дошло')
         .toBeHidden({ timeout: 20_000 });
 

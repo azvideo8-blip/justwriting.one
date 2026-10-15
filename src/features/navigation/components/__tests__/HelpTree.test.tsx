@@ -40,7 +40,7 @@ describe('HelpTree (UI-12)', () => {
     renderWithProviders(<HelpTree />);
 
     // Step 1
-    expect(screen.getByText(/Вы вошли в тот же аккаунт/i)).toBeInTheDocument();
+    expect(screen.getByText(/Это тот же аккаунт, что и раньше/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Да' }));
 
     // Step 2
@@ -57,7 +57,7 @@ describe('HelpTree (UI-12)', () => {
 
     // Solution reached (Cmd+Shift+R / cache reload)
     await waitFor(() => {
-      expect(screen.getByText(/Перезагрузите страницу с полной очисткой кеша/i)).toBeInTheDocument();
+      expect(screen.getByText(/Перезагрузи страницу с полной очисткой кеша/i)).toBeInTheDocument();
     });
 
     // Click "Назад" - returns to question 3
@@ -86,13 +86,13 @@ describe('HelpTree (UI-12)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Нет' }));
 
     await waitFor(() => {
-      expect(screen.getByText(/Проверьте фильтры в меню «Заметки»/i)).toBeInTheDocument();
+      expect(screen.getByText(/Проверь фильтры в меню «Заметки»/i)).toBeInTheDocument();
     });
 
     // "Сначала" button resets back to step 1
     fireEvent.click(screen.getByRole('button', { name: 'Сначала' }));
     await waitFor(() => {
-      expect(screen.getByText(/Вы вошли в тот же аккаунт/i)).toBeInTheDocument();
+      expect(screen.getByText(/Это тот же аккаунт, что и раньше/i)).toBeInTheDocument();
     });
   });
 

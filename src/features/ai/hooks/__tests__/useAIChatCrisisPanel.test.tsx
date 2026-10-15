@@ -20,7 +20,6 @@ function ChatHarness({ text }: { text: string }) {
     <>
       <AIChatComposer
         isMobile={false}
-        keyboardHeight={0}
         inputText=""
         setInputText={() => {}}
         inputRef={{ current: null }}

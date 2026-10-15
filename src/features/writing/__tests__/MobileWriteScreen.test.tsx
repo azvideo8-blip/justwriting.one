@@ -67,7 +67,7 @@ vi.mock('../../../core/settings/WritingSettingsContext', () => ({
 
 describe('MobileWriteScreen - Stream Mode & Keystrokes', () => {
   it('should block backspace and delete keydowns in Stream Mode', () => {
-    render(<MobileWriteScreen onPlay={vi.fn()} onPause={vi.fn()} onStop={vi.fn()} />);
+    render(<MobileWriteScreen onPlay={vi.fn()} onStop={vi.fn()} />);
     const textarea = screen.getByPlaceholderText('writing_placeholder_mobile');
 
     const backspaceEvent = fireEvent.keyDown(textarea, { key: 'Backspace' });
@@ -82,7 +82,7 @@ describe('MobileWriteScreen - Stream Mode & Keystrokes', () => {
 
   it('MR-5: «Aa» в шапке открывает панель настроек редактора', () => {
     openSettingsSpy.mockClear();
-    render(<MobileWriteScreen onPlay={vi.fn()} onPause={vi.fn()} onStop={vi.fn()} />);
+    render(<MobileWriteScreen onPlay={vi.fn()} onStop={vi.fn()} />);
     const aa = screen.getByRole('button', { name: /settings_title/ });
     expect(aa.className).toContain('w-11');
     fireEvent.click(aa);
@@ -93,12 +93,12 @@ describe('MobileWriteScreen - Stream Mode & Keystrokes', () => {
   it('MR-6: в idle редактор открыт, но не в фокусе, а «Готово» выключена', () => {
     timer.status = 'idle';
     try {
-      render(<MobileWriteScreen onPlay={vi.fn()} onPause={vi.fn()} onStop={vi.fn()} />);
+      render(<MobileWriteScreen onPlay={vi.fn()} onStop={vi.fn()} />);
       const area = screen.getByRole('textbox');
       expect(area).toBeTruthy();
       // Без автофокуса: на Android он выбрасывал клавиатуру на пол-экрана при каждом входе.
       expect(document.activeElement).not.toBe(area);
-      const done = screen.getByRole('button', { name: /writing_done/ });
+      const done = screen.getByRole('button', { name: 'topbar_save' });
       expect(done.hasAttribute('disabled')).toBe(true);
     } finally {
       timer.status = 'writing';
@@ -111,10 +111,10 @@ describe('MobileWriteScreen - Stream Mode & Keystrokes', () => {
   it('MR-6: жетон режима называет режим, с которым стартует сессия', () => {
     timer.status = 'idle';
     try {
-      const { unmount } = render(<MobileWriteScreen sessionType="timer" onPlay={vi.fn()} onPause={vi.fn()} onStop={vi.fn()} />);
+      const { unmount } = render(<MobileWriteScreen sessionType="timer" onPlay={vi.fn()} onStop={vi.fn()} />);
       expect(screen.getByRole('button', { name: 'writing_mode_token' }).textContent).toContain('writing_mode_timer');
       unmount();
-      render(<MobileWriteScreen onPlay={vi.fn()} onPause={vi.fn()} onStop={vi.fn()} />);
+      render(<MobileWriteScreen onPlay={vi.fn()} onStop={vi.fn()} />);
       expect(screen.getByRole('button', { name: 'writing_mode_token' }).textContent).toContain('writing_mode_flow');
     } finally {
       timer.status = 'writing';
@@ -125,7 +125,7 @@ describe('MobileWriteScreen - Stream Mode & Keystrokes', () => {
     timer.status = 'idle';
     const onPlay = vi.fn();
     try {
-      render(<MobileWriteScreen onPlay={onPlay} onPause={vi.fn()} onStop={vi.fn()} />);
+      render(<MobileWriteScreen onPlay={onPlay} onStop={vi.fn()} />);
       const area = screen.getByRole('textbox') as HTMLTextAreaElement;
       fireEvent.input(area, { target: { value: 'первые слова' } });
       expect(onPlay).toHaveBeenCalledTimes(1);

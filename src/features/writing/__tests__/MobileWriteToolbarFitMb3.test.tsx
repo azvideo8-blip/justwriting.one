@@ -35,39 +35,23 @@ vi.mock('../hooks/useDictation', () => ({
 const { MobileWriteToolbar } = await import('../components/MobileWriteToolbar');
 
 describe('MB-3: панель письма сжимается на статистику, а не на кнопки', () => {
-  it('каждая кнопка панели не сжимается', () => {
-    const { container } = render(<MobileWriteToolbar onPlay={vi.fn()} onPause={vi.fn()} onStop={vi.fn()} />);
-    const buttons = Array.from(container.querySelectorAll('button'));
-    expect(buttons.length).toBeGreaterThanOrEqual(4);
+  // MF-3: сжимается только чип; в нём режется название режима, а не числа.
+  it('кнопки не сжимаются, чип сжимается, числа в чипе не режутся', () => {
+    const { container } = render(<MobileWriteToolbar onStop={vi.fn()} />);
+    const chip = container.querySelector('[data-write-chip]')!;
+    expect(chip.className).toContain('min-w-0');
+    expect(chip.querySelector('.truncate'), 'название режима не обрезается').toBeTruthy();
+    expect(chip.querySelector('.shrink-0.whitespace-nowrap')?.textContent).toContain('2:00');
+    const buttons = Array.from(container.querySelectorAll('button')).filter(b => b !== chip);
+    expect(buttons.length).toBe(2);
     for (const btn of buttons) {
       expect(btn.className, `кнопка «${btn.getAttribute('aria-label') ?? '?'}» может сжаться`).toContain('shrink-0');
     }
   });
 
-  it('блоки статистики сжимаются и обрезаются, а не распирают панель', () => {
-    const { container } = render(<MobileWriteToolbar onPlay={vi.fn()} onPause={vi.fn()} onStop={vi.fn()} />);
-    const words = screen.getByRole('button', { name: 'writing_mode_words' });
-    const time = screen.getByRole('button', { name: 'writing_mode_timer' });
-    // MR-11: нижняя граница сжатия — 44 px, а не ноль. Смысл MB-3 остался:
-    // панель отдаёт статистику, а не кнопки; просто сжатая ячейка всё ещё
-    // достижима пальцем (на 390 px они сжимались в 26 px).
-    expect(words.className).toContain('min-w-11');
-    expect(words.className).toContain('overflow-hidden');
-    expect(time.className).toContain('min-w-11');
-    // min-h-[44px] из L-11 остаётся: сжатие не должно уменьшать цель касания.
-    expect(words.className).toContain('min-h-[44px]');
-    expect(time.className).toContain('min-h-[44px]');
-    const html = container.innerHTML;
-    // На узких экранах время уходит раньше скорости, скорость — раньше 430 px.
-    expect(html).toContain('max-[379px]:hidden');
-    expect(html).toContain('max-[429px]:hidden');
-    expect(html).toContain('max-[399px]:hidden');
-  });
-
   it('в дзене статистика скрыта, а кнопки — нет', () => {
-    render(<MobileWriteToolbar onPlay={vi.fn()} onPause={vi.fn()} onStop={vi.fn()} hideStats />);
-    expect(screen.getByRole('button', { name: 'writing_done' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'writing_mode_words' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'writing_mode_timer' })).toBeNull();
+    render(<MobileWriteToolbar onStop={vi.fn()} hideStats />);
+    expect(screen.getByRole('button', { name: 'topbar_save' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'writing_mode_token' }).textContent).not.toContain('writing_words_short');
   });
 });

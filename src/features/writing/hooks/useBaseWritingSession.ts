@@ -4,7 +4,7 @@ import { TimerStatus, SessionType } from '../store/types';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
-import { resetAndClear, resetSession, resetAllSessionMetadata } from '../store/storeActions';
+import { resetAndClear, resetSession, resetAllSessionMetadata, startWritingSession } from '../store/storeActions';
 
 // EA-9: здесь нет текста, числа слов, секунд и скорости — они меняются на
 // каждое нажатие и тик таймера. Объект сессии уходит в контекст экрана письма,
@@ -70,7 +70,7 @@ export function useBaseWritingSession(): BaseSessionReturn {
 
   const {
     sessionType, initialDuration, status, timeGoalReached, wordGoalReached, wordGoal, timerDuration, targetTime,
-    setStatus, setSessionType, setTimerDuration, setWordGoal, setTargetTime, setInitialDuration, setTimeGoalReached, setWordGoalReached, setSessionStart,
+    setStatus, setSessionType, setTimerDuration, setWordGoal, setTargetTime, setInitialDuration, setTimeGoalReached, setWordGoalReached,
   } = useTimerStore(useShallow(s => ({
     sessionType: s.sessionType,
     initialDuration: s.initialDuration,
@@ -88,35 +88,15 @@ export function useBaseWritingSession(): BaseSessionReturn {
     setInitialDuration: s.setInitialDuration,
     setTimeGoalReached: s.setTimeGoalReached,
     setWordGoalReached: s.setWordGoalReached,
-    setSessionStart: s.setSessionStart,
   })));
 
-  const { activeSessionId, sessionStartTime, setActiveSessionId, setSessionStartTime } = useSessionMetaStore(useShallow(s => ({
+  const { activeSessionId, sessionStartTime, setActiveSessionId } = useSessionMetaStore(useShallow(s => ({
     activeSessionId: s.activeSessionId,
     sessionStartTime: s.sessionStartTime,
     setActiveSessionId: s.setActiveSessionId,
-    setSessionStartTime: s.setSessionStartTime,
   })));
 
-  const handleStart = useCallback(() => {
-    const currentStatus = useTimerStore.getState().status;
-    const currentWordCount = useContentStore.getState().wordCount;
-    if (currentStatus === 'paused') {
-      useTimerStore.getState().resumeSession();
-    } else {
-      setStatus('writing');
-    }
-    setTimeGoalReached(false);
-    setWordGoalReached(false);
-    if (!sessionStartTime) {
-      setInitialWordCount(currentWordCount);
-      setSessionStartTime(Date.now());
-    }
-    if (currentStatus === 'idle') {
-      useTimerStore.setState({ _startWallMs: performance.now(), _accumulatedMs: 0, seconds: 0, sessionStartSeconds: 0 });
-      setSessionStart(currentWordCount);
-    }
-  }, [setStatus, setTimeGoalReached, setWordGoalReached, sessionStartTime, setInitialWordCount, setSessionStartTime, setSessionStart]);
+  const handleStart = useCallback(() => startWritingSession(), []);
 
   useEffect(() => {
     if (status !== 'writing') return;

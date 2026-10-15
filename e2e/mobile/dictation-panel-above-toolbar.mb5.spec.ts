@@ -1,4 +1,6 @@
 // MB-5 (F-26): панель диктовки стоит над панелью управления, а не под ней.
+// MF-4: на телефоне запись идёт в самой панели письма — карточки нет, высота
+// панели в записи та же, что без неё, «■» не закрыт ничем.
 // Движок — заглушка с последовательностями событий Chrome Android (из G-dictation
 // аудита Fable), не живое распознавание.
 import { expect, test } from '@playwright/test';
@@ -23,37 +25,24 @@ test.describe('MB-5: панель диктовки над панелью инс�
     await editor.click();
     await editor.fill('Начало. ');
 
+    const toolbar = page.locator('[data-write-toolbar]');
+    const idleHeight = (await toolbar.boundingBox())!.height;
     await startDictation(page);
     expect(await emitSpeech(page, 'result', { items: [{ text: PHRASE, final: true }], index: 0 })).toBe('ok');
 
-    const bar = page.locator('[data-dictation-bar]');
-    await expect(bar, 'панель диктовки не появилась').toBeVisible({ timeout: 10_000 });
-    await expect(bar).toBeInViewport();
+    const row = toolbar.locator('[data-dictation-row]');
+    await expect(row, 'панель не перешла в строку записи').toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('[data-dictation-bar]'), 'на телефоне осталась карточка записи').toHaveCount(0);
+    const recHeight = (await toolbar.boundingBox())!.height;
+    expect(Math.abs(recHeight - idleHeight), `высота панели ${idleHeight} → ${recHeight}`).toBeLessThanOrEqual(1);
 
-    const stop = page.getByRole('button', { name: /Остановить диктовку/ }).first();
+    const stop = row.getByRole('button', { name: /Остановить диктовку/ });
     await expect(stop).toBeVisible();
-    const box = await stop.boundingBox();
-    expect(box, 'нет геометрии у кнопки остановки').not.toBeNull();
-    if (box) {
-      const hit = await page.evaluate(({ x, y }: { x: number; y: number }) => {
-        const el = document.elementFromPoint(x, y);
-        if (!el) return '—';
-        return `${el.tagName.toLowerCase()}«${(el.getAttribute('aria-label') ?? el.textContent ?? '').trim().slice(0, 28)}»`
-          + `${el.closest('[data-dictation-bar]') ? ' ✓панель' : ''}`
-          + `${el.closest('[class*="--z-sidebar"]') ? ' ✗чип-панель' : ''}`;
-      }, { x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2) });
-      console.warn('[mb5] под центром «Остановить диктовку»:', hit);
-      expect(hit, 'кнопка остановки закрыта тулбаром или чипом').toContain('✓панель');
-
-      // Панель и тулбар не перекрывают друг друга.
-      const overlap = await page.evaluate(() => {
-        const barEl = document.querySelector('[data-dictation-bar]')?.getBoundingClientRect();
-        const toolbar = document.querySelector('[data-write-toolbar]')?.getBoundingClientRect();
-        if (!barEl || !toolbar) return null;
-        return Math.round(barEl.bottom - toolbar.top);
-      });
-      console.warn('[mb5] низ панели минус верх тулбара:', overlap);
-    }
+    const box = (await stop.boundingBox())!;
+    const hit = await page.evaluate(({ x, y }: { x: number; y: number }) =>
+      !!document.elementFromPoint(x, y)?.closest('[data-dictation-row]'),
+    { x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2) });
+    expect(hit, '«■» закрыт чем-то').toBe(true);
 
     await shot(page, 'mb5-dictation-panel-360');
 

@@ -58,9 +58,6 @@ vi.mock('../../features/writing/contexts/WritingSessionContext', () => ({
     reducedMotion: true,
   }),
 }));
-vi.mock('../../../../shared/hooks/useKeyboardHeight', () => ({
-  useKeyboardHeight: () => 120,
-}));
 vi.mock('../../../../shared/hooks/useKeyboardState', () => ({
   useKeyboardState: () => ({ overlay: 0, up: false }),
 }));
@@ -192,7 +189,6 @@ describe('MC-4: строка в шапке письма', () => {
     return render(
       <MobileWriteScreen
         onPlay={vi.fn()}
-        onPause={vi.fn()}
         onStop={vi.fn()}
         status="idle"
         streakDays={1}

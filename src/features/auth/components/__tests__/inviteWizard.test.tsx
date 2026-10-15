@@ -34,7 +34,7 @@ async function throughPassword() {
   fireEvent.click(next());
   // N-57: поля находятся по подписи, а не только по placeholder'у.
   fireEvent.change(screen.getByLabelText('Пароль'), { target: { value: 'long-password-1' } });
-  fireEvent.change(screen.getByLabelText('Повторите пароль'), { target: { value: 'long-password-1' } });
+  fireEvent.change(screen.getByLabelText('Повтори пароль'), { target: { value: 'long-password-1' } });
   fireEvent.click(next());
   await screen.findByText('Хранить заметки в облаке?');
 }
@@ -102,7 +102,7 @@ describe('InviteWizard password errors say what actually happened', () => {
     fireEvent.click(screen.getAllByRole('checkbox')[0]!);
     fireEvent.click(screen.getByRole('button', { name: 'Далее' }));
     fireEvent.change(screen.getByLabelText('Пароль'), { target: { value: 'long-password-1' } });
-    fireEvent.change(screen.getByLabelText('Повторите пароль'), { target: { value: 'long-password-1' } });
+    fireEvent.change(screen.getByLabelText('Повтори пароль'), { target: { value: 'long-password-1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Далее' }));
   }
 
@@ -158,7 +158,7 @@ describe('InviteWizard continues after a reload', () => {
     first.unmount();
 
     renderAt('tok-reload');
-    expect(screen.getByText('Придумайте пароль')).toBeTruthy();
+    expect(screen.getByText('Придумай пароль')).toBeTruthy();
     expect(screen.queryByText('Добро пожаловать в justwriting')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Назад' }));
     expect(screen.getAllByRole('checkbox')[0]).toBeChecked();
@@ -184,21 +184,21 @@ describe('InviteWizard continues after a reload', () => {
     const first = renderAt('tok-sync');
     toPasswordStep({ policy: true, aiConsent: false });
     fireEvent.change(screen.getByLabelText('Пароль'), { target: { value: 'long-password-1' } });
-    fireEvent.change(screen.getByLabelText('Повторите пароль'), { target: { value: 'long-password-1' } });
+    fireEvent.change(screen.getByLabelText('Повтори пароль'), { target: { value: 'long-password-1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Далее' }));
     await screen.findByText('Хранить заметки в облаке?');
     first.unmount();
 
     renderAt('tok-sync');
     expect(await screen.findByText('Хранить заметки в облаке?')).toBeTruthy();
-    expect(screen.queryByText('Придумайте пароль')).toBeNull();
+    expect(screen.queryByText('Придумай пароль')).toBeNull();
   });
 
   it('a guest session does not inherit the sync step', () => {
     sessionStorage.setItem('jw_invite_wizard_tok-guest', JSON.stringify({ step: 'sync', policy: true, aiConsent: false }));
     vi.mocked(getCurrentUser).mockReturnValue({ uid: 'guest-1', email: null } as never);
     renderAt('tok-guest');
-    expect(screen.getByText('Придумайте пароль')).toBeTruthy();
+    expect(screen.getByText('Придумай пароль')).toBeTruthy();
   });
 
   it('finishing the wizard drops the saved progress', async () => {
@@ -206,7 +206,7 @@ describe('InviteWizard continues after a reload', () => {
     const first = renderAt('tok-finish');
     toPasswordStep({ policy: true, aiConsent: false });
     fireEvent.change(screen.getByLabelText('Пароль'), { target: { value: 'long-password-1' } });
-    fireEvent.change(screen.getByLabelText('Повторите пароль'), { target: { value: 'long-password-1' } });
+    fireEvent.change(screen.getByLabelText('Повтори пароль'), { target: { value: 'long-password-1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Далее' }));
     await screen.findByText('Хранить заметки в облаке?');
     fireEvent.click(screen.getByRole('button', { name: 'Не сейчас' }));

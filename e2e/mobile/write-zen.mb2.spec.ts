@@ -24,7 +24,7 @@ test('MB-2: после начала письма «Стоп» видна и це
   // экранная клавиатура даёт их постоянно.
   await page.waitForTimeout(1_200);
 
-  const stop = page.getByRole('button', { name: /^Готово$/ });
+  const stop = page.locator('[data-write-toolbar]').getByRole('button', { name: /^Сохранить$/ });
   await expect(stop, '«Стоп» пропала в дзене').toBeVisible({ timeout: 10_000 });
   expect(await fullyInViewport(stop), '«Стоп» частично за краем экрана').toBe(true);
 

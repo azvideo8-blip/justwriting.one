@@ -9,6 +9,8 @@ import { render } from '@testing-library/react';
 // e2e/mobile/dictation-panel-above-toolbar.mb5.spec.ts, здесь — контракт
 // структуры: у панели и тулбара общий позиционированный родитель, и панель идёт
 // первой (значит над тулбаром).
+// MF-4: на телефоне карточки записи больше нет — запись идёт в самой панели
+// (MobileRecordingRow.mf4.test.tsx); здесь остаётся только позиция столбца.
 
 vi.mock('../../../shared/i18n', () => ({
   useLanguage: () => ({ t: (key: string) => key, tp: (key: string) => key }),
@@ -47,25 +49,8 @@ vi.mock('../hooks/useDictation', () => ({
 const { MobileWriteScreen } = await import('../components/MobileWriteScreen');
 
 describe('MB-5: панель диктовки над панелью инструментов', () => {
-  it('у панели записи и тулбара общий позиционированный столбец, панель выше', () => {
-    render(<MobileWriteScreen onPlay={vi.fn()} onPause={vi.fn()} onStop={vi.fn()} />);
-    const bar = document.querySelector('[data-dictation-bar]');
-    const toolbar = document.querySelector('[data-write-toolbar]');
-    expect(bar, 'панель записи не отрендерилась').not.toBeNull();
-    expect(toolbar, 'тулбар не отрендерился').not.toBeNull();
-
-    const stack = bar!.parentElement!.parentElement!;
-    expect(stack, 'панель и тулбар не в одном столбце').toBe(toolbar!.parentElement);
-    expect(stack.className).toContain('absolute');
-    expect(stack.className).toContain('flex-col');
-    // Порядок детей = порядок в столбце: сначала панель, значит она над тулбаром.
-    expect(stack.children[0]).toContainElement(bar!.parentElement!);
-    expect(stack.children[1]).toBe(toolbar);
-    expect(toolbar!.parentElement?.parentElement).not.toBe(document.body);
-  });
-
   it('столбец поднят над нижней панелью, а прижат к её верху координатой bottom', () => {
-    render(<MobileWriteScreen onPlay={vi.fn()} onPause={vi.fn()} onStop={vi.fn()} />);
+    render(<MobileWriteScreen onPlay={vi.fn()} onStop={vi.fn()} />);
     const stack = document.querySelector('[data-write-toolbar]')!.parentElement!;
     expect(stack.getAttribute('style')).toMatch(/bottom:/);
     expect(stack.getAttribute('style')).toMatch(/--bottom-nav-height/);

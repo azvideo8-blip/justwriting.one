@@ -136,10 +136,9 @@ describe('MC-6: чем отвечать на первый вход', () => {
     fireEvent.click(further);
 
     expect(await screen.findByText('first_run_cloud_title')).toBeInTheDocument();
-    // 59 заметок в облаке — вопрос о загрузке появляется.
-    expect(screen.getByRole('switch', { name: /first_run_restore_switch:59/ })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: /^first_run_finish/ }));
+    // MF-22: облако включается явно; 59 заметок в облаке — затем вопрос о загрузке.
+    fireEvent.click(screen.getByRole('button', { name: /^first_run_cloud_on/ }));
+    fireEvent.click(screen.getByRole('button', { name: /first_run_restore_switch:59/ }));
     await waitFor(() => expect(localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED('u_stepper'))).toBe('true'));
     expect(localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ASKED('u_stepper'))).toBe('true');
     expect(navigate).toHaveBeenCalledWith('/');
@@ -170,15 +169,15 @@ describe('MC-6: чем отвечать на первый вход', () => {
     expect(screen.getByTestId('first-run-step').textContent).toContain('current=3 total=3');
   });
 
-  it('загрузка из облака: «Начать писать» закрывает мастер, а не показывает «Облако» снова', async () => {
+  it('загрузка из облака: «Загрузить…» закрывает мастер, а не показывает «Облако» снова', async () => {
     const onOpenChange = vi.fn();
     render(<LiveFlow onOpenChange={onOpenChange} />);
     await passPolicy();
     fireEvent.click(await screen.findByRole('checkbox', { name: /enc_recovery_code_confirm_checkbox/ }));
     fireEvent.click(screen.getByRole('button', { name: /^first_run_next/ }));
     await screen.findByText('first_run_cloud_title');
-    expect(screen.getByRole('switch', { name: /first_run_restore_switch:59/ })).toBeChecked();
-    fireEvent.click(screen.getByRole('button', { name: /^first_run_finish/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^first_run_cloud_on/ }));
+    fireEvent.click(screen.getByRole('button', { name: /first_run_restore_switch:59/ }));
     await waitFor(() => expect(screen.queryByTestId('first-run-stepper')).toBeNull());
     expect(onOpenChange).toHaveBeenLastCalledWith(false);
     expect(navigate).toHaveBeenCalledWith('/');

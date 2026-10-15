@@ -23,7 +23,7 @@ async function seedNotes(page: Page, n: number): Promise<string[]> {
     const editor = page.locator('textarea').first();
     await editor.waitFor({ state: 'visible', timeout: 30_000 });
     await editor.fill(`${title}. Раз два три четыре пять.`);
-    await page.getByRole('button', { name: /^Готово$/ }).click();
+    await page.locator('[data-write-toolbar]').getByRole('button', { name: /^Сохранить$/ }).click();
     const dialog = page.getByRole('dialog').first();
     await expect(dialog).toBeVisible({ timeout: 15_000 });
     const field = dialog.getByLabel(/Название/).first();

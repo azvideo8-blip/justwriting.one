@@ -13,6 +13,7 @@ import { Button } from '../../shared/components/Button';
 import { useUserId } from '../../shared/hooks/useUserId';
 import { ArchiveHeader, type SortMode } from '../../features/archive/components/ArchiveHeader';
 import { MobileArchiveHeader } from '../../features/archive/components/MobileArchiveHeader';
+import { MobileInlinePanel } from '../../features/archive/components/MobileInlinePanel';
 import { MobileArchiveMenuSheet } from '../../features/archive/components/MobileArchiveMenuSheet';
 import { useToast } from '../../shared/components/Toast';
 import { ArchiveTagBar } from '../../features/archive/components/ArchiveTagBar';
@@ -22,7 +23,7 @@ import { ArchiveNoteList } from '../../features/archive/components/ArchiveNoteLi
 import { ImportDropOverlay } from '../../features/archive/components/ImportDropOverlay';
 import { OnThisDayCard } from '../../features/archive/components/OnThisDayCard';
 import { ArchiveConfirmModals } from '../../features/archive/components/ArchiveConfirmModals';
-import { MobileArchiveSidebarSheet } from '../../features/archive/components/MobileArchiveSidebarSheet';
+import { ArchiveSidebarContent, MobileArchiveSidebarSheet } from '../../features/archive/components/MobileArchiveSidebarSheet';
 import { useArchiveData } from '../../features/archive/hooks/useArchiveData';
 import { useProfileLabels } from '../../features/profile/hooks/useProfileLabels';
 import { useTagEditor } from '../../features/archive/hooks/useTagEditor';
@@ -55,6 +56,8 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
   const userId = useUserId(user);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  // MF-17: на телефоне календарь и статистика — панель над заметками, а не лист.
+  const [calendarOpen, setCalendarOpen] = useState(false);
   // MR-8: на телефоне остальные контролы шапки живут в этом листе.
   const [archiveMenuOpen, setArchiveMenuOpen] = useState(false);
   const [showTagLabelBars, setShowTagLabelBars] = useState(false);
@@ -256,6 +259,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
               <>
                 <MobileArchiveHeader
                   title={activeTab === 'notes' ? t('nav_notes') : t('archive_tab_trash')}
+                  count={activeTab === 'notes' ? sortedSessions.length : filteredTrashedSessions.length}
                   countLabel={tp('archive_count', activeTab === 'notes' ? sortedSessions.length : filteredTrashedSessions.length)}
                   searchQuery={searchQuery} searchInputRef={searchInputRef} onSearchChange={setSearchQuery}
                   onOpenMenu={() => setArchiveMenuOpen(true)}
@@ -267,8 +271,10 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                   onClose={() => setArchiveMenuOpen(false)}
                   viewMode={viewMode} onViewModeChange={setViewMode}
                   sortMode={sortMode} onSortModeChange={setSortMode} sortLabels={sortLabels}
-                  onOpenTags={() => setShowTagLabelBars(true)}
-                  onOpenCalendar={() => setIsFilterOpen(true)}
+                  onOpenTags={() => setShowTagLabelBars(v => !v)}
+                  tagsOpen={showTagLabelBars}
+                  onOpenCalendar={() => setCalendarOpen(v => !v)}
+                  calendarOpen={calendarOpen}
                   activeTab={activeTab} onTabChange={setActiveTab}
                   trashCount={trashedSessions.length}
                   onClearTrash={() => setEmptyTrashConfirm(true)}
@@ -298,10 +304,24 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
               trashCount={trashedSessions.length}
             />
             )}
+            {isMobile && activeTab === 'notes' && calendarOpen && (
+              <MobileInlinePanel testId="archive-calendar-panel" onClose={() => setCalendarOpen(false)} scrollable>
+                <div className="space-y-6 py-3">
+                  <ArchiveSidebarContent
+                    filteredByFilters={filteredByFilters} streakDays={filteredStreakDays} statsTitle={statsTitle}
+                    onReset={hasActiveFilter ? resetStatsFilter : undefined}
+                    sessions={sessions} sessionsByDate={sessionsByDate} wordsByDate={wordsByDate} selectedDate={selectedDate}
+                    onSelectDate={setSelectedDate} onSelectMonth={setSelectedMonth}
+                    wordCloud={wordCloud} maxCount={maxCount} onWordClick={setSearchQuery} collapseCloud
+                  />
+                </div>
+              </MobileInlinePanel>
+            )}
             {activeTab === 'notes' && (
               isMobile ? (
                 showTagLabelBars && (allTags.length > 0 || profileLabels.length > 0) && (
-                  <div className="bg-surface-card/25 backdrop-blur-md border border-white/[0.04] rounded-2xl px-4 py-1 shadow-md flex flex-col mt-4 [&>div:last-child]:!border-b-0">
+                  <MobileInlinePanel testId="archive-tags-panel" onClose={() => setShowTagLabelBars(false)}>
+                  <div className="flex flex-col [&>div:last-child]:!border-b-0">
                     <ArchiveTagBar
                       allTags={allTags}
                       selectedTags={selectedTags}
@@ -312,6 +332,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                       onStartRename={(tag) => void tagEditor.startRenameTag(tag)} onRenameSubmit={(tag, newName) => void tagEditor.handleRenameTag(tag, newName)}
                       onRenameCancel={() => tagEditor.setRenamingTag(null)} onDeleteTag={tagEditor.setTagDeleteConfirm}
                       onResetTags={() => setSelectedTags([])} showControls={false} t={t}
+                      labelKey="archive_tags_only"
                     />
                     <ArchiveLabelBar
                       labels={profileLabels} selectedLabels={selectedLabels} onToggleLabel={toggleLabel}
@@ -327,6 +348,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                       showControls={false} t={t}
                     />
                   </div>
+                  </MobileInlinePanel>
                 )
               ) : (
                 showTagLabelBars && (
@@ -423,6 +445,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                 onTitleChange={(s, title) => void handleTitleChange(s, title)}
                 onDelete={s => setDeleteConfirm(s)} onStorageChange={() => void fetchSessions()}
                 onAnalyzeNote={id => NoteAnalysisService.analyze(id)}
+                onClearAnalysis={id => NoteAnalysisService.clear(id)}
                 fetchSummary={async id => (await AISummaryService.get(id)) ?? null}
                 fetchRelatedNotes={id => findRelatedNotes({ docId: id }, { maxResults: 4 })}
               />

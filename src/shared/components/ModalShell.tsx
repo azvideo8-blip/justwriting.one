@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useModalEscape } from '../hooks/useModalEscape';
 import { useLayoutMode } from '../hooks/useLayoutMode';
@@ -30,7 +30,17 @@ const BACKDROP_Z: Record<'modal' | 'critical' | 'sheet', string> = {
 const MODAL_BACKDROP = (z: keyof typeof BACKDROP_Z) =>
   `fixed inset-0 ${BACKDROP_Z[z]} flex items-center justify-center p-4 bg-surface-base/80 backdrop-blur-2xl`;
 const SHEET_BACKDROP =
+  // color-ok: затемнение под листом одинаково тёмное в любой теме.
   `fixed inset-0 ${BACKDROP_Z.sheet} flex items-end justify-center bg-black/60 backdrop-blur-sm touch-none`;
+
+// MF-20 (SA-6): уход вниз быстрее входа, по кривой читалки; затемнение плавно.
+const SHEET_EASE = [0.32, 0.72, 0, 1] as const;
+// Только у листов: десктопные модалки этот пакет не меняет.
+const SHEET_BACKDROP_MOTION = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { duration: 0.2 } },
+  exit: { opacity: 0, transition: { duration: 0.2 } },
+};
 
 const ANIMATION = {
   modal: {
@@ -39,9 +49,9 @@ const ANIMATION = {
     transition: { duration: 0.22, ease: 'easeOut' as const },
   },
   sheet: {
-    initial: { y: '100%' },
-    animate: { y: 0 },
-    transition: { type: 'spring' as const, damping: 28, stiffness: 280 },
+    initial: { transform: 'translateY(100%)' },
+    animate: { transform: 'translateY(0%)', transition: { type: 'spring' as const, duration: 0.32, bounce: 0 } },
+    exit: { transform: 'translateY(100%)', transition: { duration: 0.2, ease: SHEET_EASE } },
   },
 };
 
@@ -87,13 +97,19 @@ export function ModalShell({
     };
   }, [open]);
 
-  if (!open || typeof document === 'undefined') return null;
+  if (typeof document === 'undefined') return null;
 
+  // MF-20: AnimatePresence внутри — лист уходит с анимацией, если вызывающий
+  // держит ModalShell смонтированным и просто передаёт open.
   return createPortal(
-    <div
+    <AnimatePresence>
+    {open && (
+    <motion.div
+      key="modal-shell"
       className={variant === 'sheet' ? SHEET_BACKDROP : MODAL_BACKDROP(z)}
       onClick={onClose}
       onTouchMove={variant === 'sheet' ? e => e.preventDefault() : undefined}
+      {...(variant === 'sheet' ? SHEET_BACKDROP_MOTION : {})}
     >
       <div className="absolute inset-0" onClick={onClose} />
       <motion.div
@@ -105,13 +121,18 @@ export function ModalShell({
         {...ANIMATION[variant]}
         className={
           variant === 'sheet'
-            ? `relative z-10 w-full max-w-lg bg-surface-card border-t border-white/[0.06] overflow-hidden flex flex-col shadow-[0_-8px_32px_rgba(0,0,0,0.4)] pb-safe ${fullHeight ? 'h-[100dvh] max-h-[100dvh] rounded-none' : 'rounded-t-[28px] max-h-[85vh]'} ${className ?? ''}`
+            // MF-20 (SA-7): лист — поднятый слой, фон непрозрачный (`--surface-popup`
+            // во всех четырёх темах); `--surface-card` полупрозрачен для ленты.
+            // color-ok: тень листа — чёрная в любой теме.
+            ? `relative z-10 w-full max-w-lg bg-surface-popup border-t border-border-subtle overflow-hidden flex flex-col shadow-[0_-8px_32px_rgba(0,0,0,0.4)] pb-safe ${fullHeight ? 'h-[100dvh] max-h-[100dvh] rounded-none' : 'rounded-t-[28px] max-h-[85vh]'} ${className ?? ''}`
             : `relative z-10 w-full max-w-lg ${className ?? ''}`
         }
       >
         {children}
       </motion.div>
-    </div>,
+    </motion.div>
+    )}
+    </AnimatePresence>,
     document.body,
   );
 }

@@ -461,7 +461,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       } else if (/invalid email/i.test(rawMsg)) {
         errMsg = 'Некорректный email';
       } else if (/rate limit|too many requests/i.test(rawMsg)) {
-        errMsg = 'Слишком много запросов. Попробуйте позже.';
+        errMsg = 'Слишком много запросов. Попробуй позже.';
       }
       showToast(t('admin_invite_error', { error: errMsg }), 'error');
       return false;

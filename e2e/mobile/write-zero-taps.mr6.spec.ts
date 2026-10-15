@@ -10,7 +10,7 @@ for (const { w, h } of SIZES) {
   test.describe(`MR-6: редактор открыт сразу на ${w}×${h}`, () => {
     test.use({ viewport: { width: w, height: h } });
 
-    test('тап по тексту → фокус, 12 слов → сессия идёт, «Готово» завершает', async ({ page }) => {
+    test('тап по тексту → фокус, 12 слов → сессия идёт, «Сохранить» завершает', async ({ page }) => {
       const account = await signInMobile(page, `mr6-${w}`);
       await page.goto('/');
 
@@ -41,9 +41,9 @@ for (const { w, h } of SIZES) {
 
       const marker = `МР6-${Date.now().toString(36)}`;
       await area.fill(`${marker} ${'раз два три четыре пять шесть семь восемь девять десять одиннадцать двенадцать'}`);
-      const done = page.getByRole('button', { name: /Готово/ });
-      await expect(done, '«Готово» не стала активной').toBeEnabled({ timeout: 15_000 });
-      expect(await fullyInViewport(done), '«Готово» за экраном').toBe(true);
+      const done = page.locator('[data-write-toolbar]').getByRole('button', { name: /^Сохранить$/ });
+      await expect(done, '«Сохранить» не стала активной').toBeEnabled({ timeout: 15_000 });
+      expect(await fullyInViewport(done), '«Сохранить» за экраном').toBe(true);
       // В проверочном тексте 13 слов (маркер + 12): важен сам факт, что счётчик
       // перестал быть нулевым, а не конкретное число.
       const counter = page.getByText(/\d+ слов/).first();

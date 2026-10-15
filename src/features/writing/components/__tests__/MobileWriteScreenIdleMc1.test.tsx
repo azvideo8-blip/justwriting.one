@@ -61,7 +61,6 @@ function renderScreen(overrides: Partial<ComponentProps<typeof MobileWriteScreen
   return render(
     <MobileWriteScreen
       onPlay={vi.fn()}
-      onPause={vi.fn()}
       onStop={vi.fn()}
       status="idle"
       streakDays={0}
@@ -104,14 +103,14 @@ describe('MC-1: экран письма в idle', () => {
   it('кнопки «Начать» нет, «Готово» одна и выключена', () => {
     renderScreen();
     expect(screen.queryByRole('button', { name: 'play' }), 'в idle осталась кнопка запуска').toBeNull();
-    const done = screen.getByRole('button', { name: 'writing_done' });
+    const done = screen.getByRole('button', { name: 'topbar_save' });
     expect(done).toBeDisabled();
-    expect(screen.getAllByRole('button', { name: 'writing_done' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'topbar_save' })).toHaveLength(1);
   });
 
   it('идёт сессия — «Готово» активна', () => {
     useTimerStore.setState({ status: 'writing' } as Partial<ReturnType<typeof useTimerStore.getState>>);
     renderScreen({ status: 'writing' });
-    expect(screen.getByRole('button', { name: 'writing_done' })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: 'topbar_save' })).not.toBeDisabled();
   });
 });

@@ -14,7 +14,7 @@ async function saveOneNote(page: Page, text: string): Promise<void> {
   const editor = page.locator('textarea').first();
   await editor.waitFor({ state: 'visible', timeout: 30_000 });
   await editor.fill(text);
-  await page.getByRole('button', { name: /^Готово$/ }).click();
+  await page.locator('[data-write-toolbar]').getByRole('button', { name: /^Сохранить$/ }).click();
   const finish = page.getByRole('dialog').first();
   await expect(finish).toBeVisible({ timeout: 15_000 });
   await finish.getByRole('button', { name: /^Сохранить$/ }).click();
@@ -30,12 +30,12 @@ test.describe('MB-9: назад закрывает панель', () => {
     // На WebKit окно первого запуска может приехать уже после перехода на «Я» и
     // перехватить клик по шестерёнке (в полном прогоне 12.10 это и уронило тест).
     await waitForQuietDialogs(page, 20_000);
-    const settings = page.getByRole('button', { name: /^Настройки$/ }).first();
-    await expect(settings, 'кнопки «Настройки» на «Я» нет').toBeVisible({ timeout: 20_000 });
+    // MF-9: шестерни нет — настройки открывает строка «Настройки → Открыть».
+    const settings = page.getByRole('button', { name: /^Открыть$/ }).first();
+    await expect(settings, 'строки «Настройки → Открыть» на «Я» нет').toBeVisible({ timeout: 20_000 });
     await settings.click();
 
-    // MR-5: шестерёнка «Профиля» ведёт в настройки приложения — это переход, а
-    // не панель, так что «назад» должен вернуть на /me.
+    // MR-5/MF-9: это переход, а не панель, так что «назад» должен вернуть на /me.
     await expect.poll(() => new URL(page.url()).pathname, { timeout: 15_000 }).toBe('/settings');
     await shot(page, 'mb9-settings-open-360');
 

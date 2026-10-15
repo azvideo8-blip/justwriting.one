@@ -147,7 +147,6 @@ vi.mock('../../features/ai/components/AIPanel', () => ({ AIPanelContent: () => n
 // Mock MobileWriteScreen children
 vi.mock('../../features/writing/components/MobileFocusScreen', () => ({ MobileFocusScreen: () => null }));
 vi.mock('../../features/writing/components/MobileWriteToolbar', () => ({ MobileWriteToolbar: () => null }));
-vi.mock('../../features/writing/components/MobileGoalSheet', () => ({ MobileGoalSheet: () => null }));
 vi.mock('../../features/writing/hooks/useAutoHideCursor', () => ({ useAutoHideCursor: () => ({}) }));
 
 // Slot for AppRoutes to render whichever screen is under test
@@ -209,7 +208,6 @@ describe('AG-2: ConnectionStatusBanner deduplication', () => {
     currentRouteContent = (
       <MobileWriteScreen
         onPlay={vi.fn()}
-        onPause={vi.fn()}
         onStop={vi.fn()}
       />
     );
@@ -230,7 +228,6 @@ describe('AG-2: ConnectionStatusBanner deduplication', () => {
     currentRouteContent = (
       <MobileWriteScreen
         onPlay={vi.fn()}
-        onPause={vi.fn()}
         onStop={vi.fn()}
       />
     );
@@ -253,7 +250,6 @@ describe('AG-2: ConnectionStatusBanner deduplication', () => {
     currentRouteContent = (
       <MobileWriteScreen
         onPlay={vi.fn()}
-        onPause={vi.fn()}
         onStop={vi.fn()}
       />
     );

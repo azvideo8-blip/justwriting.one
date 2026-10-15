@@ -1,5 +1,5 @@
 // MC-1: экран письма до первой буквы — одна строка наверху, токен режима в панели,
-// «Готово» словом и выключено, кнопки «Начать» нет (сессию начинает первая буква).
+// «Сохранить» (MF-3: дискета) выключено, кнопки «Начать» нет (сессию начинает первая буква).
 import { expect, test } from '@playwright/test';
 import { DICTATION_ENGINE, shot, signInMobile, waitForMobileSettled, zenOff } from './harness';
 
@@ -7,7 +7,7 @@ for (const { w, h } of [{ w: 360, h: 640 }, { w: 390, h: 844 }]) {
   test.describe(`MC-1: тихий экран письма на ${w}×${h}`, () => {
     test.use({ viewport: { width: w, height: h } });
 
-    test('над полем одна цель, в панели три, «Готово» активируется словами', async ({ page }) => {
+    test('над полем одна цель, в панели три, «Сохранить» активируется словами', async ({ page }) => {
       await zenOff(page);
       // Микрофон существует только если браузер отдаёт SpeechRecognition;
       // считаем цели честно, поэтому ставим заглушку движка (та же, что в MB-5).
@@ -44,21 +44,21 @@ for (const { w, h } of [{ w: 360, h: 640 }, { w: 390, h: 844 }]) {
       await expect(toolbar).toBeVisible();
       const toolbarButtons = await toolbar.locator('button').count();
       expect(toolbarButtons, `в панели ${toolbarButtons} целей вместо трёх`).toBe(3);
-      await expect(toolbar.getByRole('button', { name: /^Готово$/ })).toBeDisabled();
+      await expect(toolbar.getByRole('button', { name: /^Сохранить$/ })).toBeDisabled();
       await expect(toolbar.getByRole('button', { name: 'Начать' })).toHaveCount(0);
       await shot(page, `mc1-write-idle-${w}`);
 
-      // Первая буква начинает сессию (MR-6), и «Готово» становится словом-пилюлей.
+      // Первая буква начинает сессию (MR-6), и «Сохранить» включается.
       await area.fill('раз два три четыре пять шесть семь восемь девять десять одиннадцать двенадцать');
-      const done = toolbar.getByRole('button', { name: /^Готово$/ });
-      await expect(done, '«Готово» не стала активной').toBeEnabled({ timeout: 15_000 });
-      expect(await done.boundingBox(), 'у «Готово» нет геометрии').not.toBeNull();
-      expect((await done.boundingBox())!.height, '«Готово» ниже 44 px').toBeGreaterThanOrEqual(44);
+      const done = toolbar.getByRole('button', { name: /^Сохранить$/ });
+      await expect(done, '«Сохранить» не стала активной').toBeEnabled({ timeout: 15_000 });
+      expect(await done.boundingBox(), 'у «Сохранить» нет геометрии').not.toBeNull();
+      expect((await done.boundingBox())!.height, '«Сохранить» ниже 44 px').toBeGreaterThanOrEqual(44);
       await shot(page, `mc1-write-running-${w}`);
 
       await done.click();
       const finish = page.getByRole('dialog').last();
-      await expect(finish, '«Готово» не открыла окно завершения').toBeVisible({ timeout: 15_000 });
+      await expect(finish, '«Сохранить» не открыла окно завершения').toBeVisible({ timeout: 15_000 });
       await expect(page.locator('[aria-labelledby="finish-modal-title"]')).toBeVisible();
     });
 

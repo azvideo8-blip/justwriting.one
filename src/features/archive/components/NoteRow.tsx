@@ -10,7 +10,10 @@ import { Menu } from '../../../shared/components/Menu';
 import { ArchiveSession } from '../types';
 import { Label } from '../../../types';
 import { highlightText, getSearchContext } from '../../../shared/utils/highlightText';
-import { isBlankTitle } from '../../../shared/utils/titleUtils';
+import { deriveNoteTitle, splitNoteTitle } from './noteTitle';
+import { MobileRenameSheet } from './MobileRenameSheet';
+import { LabelMark } from './LabelMark';
+import { StorageStateIcons } from './StorageStateIcons';
 import { MobileNoteActionsSheet } from '../../../app/components/MobileNoteActionsSheet';
 import { AnimatePresence } from 'motion/react';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
@@ -151,8 +154,13 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
   };
 
   const label = labels?.find(l => l.id === session.labelId);
+  const mobileSplit = splitNoteTitle(session.title, session.content);
 
+  // MF-11: на телефоне — общий лист переименования. Поле в строке теряло фокус,
+  // когда закрывшийся лист действий возвращал его своей кнопке, и закрывалось.
+  const [renameSheetOpen, setRenameSheetOpen] = useState(false);
   const startRename = () => {
+    if (isMobile) { setRenameSheetOpen(true); return; }
     setTitleDraft(session.title || '');
     setEditingTitle(true);
   };
@@ -175,7 +183,8 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
       style={label ? (isMobile
         // MC-7: на телефоне метка остаётся только подложкой — цветной левая
         // полоса и внутренняя подсветка делали из списка полосатую таблицу.
-        ? { background: `color-mix(in srgb, ${label.color} 4%, transparent)` }
+        // MF-13: 10 % вместо 4 % — подкраску видно; само имя метки — в строке ниже.
+        ? { background: `color-mix(in srgb, ${label.color} 10%, transparent)` }
         : {
           borderLeftColor: label.color,
           background: `color-mix(in srgb, ${label.color} 4%, transparent)`,
@@ -206,6 +215,12 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
           )}>
             {isMobile ? (sessionTime ? format(sessionTime, 'HH:mm') : '—') : dateTimeLabel}
           </div>
+          {/* MF-14: под временем — облако, устройство, разбор (индикаторы, не кнопки). */}
+          {isMobile && (
+            <div className="mt-1.5">
+              <StorageStateIcons cloud={!!session._hasCloudCopy} device={!!session._isLocal} analyzed={!!aiProcessed} />
+            </div>
+          )}
         </div>
         {editingDateTime && (
           <div
@@ -325,23 +340,19 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
             ) : (
               <span className="truncate">
                 {(() => {
-                  const rawTitle = session.title?.trim();
-                  const cleanTitle = !isBlankTitle(rawTitle) ? rawTitle : undefined;
-                  const firstContentLine = session.content
-                    ?.split('\n')
-                    .map(l => l.trim())
-                    .find(l => !isBlankTitle(l));
                   const isCloudOnly = !session._isLocal && session._hasCloudCopy;
-                  const displayTitle = cleanTitle || firstContentLine || (isCloudOnly ? t('archive_cloud_only_note') : t('session_untitled'));
+                  const displayTitle = (isMobile ? mobileSplit.title : deriveNoteTitle(session.title, session.content)) || (isCloudOnly ? t('archive_cloud_only_note') : t('session_untitled'));
                   return highlightText(displayTitle, searchQuery ?? '');
                 })()}
               </span>
             )}
           </div>
         )}
-        {session.content && (
+        {/* MF-16: на телефоне у заметки без названия превью идёт после выведенного
+            названия — первая фраза не повторяется дважды. */}
+        {(isMobile && !searchQuery ? mobileSplit.preview : session.content) && (
           <p className="text-sm text-text-main/60 leading-relaxed line-clamp-1 sm:line-clamp-2 mb-2 cursor-pointer text-pretty" onClick={isMobile ? undefined : onOpen}>
-            {highlightText(getSearchContext(session.content, searchQuery), searchQuery ?? '')}
+            {highlightText(isMobile && !searchQuery ? mobileSplit.preview : getSearchContext(session.content, searchQuery), searchQuery ?? '')}
           </p>
         )}
         {!isMobile || tagInputOpen ? (
@@ -356,12 +367,15 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
             onStartAdding={() => setTagInputOpen(true)}
             onStopAdding={() => setTagInputOpen(false)}
           />
-        ) : ((session.tags?.length ?? 0) > 0 && (
+        ) : ((label || (session.tags?.length ?? 0) > 0) && (
           // MR-9: на телефоне теги — текст, а не цели касания: правка остаётся в
           // предпросмотре и в листе действий. MC-7: цвет — `--text-subtle`,
           // брендовый оставлен действиям, теги не должны перетягивать взгляд.
-          <p className="font-mono text-[12px] text-[var(--text-subtle)] truncate">
-            {session.tags!.map(tag => `#${tag}`).join(' ')}
+          // MF-13: перед тегами — метка точкой и именем её цвета.
+          <p className="flex min-w-0 items-center gap-1.5 text-[12px] text-[var(--text-subtle)]">
+            {label && <LabelMark label={label} />}
+            {label && (session.tags?.length ?? 0) > 0 && <span aria-hidden="true">·</span>}
+            {(session.tags?.length ?? 0) > 0 && <span className="truncate font-mono">{session.tags!.map(tag => `#${tag}`).join(' ')}</span>}
           </p>
         ))}
 
@@ -404,6 +418,13 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                 />
               )}
             </AnimatePresence>
+            {renameSheetOpen && (
+              <MobileRenameSheet
+                initialTitle={session.title || ''}
+                onCancel={() => setRenameSheetOpen(false)}
+                onSave={title => { if (title !== (session.title || '')) onTitleChange?.(session, title); setRenameSheetOpen(false); }}
+              />
+            )}
             </div>
           </>
         ) : (

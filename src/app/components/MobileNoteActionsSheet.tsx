@@ -1,37 +1,30 @@
 import { useState } from 'react';
-import { Tag, X } from 'lucide-react';
+import { Download, Pencil, X } from 'lucide-react';
 import { useLanguage } from '../../shared/i18n';
 import { Label } from '../../types';
 import { cn } from '../../core/utils/utils';
 import { Button } from '../../shared/components/Button';
 import { IconButton } from '../../shared/components/IconButton';
 import { ModalShell } from '../../shared/components/ModalShell';
-import { buildNoteActions, type NoteActionId, type NoteActionItem, type NoteMenuSection } from '../../features/archive/components/noteActions';
+import { buildNoteActions, type NoteActionId, type NoteActionItem, type NoteLabelsSection } from '../../features/archive/components/noteActions';
+import { splitNoteTitle } from '../../features/archive/components/noteTitle';
+import type { ArchiveSession } from '../../features/archive/types';
+import { exportAsDocx, exportAsMd, exportAsTxt, isExportable, type ExportStrings } from '../../core/services/ArchiveExportService';
+import { useToast } from '../../shared/components/Toast';
 import { useNoteStorageActions } from '../../features/archive/components/useNoteStorageActions';
-
-/** MP-1: локальная/облачная копия остаётся вне телефона (решение владельца в MR). */
-const LOCAL_CLOUD_ITEMS: NoteActionId[] = ['download', 'upload', 'removeLocal', 'removeCloud'];
 
 interface MobileNoteActionsSheetProps {
   isOpen: boolean;
   onClose: () => void;
-  session: {
-    id: string;
-    title?: string | undefined;
-    labelId?: string | undefined;
-    excludedFromAI?: boolean | undefined;
-    _isLocal?: boolean | undefined;
-    _linkedCloudId?: string | undefined;
-    _hasCloudCopy?: boolean | undefined;
-    _hasPendingSync?: boolean | undefined;
-    _isTooLargeForSync?: boolean | undefined;
-    _localOnly?: boolean | undefined;
-  };
+  session: ArchiveSession;
   userId: string;
   labels?: Label[] | undefined;
   onOpen: () => void;
+  /** MF-12: подпись первого пункта — в читалке «Продолжить писать», в списке «Открыть». */
+  openLabel?: string | undefined;
+  /** Карандаш у названия — общий лист переименования (MF-11). */
   onRename: () => void;
-  /** Открывает поле тега в строке — то же, что пункт меню на десктопе. */
+  /** Открывает поле тега — в строке списка или в «Инфо» читалки. */
   onAddTag?: (() => void) | undefined;
   onDelete: () => void;
   onLabelChange: (labelId: string | undefined) => void;
@@ -42,38 +35,21 @@ interface MobileNoteActionsSheetProps {
   onAIClick?: (() => void) | undefined;
   aiExclusionLoading?: boolean | undefined;
   onAIExclusionClick?: (() => void) | undefined;
-  /** MP-1: лист открыт из читалки. Пункт «open» тогда ведёт в редактор и
-   *  называется «Изменить», а выбор метки и облачные копии в нём не живут —
-   *  метка и теги правятся в «ⓘ», синхронизация остаётся на десктопе. */
-  fromReader?: boolean | undefined;
-  onCopy?: (() => void) | undefined;
 }
 
-/** Лист действий на телефоне. DC-A3: список строит та же функция
- *  `buildNoteActions`, что и меню «⋯» на десктопе, и те же обработчики —
- *  две поверхности больше не могут разойтись. */
+// MF-12: порядок листа на телефоне. Строка «Изменить название» ушла в карандаш
+// у названия, «Скопировать как» — в «Сохранить как…»; на десктопе меню прежнее.
+const ORDER: NoteActionId[] = ['open', 'addTag', 'download', 'upload', 'removeLocal', 'removeCloud', 'excludeAi', 'analyzeAi'];
+
+/** Лист действий на телефоне — один и тот же для списка, сетки и читалки.
+ *  DC-A3: пункты строит та же `buildNoteActions`, что меню «⋯» на десктопе. */
 export function MobileNoteActionsSheet({
-  isOpen,
-  onClose,
-  session,
-  userId,
-  labels,
-  onOpen,
-  onRename,
-  onAddTag,
-  onDelete,
-  onLabelChange,
-  onStorageChange,
-  aiProcessed,
-  aiLoading,
-  onAIClick,
-  aiExclusionLoading,
-  onAIExclusionClick,
-  fromReader,
-  onCopy,
+  isOpen, onClose, session, userId, labels, onOpen, openLabel, onRename, onAddTag, onDelete,
+  onLabelChange, onStorageChange, aiProcessed, aiLoading, onAIClick, aiExclusionLoading, onAIExclusionClick,
 }: MobileNoteActionsSheetProps) {
   const { t } = useLanguage();
-  const [showLabelsSelector, setShowLabelsSelector] = useState(false);
+  const { showToast } = useToast();
+  const [saveAsOpen, setSaveAsOpen] = useState(false);
 
   const doc = {
     localId: session._isLocal ? session.id : undefined,
@@ -85,62 +61,59 @@ export function MobileNoteActionsSheet({
     localOnly: !!session._localOnly,
   };
 
-  const storage = useNoteStorageActions({
-    doc,
-    userId,
-    onStorageChange,
-    ...(onAIExclusionClick
-      ? { exclusion: { excluded: !!session.excludedFromAI, loading: !!aiExclusionLoading, onClick: onAIExclusionClick } }
-      : {}),
-  });
+  const exclusion = onAIExclusionClick
+    ? { excluded: !!session.excludedFromAI, loading: !!aiExclusionLoading, onClick: onAIExclusionClick }
+    : undefined;
+  const storage = useNoteStorageActions({ doc, userId, onStorageChange, ...(exclusion ? { exclusion } : {}) });
 
   const sections = buildNoteActions({
-    t,
-    doc,
-    userId,
-    storage,
-    labels,
+    t, doc, userId, storage, labels,
     currentLabelId: session.labelId,
     onLabelChange,
     onOpen: () => { onOpen(); onClose(); },
-    ...(fromReader ? { openLabel: t('archive_edit_action') } : {}),
+    ...(openLabel ? { openLabel } : {}),
     onRename: () => { onRename(); onClose(); },
-    ...(onCopy ? { onCopy: () => { onCopy(); onClose(); } } : {}),
     ...(onAddTag ? { onAddTag: () => { onAddTag(); onClose(); } } : {}),
-    ...(onAIClick
-      ? { ai: { processed: !!aiProcessed, loading: !!aiLoading, onClick: onAIClick } }
-      : {}),
-    ...(onAIExclusionClick
-      ? { exclusion: { excluded: !!session.excludedFromAI, loading: !!aiExclusionLoading, onClick: onAIExclusionClick } }
-      : {}),
+    ...(onAIClick ? { ai: { processed: !!aiProcessed, loading: !!aiLoading, onClick: onAIClick } } : {}),
+    ...(exclusion ? { exclusion } : {}),
     onDelete: () => { onDelete(); onClose(); },
-  }).filter(section => !(fromReader && section.kind === 'action' && LOCAL_CLOUD_ITEMS.includes(section.id)));
+  });
+  const byId = (id: NoteActionId) => sections.find((x): x is NoteActionItem => x.kind === 'action' && x.id === id);
+  const labelsSection = sections.find((x): x is NoteLabelsSection => x.kind === 'labels');
+  const deleteItem = byId('delete');
 
-  const labelsSection = sections.find(s => s.kind === 'labels');
-  const selectedLabel = labels?.find(l => l.id === session.labelId);
-  // MC-9: удаление всегда последнее и отделено отступом — между ним и
-  // остальными пунктами нет соседства «Открыть / Удалить».
-  const isDanger = (section: NoteMenuSection): section is NoteActionItem =>
-    section.kind === 'action' && section.group === 'danger';
-  const dangerSections = sections.filter(isDanger);
-  const listSections: NoteMenuSection[] = sections.filter(section => !isDanger(section));
+  const exportStrings: ExportStrings = {
+    date: t('export_header_date'), words: t('export_header_words'), time: t('export_header_time'),
+    tags: t('export_header_tags'), untitled: t('export_untitled'), untitledFilename: t('export_filename_default'),
+  };
+  // Тот же отказ, что в десктопном превью: нечитаемую заметку не сохраняем пустым файлом.
+  const runExport = (fn: () => void | Promise<void>) => {
+    if (!isExportable(session)) {
+      showToast(session._contentNotLoaded ? t('archive_export_not_loaded')
+        : session._locked ? t('archive_export_locked') : t('archive_export_encrypted_unavailable'), 'error');
+      return;
+    }
+    void fn();
+    onClose();
+  };
+  // PDF на телефоне не предлагается: мобильная ветка exportAsPdf отдаёт .html
+  // через «Поделиться», окна печати там нет (MF-12, отчёт).
+  const formats = [
+    { key: 'txt', label: t('export_txt'), run: () => runExport(() => exportAsTxt(session, exportStrings)) },
+    { key: 'md', label: t('export_md'), run: () => runExport(() => exportAsMd(session, exportStrings)) },
+    { key: 'docx', label: t('export_docx'), run: () => runExport(() => exportAsDocx(session, exportStrings)) },
+  ];
 
+  const rowClass = (destructive = false) => cn(
+    'w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm text-left font-medium transition-colors border',
+    destructive
+      ? 'text-accent-danger bg-accent-danger/10 border-accent-danger/20 active:bg-accent-danger/20'
+      : 'text-text-main/80 bg-text-main/[0.02] border-border-subtle active:bg-text-main/[0.06]',
+  );
   const row = (section: NoteActionItem) => {
     const Icon = section.icon;
-    const isStorageAction = section.group === 'storage';
     return (
-      <Button
-        key={section.id}
-        onClick={section.onSelect}
-        className={cn(
-          'w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm text-left font-medium transition-colors border',
-          section.destructive
-            ? 'text-accent-danger bg-accent-danger/10 border-accent-danger/20 active:bg-accent-danger/20'
-            : isStorageAction && (section.id === 'upload' || section.id === 'download')
-              ? 'text-brand-primary bg-brand-primary/10 border-brand-primary/20 active:bg-brand-primary/20 font-semibold'
-              : 'text-text-main/80 bg-white/[0.02] border-white/[0.04] active:bg-white/[0.06]',
-        )}
-      >
+      <Button key={section.id} data-action={section.id} onClick={section.onSelect} className={rowClass(section.destructive)}>
         <Icon size={18} className={section.destructive ? undefined : 'text-text-main/60'} aria-hidden="true" />
         <span>{section.label}</span>
       </Button>
@@ -148,95 +121,72 @@ export function MobileNoteActionsSheet({
   };
 
   if (!isOpen) return null;
+  const title = splitNoteTitle(session.title, session.content).title ?? t('common_untitled');
 
   return (
     <ModalShell open={isOpen} onClose={onClose} labelId="note-actions-sheet-title" variant="sheet">
-        {/* Grab Handle */}
-        <div className="flex justify-center py-3">
-          <div className="w-12 h-1.5 rounded-full bg-white/10" />
-        </div>
+      <h3 id="note-actions-sheet-title" className="sr-only">{t('archive_note_actions')}</h3>
+      {/* MF-12: шапка — то же название, что в списке, и карандаш вместо строки «Изменить название». */}
+      <div className="flex items-center gap-2 px-4 pt-4 pb-3 border-b border-border-subtle">
+        <div className="min-w-0 flex-1 truncate pl-2 text-base font-bold text-text-main">{title}</div>
+        <IconButton onClick={() => { onRename(); onClose(); }} className="w-11 h-11 rounded-full text-text-main/70" label={t('archive_rename_title')} icon={<Pencil size={18} />} />
+        <IconButton onClick={onClose} className="w-11 h-11 rounded-full text-text-main/60" label={t('close')} icon={<X size={18} />} />
+      </div>
 
-        {/* Header */}
-        <div className="flex justify-between items-center px-6 pb-3">
-          <h3 id="note-actions-sheet-title" className="sr-only">{t('archive_note_actions')}</h3>
-          <span className="text-sm font-bold text-text-main/60 uppercase tracking-widest">
-            {t('archive_note_actions')}
-          </span>
-          <IconButton
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/[0.04] border-none flex items-center justify-center text-text-main/60 hover:text-text-main/70 cursor-pointer"
-            label={t('close')}
-            icon={<X size={18} />}
-          />
-        </div>
-
-        {/* Document Title Header */}
-        <div className="px-6 py-4 bg-white/[0.01] border-y border-white/[0.04] flex items-center justify-between">
-          <div className="min-w-0 flex-1 pr-4">
-            <div className="text-base font-bold text-text-main truncate">
-              {session.title || t('common_untitled')}
+      <div data-testid="note-actions-list" className="px-6 py-5 overflow-y-auto no-scrollbar space-y-2 pb-[calc(env(safe-area-inset-bottom,0px)+88px)]">
+        {saveAsOpen ? (
+          <div className="space-y-2" data-testid="note-save-as">
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] font-semibold text-text-muted">{t('archive_save_as')}</span>
+              <Button onClick={() => setSaveAsOpen(false)} className="min-h-11 px-2 text-xs text-brand-soft">{t('writing_back')}</Button>
             </div>
-            {selectedLabel && (
-              <div className="flex items-center gap-1.5 mt-1">
-                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: selectedLabel.color }} />
-                <span className="text-xs text-text-main/60">{selectedLabel.name}</span>
-              </div>
-            )}
+            {formats.map(f => (
+              <Button key={f.key} data-format={f.key} onClick={f.run} className={rowClass()}>
+                <Download size={18} className="text-text-main/60" aria-hidden="true" />
+                <span>{f.label}</span>
+              </Button>
+            ))}
           </div>
-        </div>
-
-        {/* Action Options List */}
-        <div data-testid="note-actions-list" className="px-6 py-5 overflow-y-auto no-scrollbar space-y-2 pb-[calc(env(safe-area-inset-bottom,0px)+88px)]">
-          {!showLabelsSelector ? (
-            listSections.map(section => (section.kind === 'labels' ? null : row(section)))
-          ) : (
-            // Labels Sub-selector
-            <div className="space-y-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-text-main/60 uppercase tracking-wider">{t('archive_assign_label')}</span>
-                <Button onClick={() => setShowLabelsSelector(false)} className="text-xs text-brand-soft hover:underline">
-                  {t('writing_back')}
-                </Button>
-              </div>
-              <div className="grid grid-cols-1 gap-2">
-                {labelsSection !== undefined && labelsSection.kind === 'labels' && labelsSection.options.map(option => (
-                  <Button
-                    key={option.key}
-                    onClick={() => { option.onSelect(); onClose(); }}
-                    className={cn(
-                      'w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-left transition-colors border',
-                      option.checked
-                        ? 'bg-text-main/10 border-text-main/20 text-text-main'
-                        : 'bg-white/[0.01] border-white/[0.04] text-text-main/60 hover:bg-white/[0.03]',
-                    )}
-                  >
-                    {option.dashed
-                      ? <div className="w-3.5 h-3.5 rounded-full border border-dashed border-text-main/20 shrink-0" />
-                      : <div className="w-3.5 h-3.5 rounded-full shrink-0" style={option.color ? { backgroundColor: option.color } : undefined} />}
-                    <span className="flex-1">{option.label}</span>
-                    {option.checked && <span className="text-xs text-brand-soft">✓</span>}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {labelsSection !== undefined && !showLabelsSelector && !fromReader && (
-            <Button
-              onClick={() => setShowLabelsSelector(true)}
-              className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/80 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
-            >
-              <Tag size={18} className="text-text-main/60" aria-hidden="true" />
-              <span>{t('archive_assign_label')}</span>
+        ) : (
+          <>
+            {ORDER.map(id => {
+              const item = byId(id);
+              const out = item ? [row(item)] : [];
+              // Метки — сразу после «Добавить тег» (или после первого пункта, если тега нет).
+              if (labelsSection && (id === 'addTag' || (id === 'open' && !byId('addTag')))) {
+                out.push(
+                  <div key="labels" data-testid="note-actions-labels" className="pt-1">
+                    <div className="px-1 pb-1 text-[13px] font-semibold text-text-muted">{labelsSection.heading}</div>
+                    <div className="flex flex-wrap gap-2">
+                      {labelsSection.options.map(o => (
+                        <Button
+                          key={o.key}
+                          onClick={() => { o.onSelect(); onClose(); }}
+                          aria-pressed={o.checked}
+                          className={cn('min-h-11 inline-flex items-center gap-2 rounded-full border px-3 text-[13px]', o.checked ? 'border-text-main/30 bg-text-main/10 text-text-main' : 'border-border-subtle text-text-main/70')}
+                        >
+                          {o.dashed
+                            ? <span className="w-3 h-3 rounded-full border border-dashed border-text-main/30" />
+                            : <span className="w-3 h-3 rounded-full" style={o.color ? { backgroundColor: o.color } : undefined} />}
+                          {o.label}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>,
+                );
+              }
+              return out;
+            })}
+            <Button data-action="saveAs" onClick={() => setSaveAsOpen(true)} className={rowClass()}>
+              <Download size={18} className="text-text-main/60" aria-hidden="true" />
+              <span>{t('archive_save_as')}</span>
             </Button>
-          )}
-
-          {!showLabelsSelector && dangerSections.length > 0 && (
-            <div data-testid="note-actions-danger" className="mt-5 space-y-2">
-              {dangerSections.map(section => row(section))}
-            </div>
-          )}
-        </div>
+            {deleteItem && (
+              <div data-testid="note-actions-danger" className="mt-5 space-y-2">{row(deleteItem)}</div>
+            )}
+          </>
+        )}
+      </div>
 
       {storage.dialogs}
     </ModalShell>

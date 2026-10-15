@@ -178,7 +178,7 @@ export function FirstRunCodeStep({ position, code, onNext }: { position: StepPos
           <span className="text-[13px] leading-relaxed">{t('enc_recovery_code_warning')}</span>
         </div>
 
-        <div className="rounded-2xl border border-[var(--border-light)] bg-[var(--surface-base)] p-4 space-y-3">
+        <div className="rounded-2xl border border-[var(--border-light)] bg-surface-base p-4 space-y-3">
           <div className="text-[13px] text-[var(--text-muted)]">{t('enc_recovery_code_label')}</div>
           <div data-testid="first-run-code" className="font-mono text-[20px] leading-snug font-bold tracking-wider text-[var(--text-main)] break-words">
             {code}
@@ -237,43 +237,39 @@ export function FirstRunCloudStep({
   onFinish: (syncOn: boolean, restoreWanted: boolean) => void;
 }) {
   const { t, tp } = useLanguage();
-  const [syncOn, setSyncOn] = useState(true);
-  const [restore, setRestore] = useState(cloudCount > 0);
+  // MF-22 (SA-3, решение владельца «явно»): две равные кнопки, как десктопный
+  // SyncConsentModal; ничего не выбрано заранее, «Пропустить» нет. Вопрос о
+  // загрузке — только после «Включить облако» и только если в облаке что-то есть.
+  const [askRestore, setAskRestore] = useState(false);
+  const choice = 'w-full min-h-11 rounded-xl border border-[var(--border-light)] text-[16px] font-semibold text-[var(--text-main)]';
 
   return (
     <>
       <StepHeader index={position.index} total={position.total} title={t('first_run_cloud_title')} />
       <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-5">
         <p className="text-[15px] leading-relaxed text-[var(--text-main)]">{t('sync_consent_body')}</p>
-
-        <div className="flex items-center justify-between gap-3">
-          <span className="flex-1 min-w-0 text-[16px] text-[var(--text-main)]">{t('first_run_sync_switch')}</span>
-          <Toggle checked={syncOn} onChange={setSyncOn} ariaLabel={t('first_run_sync_switch')} />
-        </div>
-
-        {cloudCount > 0 && (
-          <div className="flex items-center justify-between gap-3">
-            <span className="flex-1 min-w-0 text-[16px] text-[var(--text-main)]">
-              {tp('first_run_restore_switch', cloudCount)}
-            </span>
-            <Toggle checked={restore} onChange={setRestore} ariaLabel={tp('first_run_restore_switch', cloudCount)} />
-          </div>
-        )}
       </div>
 
       <footer className="px-5 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+20px)] space-y-2">
-        <Button
-          onClick={() => onFinish(syncOn, restore)}
-          className="w-full min-h-11 rounded-xl bg-brand-soft text-surface-base text-[16px] font-semibold"
-        >
-          {t('first_run_finish')}
-        </Button>
-        <Button
-          onClick={() => onFinish(false, false)}
-          className="w-full min-h-11 rounded-xl text-[15px] text-[var(--text-muted)]"
-        >
-          {t('first_run_skip')}
-        </Button>
+        {askRestore ? (
+          <>
+            <Button onClick={() => onFinish(true, true)} className={choice}>
+              {tp('first_run_restore_switch', cloudCount)}
+            </Button>
+            <Button onClick={() => onFinish(true, false)} className={choice}>
+              {t('first_run_restore_later')}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button onClick={() => (cloudCount > 0 ? setAskRestore(true) : onFinish(true, false))} className={choice}>
+              {t('first_run_cloud_on')}
+            </Button>
+            <Button onClick={() => onFinish(false, false)} className={choice}>
+              {t('first_run_cloud_local')}
+            </Button>
+          </>
+        )}
       </footer>
     </>
   );
@@ -428,7 +424,7 @@ export function FirstRunFlow({ uid, showPrivacy, showConsent, onPrivacyDone, onC
 /** not-a-modal: fullscreen first-run stepper */
 function FirstRunStepper({ children }: { children: ReactNode }) {
   return (
-    <div data-testid="first-run-stepper" className="fixed inset-0 z-[var(--z-critical)] flex flex-col bg-[var(--surface-base)]">
+    <div data-testid="first-run-stepper" className="fixed inset-0 z-[var(--z-critical)] flex flex-col bg-surface-base">
       {children}
     </div>
   );

@@ -31,7 +31,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Имена целей онбординга — с русскими и английскими вариантами: обход EN и
 // тёмной темы (§1.4) снимает те же окна в английской локали, а галочка согласия
 // ищется по доступному имени.
-const BOX_NAMES = [/Код сохранён|сохранил|recovery code saved|saved the (recovery )?code/i, /прочитал|I have read/i];
+const BOX_NAMES = [/Код сохранён|сохранил|recovery code saved|saved the (recovery )?code/i, /прочита(л|н)|I have read/i];
 const SYNC_ON = /Включить синхронизацию|^Turn sync on$/i;
 const SYNC_OFF = /Оставить выключенной|^Leave it off$/i;
 // Узкий набор для обработчика: он живёт весь прогон, и широкие слова вроде
@@ -179,7 +179,9 @@ export async function autoHandlers(page: Page, password: string, opts: { autoUnl
   // Только активная кнопка: обработчик по выключенной «Продолжить» перехватывает
   // каждое действие теста и ждёт, пока она скроется, — чего не происходит, пока
   // не проставлены галочки окна.
-  const go = page.getByRole('dialog').getByRole('button', { name: GO_NAMES, disabled: false }).first();
+  // MF-3: лист сессии — не окно первого запуска: его «Продолжить» снимает паузу.
+  const go = page.getByRole('dialog').filter({ hasNot: page.locator('[data-session-rows]') })
+    .getByRole('button', { name: GO_NAMES, disabled: false }).first();
   await page.addLocatorHandler(go, async () => {
     const dialog = page.getByRole('dialog').filter({ has: go }).first();
     // В окне кода восстановления «Продолжить» становится активной только после
@@ -197,7 +199,7 @@ export async function autoHandlers(page: Page, password: string, opts: { autoUnl
  * Окно онбординга для specs больше не `role=dialog`, поэтому у харнесса
  * появляется отдельная ветка: пройти шаги, пока экран жив. Делает ровно то же,
  * что делал с окнами: ставит обязательные галочки, при `forgetDevice` снимает
- * переключатель «Это моё устройство», при `syncOn === false` выключает облако.
+ * переключатель «Это моё устройство», при `syncOn === false` выбирает «Только на этом устройстве».
  */
 async function walkFirstRunStepper(page: Page, syncOn: boolean, forgetDevice: boolean, seen: string[]): Promise<boolean> {
   const stepper = page.locator('[data-testid="first-run-stepper"]');
@@ -216,12 +218,12 @@ async function walkFirstRunStepper(page: Page, syncOn: boolean, forgetDevice: bo
       acted = (await tap(device)) || acted;
     }
   }
-  if (!syncOn) {
-    const sync = stepper.getByRole('switch', { name: /Синхронизация с облаком|Sync with the cloud/i }).first();
-    if (await sync.count().catch(() => 0) && (await sync.getAttribute('aria-checked')) === 'true') {
-      acted = (await tap(sync)) || acted;
-    }
-  }
+  // MF-22: шаг «Облако» — две равные кнопки; затем, если в облаке есть заметки,
+  // вопрос о загрузке («Без загрузки» — как раньше выключенный переключатель).
+  const cloud = stepper.getByRole('button', {
+    name: syncOn ? /^(Включить облако|Turn the cloud on|Без загрузки|Not now)$/ : /^(Только на этом устройстве|Only on this device)$/,
+  }).first();
+  if (await cloud.isVisible().catch(() => false)) acted = (await tap(cloud)) || acted;
 
   const next = stepper.getByRole('button', { name: /^(Продолжить|Дальше|Начать писать|Continue|Next|Start writing)$/ }).first();
   if (await next.isVisible().catch(() => false) && await next.isEnabled().catch(() => false)) {
@@ -470,7 +472,8 @@ export async function startDictation(page: Page): Promise<string> {
   await mic.click();
   const dlg = page.getByRole('dialog').filter({ hasText: /Голосовой ввод/ }).first();
   const text = (await dlg.innerText({ timeout: 2_500 }).catch(() => '')).replace(/\s+/g, ' ').slice(0, 160);
-  if (text) await dlg.getByRole('button', { name: /^Продолжить$/ }).click().catch(() => {});
+  // MF-5: на телефоне это лист с «Записать»; «Продолжить» осталось у окна десктопа.
+  if (text) await dlg.getByRole('button', { name: /^(Записать|Продолжить)$/ }).click().catch(() => {});
   await page.waitForTimeout(400);
   return text;
 }

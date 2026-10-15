@@ -4,14 +4,13 @@ import { AuthService } from '../../../app/AuthService';
 import { useLanguage } from '../../../shared/i18n';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { useLoginModal } from '../../../app/useLoginModal';
-import { emitDomainEvent } from '../../../core/events/domainEvents';
-import { useToast } from '../../../shared/components/Toast';
 import { Section } from './SettingsHelpers';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { SettingRow } from '../../../shared/components/MeScreenHelpers';
 import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 import { SignOutConfirmModal } from '../../auth/components/SignOutConfirmModal';
+import { useConfirmSignOut } from '../hooks/useConfirmSignOut';
 
 interface AccountProfileSectionProps {
   userId: string;
@@ -22,25 +21,10 @@ export function AccountProfileSection({ userId: _userId }: AccountProfileSection
   const { layoutMode } = useLayoutMode();
   const { isAuthenticated } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
-  const { showToast } = useToast();
 
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
-  const handleConfirmSignOut = async (opts: { clearLocalData: boolean; force?: boolean }) => {
-    try {
-      // «Вы вышли» (и AUD-11 «очистить не удалось») показывает уже
-      // перезагруженная страница — выход перезагружает её (accountReload.ts).
-      await AuthService.signOut(opts);
-      emitDomainEvent({ type: 'account.reset' });
-    } catch (e) {
-      const isUnsynced = (e as { name?: string }).name === 'UnsyncedLocalDataError';
-      const isWipeFailed = (e as { name?: string }).name === 'LocalWipeFailedError';
-      if (!isUnsynced && !isWipeFailed) {
-        showToast(t('error_signout_failed'), 'error');
-      }
-      throw e;
-    }
-  };
+  const handleConfirmSignOut = useConfirmSignOut();
 
   if (isAuthenticated) {
     const user = AuthService.getCurrentUser();
@@ -77,7 +61,7 @@ export function AccountProfileSection({ userId: _userId }: AccountProfileSection
               в мобильном макете: на десктопе язык остаётся в «Редакторе», второй
               переключатель на /settings — изменение десктопа (ревью 0.9.39). */}
           {layoutMode === 'mobile' && <div className="pt-2 border-t border-border-subtle">
-            <SettingRow label={t('settings_language')}>
+            <SettingRow label={t('settings_language')} divider={false}>
               <div className="flex bg-white/[0.04] rounded-lg p-0.5 gap-0.5">
                 {(['ru', 'en'] as const).map(lang => (
                   <Button
@@ -87,7 +71,7 @@ export function AccountProfileSection({ userId: _userId }: AccountProfileSection
                     size="sm"
                     onClick={() => setLanguage(lang)}
                     className={cn(
-                      'px-3 py-1 rounded-md border-none cursor-pointer text-xs font-medium',
+                      'min-w-11 min-h-11 px-3 py-1 rounded-md border-none cursor-pointer text-xs font-medium',
                       language === lang ? 'bg-white/[0.08] text-text-main' : 'bg-transparent text-text-main/50'
                     )}
                   >

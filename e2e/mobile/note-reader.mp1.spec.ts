@@ -3,7 +3,7 @@
 // Проверяется геометрия (читалка = весь вьюпорт, нижняя панель под ней),
 // отсутствие метаданных в теле, «ⓘ» с датой и тегами (тег, добавленный там,
 // переживает закрытие и повторное открытие), возврат к списку по «‹ Заметки» и
-// по аппаратной «назад», и лист «⋯» с «Изменить» в редактор.
+// по аппаратной «назад», и лист «⋯» с «Продолжить писать» в редактор (MF-12).
 import { expect, test, type Page } from '@playwright/test';
 import { fullyInViewport, openVaultFromBanner, shot, signInMobile, zenOff, type Account } from './harness';
 
@@ -16,7 +16,7 @@ async function saveNote(page: Page, text: string, title: string): Promise<void> 
   const editor = page.locator('textarea').first();
   await editor.waitFor({ state: 'visible', timeout: 30_000 });
   await editor.fill(text);
-  await page.getByRole('button', { name: /^Готово$/ }).click();
+  await page.locator('[data-write-toolbar]').getByRole('button', { name: /^Сохранить$/ }).click();
   const finish = page.getByRole('dialog').last();
   await expect(finish).toBeVisible({ timeout: 15_000 });
   const titleInput = finish.getByLabel(/Название/).first();
@@ -131,7 +131,7 @@ for (const { w, h } of SIZES) {
       expect(new URL(page.url()).pathname).toBe('/archive');
     });
 
-    test('«⋯» открывает лист действий с «Изменить» в редактор', async ({ page }) => {
+    test('«⋯» открывает лист действий с «Продолжить писать» в редактор', async ({ page }) => {
       await zenOff(page);
       const account = await signInMobile(page, `mp1-actions-${w}`);
       const title = `Действия ${w}`;
@@ -141,14 +141,16 @@ for (const { w, h } of SIZES) {
       await reader.getByRole('button', { name: 'Действия с заметкой' }).click();
       const sheet = page.getByRole('dialog', { name: 'Действия с заметкой' });
       await expect(sheet, '«⋯» не открыла лист действий').toBeVisible({ timeout: 15_000 });
-      await expect(sheet.getByRole('button', { name: 'Изменить', exact: true }), 'в листе нет «Изменить»').toBeVisible();
+      await expect(sheet.getByRole('button', { name: 'Продолжить писать', exact: true }), 'в листе нет «Продолжить писать»').toBeVisible();
       await expect(sheet.getByRole('button', { name: /Удалить заметку/ }), 'в листе нет удаления').toBeVisible();
-      await expect(sheet.getByRole('button', { name: /Загрузить на облако|Скачать на это устройство|Удалить локальную копию|Удалить облачную копию/ })).toHaveCount(0);
+      // MF-12: тот же полный лист, что в списке, — с «Сохранить как…» и карандашом.
+      await expect(sheet.getByRole('button', { name: /Сохранить как/ })).toBeVisible();
+      await expect(sheet.getByRole('button', { name: 'Изменить название' })).toBeVisible();
       await shot(page, `mp1-actions-${w}`);
 
-      await sheet.getByRole('button', { name: 'Изменить', exact: true }).click();
+      await sheet.getByRole('button', { name: 'Продолжить писать', exact: true }).click();
       await page.waitForURL(url => !url.pathname.startsWith('/archive'), { timeout: 20_000 });
-      await expect(page.locator('textarea').first(), '«Изменить» не привела в редактор').toBeVisible({ timeout: 20_000 });
+      await expect(page.locator('textarea').first(), '«Продолжить писать» не привела в редактор').toBeVisible({ timeout: 20_000 });
     });
   });
 }

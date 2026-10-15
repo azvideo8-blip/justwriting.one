@@ -56,7 +56,7 @@ export const settingsTranslations: Translations = {
   settings_sync_orphans_done: { ru: 'Убрано: {summaries} разборов, {embeddings} векторов', en: 'Removed: {summaries} analyses, {embeddings} vectors' },
   settings_sync_orphans_failed: { ru: 'Не удалось убрать из облака: {failed}', en: 'Could not remove from the cloud: {failed}' },
   settings_sync_derived_failed: { ru: 'Не удалось отправить: {failed}', en: 'Failed to upload: {failed}' },
-  settings_sync_derived_locked: { ru: 'Сейф заблокирован. Разблокируйте шифрование для синхронизации', en: 'Vault is locked. Unlock encryption to sync' },
+  settings_sync_derived_locked: { ru: 'Сейф заблокирован. Разблокируй шифрование для синхронизации', en: 'Vault is locked. Unlock encryption to sync' },
 
   settings_storage_title:               { ru: 'Хранилище на устройстве', en: 'On-device storage' },
   settings_storage_persisted:           { ru: 'Постоянное хранение активно (защищено от автоочистки)', en: 'Persistent storage active (protected from auto-cleanup)' },
@@ -87,7 +87,7 @@ export const settingsTranslations: Translations = {
     en: 'Note is marked as device-only — not uploaded to cloud',
   },
   storage_tombstone_notice: {
-    ru: 'Облачная копия была удалена. Нажмите ещё раз для создания новой',
+    ru: 'Облачная копия была удалена. Нажми ещё раз, чтобы создать новую',
     en: 'Cloud copy was deleted. Tap again to create a new cloud copy',
   },
   storage_sync_error_activity_log: {
@@ -109,11 +109,15 @@ export const settingsTranslations: Translations = {
   vault_locked_banner: { ru: 'Сейф заперт — синхронизация на паузе. Написанное сохраняется на устройстве.', en: 'Vault is locked — sync is paused. Your writing is saved on this device.' },
   vault_locked_banner_compact: { ru: 'Сейф заперт — синхронизация на паузе', en: 'Vault locked — sync paused' },
   vault_locked_open: { ru: 'Открыть сейф', en: 'Open vault' },
-  server_unreachable_vpn: { ru: 'Нет связи с сервером — работаем локально. Если включён VPN, попробуйте без него', en: 'Cannot reach the server — working locally. If a VPN is on, try without it' },
+  server_unreachable_vpn: { ru: 'Нет связи с сервером — работаем локально. Если включён VPN, попробуй без него', en: 'Cannot reach the server — working locally. If a VPN is on, try without it' },
   synced_compact: { ru: 'Синхронизировано', en: 'Synced' },
   sync_paused_no_network: { ru: 'Синхронизация приостановлена (нет сети)', en: 'Sync paused (no network)' },
   sync_paused_cloud_unavailable: { ru: 'Синхронизация приостановлена (облако недоступно)', en: 'Sync paused (cloud unavailable)' },
   sync_paused_pending: { ru: '{count} заметок ждут отправки', en: '{count} notes pending sync' },
+  // MF-21: та же строка в профиле, но склоняется.
+  sync_pending_notes_one: { ru: '{count} заметка ждёт отправки', en: '{count} note pending sync' },
+  sync_pending_notes_few: { ru: '{count} заметки ждут отправки', en: '{count} notes pending sync' },
+  sync_pending_notes_many: { ru: '{count} заметок ждут отправки', en: '{count} notes pending sync' },
   sync_pending_deletions_count: { ru: '{count} удалений ожидают удаления из облака', en: '{count} deletions pending cloud removal' },
   // SA-1: производные ИИ живут в своих сторах и раньше для бейджа не
   // считались вообще; «не синхронизировано заметок» про них — ложь.
@@ -130,11 +134,11 @@ export const settingsTranslations: Translations = {
   settings_sessions_sign_out_others: { ru: 'Выйти на остальных устройствах', en: 'Sign out of other devices' },
   settings_sessions_signed_out_others: { ru: 'Сеансы на остальных устройствах завершены', en: 'Signed out of other devices' },
   settings_sessions_sign_out_failed: { ru: 'Не удалось завершить другие сеансы', en: 'Failed to sign out of other devices' },
-  settings_page_subtitle:   { ru: 'Всё, что касается вашей учётной записи, данных и того, кто может их прочитать', en: 'Everything about your account, your data and who can read it' },
+  settings_page_subtitle:   { ru: 'Всё, что касается твоей учётной записи, данных и того, кто может их прочитать', en: 'Everything about your account, your data and who can read it' },
   settings_sec_account:     { ru: 'Аккаунт', en: 'Account' },
-  settings_sec_account_desc:{ ru: 'Кто вы для сервиса и как отсюда выйти', en: 'Who you are to the service, and how to sign out' },
+  settings_sec_account_desc:{ ru: 'Кто ты для сервиса и как отсюда выйти', en: 'Who you are to the service, and how to sign out' },
   settings_sec_sync:        { ru: 'Синхронизация', en: 'Sync' },
-  settings_sec_sync_desc:   { ru: 'Заметки живут на устройстве. Облако — вторая копия, зашифрованная вашим паролем', en: 'Notes live on your device. The cloud is a second copy, encrypted with your password' },
+  settings_sec_sync_desc:   { ru: 'Заметки живут на устройстве. Облако — вторая копия, зашифрованная твоим паролем', en: 'Notes live on your device. The cloud is a second copy, encrypted with your password' },
   settings_sec_security:    { ru: 'Безопасность', en: 'Security' },
   settings_sec_security_desc:{ ru: 'Сейф шифрования, пароли и правила работы искусственного интеллекта — то есть кто и что может прочитать', en: 'The encryption vault, passwords and the rules for AI — that is, who can read what' },
   settings_sec_backup:      { ru: 'Резервная копия', en: 'Backup' },
@@ -152,12 +156,12 @@ export const settingsTranslations: Translations = {
   settings_encrypt_errors:     { ru: 'Ошибок: {count}', en: 'Errors: {count}' },
   settings_encrypt_budget_stop:{ ru: 'Дневной лимит записей исчерпан — зашифровано не всё. Продолжится завтра с того же места.', en: 'Daily write limit reached — not everything was encrypted. It will resume tomorrow where it stopped.' },
   settings_encryption_not_set: { ru: 'Шифрование не настроено', en: 'Encryption not configured' },
-  settings_encryption_not_set_desc: { ru: 'Шифрование не настроено — пока его нет, заметки не отправляются в облако. Настройте его паролем от аккаунта.', en: 'Encryption is not set up — until it is, notes are not uploaded to the cloud. Set it up with your account password.' },
+  settings_encryption_not_set_desc: { ru: 'Шифрование не настроено — пока его нет, заметки не отправляются в облако. Настрой его паролем от аккаунта.', en: 'Encryption is not set up — until it is, notes are not uploaded to the cloud. Set it up with your account password.' },
   settings_initialize_password: { ru: 'Пароль от аккаунта', en: 'Account password' },
   settings_initialize_confirm: { ru: 'Подтверди пароль', en: 'Confirm password' },
   settings_initialize_submit: { ru: 'Включить шифрование', en: 'Enable Encryption' },
   settings_encryption_locked: { ru: 'Шифрование заблокировано', en: 'Encryption Locked' },
-  settings_encryption_locked_desc: { ru: 'Введите пароль от аккаунта, чтобы открыть зашифрованные заметки.', en: 'Enter your account password to open your encrypted notes.' },
+  settings_encryption_locked_desc: { ru: 'Введи пароль от аккаунта, чтобы открыть зашифрованные заметки.', en: 'Enter your account password to open your encrypted notes.' },
   settings_unlock_submit: { ru: 'Разблокировать сейф', en: 'Unlock Vault' },
   settings_lock_vault: { ru: 'Заблокировать сейф', en: 'Lock Vault' },
   settings_vault_unlocked: { ru: 'Сейф разблокирован', en: 'Vault Unlocked' },
@@ -183,11 +187,11 @@ export const settingsTranslations: Translations = {
   settings_migration_import_button: { ru: 'Импортировать архив данных', en: 'Import data archive' },
   settings_migration_import_progress: { ru: 'Проверяю и импортирую данные...', en: 'Verifying and importing data...' },
   settings_migration_import_order_hint: {
-    ru: 'Порядок действий: создайте сейф → импортируйте архив → включите синхронизацию.',
+    ru: 'Порядок действий: создай сейф → импортируй архив → включи синхронизацию.',
     en: 'Order of operations: create vault → import archive → turn sync on.',
   },
   settings_migration_import_no_vault: {
-    ru: 'Сейф ещё не создан. Создайте сейф в секции выше перед импортом архива, чтобы заметки не попали в облако без шифрования.',
+    ru: 'Сейф ещё не создан. Создай сейф в секции выше перед импортом архива, чтобы заметки не попали в облако без шифрования.',
     en: 'No vault exists yet. Create a vault in the section above before importing your archive so notes are not sent to the cloud unencrypted.',
   },
   settings_migration_import_done: {
@@ -214,7 +218,7 @@ export const settingsTranslations: Translations = {
   settings_sync_all_unlinked_done: { ru: 'Синхронизировано: {synced} заметок', en: 'Synced: {synced} documents' },
   settings_sync_all_unlinked_failed: { ru: 'Не удалось отправить: {failed} заметок', en: 'Failed to upload: {failed} documents' },
   settings_sync_vault_locked: {
-    ru: 'Сейф заперт. Откройте сейф, чтобы загрузить заметки из облака.',
+    ru: 'Сейф заперт. Открой сейф, чтобы загрузить заметки из облака.',
     en: 'Vault is locked. Unlock the vault to download notes from the cloud.',
   },
   settings_migration_import_upload_done: {
@@ -256,35 +260,35 @@ export const settingsTranslations: Translations = {
   sync_consent_keep_off: { ru: 'Оставить выключенной', en: 'Leave it off' },
   settings_delete_account_title: { ru: 'Удаление аккаунта', en: 'Delete account' },
   settings_delete_account_desc: {
-    ru: 'При удалении аккаунта безвозвратно стираются все ваши заметки, черновики, история, данные шифрования и учётная запись в облаке. Локальные данные на этом устройстве также будут очищены. Восстановить данные будет невозможно.',
+    ru: 'При удалении аккаунта безвозвратно стираются все твои заметки, черновики, история, данные шифрования и учётная запись в облаке. Локальные данные на этом устройстве также будут очищены. Восстановить данные будет невозможно.',
     en: 'Deleting your account permanently removes all your notes, drafts, history, encryption keys, and cloud profile. Local data on this device will also be erased. This action cannot be undone.',
   },
   settings_delete_account_button: { ru: 'Удалить аккаунт навсегда', en: 'Delete account permanently' },
   settings_delete_account_confirm_title: { ru: 'Удалить аккаунт безвозвратно?', en: 'Permanently delete account?' },
   settings_delete_account_confirm_message: {
-    ru: 'Будет удалено всё: учётная запись, заметки в облаке, локальная база данных, ключи шифрования и данные ИИ. Восстановление невозможно. Вы уверены?',
+    ru: 'Будет удалено всё: учётная запись, заметки в облаке, локальная база данных, ключи шифрования и данные ИИ. Восстановление невозможно. Удалить?',
     en: 'Everything will be deleted: your account, cloud notes, local database, encryption keys, and AI data. Recovery is impossible. Are you sure?',
   },
   // S-28 (O-5): что стирается на этом устройстве сверх базы аккаунта, и что
   // остаётся на других — человек должен узнать это до подтверждения.
   settings_delete_account_confirm_guest_wipe: {
-    ru: 'С этого устройства удалится и гостевая база: заметки, которые вы решили оставить локально, её черновик и данные ИИ.',
+    ru: 'С этого устройства удалится и гостевая база: заметки, оставленные локально, её черновик и данные ИИ.',
     en: 'This device will also lose the guest database: the notes you chose to keep locally, its draft, and AI data.',
   },
   settings_delete_account_confirm_other_devices: {
-    ru: 'На других устройствах, где вы входили, локальная копия заметок останется. Чтобы её удалить, на каждом из них выйдите с очисткой данных — до удаления аккаунта.',
+    ru: 'На других устройствах, где был вход, локальная копия заметок останется. Чтобы её удалить, на каждом из них выйди с очисткой данных — до удаления аккаунта.',
     en: 'On other devices you have signed in to, a local copy of your notes will remain. To delete it, sign out with data clearing on each of them — before deleting the account.',
   },
   settings_delete_account_success: { ru: 'Аккаунт удалён', en: 'Account deleted' },
-  settings_delete_account_wipe_failed: { ru: 'Аккаунт удалён, очистите данные сайта вручную', en: 'Account deleted, clear site data manually' },
+  settings_delete_account_wipe_failed: { ru: 'Аккаунт удалён, очисти данные сайта вручную', en: 'Account deleted, clear site data manually' },
   settings_delete_account_device_not_cleared: { ru: 'Аккаунт удалён, но устройство не очищено', en: 'Account deleted, but device not cleared' },
   settings_delete_account_error: { ru: 'Не удалось удалить аккаунт', en: 'Failed to delete account' },
   // C-4 (R2-007): тосты после выхода — их показывает уже новая загрузка страницы.
-  settings_sign_out_notice: { ru: 'Вы вышли из аккаунта', en: 'Signed out' },
-  settings_sign_out_notice_wiped: { ru: 'Вы вышли, локальные данные удалены', en: 'Signed out — local data deleted' },
-  settings_sign_out_notice_wipe_failed: { ru: 'Вы вышли, но очистить локальные данные не удалось. Очистите данные сайта в браузере вручную.', en: 'Signed out, but local data could not be cleared. Clear this site’s data in your browser manually.' },
+  settings_sign_out_notice: { ru: 'Выход из аккаунта выполнен', en: 'Signed out' },
+  settings_sign_out_notice_wiped: { ru: 'Выход выполнен, локальные данные удалены', en: 'Signed out — local data deleted' },
+  settings_sign_out_notice_wipe_failed: { ru: 'Выход выполнен, но очистить локальные данные не удалось. Очисти данные сайта в браузере вручную.', en: 'Signed out, but local data could not be cleared. Clear this site’s data in your browser manually.' },
   settings_delete_account_password_prompt: {
-    ru: 'Введите пароль, чтобы подтвердить удаление аккаунта. Это необратимо.',
+    ru: 'Введи пароль, чтобы подтвердить удаление аккаунта. Это необратимо.',
     en: 'Enter your password to confirm account deletion. This cannot be undone.',
   },
   settings_delete_account_password_placeholder: { ru: 'Пароль', en: 'Password' },
@@ -386,7 +390,7 @@ export const settingsTranslations: Translations = {
     en: 'Not granted',
   },
   settings_ai_consent_desc_1: {
-    ru: 'ИИ анализирует ваши заметки, помогает искать по смыслу и поддерживает диалог.',
+    ru: 'ИИ анализирует твои заметки, помогает искать по смыслу и поддерживает диалог.',
     en: 'AI analyzes your notes, helps with semantic search, and maintains conversation.',
   },
   settings_ai_consent_desc_2: {
@@ -446,7 +450,7 @@ export const settingsTranslations: Translations = {
     en: 'Send portrait to dialogue',
   },
   settings_ai_portrait_dialog_desc: {
-    ru: 'Портрет — то, что ИИ понял о вас из заметок — сейчас уходит поставщику вместе с каждым сообщением в чате, чтобы ответы были точнее. Здесь можно отключить это для диалога, не трогая сам портрет и разбор заметок — они продолжат работать как прежде.',
+    ru: 'Портрет — то, что ИИ понял о тебе из заметок — сейчас уходит поставщику вместе с каждым сообщением в чате, чтобы ответы были точнее. Здесь можно отключить это для диалога, не трогая сам портрет и разбор заметок — они продолжат работать как прежде.',
     en: 'The portrait — what AI understood about you from notes — is sent to the provider with each chat message for more accurate answers. You can disable this for dialogue here without affecting the portrait or note analysis themselves — they will continue working as before.',
   },
   settings_ai_memory_hints_label: {
@@ -454,7 +458,7 @@ export const settingsTranslations: Translations = {
     en: 'AI memory & suggestions',
   },
   settings_ai_memory_hints_desc: {
-    ru: 'После ответа в чате приложение само делает служебные запросы с тем же разговором: предлагает варианты следующего сообщения и раз в несколько сообщений сохраняет факты в «Память ИИ». Выключите — и после ответа ничего дополнительно не отправляется (название диалога по-прежнему придумывается один раз).',
+    ru: 'После ответа в чате приложение само делает служебные запросы с тем же разговором: предлагает варианты следующего сообщения и раз в несколько сообщений сохраняет факты в «Память ИИ». Выключи — и после ответа ничего дополнительно не отправляется (название диалога по-прежнему придумывается один раз).',
     en: 'After a reply in chat, the app makes background requests with the same conversation: suggests follow-up message options and periodically saves facts to "AI Memory". Turn this off, and nothing additional is sent after a reply (dialogue title is still generated once).',
   },
 

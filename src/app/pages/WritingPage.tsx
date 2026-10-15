@@ -101,7 +101,8 @@ const WritingPageUI = React.memo(function WritingPageUI() {
   const labelId = session.labelId;
   const setLabelId = session.setLabelId;
 
-  const { silenceMode } = useWritingSettings();
+  const { silenceMode, setAiPanelOpen } = useWritingSettings();
+  const hasText = useContentStore(s => s.content.trim().length > 0);
 
   const mainContent = (() => {
     if (isMobile) {
@@ -117,9 +118,7 @@ const WritingPageUI = React.memo(function WritingPageUI() {
           restoreDraft={() => void session.restoreDraft()}
           discardDraft={() => void session.discardDraft()}
           onPlay={() => void handlePlay()}
-          onPause={() => void handlePause()}
           onStop={() => void onFinishClick()}
-          onNew={() => void handleNew()}
           saveStatus={session.saveStatus}
           saveErrorKind={session.saveErrorKind}
           keystrokeTrackerRef={keystrokeTrackerRef}
@@ -138,6 +137,13 @@ const WritingPageUI = React.memo(function WritingPageUI() {
         setSetupMode={setSetupMode}
         startCountdown={flow.startCountdown}
         countdown={flow.countdown}
+        sessionRows={isMobile ? {
+          status: sessionStatus,
+          hasText: hasText,
+          onTogglePause: () => void (sessionStatus === 'writing' ? handlePause() : handlePlay()),
+          onNew: () => void handleNew(),
+          onOpenAI: () => setAiPanelOpen(true),
+        } : undefined}
       />
       <GoalToast visible={flow.goalToastVisible} type={flow.goalToastType} />
       <CancelConfirmModal

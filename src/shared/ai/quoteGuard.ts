@@ -13,6 +13,8 @@
  * есть, обязана пережить правку при любом оформлении и переносе строк.
  *
  * Кавычки в 1–3 слова не трогаются: это метки и термины, а не речь человека.
+ * Исключение (находки 10.6, 11.3): короткая цитата, поданная как слова человека
+ * («ты пишешь «…»», «называешь это «…»»), сверяется так же, как длинная.
  */
 
 // Кавычки любых видов (включая „немецкие“ и одиночные) при сверке не считаются.
@@ -22,6 +24,12 @@ const QUOTE_CHARS = /[«»„“”"'‘’`]/g;
 const QUOTE_SPAN_RE = /«((?:[^«»]|«[^«»]*»)*)»|“((?:[^“”]|“[^“”]*”)*)”|"([^"\n]{1,400})"/g;
 
 const MIN_WORDS = 4;
+const MIN_SPEECH_WORDS = 2;
+
+// Перед короткой цитатой — глагол речи о человеке: «пишешь», «сказала»,
+// «называешь», «твоими словами». Целым словом: «разговор» — не «говоришь».
+// Окно в 40 знаков до открывающей кавычки.
+const SPEECH_CUE_RE = /(?:^|[^а-яё])(?:пишешь|написала?|писала?|говоришь|сказала?|называешь|назвала?|формулируешь|твоими словами|твои слова)[^.!?«»“”"\n]{0,40}$/;
 
 /** Текст для сверки: регистр, ё/е, кавычки, пунктуация и пробелы свёрнуты. */
 export function normalizeQuoteText(s: string): string {
@@ -67,9 +75,11 @@ export function unquoteAbsent(text: string, materials: string | null | undefined
   const hay = normalizeQuoteText(materials ?? '');
   if (!hay) return { text, stripped: [] };
   const stripped: string[] = [];
-  const out = text.replace(QUOTE_SPAN_RE, (match: string, guillemet: string | undefined, curly: string | undefined, straight: string | undefined) => {
+  const out = text.replace(QUOTE_SPAN_RE, (match: string, guillemet: string | undefined, curly: string | undefined, straight: string | undefined, at: number) => {
     const inner = (guillemet ?? curly ?? straight ?? '').trim();
-    if (inner.length < 1 || words(normalizeQuoteText(inner)).length < MIN_WORDS) return match;
+    const n = words(normalizeQuoteText(inner)).length;
+    const speech = SPEECH_CUE_RE.test(text.slice(Math.max(0, at - 40), at).toLowerCase());
+    if (inner.length < 1 || n < (speech ? MIN_SPEECH_WORDS : MIN_WORDS)) return match;
     if (hay.includes(normalizeQuoteText(inner))) return match;
     stripped.push(inner);
     return inner;

@@ -75,7 +75,7 @@ describe('1.3 password recovery', () => {
 
     act(() => { onPasswordRecoveryCb.fire(); });
 
-    const pwInputs = screen.getAllByPlaceholderText(/Новый пароль|Повторите пароль/);
+    const pwInputs = screen.getAllByPlaceholderText(/Новый пароль|Повтори пароль/);
     expect(pwInputs).toHaveLength(2);
     fireEvent.change(pwInputs[0]!, { target: { value: 'new-secret-9' } });
     fireEvent.change(pwInputs[1]!, { target: { value: 'new-secret-9' } });
@@ -100,7 +100,7 @@ describe('1.3 password recovery', () => {
     await waitFor(() => expect(verifyOtpForRecovery).toHaveBeenCalled());
     await act(async () => { await new Promise(r => setTimeout(r, 20)); });
     await act(async () => { finish('me@example.com'); await Promise.resolve(); });
-    expect(await screen.findAllByPlaceholderText(/Новый пароль|Повторите пароль/)).toHaveLength(2);
+    expect(await screen.findAllByPlaceholderText(/Новый пароль|Повтори пароль/)).toHaveLength(2);
     expect(screen.queryByText(/устарела/i)).toBeNull();
     expect(replaceSpy).not.toHaveBeenCalled();
     replaceSpy.mockRestore();
@@ -110,7 +110,7 @@ describe('1.3 password recovery', () => {
     renderPage();
     act(() => { onPasswordRecoveryCb.fire(); });
 
-    const pwInputs = screen.getAllByPlaceholderText(/Новый пароль|Повторите пароль/);
+    const pwInputs = screen.getAllByPlaceholderText(/Новый пароль|Повтори пароль/);
     fireEvent.change(pwInputs[0]!, { target: { value: 'aaaa1111' } });
     fireEvent.change(pwInputs[1]!, { target: { value: 'bbbb2222' } });
     fireEvent.click(screen.getByText('Сменить пароль'));
@@ -127,7 +127,7 @@ describe('1.3 password recovery', () => {
       expect(verifyOtpForRecovery).toHaveBeenCalledWith('abc123hash', 'recovery');
     });
 
-    const pwInputs = await screen.findAllByPlaceholderText(/Новый пароль|Повторите пароль/);
+    const pwInputs = await screen.findAllByPlaceholderText(/Новый пароль|Повтори пароль/);
     expect(pwInputs).toHaveLength(2);
     // Адрес не чистится: обменянный token_hash второй раз не сработает, а после
     // перезагрузки по нему страница узнаёт «ссылка уже обменена» (F-3, 3b).
@@ -135,7 +135,7 @@ describe('1.3 password recovery', () => {
     replaceSpy.mockRestore();
   });
 
-  it('token_hash and type=invite calls verifyOtp with invite and titles the page «Задайте пароль»', async () => {
+  it('token_hash and type=invite calls verifyOtp with invite and titles the page «Задай пароль»', async () => {
     renderPage(['/reset-password?token_hash=inv123&type=invite']);
     await waitFor(() => {
       expect(verifyOtpForRecovery).toHaveBeenCalledWith('inv123', 'invite');
@@ -148,7 +148,7 @@ describe('1.3 password recovery', () => {
     verifyOtpForRecovery.mockRejectedValueOnce(new Error('Email link is invalid or has expired'));
     renderPage(['/reset-password?token_hash=expired-token&type=recovery']);
 
-    expect(await screen.findByText('Ссылка уже использована или устарела — запросите новую')).toBeTruthy();
+    expect(await screen.findByText('Ссылка уже использована или устарела — запроси новую')).toBeTruthy();
     expect(screen.getByText('Запросить новую ссылку')).toBeTruthy();
     expect(screen.queryByPlaceholderText(/Новый пароль/)).toBeNull();
   });
@@ -256,7 +256,7 @@ describe('invite link while another account is signed in', () => {
     renderPage();
     act(() => { onPasswordRecoveryCb.fire(); });
     fireEvent.change(screen.getByLabelText('Новый пароль'), { target: { value: 'aaaaaaaaaa' } });
-    fireEvent.change(screen.getByLabelText('Повторите пароль'), { target: { value: 'bbbbbbbbbb' } });
+    fireEvent.change(screen.getByLabelText('Повтори пароль'), { target: { value: 'bbbbbbbbbb' } });
     fireEvent.click(screen.getByText('Сменить пароль'));
     expect(await screen.findByRole('alert')).toBeInTheDocument();
   });
@@ -294,7 +294,7 @@ describe('invite link while another account is signed in', () => {
     const before = renderPage();
     act(() => { onPasswordRecoveryCb.fire(); });
     fireEvent.change(screen.getByLabelText('Новый пароль'), { target: { value: 'new-secret-9' } });
-    fireEvent.change(screen.getByLabelText('Повторите пароль'), { target: { value: 'new-secret-9' } });
+    fireEvent.change(screen.getByLabelText('Повтори пароль'), { target: { value: 'new-secret-9' } });
     getCurrentUser.mockReturnValue({ uid: 'u1', email: 'me@example.com' });
     fireEvent.click(screen.getByText('Сменить пароль'));
     await waitFor(() => expect(signOutUser).toHaveBeenCalled());
@@ -367,15 +367,15 @@ describe('used invitation: where to finish, and how errors are named', () => {
     verifyOtpForRecovery.mockRejectedValueOnce(new Error('Invitation has already been used'));
     renderPage(['/reset-password?token_hash=used-2&type=invite']);
     expect(await screen.findByText(/Эта ссылка-приглашение уже использована/)).toBeTruthy();
-    expect(screen.getByText(/Если вы начали настройку в другом браузере/)).toBeTruthy();
-    expect(screen.getByText(/вернитесь туда/)).toBeTruthy();
+    expect(screen.getByText(/Если настройка началась в другом браузере/)).toBeTruthy();
+    expect(screen.getByText(/вернись туда/)).toBeTruthy();
   });
 
   it('an expired recovery link does not get the invitation-only advice', async () => {
     verifyOtpForRecovery.mockRejectedValueOnce(new Error('Email link is invalid or has expired'));
     renderPage(['/reset-password?token_hash=used-3&type=recovery']);
     expect(await screen.findByText(/Ссылка уже использована или устарела/)).toBeTruthy();
-    expect(screen.queryByText(/начали настройку в другом браузере/)).toBeNull();
+    expect(screen.queryByText(/настройка началась в другом браузере/)).toBeNull();
   });
 
   it('a lost link session is named as such, not as a failed password change', async () => {
@@ -383,7 +383,7 @@ describe('used invitation: where to finish, and how errors are named', () => {
     act(() => { onPasswordRecoveryCb.fire(); });
     updateUserPassword.mockRejectedValueOnce(new Error('No signed-in user to set a password for'));
     fireEvent.change(screen.getByLabelText('Новый пароль'), { target: { value: 'new-secret-9' } });
-    fireEvent.change(screen.getByLabelText('Повторите пароль'), { target: { value: 'new-secret-9' } });
+    fireEvent.change(screen.getByLabelText('Повтори пароль'), { target: { value: 'new-secret-9' } });
     fireEvent.click(screen.getByText('Сменить пароль'));
     expect(await screen.findByText(/Вход по ссылке потерялся/)).toBeTruthy();
     expect(screen.queryByText(/Не удалось изменить пароль/)).toBeNull();
@@ -394,7 +394,7 @@ describe('used invitation: where to finish, and how errors are named', () => {
     act(() => { onPasswordRecoveryCb.fire(); });
     updateUserPassword.mockRejectedValueOnce(new TypeError('Failed to fetch'));
     fireEvent.change(screen.getByLabelText('Новый пароль'), { target: { value: 'new-secret-9' } });
-    fireEvent.change(screen.getByLabelText('Повторите пароль'), { target: { value: 'new-secret-9' } });
+    fireEvent.change(screen.getByLabelText('Повтори пароль'), { target: { value: 'new-secret-9' } });
     fireEvent.click(screen.getByText('Сменить пароль'));
     expect(await screen.findByText(/Нет соединения с сетью/)).toBeTruthy();
   });
@@ -410,12 +410,12 @@ describe('used invitation: where to finish, and how errors are named', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Начать' }));
     fireEvent.click(screen.getAllByRole('checkbox')[0]!);
     fireEvent.click(screen.getByRole('button', { name: 'Далее' }));
-    await screen.findByText('Придумайте пароль');
+    await screen.findByText('Придумай пароль');
     first.unmount();
 
     getSession.mockResolvedValue({ data: { session: { user: { email: 'invitee@example.com' } } } });
     renderPage(url);
-    await screen.findByText('Придумайте пароль');
+    await screen.findByText('Придумай пароль');
     fireEvent.click(screen.getByRole('button', { name: 'Назад' }));
     expect(screen.getAllByRole('checkbox')[0]).toBeChecked();
     getSession.mockResolvedValue({ data: { session: null } });

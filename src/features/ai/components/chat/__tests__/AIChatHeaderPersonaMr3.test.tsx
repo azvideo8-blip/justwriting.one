@@ -1,6 +1,6 @@
 // MR-3: выбор персоны на телефоне — лист из шапки, один контроль вместо двух.
 import { describe, it, expect, vi } from 'vitest';
-import { fireEvent, screen, within } from '@testing-library/react';
+import { fireEvent, screen, within, waitFor } from '@testing-library/react';
 import { AIChatHeader, type AIChatHeaderProps } from '../AIChatHeader';
 import { renderWithProviders } from '../../../../../test/utils/render';
 
@@ -61,13 +61,14 @@ describe('MR-3: выбор персоны на телефоне', () => {
     expect(within(sheet).getByRole('button', { name: /Своя персона/ })).toBeTruthy();
   });
 
-  it('выбор персоны вызывает setSelectedPersonaId и закрывает лист', () => {
+  it('выбор персоны вызывает setSelectedPersonaId и закрывает лист', async () => {
     const props = base(true);
     renderWithProviders(<AIChatHeader {...props} />);
     fireEvent.click(screen.getByRole('button', { name: /Группа психологов/ }));
     fireEvent.click(screen.getByRole('button', { name: /КПТ-психолог/ }));
     expect(props.setSelectedPersonaId).toHaveBeenCalledWith('cbt');
-    expect(screen.queryByRole('dialog')).toBeNull();
+    // MF-20: лист уходит анимацией ~200 мс, а не в тот же кадр.
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
   it('на десктопе выпадающий список персоны остаётся как был', () => {

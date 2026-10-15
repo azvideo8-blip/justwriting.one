@@ -74,6 +74,8 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
     `vault_auto_created_${uid}`,
     // сохранённая цель по словам (D-19)
     `word_goal_${uid}`,
+    // «Больше не показывать» листа «Голосовой ввод» (MF-5)
+    `jw_dictation_notice_dismissed_${uid}`,
     // отметка инкрементального забора данных ИИ с других устройств
     `ai_pull_since_${uid}`,
     // выключатель подсказок и памяти ИИ (EA-18)

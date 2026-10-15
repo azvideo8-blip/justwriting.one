@@ -46,6 +46,9 @@ for (const { w, h } of [{ w: 390, h: 844 }, { w: 360, h: 640 }]) {
       const next = stepper.getByRole('button', { name: /^Продолжить$/ });
       await expect(next).toBeDisabled();
       await shot(page, `mc6-step1-${w}`);
+      // MF-18 (SA-1): фон степпера непрозрачен — экран письма не просвечивает.
+      const bg = await stepper.evaluate(el => getComputedStyle(el).backgroundColor);
+      expect(/rgba\([^)]*,\s*0(\.\d+)?\)/.test(bg) || bg === 'transparent', `фон степпера ${bg}`).toBe(false);
 
       // Проход по шагам делает тот же обработчик харнесса, что раньше ходил по
       // окнам: ветка степпера в dismissFirstLoginDialogs.

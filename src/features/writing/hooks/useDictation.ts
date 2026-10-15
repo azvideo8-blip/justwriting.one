@@ -91,6 +91,8 @@ export interface DictationSnapshot {
 
 export interface DictationApi extends DictationSnapshot {
   toggle: () => void;
+  /** MF-5: старт после листа «Голосовой ввод» (предупреждение уже показано). */
+  startAfterNotice: () => void;
   stop: () => void;
   cancel: () => void;
 }
@@ -119,7 +121,7 @@ let snapshot: DictationSnapshot = IDLE;
 let waveLevels: number[] = EMPTY_LEVELS;
 let ownerToken: symbol | null = null;
 const listeners = new Set<() => void>();
-let hostCommands: { toggle: () => void; stop: () => void; cancel: () => void } | null = null;
+let hostCommands: { toggle: () => void; startAfterNotice: () => void; stop: () => void; cancel: () => void } | null = null;
 
 function notify(): void {
   listeners.forEach(l => l());
@@ -289,7 +291,7 @@ export function useDictation(): DictationApi {
     session.isVaultActive, meter.level, meter.failed, processing, seconds, aiNotice, yielded,
   ]);
 
-  const toggle = useCallback(() => {
+  const begin = useCallback((noticeHandled: boolean) => {
     if (processing) return;
     if (session.isListening) {
       session.stopListening();
@@ -303,8 +305,10 @@ export function useDictation(): DictationApi {
     void aiDeps.noteHidden(docId ?? undefined).then(hidden => {
       if (hidden) setAiNotice({ yes: false, remaining: 0 });
     });
-    void session.toggleListening();
+    void session.toggleListening({ noticeHandled });
   }, [processing, session]);
+  const toggle = useCallback(() => begin(false), [begin]);
+  const startAfterNotice = useCallback(() => begin(true), [begin]);
 
   const stop = useCallback(() => {
     session.stopListening();
@@ -320,8 +324,8 @@ export function useDictation(): DictationApi {
   // Команды хоста доступны остальным экземплярам hook'а.
   useEffect(() => {
     if (!isHost) return;
-    hostCommands = { toggle, stop, cancel };
-  }, [isHost, toggle, stop, cancel]);
+    hostCommands = { toggle, startAfterNotice, stop, cancel };
+  }, [isHost, toggle, startAfterNotice, stop, cancel]);
 
   useEffect(() => {
     if (!isHost || !session.isListening) return;
@@ -357,6 +361,7 @@ export function useDictation(): DictationApi {
     return {
       ...remote,
       toggle: () => { hostCommands?.toggle(); },
+      startAfterNotice: () => { hostCommands?.startAfterNotice(); },
       stop: () => { hostCommands?.stop(); },
       cancel: () => { hostCommands?.cancel(); },
     };
@@ -375,9 +380,20 @@ export function useDictation(): DictationApi {
     hasSupport: session.hasSupport,
     isVaultActive: session.isVaultActive,
     toggle,
+    startAfterNotice,
     stop,
     cancel,
   };
+}
+
+/** MF-5: сколько запросов останется, если запись пойдёт через ИИ (null — не пойдёт).
+ *  Только локальные чтения (квота, скрытость заметки): ИИ до «Записать» не зовётся. */
+export async function previewDictationCost(): Promise<number | null> {
+  const w = aiDeps.willPunctuate();
+  if (!w.yes) return null;
+  const docId = useSessionMetaStore.getState().savedDocumentId;
+  const hidden = await aiDeps.noteHidden(docId ?? undefined).catch(() => false);
+  return hidden ? null : w.remaining;
 }
 
 async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {

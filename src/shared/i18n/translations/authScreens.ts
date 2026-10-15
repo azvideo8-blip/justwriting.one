@@ -67,17 +67,18 @@ export const authScreensTranslations: Translations = {
   // MC-6: три полноэкранных шага первого входа на телефоне. Пустили — то же
   // согласие и те же записи, что окна, только крупнее и по одному за раз.
   first_run_step: { ru: 'Шаг {current} из {total}', en: 'Step {current} of {total}' },
-  first_run_policy_title: { ru: 'Что происходит с вашим текстом', en: 'What happens to your text' },
+  first_run_policy_title: { ru: 'Что происходит с твоим текстом', en: 'What happens to your text' },
   first_run_policy_link: { ru: 'Читать политику полностью', en: 'Read the full policy' },
   first_run_policy_link_close: { ru: 'Свернуть политику', en: 'Hide the full policy' },
   first_run_next: { ru: 'Дальше', en: 'Next' },
   first_run_cloud_title: { ru: 'Облако', en: 'Cloud' },
-  first_run_sync_switch: { ru: 'Синхронизация с облаком', en: 'Sync with the cloud' },
   first_run_restore_switch_one: { ru: 'Загрузить {count} заметку из облака', en: 'Download {count} note from the cloud' },
   first_run_restore_switch_few: { ru: 'Загрузить {count} заметки из облака', en: 'Download {count} notes from the cloud' },
   first_run_restore_switch_many: { ru: 'Загрузить {count} заметок из облака', en: 'Download {count} notes from the cloud' },
-  first_run_finish: { ru: 'Начать писать', en: 'Start writing' },
-  first_run_skip: { ru: 'Пропустить', en: 'Skip' },
+  // MF-22: шаг «Облако» спрашивает явно, как SyncConsentModal.
+  first_run_cloud_on: { ru: 'Включить облако', en: 'Turn the cloud on' },
+  first_run_cloud_local: { ru: 'Только на этом устройстве', en: 'Only on this device' },
+  first_run_restore_later: { ru: 'Без загрузки', en: 'Not now' },
   privacy_consent_privacy_policy: {
     ru: 'Политика конфиденциальности',
     en: 'Privacy Policy',
@@ -95,7 +96,7 @@ export const authScreensTranslations: Translations = {
     en: 'Required: ',
   },
   privacy_consent_accept_before: {
-    ru: 'Я прочитал и принимаю ',
+    ru: 'Текст прочитан, принимаю ',
     en: 'I have read and accept the ',
   },
   privacy_consent_data_policy: {
@@ -149,11 +150,11 @@ export const authScreensTranslations: Translations = {
     en: 'This account’s data was deleted from this device',
   },
   auth_lost_session_wipe_failed: {
-    ru: 'Не удалось удалить данные с устройства — очистите данные сайта в браузере вручную',
+    ru: 'Не удалось удалить данные с устройства — очисти данные сайта в браузере вручную',
     en: 'Could not delete the data from this device — clear this site’s data in your browser manually',
   },
   signout_unsynced_error: {
-    ru: 'Есть несинхронизированные данные. Подтвердите принудительное удаление или отмените выход.',
+    ru: 'Есть несинхронизированные данные. Подтверди принудительное удаление или отмени выход.',
     en: 'There is unsynced data. Confirm forced deletion or cancel sign-out.',
   },
   signout_title: {
@@ -263,11 +264,11 @@ export const authScreensTranslations: Translations = {
     en: 'Passwords do not match',
   },
   reset_pw_offline: {
-    ru: 'Нет соединения с сетью. Проверьте подключение и попробуйте снова.',
+    ru: 'Нет соединения с сетью. Проверь подключение и попробуй снова.',
     en: 'No network connection. Check your connection and try again.',
   },
   reset_pw_failed: {
-    ru: 'Не удалось изменить пароль. Ссылка могла устареть — запросите новую.',
+    ru: 'Не удалось изменить пароль. Ссылка могла устареть — запроси новую.',
     en: 'Failed to change password. The link may have expired — request a new one.',
   },
   reset_pw_checking_signin: {
@@ -295,7 +296,7 @@ export const authScreensTranslations: Translations = {
     en: 'Could not verify whether another account is open in this browser. ',
   },
   reset_pw_switch_desc_body: {
-    ru: 'Приглашение создаёт новый аккаунт, и из текущего придётся выйти — во всех вкладках. Ваши заметки и черновик останутся в нём, войти обратно можно в любой момент.',
+    ru: 'Приглашение создаёт новый аккаунт, и из текущего придётся выйти — во всех вкладках. Твои заметки и черновик останутся в нём, войти обратно можно в любой момент.',
     en: 'The invitation creates a new account, and you will need to sign out of the current one across all tabs. Your notes and draft will remain in it, and you can sign back in at any time.',
   },
   reset_pw_switch_btn_stay: {
@@ -307,7 +308,7 @@ export const authScreensTranslations: Translations = {
     en: 'Continue',
   },
   reset_pw_title_invite: {
-    ru: 'Задайте пароль',
+    ru: 'Задай пароль',
     en: 'Set a password',
   },
   reset_pw_title_recovery: {
@@ -315,7 +316,7 @@ export const authScreensTranslations: Translations = {
     en: 'Password recovery',
   },
   reset_pw_legacy_hash_warning: {
-    ru: 'Ссылка из письма имеет устаревший формат (implicit hash). Запросите новую ссылку или откройте её повторно.',
+    ru: 'Ссылка из письма имеет устаревший формат (implicit hash). Запроси новую ссылку или открой её повторно.',
     en: 'The link from the email has an outdated format (implicit hash). Please request a new link or reopen it.',
   },
   reset_pw_btn_go_to_login: {
@@ -323,21 +324,21 @@ export const authScreensTranslations: Translations = {
     en: 'Go to sign in',
   },
   reset_pw_invite_used_message: {
-    ru: 'Эта ссылка-приглашение уже использована. Если вы задали пароль — просто войдите. Если не успели — попросите новое приглашение у того, кто вас пригласил.',
+    ru: 'Эта ссылка-приглашение уже использована. Если пароль уже задан — просто войди. Если не получилось — попроси новое приглашение у того, кто тебя пригласил.',
     en: 'This invitation link has already been used. If you set a password, just sign in. If you didn’t get to it, ask whoever invited you for a new invitation.',
   },
   // V-1.2: начатую настройку нельзя продолжить в другом браузере — ссылка обменена там, где её открыли первой.
   reset_pw_invite_used_other_browser: {
-    ru: 'Если вы начали настройку в другом браузере или на другом устройстве — вернитесь туда и завершите её там.',
+    ru: 'Если настройка началась в другом браузере или на другом устройстве — вернись туда и заверши её там.',
     en: 'If you started the setup in another browser or on another device, go back there and finish it there.',
   },
   // V-1.3: вход по ссылке потерялся — это не «нет сети».
   reset_pw_session_lost: {
-    ru: 'Вход по ссылке потерялся. Откройте ссылку из письма ещё раз; если она уже использована — попросите новую.',
+    ru: 'Вход по ссылке потерялся. Открой ссылку из письма ещё раз; если она уже использована — попроси новую.',
     en: 'The sign-in from the link was lost. Open the link from the email again; if it has already been used, ask for a new one.',
   },
   reset_pw_link_expired_message: {
-    ru: 'Ссылка уже использована или устарела — запросите новую',
+    ru: 'Ссылка уже использована или устарела — запроси новую',
     en: 'The link has already been used or has expired — please request a new one',
   },
   reset_pw_btn_request_new_link: {
@@ -345,7 +346,7 @@ export const authScreensTranslations: Translations = {
     en: 'Request new link',
   },
   reset_pw_direct_visit_hint: {
-    ru: 'Откройте эту страницу по ссылке из письма. Если вы перешли напрямую — запросите восстановление пароля на странице входа.',
+    ru: 'Открой эту страницу по ссылке из письма. Если она открыта напрямую — запроси восстановление пароля на странице входа.',
     en: 'Open this page using the link from the email. If you navigated here directly, please request a password recovery on the sign-in page.',
   },
   reset_pw_encryption_important: {
@@ -353,7 +354,7 @@ export const authScreensTranslations: Translations = {
     en: 'Important:',
   },
   reset_pw_encryption_warning_text: {
-    ru: ' заметки зашифрованы прежним паролем. После входа с новым паролем приложение один раз попросит прежний пароль или код восстановления, который вы сохранили при первом входе, — и дальше у вас снова будет один пароль. Без прежнего пароля и кода зашифрованные заметки не открыть.',
+    ru: ' заметки зашифрованы прежним паролем. После входа с новым паролем приложение один раз попросит прежний пароль или код восстановления, сохранённый при первом входе, — и дальше у тебя снова будет один пароль. Без прежнего пароля и кода зашифрованные заметки не открыть.',
     en: ' notes are encrypted with your previous password. After signing in with your new password, the app will ask once for your previous password or recovery code that you saved during your first sign-in — and then you will have a single password again. Without your previous password or code, encrypted notes cannot be opened.',
   },
   reset_pw_input_placeholder: {
@@ -361,7 +362,7 @@ export const authScreensTranslations: Translations = {
     en: 'New password',
   },
   reset_pw_confirm_placeholder: {
-    ru: 'Повторите пароль',
+    ru: 'Повтори пароль',
     en: 'Repeat password',
   },
   reset_pw_saving: {
@@ -373,7 +374,7 @@ export const authScreensTranslations: Translations = {
     en: 'Change password',
   },
   reset_pw_done_message: {
-    ru: 'Пароль изменён. Войдите с новым паролем.',
+    ru: 'Пароль изменён. Войди с новым паролем.',
     en: 'Password changed. Sign in with your new password.',
   },
 
@@ -383,7 +384,7 @@ export const authScreensTranslations: Translations = {
     en: 'Privacy Policy',
   },
   privacy_modal_save_error: {
-    ru: 'Не удалось сохранить согласие. Проверьте связь и попробуйте ещё раз.',
+    ru: 'Не удалось сохранить согласие. Проверь связь и попробуй ещё раз.',
     en: 'Failed to save consent. Please check your connection and try again.',
   },
   privacy_modal_continue: {
@@ -401,7 +402,7 @@ export const authScreensTranslations: Translations = {
     en: 'Local entries from a previous account were found on this device.',
   },
   other_user_data_desc_2: {
-    ru: 'Они изолированы и не видны в ваших заметках. Вы можете очистить их, чтобы освободить место на устройстве.',
+    ru: 'Они изолированы и не видны в твоих заметках. Их можно очистить, чтобы освободить место на устройстве.',
     en: 'They are isolated and not visible in your notes. You can clear them to free up space on your device.',
   },
   other_user_data_btn_keep: {
@@ -513,7 +514,7 @@ export const authScreensTranslations: Translations = {
     en: 'Welcome to justwriting',
   },
   invite_wizard_welcome_desc: {
-    ru: 'Спасибо, что решили попробовать мой проект. Это тихий редактор для свободного письма: пишете без оглядки, заметки хранятся у вас и шифруются, а ИИ помогает перечитать написанное — только когда вы сами его позовёте.',
+    ru: 'Спасибо, что пробуешь мой проект. Это тихий редактор для свободного письма: пишешь без оглядки, заметки хранятся у тебя и шифруются, а ИИ помогает перечитать написанное — только когда сам его позовёшь.',
     en: 'Thank you for trying my project. It is a quiet editor for free writing: write without second thoughts, notes are stored locally and encrypted, and AI helps reread what you wrote — only when you ask for it.',
   },
   invite_wizard_welcome_prompt: {
@@ -533,15 +534,15 @@ export const authScreensTranslations: Translations = {
     en: 'How we handle data',
   },
   invite_wizard_password_title: {
-    ru: 'Придумайте пароль',
+    ru: 'Придумай пароль',
     en: 'Create a password',
   },
   invite_wizard_login_label: {
-    ru: 'Ваш логин:',
+    ru: 'Твой логин:',
     en: 'Your login:',
   },
   invite_wizard_password_desc: {
-    ru: 'Пароль нужен, чтобы входить, — и им же шифруются ваши заметки: без него их не прочитает никто, даже мы. Хранить заметки в облаке или только на этом устройстве, решите на следующем шаге.',
+    ru: 'Пароль нужен, чтобы входить, — и им же шифруются твои заметки: без него их не прочитает никто, даже мы. Хранить заметки в облаке или только на этом устройстве, решишь на следующем шаге.',
     en: 'The password is required to sign in — and it encrypts your notes: without it, nobody can read them, not even us. You will decide on the next step whether to store notes in the cloud or only on this device.',
   },
   invite_wizard_password_placeholder: {
@@ -549,7 +550,7 @@ export const authScreensTranslations: Translations = {
     en: 'Password',
   },
   invite_wizard_confirm_placeholder: {
-    ru: 'Повторите пароль',
+    ru: 'Повтори пароль',
     en: 'Repeat password',
   },
   invite_wizard_saving: {
@@ -581,7 +582,7 @@ export const authScreensTranslations: Translations = {
     en: 'Enable',
   },
   invite_wizard_recovery_title: {
-    ru: 'Сохраните код восстановления',
+    ru: 'Сохрани код восстановления',
     en: 'Save your recovery code',
   },
   invite_wizard_recovery_desc: {
@@ -625,19 +626,19 @@ export const authScreensTranslations: Translations = {
     en: 'Passwords do not match',
   },
   invite_wizard_err_no_email: {
-    ru: 'Не удалось узнать адрес из ссылки — откройте ссылку из письма ещё раз.',
+    ru: 'Не удалось узнать адрес из ссылки — открой ссылку из письма ещё раз.',
     en: 'Could not resolve email from link — please reopen the link from your email.',
   },
   invite_wizard_err_offline: {
-    ru: 'Нет соединения с сетью. Проверьте подключение и попробуйте снова.',
+    ru: 'Нет соединения с сетью. Проверь подключение и попробуй снова.',
     en: 'No network connection. Please check your connection and try again.',
   },
   invite_wizard_err_session_lost: {
-    ru: 'Вход по ссылке потерялся. Откройте ссылку из письма ещё раз; если она уже использована — попросите новое приглашение.',
+    ru: 'Вход по ссылке потерялся. Открой ссылку из письма ещё раз; если она уже использована — попроси новое приглашение.',
     en: 'The sign-in from the link was lost. Open the link from the email again; if it has already been used, ask for a new invitation.',
   },
   invite_wizard_err_failed: {
-    ru: 'Не удалось задать пароль. Ссылка могла устареть — попросите новое приглашение.',
+    ru: 'Не удалось задать пароль. Ссылка могла устареть — попроси новое приглашение.',
     en: 'Failed to set password. The link may have expired — please request a new invitation.',
   },
 
@@ -680,27 +681,27 @@ export const authScreensTranslations: Translations = {
     en: 'Restore complete',
   },
   restore_cloud_desc_loading_zero: {
-    ru: 'На этом устройстве пока нет ваших записей, а в облаке сохранено … Хотите загрузить их сейчас?',
+    ru: 'На этом устройстве пока нет твоих записей, а в облаке сохранено … Загрузить их сейчас?',
     en: 'There are no entries on this device yet, and the cloud has … Would you like to download them now?',
   },
   restore_cloud_desc_loading_nonzero: {
-    ru: 'На этом устройстве … заметок, а в облаке найдено … Хотите синхронизировать недостающие данные?',
+    ru: 'На этом устройстве … заметок, а в облаке найдено … Синхронизировать недостающие данные?',
     en: 'There are … notes on this device, and … found in the cloud. Would you like to sync missing data?',
   },
   restore_cloud_desc_error_zero: {
-    ru: 'На этом устройстве пока нет ваших записей. Хотите загрузить их из облака?',
+    ru: 'На этом устройстве пока нет твоих записей. Загрузить их из облака?',
     en: 'There are no entries on this device yet. Would you like to download them from the cloud?',
   },
   restore_cloud_desc_error_nonzero: {
-    ru: 'На этом устройстве {localCount} заметок. Хотите синхронизировать недостающие данные?',
+    ru: 'На этом устройстве {localCount} заметок. Синхронизировать недостающие данные?',
     en: 'There are {localCount} notes on this device. Would you like to sync missing data?',
   },
   restore_cloud_desc_ready_zero: {
-    ru: 'На этом устройстве пока нет ваших записей, а в облаке сохранено {cloudCount}. Хотите загрузить их сейчас?',
+    ru: 'На этом устройстве пока нет твоих записей, а в облаке сохранено {cloudCount}. Загрузить их сейчас?',
     en: 'There are no entries on this device yet, and {cloudCount} stored in the cloud. Would you like to download them now?',
   },
   restore_cloud_desc_ready_nonzero: {
-    ru: 'На этом устройстве {localCount} заметок, а в облаке найдено {cloudCount}. Хотите синхронизировать недостающие данные?',
+    ru: 'На этом устройстве {localCount} заметок, а в облаке найдено {cloudCount}. Синхронизировать недостающие данные?',
     en: 'There are {localCount} notes on this device, and {cloudCount} found in the cloud. Would you like to sync missing data?',
   },
   restore_cloud_opt_notes_title: {
@@ -756,11 +757,11 @@ export const authScreensTranslations: Translations = {
     en: 'AI records and dialogues:',
   },
   restore_cloud_prog_keep_open: {
-    ru: 'Пожалуйста, не закрывайте вкладку до завершения загрузки.',
+    ru: 'Не закрывай вкладку до завершения загрузки.',
     en: 'Please do not close this tab until the download completes.',
   },
   restore_cloud_fail_threw: {
-    ru: 'Восстановление прервано ошибкой. Попробуйте ещё раз позже.',
+    ru: 'Восстановление прервано ошибкой. Попробуй ещё раз позже.',
     en: 'Restore interrupted by an error. Please try again later.',
   },
   restore_cloud_fail_empty: {

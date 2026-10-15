@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useWritingSettings } from '../../../core/settings/WritingSettingsContext';
 import { useLanguage } from '../../../shared/i18n';
 import { useSettings } from '../../../core/settings/SettingsContext';
-import { useKeyboardHeight } from '../../../shared/hooks/useKeyboardHeight';
 import { useKeyboardState } from '../../../shared/hooks/useKeyboardState';
 import { useStartOnFirstInput } from '../hooks/useStartOnFirstInput';
 import { formatTime } from '../../../core/utils/formatTime';
@@ -14,11 +13,9 @@ import { useSaveMomentStore, SAVE_MOMENT_MS, SAVE_WARNING_MS } from '../store/us
 import { useCountUp } from '../../../shared/hooks/useCountUp';
 import { MobileFocusScreen } from './MobileFocusScreen';
 import { MobileWriteToolbar } from './MobileWriteToolbar';
-import { DictationChrome } from './DictationBar';
-import { MobileGoalSheet } from './MobileGoalSheet';
 import { getFontStack } from '../utils/fontStack';
+import { sessionClockSeconds } from '../utils/sessionModeLabels';
 import { KeystrokeTracker } from '../utils/keystrokeTracker';
-import { getWpmHex } from '../utils/wpmColors';
 import { cn } from '../../../core/utils/utils';
 import { useAutoHideCursor } from '../hooks/useAutoHideCursor';
 import type { SessionType } from '../store/types';
@@ -27,9 +24,7 @@ import type { SessionType } from '../store/types';
 // режим, оставшийся от прошлой сессии (таймер, цель по словам, дедлайн).
 interface MobileWriteScreenProps {
   onPlay: () => void;
-  onPause: () => void;
   onStop: () => void;
-  onNew?: () => void;
   saveStatus?: string;
   saveErrorKind?: 'quota' | 'unknown' | null;
   keystrokeTrackerRef?: React.RefObject<KeystrokeTracker>;
@@ -46,19 +41,18 @@ interface MobileWriteScreenProps {
 }
 
 export function MobileWriteScreen({
-  onPlay, onPause, onStop, onNew, saveStatus, saveErrorKind, keystrokeTrackerRef, renderAiPanel,
+  onPlay, onStop, saveStatus, saveErrorKind, keystrokeTrackerRef, renderAiPanel,
   status: statusProp, streakDays = 0, sessionType = 'free', onOpenSetup, hasDraft, restoreDraft, discardDraft,
 }: MobileWriteScreenProps) {
   const { t, tp, language } = useLanguage();
   const { openSettings } = useSettings();
-  const { content, setContent, title, setTitle, wordCount, wpm } = useContentStore(
+  const { content, setContent, title, setTitle, wordCount } = useContentStore(
     useShallow(s => ({
       content: s.content,
       setContent: s.setContent,
       title: s.title,
       setTitle: s.setTitle,
       wordCount: s.wordCount,
-      wpm: s.wpm,
     }))
   );
   const { status, seconds, timerDuration, sessionStartSeconds, sessionStartWords } = useTimerStore(
@@ -86,9 +80,7 @@ export function MobileWriteScreen({
 
   const sessionSeconds = Math.max(0, seconds - sessionStartSeconds);
   const sessionWords = Math.max(0, wordCount - sessionStartWords);
-  const timeRemaining = timerDuration > 0
-    ? Math.max(0, timerDuration - sessionSeconds)
-    : sessionSeconds;
+  const clockSeconds = sessionClockSeconds(sessionType, timerDuration, sessionSeconds);
 
   const isRunning = status === 'writing';
   const isPaused = status === 'paused';
@@ -144,7 +136,6 @@ export function MobileWriteScreen({
   };
 
   const [focusMode, setFocusMode] = useState(false);
-  const [showGoalSheet, setShowGoalSheet] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const editorAreaRef = useRef<HTMLDivElement>(null);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -174,7 +165,6 @@ export function MobileWriteScreen({
   const swipeTouchStartY = useRef<number>(0);
   const swipeTouchStartX = useRef<number>(0);
 
-  const keyboardHeight = useKeyboardHeight();
   const prevMilestoneRef = useRef(0);
 
   useEffect(() => {
@@ -241,6 +231,34 @@ export function MobileWriteScreen({
       : '',
   ].filter(Boolean).join(' · ');
 
+  // MF-2: низ поля освобождается под весь столбец панелей (запись + панель
+  // письма), а не под клавиатуру: раньше строка каретки уходила под столбец.
+  // Меряется геометрией — так не важно, клавиатура это, вкладки или диктовка.
+  const columnRef = useRef<HTMLDivElement>(null);
+  const [bottomPad, setBottomPad] = useState(120);
+  useLayoutEffect(() => {
+    const column = columnRef.current;
+    const area = editorAreaRef.current;
+    if (!column || !area) return;
+    const measure = () => {
+      const pad = Math.max(0, area.getBoundingClientRect().bottom - column.getBoundingClientRect().top) + 16;
+      setBottomPad(prev => (prev === pad ? prev : pad));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(column);
+    ro.observe(area);
+    return () => ro.disconnect();
+  }, [keyboardState.up, keyboardState.overlay]);
+
+  // MF-2: строка, которую печатают (или диктуют) в конце, всегда над столбцом.
+  // Браузер докручивает каретку только до края поля, а край — под панелью.
+  // ponytail: только каретка в конце; правка в середине под панелью — через зеркало, если понадобится.
+  useLayoutEffect(() => {
+    const ta = textareaRef.current;
+    if (ta && ta.selectionEnd === ta.value.length) ta.scrollTop = ta.scrollHeight;
+  }, [bottomPad, content]);
+
   const toolbarStackStyle: React.CSSProperties = keyboardState.up
     ? { bottom: `${Math.max(8, keyboardState.overlay + 8)}px` }
     : { bottom: 'calc(env(safe-area-inset-bottom, 16px) + var(--bottom-nav-height, 72px))' };
@@ -248,7 +266,7 @@ export function MobileWriteScreen({
   return (
     <>
       {/* not-a-modal: fullscreen mobile screen */}
-      <div className="fixed inset-0 bg-[var(--color-surface-base,#0b0d0c)] flex flex-col z-30">
+      <div className="fixed inset-0 bg-surface-base flex flex-col z-30">
 
       <AnimatePresence>
         {!showZen && (
@@ -289,7 +307,7 @@ export function MobileWriteScreen({
                 isRunning ? "bg-[var(--brand-primary)] shadow-[0_0_6px_oklch(0.72_0.13_155/0.6)]" : isPaused ? "bg-[var(--accent-warning)]" : "bg-[var(--text-subtle)]"
               )} />
               <span className="font-mono text-[13px] font-medium text-[var(--text-main)] tracking-wide tabular-nums">
-                {timerDuration > 0 ? formatTime(timeRemaining) : formatTime(sessionSeconds)}
+                {formatTime(clockSeconds)}
               </span>
             </div>
             )}
@@ -340,7 +358,7 @@ export function MobileWriteScreen({
       {showZen && (
         <div data-testid="zen-header-row" className="flex items-center h-[30px] px-5 gap-3 shrink-0 pt-[env(safe-area-inset-top,0px)]">
           <span className="font-mono text-[12px] tabular-nums text-[var(--text-muted)] truncate">
-            {timerDuration > 0 ? formatTime(timeRemaining) : formatTime(sessionSeconds)}
+            {formatTime(clockSeconds)}
             {' · '}
             {sessionWords} {tp('writing_words', sessionWords)}
           </span>
@@ -370,7 +388,7 @@ export function MobileWriteScreen({
             </div>
           )}
           {discardConfirm && (
-            <div role="dialog" aria-modal="true" aria-labelledby="discard-draft-title" className="rounded-xl border border-[var(--border-light)] bg-[var(--surface-popup,#151021)] p-3 space-y-2">
+            <div role="dialog" aria-modal="true" aria-labelledby="discard-draft-title" className="rounded-xl border border-[var(--border-light)] bg-surface-popup p-3 space-y-2">
               <span id="discard-draft-title" className="block text-[12px] text-[var(--text-main)]">{t('draft_discard_confirm')}</span>
               <div className="flex gap-2 justify-end">
                 <button type="button" onClick={() => setDiscardConfirm(false)} className="h-9 px-3 rounded-lg text-[12px] text-[var(--text-muted)]">{t('common_cancel')}</button>
@@ -421,7 +439,7 @@ export function MobileWriteScreen({
           style={{
             width: '100%',
             height: '100%',
-            padding: `16px 24px ${keyboardHeight}px`,
+            padding: `16px 24px ${bottomPad}px`,
             background: 'transparent',
             border: 'none',
             outline: 'none',
@@ -446,43 +464,13 @@ export function MobileWriteScreen({
         </div>
       </div>
 
-      {keyboardHeight > 130 && !showZen && (
-        <div className="absolute left-0 right-0 flex items-center justify-center gap-4 h-7 bg-[rgba(14,10,24,0.85)] backdrop-blur-sm z-30 px-4" style={{
-          bottom: keyboardHeight,
-          borderTop: '1px solid rgba(165, 131, 232, 0.08)',
-        }}>
-          <span className="font-mono text-[11px] text-[rgba(240,235,250,0.6)] tabular-nums">
-            {tp('archive_word_count', sessionWords)}
-          </span>
-          <span className="w-px h-3 bg-[rgba(165,131,232,0.2)]" />
-          <span className="font-mono text-[11px] text-[rgba(240,235,250,0.6)] tabular-nums">
-            {timerDuration > 0 ? formatTime(timeRemaining) : formatTime(sessionSeconds)}
-          </span>
-          <span className="w-px h-3 bg-[rgba(165,131,232,0.2)]" />
-          <span className="w-1.5 h-1.5 rounded-full" style={{
-            background: getWpmHex(wpm),
-            boxShadow: status === 'writing' && wpm > 0 ? `0 0 6px ${getWpmHex(wpm)}` : 'none',
-          }} />
-        </div>
-      )}
-
-
-      {/* MB-5: панель записи и панель управления — один столбец над нижней
-          панелью. Раньше DictationChrome лежал в потоке flex-col, а тулбар —
-          absolute поверх него, и от панели записи оставались обрывки
-          («Будет…», «(осталось…»): «Остановить» и живые слова были закрыты
-          тулбаром и чипом «Журнал». Теперь панель стоит ровно над тулбаром
-          (gap 8 px) и не перекрывается ни им, ни чипом, ни клавиатурой. */}
-      <div className="absolute left-4 right-4 z-40 flex flex-col gap-2" style={toolbarStackStyle}>
-        <DictationChrome />
+      {/* MB-5/MF-4: столбец над нижней панелью. С MF-4 запись идёт в самой
+          панели письма — отдельной карточки записи на телефоне нет. */}
+      <div ref={columnRef} data-write-column className="absolute left-4 right-4 z-40 flex flex-col gap-2" style={toolbarStackStyle}>
         {/* MB-2: в дзене панель остаётся — «Стоп», микрофон и пауза должны быть
             достижимы одним касанием. Прячем только статистику. */}
         <MobileWriteToolbar
-          onPlay={onPlay}
-          onPause={onPause}
           onStop={onStop}
-          onNew={onNew}
-          onGoalClick={() => setShowGoalSheet(true)}
           streamMode={streamMode}
           onToggleStreamMode={toggleStreamMode}
           onOpenSetup={onOpenSetup}
@@ -494,12 +482,6 @@ export function MobileWriteScreen({
       <AnimatePresence>
         {focusMode && (
           <MobileFocusScreen onExit={() => setFocusMode(false)} />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showGoalSheet && (
-          <MobileGoalSheet isOpen={showGoalSheet} onClose={() => setShowGoalSheet(false)} />
         )}
       </AnimatePresence>
 

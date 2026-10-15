@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { format } from 'date-fns';
 import { Info, MoreHorizontal } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
+import { motion } from 'motion/react';
 import { ArchiveSession } from '../types';
 import { Label } from '../../../types';
 import { useLanguage } from '../../../shared/i18n';
@@ -15,11 +15,11 @@ import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { ModalShell } from '../../../shared/components/ModalShell';
 import { InlineTags } from './InlineTags';
-import { CopyNoteModal } from './CopyNoteModal';
 import { MobileNoteActionsSheet } from '../../../app/components/MobileNoteActionsSheet';
 import { usePanelHistory } from '../../../shared/hooks/usePanelHistory';
 import { readingTimeMinutes } from '../../../shared/utils/readingTime';
 import { isBlankTitle } from '../../../shared/utils/titleUtils';
+import { MobileRenameSheet } from './MobileRenameSheet';
 import { getDateLocale, toDate } from '../../../core/utils/dateUtils';
 import { getCurrentUser } from '../../../core/auth';
 import { toggleAIExclusion } from '../services/archiveCrud';
@@ -43,6 +43,8 @@ interface MobileNoteReaderProps {
   justFinished?: boolean | undefined;
   analyzeError?: string | null | undefined;
   onAnalyze?: (() => void) | undefined;
+  /** MF-12: «Удалить разбор ИИ» в листе действий читалки — как в списке. */
+  onClearAnalysis?: (() => void) | undefined;
   /** Ревью 0.9.40: новая метка с телефона — тот же `addLabel`, что на десктопе. */
   onAddLabel?: ((label: { name: string; color: string }) => void) | undefined;
   /** Ревью 0.9.40: «Изменить название» переименовывает, а не открывает редактор. */
@@ -54,7 +56,7 @@ interface MobileNoteReaderProps {
 
 export function MobileNoteReader({
   session, onClose, onContinue, onTagsChange, onLabelChange, labels, allTags,
-  onDelete, onStorageChange, summary, analyzing, justFinished, analyzeError, onAnalyze,
+  onDelete, onStorageChange, summary, analyzing, justFinished, analyzeError, onAnalyze, onClearAnalysis,
   onAddLabel, onTitleChange, relatedNotes, onSelectRelated,
 }: MobileNoteReaderProps) {
   const { t, tp, language } = useLanguage();
@@ -73,10 +75,9 @@ export function MobileNoteReader({
   const actorId = user?.uid ?? session.userId;
   const [infoOpen, setInfoOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
-  const [copyOpen, setCopyOpen] = useState(false);
+  const [tagAdding, setTagAdding] = useState(false);
   const [exclusionLoading, setExclusionLoading] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
-  const [titleDraft, setTitleDraft] = useState('');
   const [creatingLabel, setCreatingLabel] = useState(false);
   const [newLabelName, setNewLabelName] = useState('');
   const [newLabelColor, setNewLabelColor] = useState<string>(LABEL_PRESET_COLORS[0]!);
@@ -87,11 +88,6 @@ export function MobileNoteReader({
     setNewLabelName('');
     setNewLabelColor(LABEL_PRESET_COLORS[0]!);
     setCreatingLabel(false);
-  };
-  const saveTitle = () => {
-    const title = titleDraft.trim();
-    if (title && onTitleChange && title !== session.title) onTitleChange(session, title);
-    setRenameOpen(false);
   };
   // MB-9: «назад» и свайп закрывают читалку, а не уводят из приложения.
   usePanelHistory(true, onClose, true);
@@ -207,8 +203,8 @@ export function MobileNoteReader({
         )}
       </div>
 
-      <AnimatePresence>
-        {infoOpen && (
+      {/* MF-20: «Инфо» смонтирован всегда — open даёт листу уйти с анимацией. */}
+
           <ModalShell open={infoOpen} onClose={() => setInfoOpen(false)} labelId="note-reader-info-title" variant="sheet">
             <div className="custom-scrollbar max-h-[80dvh] overflow-y-auto px-5 pb-[calc(env(safe-area-inset-bottom,0px)+16px)]">
               <div className="flex items-center justify-between py-3">
@@ -322,6 +318,9 @@ export function MobileNoteReader({
                   tags={session.tags || []}
                   onChange={tags => onTagsChange?.(session, tags)}
                   allTags={allTags}
+                  isAdding={tagAdding}
+                  onStartAdding={() => setTagAdding(true)}
+                  onStopAdding={() => setTagAdding(false)}
                 />
               </div>
 
@@ -330,17 +329,25 @@ export function MobileNoteReader({
                   {t('archive_preview_ai_title')}
                 </div>
                 {summary ? (
-                  <div className="mt-2 space-y-2">
-                    {summary.summary && (
-                      <p className="text-[15px] italic leading-[1.5] text-text-main/80">{summary.summary}</p>
+                  /* MF-15: то же, что десктопное превью — сводка, темы, тон, инсайты,
+                     факты; пустые части скрыты. Повторного разбора нет, как на десктопе:
+                     для разобранной заметки в «⋯» — «Удалить разбор ИИ». */
+                  <div className="mt-2 space-y-3 text-[15px] leading-[1.5] text-text-main/80">
+                    {summary.summary && <p className="italic">{summary.summary}</p>}
+                    {(summary.themes?.length ?? 0) > 0 && <p className="text-text-main/70">{summary.themes!.join(' · ')}</p>}
+                    {summary.tone && <p><span className="text-text-muted">{t('archive_preview_tone')}</span> {summary.tone}</p>}
+                    {summary.insights.length > 0 && (
+                      <div>
+                        <div className="text-text-muted">{t('archive_preview_insights')}</div>
+                        <ul className="mt-1 ml-4 list-disc space-y-1">{summary.insights.map((x, i) => <li key={i}>{x}</li>)}</ul>
+                      </div>
                     )}
-                    <Button
-                      onClick={() => onAnalyze?.()}
-                      disabled={analyzing}
-                      className="min-h-11 rounded-xl bg-brand-soft/10 px-3 text-[15px] text-brand-soft"
-                    >
-                      {t('reader_update_analysis')}
-                    </Button>
+                    {summary.extractedFacts.length > 0 && (
+                      <div>
+                        <div className="text-text-muted">{t('archive_preview_facts')}</div>
+                        <ul className="mt-1 ml-4 list-disc space-y-1">{summary.extractedFacts.map((x, i) => <li key={i}>{x}</li>)}</ul>
+                      </div>
+                    )}
                   </div>
                 ) : session.excludedFromAI ? (
                   <p className="mt-2 text-[15px] italic text-text-main/50">{t('archive_preview_ai_excluded')}</p>
@@ -362,8 +369,8 @@ export function MobileNoteReader({
               </div>
             </div>
           </ModalShell>
-        )}
-      </AnimatePresence>
+
+
 
       {actionsOpen && (
         <MobileNoteActionsSheet
@@ -372,13 +379,16 @@ export function MobileNoteReader({
           session={session}
           userId={actorId}
           labels={labels}
-          fromReader
+          openLabel={t('archive_continue_writing')}
           onOpen={() => onContinue(session)}
           onRename={() => {
-            if (onTitleChange) { setTitleDraft(isBlankTitle(session.title) ? '' : (session.title ?? '')); setRenameOpen(true); }
+            if (onTitleChange) setRenameOpen(true);
             else onContinue(session);
           }}
-          onCopy={() => setCopyOpen(true)}
+          onAddTag={() => { setInfoOpen(true); setTagAdding(true); }}
+          aiProcessed={!!summary}
+          aiLoading={!!analyzing}
+          onAIClick={summary ? onClearAnalysis : onAnalyze}
           onDelete={() => onDelete?.(session)}
           onLabelChange={labelId => onLabelChange?.(session, labelId)}
           onStorageChange={() => onStorageChange?.()}
@@ -387,27 +397,13 @@ export function MobileNoteReader({
         />
       )}
 
-      {copyOpen && (
-        <CopyNoteModal open={copyOpen} onClose={() => setCopyOpen(false)} session={session} />
-      )}
 
       {renameOpen && (
-        <ModalShell open={renameOpen} onClose={() => setRenameOpen(false)} labelId="note-reader-rename-title" variant="sheet">
-          <div className="p-5 pb-[calc(env(safe-area-inset-bottom,0px)+20px)]">
-            <h2 id="note-reader-rename-title" className="text-[17px] font-semibold text-text-main">{t('archive_rename_title')}</h2>
-            <input
-              value={titleDraft}
-              onChange={e => setTitleDraft(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') saveTitle(); }}
-              aria-label={t('archive_rename_title')}
-              className="mt-4 min-h-12 w-full rounded-xl border border-border-subtle bg-transparent px-3 text-[17px] text-text-main outline-none"
-            />
-            <div className="mt-4 flex justify-end gap-2">
-              <Button onClick={() => setRenameOpen(false)} className="min-h-11 px-4 text-[15px] text-text-main/60">{t('common_cancel')}</Button>
-              <Button onClick={saveTitle} disabled={!titleDraft.trim()} className="min-h-11 rounded-xl px-4 text-[15px] font-medium text-text-main disabled:opacity-40">{t('common_save')}</Button>
-            </div>
-          </div>
-        </ModalShell>
+        <MobileRenameSheet
+          initialTitle={isBlankTitle(session.title) ? '' : (session.title ?? '')}
+          onCancel={() => setRenameOpen(false)}
+          onSave={title => { if (onTitleChange && title !== session.title) onTitleChange(session, title); setRenameOpen(false); }}
+        />
       )}
     </motion.div>,
     document.body,

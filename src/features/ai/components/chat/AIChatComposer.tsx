@@ -21,7 +21,6 @@ export interface AIChatComposerProps {
   onSend: () => void;
   /** MR-2: на телефоне композер стоит над панелью навигации и едет за клавиатурой. */
   isMobile: boolean;
-  keyboardHeight: number;
   pendingAttachments: PendingAttachment[];
   removePendingAttachment: (idx: number) => void;
   onPasteAsNote: () => void;
@@ -87,7 +86,6 @@ export function AIChatComposer(props: AIChatComposerProps) {
     onStop,
     onSend,
     isMobile,
-    keyboardHeight,
     pendingAttachments,
     removePendingAttachment,
     onPasteAsNote,
@@ -110,7 +108,7 @@ export function AIChatComposer(props: AIChatComposerProps) {
     crisisActive,
     dismissCrisis,
   } = props;
-  const { t, language } = useLanguage();
+  const { t, tp, language } = useLanguage();
   const keyboard = useKeyboardState();
 
   // Заметка приложена, вопроса нет — приложение само спрашивает, что с ней
@@ -149,6 +147,8 @@ export function AIChatComposer(props: AIChatComposerProps) {
   // вкладками, а её числа переехали в лист «⋯» шапки. Остаться здесь может
   // только предупреждение: ≤ 3 сообщений, выбитый лимит или «данные недоступны».
   const showQuotaLine = !isMobile || quotaUnknown || dailyLimitRemaining <= 3 || reasoningRem <= 3;
+  // MF-7: на телефоне счётчик знаков — только у предела (> 90 %).
+  const showCharCounter = !isMobile || inputText.length > maxInputChars * 0.9;
 
   useEffect(() => {
     const el = inputRef.current;
@@ -188,9 +188,9 @@ export function AIChatComposer(props: AIChatComposerProps) {
           // MC-2: с клавиатурой нижняя панель убрана, поэтому её высота в отступ
           // больше не входит — капсула встаёт на 8 px над клавиатурой (или над
           // краем экрана, когда клавиатура сжала вьюпорт, а не легла поверх).
-          paddingBottom: keyboard.up
-            ? `${Math.max(8, keyboard.overlay + 8)}px`
-            : `calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + ${keyboardHeight}px)`,
+          // MF-7: без клавиатуры — 8 px: `main` уже отступает на высоту панели
+          // (`pb-safe-nav`), второй раз она давала пустую полосу.
+          paddingBottom: keyboard.up ? `${Math.max(8, keyboard.overlay + 8)}px` : '8px',
         } : undefined}
       >
         <div>
@@ -243,7 +243,8 @@ export function AIChatComposer(props: AIChatComposerProps) {
           )}
           <div className={cn(
             "flex items-end gap-2.5 p-2.5 pl-3.5 rounded-2xl bg-surface-card border border-border-subtle focus-within:border-brand-soft/40 transition-colors min-w-0",
-            isMobile && "gap-2"
+            // SA-4: пустой композер на телефоне — одна строка, 56 px.
+            isMobile && "gap-2 p-[5px] pl-[5px]"
           )}>
             <div className="relative" ref={attachMenuRef}>
               <IconButton
@@ -324,7 +325,23 @@ export function AIChatComposer(props: AIChatComposerProps) {
           </div>
 
           <div className={cn("flex items-center gap-3.5 mt-2.5 flex-wrap", isMobile && "mt-1 text-[11px]")}>
-            {showQuotaLine && (
+            {/* MF-7: на телефоне — одна тихая строка остатка запросов, всегда. */}
+            {isMobile && (
+              <span
+                data-quota-line
+                className={cn(
+                  'text-[12px]',
+                  (reasoning ? reasoningDanger : chatDanger) ? 'text-accent-danger'
+                    : (reasoning ? reasoningWarning : chatWarning) ? 'text-accent-warning' : 'text-text-main/60',
+                )}
+              >
+                {quotaUnknown ? t('ai_quota_unavailable') : [
+                  tp('ai_quota_left', dailyLimitRemaining),
+                  reasoning ? tp('ai_quota_left_reasoning', reasoningRem) : '',
+                ].filter(Boolean).join(' · ')}
+              </span>
+            )}
+            {!isMobile && showQuotaLine && (
             <span className="flex items-center gap-1.5 text-[10px] font-mono text-text-main/60 flex-wrap">
               {quotaUnknown ? (
                 <span>{t('ai_quota_unavailable')}</span>
@@ -351,6 +368,7 @@ export function AIChatComposer(props: AIChatComposerProps) {
             </span>
             )}
             <div className="flex-1" />
+            {showCharCounter && (<>
             <span className={cn(
               "text-[10px] font-mono",
               inputText.length > maxInputChars * 0.9 ? "text-accent-danger" : "text-text-main/60"
@@ -363,6 +381,7 @@ export function AIChatComposer(props: AIChatComposerProps) {
                 style={{ width: `${Math.min(100, (inputText.length / maxInputChars) * 100)}%` }}
               />
             </div>
+            </>)}
           </div>
         </div>
       </div>

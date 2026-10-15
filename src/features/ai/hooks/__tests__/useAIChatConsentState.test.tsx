@@ -126,7 +126,7 @@ describe('S-31: chat without AI consent', { timeout: 40_000 }, () => {
     await act(async () => { screen.getByRole('button', { name: 'send' }).click(); });
 
     await waitFor(() => {
-      expect(screen.getByText(/разрешите его использование в настройках/)).toBeInTheDocument();
+      expect(screen.getByText(/разреши его использование в настройках/)).toBeInTheDocument();
     }, WAIT);
     // null — сигнал useAIPageData вернуть набранный текст в поле ввода.
     await waitFor(() => {
@@ -153,7 +153,7 @@ describe('S-31: chat without AI consent', { timeout: 40_000 }, () => {
     await waitFor(() => {
       expect(screen.getByTestId('returned').textContent).toBe('null');
     }, WAIT);
-    expect(screen.getByText(/разрешите его использование в настройках/)).toBeInTheDocument();
+    expect(screen.getByText(/разреши его использование в настройках/)).toBeInTheDocument();
 
     const db = await getLocalDb();
     expect(await db.getAll('aiDialogues')).toEqual([]);
@@ -186,7 +186,7 @@ describe('S-31: chat without AI consent', { timeout: 40_000 }, () => {
       expect(screen.getByTestId('returned').textContent).toBe('null');
     }, WAIT);
 
-    expect(screen.getByText(/разрешите его использование в настройках/)).toBeInTheDocument();
+    expect(screen.getByText(/разреши его использование в настройках/)).toBeInTheDocument();
     expect(screen.queryByText(/Произошла ошибка|Ошибка сервиса/)).not.toBeInTheDocument();
     expect(aiFetchCalls).toContain('/api/chat');
     // S-56.5: отказ стрима по согласию — не «Streaming chat failed», и без callable-повтора.
@@ -223,7 +223,7 @@ describe('S-31: chat without AI consent', { timeout: 40_000 }, () => {
     }, WAIT);
 
     expect(aiFetchCalls, `лишние запросы: ${aiFetchCalls.join(', ')}`).toEqual(['/api/embedDocument']);
-    expect(screen.queryByText(/разрешите его использование в настройках/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/разреши его использование в настройках/)).not.toBeInTheDocument();
     expect(reportError).not.toHaveBeenCalled();
     expect(useActivityLogStore.getState().entries.filter(e => e.level === 'error' || e.level === 'warning')).toEqual([]);
   });
@@ -247,7 +247,7 @@ describe('S-31: chat without AI consent', { timeout: 40_000 }, () => {
     for (const attempt of [1, 2]) {
       await act(async () => { screen.getByRole('button', { name: 'send' }).click(); });
       await waitFor(() => {
-        expect(screen.getByText(/разрешите его использование в настройках/)).toBeInTheDocument();
+        expect(screen.getByText(/разреши его использование в настройках/)).toBeInTheDocument();
       }, WAIT);
       expect(screen.queryByText(/Произошла ошибка|Ошибка сервиса/)).not.toBeInTheDocument();
       // Второй ход идёт в callable напрямую: /api/chat больше не трогается.
@@ -280,7 +280,7 @@ describe('S-31: chat without AI consent', { timeout: 40_000 }, () => {
     await waitFor(() => {
       expect(screen.getByTestId('returned').textContent).toBe('id');
     }, WAIT);
-    expect(screen.queryByText(/разрешите его использование в настройках/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/разреши его использование в настройках/)).not.toBeInTheDocument();
   });
 
   // Проводка подсказки в AIPage (consentRequired → AIChatMessages, «Открыть

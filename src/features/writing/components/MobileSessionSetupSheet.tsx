@@ -15,6 +15,17 @@ interface MobileSessionSetupSheetProps {
   setSetupMode: (mode: SetupMode) => void;
   startCountdown: (type: 'stopwatch' | 'timer' | 'words' | 'finish-by') => void;
   countdown: number | null;
+  /** MF-3: на телефоне пауза, «Новая заметка» и ИИ-помощник ушли из панели письма
+   *  сюда — тремя строками над режимами. Без пропа (десктоп) строк нет. */
+  sessionRows?: SessionRows | undefined;
+}
+
+export interface SessionRows {
+  status: 'idle' | 'writing' | 'paused';
+  hasText: boolean;
+  onTogglePause: () => void;
+  onNew: () => void;
+  onOpenAI: () => void;
 }
 
 export function MobileSessionSetupSheet({
@@ -22,6 +33,7 @@ export function MobileSessionSetupSheet({
   setSetupMode,
   startCountdown,
   countdown,
+  sessionRows,
 }: MobileSessionSetupSheetProps) {
   const { t, tp } = useLanguage();
   const timerDuration = useTimerStore(s => s.timerDuration);
@@ -42,8 +54,6 @@ export function MobileSessionSetupSheet({
       }
     }
   }, [countdown]);
-
-  if (!setupMode) return null;
 
   const handleStartWithValidation = () => {
     if (setupMode === 'finish-by-config' && targetTime) {
@@ -94,12 +104,12 @@ export function MobileSessionSetupSheet({
         )}
       </AnimatePresence>
 
-      {/* Slide-up Bottom Sheet Panel */}
-      {setupMode !== 'countdown' && (
-        <ModalShell open onClose={() => setSetupMode(null)} labelId="setup-sheet-title" variant="sheet" className="max-h-[90vh]">
+      {/* Slide-up Bottom Sheet Panel — MF-20: смонтирован всегда, open даёт уход с анимацией. */}
+      {(
+        <ModalShell open={!!setupMode && setupMode !== 'countdown'} onClose={() => setSetupMode(null)} labelId="setup-sheet-title" variant="sheet" className="max-h-[90vh]">
           {/* Grab Handle */}
           <div className="flex justify-center py-3">
-            <div className="w-12 h-1.5 rounded-full bg-white/10" />
+            <div className="w-12 h-1.5 rounded-full bg-text-main/10" />
           </div>
 
             {/* Back / Close Actions */}
@@ -119,7 +129,7 @@ export function MobileSessionSetupSheet({
               )}
               <IconButton
                 onClick={() => setSetupMode(null)}
-                className="w-8 h-8 rounded-full bg-white/[0.04] border-none flex items-center justify-center text-text-main/60 hover:text-text-main/70 cursor-pointer"
+                className="w-8 h-8 rounded-full bg-text-main/[0.05] border-none flex items-center justify-center text-text-main/60 hover:text-text-main/70 cursor-pointer"
                 label={t('close')}
                 icon={<X size={18} />}
               />
@@ -129,6 +139,21 @@ export function MobileSessionSetupSheet({
               {/* Selection Screen */}
               {setupMode === 'selection' && (
                 <div className="space-y-4">
+                  {sessionRows && (
+                    <div className="grid grid-cols-1 gap-2" data-session-rows>
+                      {sessionRows.status !== 'idle' && (
+                        <SessionRow
+                          label={sessionRows.status === 'paused' ? t('writing_resume') : t('pause')}
+                          onClick={() => { setSetupMode(null); sessionRows.onTogglePause(); }}
+                        />
+                      )}
+                      {sessionRows.hasText && (
+                        <SessionRow label={t('topbar_new')} onClick={() => { setSetupMode(null); sessionRows.onNew(); }} />
+                      )}
+                      {/* Не переключатель: строка закрывает лист и открывает ту же панель ИИ, что раньше ✦. */}
+                      <SessionRow label={`${t('ai_toggle')} ›`} onClick={() => { setSetupMode(null); sessionRows.onOpenAI(); }} />
+                    </div>
+                  )}
                   <div className="space-y-1">
                     <p className="text-xs text-text-main/60 font-medium leading-relaxed">
                       {t('writing_how_to_write')}
@@ -145,7 +170,7 @@ export function MobileSessionSetupSheet({
                       <Button
                         key={mode.id}
                         onClick={() => mode.id === 'stopwatch' ? startCountdown('stopwatch') : setSetupMode(mode.id as SetupMode)}
-                        className="p-4 rounded-2xl border border-white/[0.05] bg-white/[0.02] flex items-center gap-4 text-left w-full active:bg-white/[0.07] active:scale-[0.99] transition-colors cursor-pointer min-h-[64px]"
+                        className="p-4 rounded-2xl border border-border-subtle bg-text-main/[0.03] flex items-center gap-4 text-left w-full active:bg-text-main/[0.07] active:scale-[0.99] transition-colors cursor-pointer min-h-[64px]"
                       >
                         <div className={cn("p-2.5 rounded-xl shrink-0", mode.bg, mode.color)}>
                           <mode.icon size={20} strokeWidth={2.2} />
@@ -186,7 +211,7 @@ export function MobileSessionSetupSheet({
                               pattern="[0-9]*"
                               value={timerDuration / 60 || ''}
                               onChange={(e) => setTimerDuration(Number(e.target.value) * 60)}
-                              className="w-32 text-center text-6xl font-black bg-transparent border-b border-white/10 py-1 outline-none text-text-main"
+                              className="w-32 text-center text-6xl font-black bg-transparent border-b border-border-subtle py-1 outline-none text-text-main"
                               min="1"
                               placeholder="15"
                               aria-label={t('writing_minutes')}
@@ -207,7 +232,7 @@ export function MobileSessionSetupSheet({
                                   "px-3.5 py-2 rounded-xl text-xs font-semibold border transition-colors cursor-pointer",
                                   timerDuration === mins * 60
                                     ? "bg-brand-primary/10 border-brand-primary text-brand-primary"
-                                    : "bg-white/[0.02] border-white/[0.06] text-text-main/60"
+                                    : "bg-text-main/[0.03] border-border-subtle text-text-main/60"
                                 )}
                               >
                                 {mins} {t('goal_time_min')}
@@ -226,7 +251,7 @@ export function MobileSessionSetupSheet({
                               pattern="[0-9]*"
                               value={wordGoal || ''}
                               onChange={(e) => setWordGoal(Number(e.target.value))}
-                              className="w-40 text-center text-6xl font-black bg-transparent border-b border-white/10 py-1 outline-none text-text-main"
+                              className="w-40 text-center text-6xl font-black bg-transparent border-b border-border-subtle py-1 outline-none text-text-main"
                               min="10"
                               placeholder="500"
                               aria-label={t('writing_words')}
@@ -247,7 +272,7 @@ export function MobileSessionSetupSheet({
                                   "px-3.5 py-2 rounded-xl text-xs font-semibold border transition-colors cursor-pointer",
                                   wordGoal === words
                                     ? "bg-brand-primary/10 border-brand-primary text-brand-primary"
-                                    : "bg-white/[0.02] border-white/[0.06] text-text-main/60"
+                                    : "bg-text-main/[0.03] border-border-subtle text-text-main/60"
                                 )}
                               >
                                 {tp('archive_word_count', words)}
@@ -265,7 +290,7 @@ export function MobileSessionSetupSheet({
                               value={targetTime || ''}
                               onChange={(e) => { setTargetTime(e.target.value); setFinishByError(false); }}
                               className={cn(
-                                "w-52 text-center text-5xl font-black bg-transparent border-b border-white/10 py-1 outline-none",
+                                "w-52 text-center text-5xl font-black bg-transparent border-b border-border-subtle py-1 outline-none",
                                 finishByError ? "text-accent-danger border-accent-danger/50" : "text-text-main"
                               )}
                               aria-label={t('writing_time')}
@@ -288,7 +313,7 @@ export function MobileSessionSetupSheet({
                     <div className="w-full pt-4">
                       <Button
                         onClick={handleStartWithValidation}
-                        className="w-full py-4 rounded-2xl font-bold text-sm bg-text-main text-surface-base active:scale-[0.98] transition-colors cursor-pointer shadow-[0_4px_16px_rgba(255,255,255,0.08)]"
+                        className="w-full py-4 rounded-2xl font-bold text-sm bg-text-main text-surface-base active:scale-[0.98] transition-colors cursor-pointer"
                       >
                         {t('writing_start')}
                       </Button>
@@ -302,5 +327,17 @@ export function MobileSessionSetupSheet({
         </ModalShell>
       )}
     </>
+  );
+}
+
+function SessionRow({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="min-h-11 w-full rounded-2xl border border-[var(--border-light)] px-4 text-left text-sm font-semibold text-text-main active:scale-[0.99] transition-transform"
+    >
+      {label}
+    </button>
   );
 }

@@ -23,8 +23,8 @@ export const aiTranslations: Translations = {
   ai_create: { ru: 'Создать', en: 'Create' },
   ai_dialogue_with: { ru: 'Диалог с {name}', en: 'Dialogue with {name}' },
   ai_dialogue_anon: { ru: 'Диалог: {name}', en: 'Dialogue: {name}' },
-  ai_select_persona: { ru: 'Выберите персону и напишите сообщение', en: 'Select a persona and write a message' },
-  ai_you: { ru: 'вы', en: 'you' },
+  ai_select_persona: { ru: 'Выбери персону и напиши сообщение', en: 'Select a persona and write a message' },
+  ai_you: { ru: 'ты', en: 'you' },
   ai_close: { ru: 'Закрыть', en: 'Close' },
   ai_attach: { ru: 'Прикрепить', en: 'Attach' },
   ai_attach_note: { ru: 'Прикрепить заметку', en: 'Attach note' },
@@ -51,12 +51,19 @@ export const aiTranslations: Translations = {
   ai_quota_reasoning: { ru: 'рассуждения', en: 'reasoning' },
   ai_quota_reset_in: { ru: 'сброс через {hours} ч', en: 'resets in {hours} h' },
   ai_quota_unavailable: { ru: 'данные о лимите недоступны', en: 'limit data unavailable' },
+  // MF-7: строка под композером на телефоне.
+  ai_quota_left_one: { ru: 'Остался {count} запрос', en: '{count} request left' },
+  ai_quota_left_few: { ru: 'Осталось {count} запроса', en: '{count} requests left' },
+  ai_quota_left_many: { ru: 'Осталось {count} запросов', en: '{count} requests left' },
+  ai_quota_left_reasoning_one: { ru: '{count} с рассуждением', en: '{count} with reasoning' },
+  ai_quota_left_reasoning_few: { ru: '{count} с рассуждением', en: '{count} with reasoning' },
+  ai_quota_left_reasoning_many: { ru: '{count} с рассуждением', en: '{count} with reasoning' },
   ai_quota_exhausted: {
     ru: 'Дневной лимит сообщений исчерпан. Он обновится в полночь UTC.',
     en: 'Daily message limit reached. It will reset at midnight UTC.',
   },
   ai_quota_reasoning_exhausted: {
-    ru: 'Дневной лимит рассуждений исчерпан. Выключите режим рассуждений, чтобы продолжить обычный чат.',
+    ru: 'Дневной лимит рассуждений исчерпан. Выключи режим рассуждений, чтобы продолжить обычный чат.',
     en: 'Daily reasoning limit reached. Turn off reasoning mode to continue chatting.',
   },
   ai_description_prompt: { ru: 'Описание и промпт', en: 'Description and prompt' },
@@ -115,11 +122,11 @@ export const aiTranslations: Translations = {
   // S-31: отсутствие согласия — состояние, а не техническая ошибка: текст
   // спокойный и с действием (кнопка «Открыть настройки» → /settings#security).
   ai_chat_consent_hint: {
-    ru: 'Чтобы общаться с ИИ, разрешите его использование в настройках.',
+    ru: 'Чтобы общаться с ИИ, разреши его использование в настройках.',
     en: 'To chat with the AI, allow it in Settings.',
   },
   ai_chat_indexing_consent_hint: {
-    ru: 'Поиск по вашим заметкам требует согласия на индексацию — включите его в настройках.',
+    ru: 'Поиск по твоим заметкам требует согласия на индексацию — включи его в настройках.',
     en: 'Searching your notes needs indexing consent — turn it on in Settings.',
   },
   ai_stage_preparing: { ru: 'готовит ответ', en: 'preparing answer' },
@@ -194,7 +201,7 @@ export const aiTranslations: Translations = {
   ai_doc_picker_search_placeholder: { ru: 'Поиск по названию...', en: 'Search by title...' },
   ai_doc_picker_empty: { ru: 'Ничего не найдено', en: 'Nothing found' },
   ai_persona_builtin: { ru: 'Встроенная персона', en: 'Built-in persona' },
-  ai_persona_custom: { ru: 'Ваша персона', en: 'Your persona' },
+  ai_persona_custom: { ru: 'Твоя персона', en: 'Your persona' },
   ai_persona_field_desc: { ru: 'Описание', en: 'Description' },
   ai_persona_builtin_prompt_readonly: {
     ru: 'Промпт встроенной персоны изменить нельзя.',
@@ -208,11 +215,11 @@ export const aiTranslations: Translations = {
   ai_create_persona_title: { ru: 'Создать персону', en: 'Create persona' },
   ai_create_persona_name_placeholder: { ru: 'Мудрый друг', en: 'Wise friend' },
   ai_create_persona_prompt_placeholder: {
-    ru: "Опишите роль персоны. Пример: 'Ты — мудрый друг, который...'",
+    ru: "Опиши роль персоны. Пример: 'Ты — мудрый друг, который...'",
     en: "Describe the persona's role. Example: 'You are a wise friend who...'",
   },
   ai_injection_detected: {
-    ru: 'Обнаружена попытка инъекции. Измените формулировку.',
+    ru: 'Обнаружена попытка инъекции. Измени формулировку.',
     en: 'Injection attempt detected. Please rephrase.',
   },
   ai_persona_validation_failed: {
@@ -247,7 +254,7 @@ export const aiTranslations: Translations = {
   ai_generated_tag: { ru: 'сгенерировано ИИ', en: 'AI-generated' },
   ai_portrait_generating: { ru: 'Генерация…', en: 'Generating…' },
   ai_portrait_stale_rules: {
-    ru: 'Портрет собран по прежним правилам — обновите, чтобы он стал короче и без имён.',
+    ru: 'Портрет собран по прежним правилам — обнови, чтобы он стал короче и без имён.',
     en: 'This portrait was built under the earlier rules — refresh it to make it shorter and without names.',
   },
   ai_portrait_refresh: { ru: 'Обновить', en: 'Refresh' },
@@ -258,7 +265,7 @@ export const aiTranslations: Translations = {
     en: 'Portrait will appear automatically after ~20 analyzed notes (currently analyzed: {count}/20).',
   },
   ai_portrait_not_created: {
-    ru: 'Портрет ещё не создан — нажмите «Сгенерировать» (нужно ≥3 проанализированных заметок)',
+    ru: 'Портрет ещё не создан — нажми «Сгенерировать» (нужно ≥3 проанализированных заметок)',
     en: 'Portrait not created yet — click "Generate" (requires ≥3 analyzed notes)',
   },
   ai_portrait_not_created_short: {
@@ -268,7 +275,7 @@ export const aiTranslations: Translations = {
   ai_timeline_manual_event: { ru: 'Вручную добавленное событие', en: 'Manually added event' },
   ai_timeline_title: { ru: 'История моей жизни (по дням)', en: 'Life story (by day)' },
   ai_timeline_empty: {
-    ru: 'История жизни пока пуста. Напишите и проанализируйте заметки, чтобы они появились здесь.',
+    ru: 'История жизни пока пуста. Напиши и разбери заметки, чтобы они появились здесь.',
     en: 'Life story is empty for now. Write and analyze notes for them to appear here.',
   },
   ai_timeline_edited: { ru: 'изменено', en: 'edited' },
@@ -298,7 +305,7 @@ export const aiTranslations: Translations = {
     en: ', excluded from AI {count}',
   },
   ai_archive_analysis_pending_desc: {
-    ru: 'Ждут разбора: {count}. Текст этих заметок уйдёт поставщику ИИ — по одной, по вашему нажатию.',
+    ru: 'Ждут разбора: {count}. Текст этих заметок уйдёт поставщику ИИ — по одной, по твоему нажатию.',
     en: 'Pending analysis: {count}. The text of these notes will be sent to the AI provider — one by one, upon your click.',
   },
   ai_archive_analysis_stat_total: { ru: 'Заметок на этом устройстве', en: 'Notes on this device' },
@@ -324,13 +331,13 @@ export const aiTranslations: Translations = {
   ai_refresh_estimating: { ru: 'Считаю объём…', en: 'Estimating…' },
   ai_refresh_btn: { ru: 'Обновить профиль', en: 'Refresh profile' },
   ai_refresh_empty: {
-    ru: 'Пересчитывать нечего: с прошлого обновления не появилось ни одной разобранной заметки. Разберите заметку кнопкой ✨ в архиве — и возвращайтесь.',
+    ru: 'Пересчитывать нечего: с прошлого обновления не появилось ни одной разобранной заметки. Разбери заметку кнопкой ✨ в архиве — и возвращайся.',
     en: 'Nothing to recalculate: no new analyzed notes since the last refresh. Analyze a note with the ✨ button in archive and return.',
   },
   ai_refresh_duration_about_minute: { ru: 'около минуты', en: 'about a minute' },
   ai_refresh_duration_minutes: { ru: 'примерно {count} мин', en: 'about {count} min' },
   ai_refresh_duration_notice: {
-    ru: 'Обновление займёт {duration}. Не закрывайте вкладку.',
+    ru: 'Обновление займёт {duration}. Не закрывай вкладку.',
     en: 'Update will take {duration}. Do not close the tab.',
   },
   ai_refresh_total_calls: { ru: 'Всего вызовов ИИ', en: 'Total AI calls' },
@@ -341,4 +348,11 @@ export const aiTranslations: Translations = {
     en: 'Not enough limit for this: ~{needed} needed, {remaining} left. Limit will reset tomorrow.',
   },
   ai_refresh_confirm_btn: { ru: 'Обновить', en: 'Refresh' },
+  // MF-5: лист «Голосовой ввод» на телефоне. Здесь, а не в writing: writing едет
+  // в index-кусок, а лист ленивый (запас бюджета index — десятки байт).
+  voice_sheet_where_audio: { ru: 'Голос уходит в службу распознавания речи браузера (Google, Apple) и превращается в текст.', en: 'Your voice goes to the browser speech recognition service (Google, Apple) and becomes text.' },
+  voice_sheet_where_text: { ru: 'Текст уходит в ИИ-сервис только ради знаков препинания — слова не меняются.', en: 'The text goes to the AI service only for punctuation — the words are not changed.' },
+  voice_sheet_cost: { ru: 'Тратит 1 запрос из дневного лимита. Осталось {remaining}.', en: 'Uses 1 request from the daily limit. {remaining} left.' },
+  voice_sheet_dont_show: { ru: 'Больше не показывать', en: "Don't show again" },
+  voice_sheet_record: { ru: 'Записать', en: 'Record' },
 };

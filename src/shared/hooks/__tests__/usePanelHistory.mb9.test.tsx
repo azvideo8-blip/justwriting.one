@@ -27,7 +27,7 @@ describe('MB-9: usePanelHistory', () => {
     history.replaceState(null, '');
   });
 
-  it('открытие кладёт свою запись, закрытие кнопкой снимает её', () => {
+  it('открытие кладёт свою запись, закрытие кнопкой снимает её', async () => {
     const back = vi.spyOn(history, 'back').mockImplementation(() => undefined);
     const onClose = vi.fn();
     const { rerender } = renderHook(
@@ -40,6 +40,8 @@ describe('MB-9: usePanelHistory', () => {
     expect(pushed, 'открытие не кладёт запись в историю').toBeTruthy();
 
     act(() => rerender({ open: false }));
+    // MF-11: снятие записи откладывается на такт — вдруг её заберёт следующая панель.
+    await act(() => new Promise<void>(r => setTimeout(r, 10)));
     expect(back, 'закрытие кнопкой не снимает свою запись').toHaveBeenCalledTimes(1);
     expect(onClose, 'закрытие самим компонентом не должен звать onClose повторно').not.toHaveBeenCalled();
     back.mockRestore();

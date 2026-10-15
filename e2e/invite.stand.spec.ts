@@ -51,13 +51,13 @@ async function tickRequired(page: Page): Promise<void> {
 async function toPasswordStep(page: Page): Promise<void> {
   await tickRequired(page);
   await page.getByRole('button', { name: 'Далее' }).click();
-  await expect(page.getByRole('heading', { name: 'Придумайте пароль' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Придумай пароль' })).toBeVisible();
 }
 
 async function setPassword(page: Page, password: string): Promise<void> {
-  // 'Пароль' — подстрока 'Повторите пароль', поэтому точное имя.
+  // 'Пароль' — подстрока 'Повтори пароль', поэтому точное имя.
   await page.getByLabel('Пароль', { exact: true }).fill(password);
-  await page.getByLabel('Повторите пароль').fill(password);
+  await page.getByLabel('Повтори пароль').fill(password);
   await page.getByRole('button', { name: 'Далее' }).click();
   // Сейф создаётся на этом же шаге: два прогона pbkdf2 по 600k итераций.
   await expect(page.getByRole('heading', { name: 'Хранить заметки в облаке?' })).toBeVisible({ timeout: 90_000 });
@@ -84,14 +84,14 @@ test('1. ссылка → политика в новой вкладке → на
 
   // V-1.1: перезагрузка посреди настройки не начинается заново.
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Придумайте пароль' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: 'Придумай пароль' })).toBeVisible({ timeout: 30_000 });
   expect(await page.getByRole('checkbox', { name: /Обязательно/ }).count()).toBe(0);
   await page.getByRole('button', { name: 'Назад' }).click();
   await expect(page.getByRole('checkbox', { name: /Обязательно/ })).toBeChecked();
 
   const password = freshPassword();
   await page.getByRole('button', { name: 'Далее' }).click();
-  await expect(page.getByRole('heading', { name: 'Придумайте пароль' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Придумай пароль' })).toBeVisible();
   await setPassword(page, password);
 
   // Сейф создаётся на шаге пароля, код восстановления показывается здесь.
@@ -117,7 +117,7 @@ test('2. ссылка открыта второй раз в новой вкла�
   // Та же ссылка во второй вкладке: сессия в браузере одна, отметка обмена — тоже.
   const second = await context.newPage();
   await second.goto(`/reset-password?token_hash=${token}&type=invite`);
-  await expect(second.getByRole('heading', { name: /Добро пожаловать в justwriting|Придумайте пароль/ })).toBeVisible({ timeout: 30_000 });
+  await expect(second.getByRole('heading', { name: /Добро пожаловать в justwriting|Придумай пароль/ })).toBeVisible({ timeout: 30_000 });
   await expect(second.getByText(/Эта ссылка-приглашение уже использована/)).toHaveCount(0);
   await expect(second.getByTestId('invite-switch-account')).toHaveCount(0);
 

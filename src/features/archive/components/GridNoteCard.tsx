@@ -14,6 +14,10 @@ import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { StorageButtons } from './StorageButtons';
 import { useNoteMenu } from './useNoteMenu';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
+import { MobileRenameSheet } from './MobileRenameSheet';
+import { LabelMark } from './LabelMark';
+import { splitNoteTitle } from './noteTitle';
+import { StorageStateIcons } from './StorageStateIcons';
 import { MobileNoteActionsSheet } from '../../../app/components/MobileNoteActionsSheet';
 
 interface GridNoteCardProps {
@@ -70,7 +74,11 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
 
   const label = labels?.find(l => l.id === session.labelId);
 
+  // MF-11: на телефоне — общий лист переименования (у prompt подтверждение
+  // было подписано «Удалить»); десктоп остаётся на prompt.
+  const [renameSheetOpen, setRenameSheetOpen] = useState(false);
   const rename = async () => {
+    if (isMobile) { setRenameSheetOpen(true); return; }
     const next = (await prompt({ title: t('archive_rename_title'), defaultValue: session.title ?? '' }))?.trim();
     if (next && next !== session.title) onTitleChange?.(session, next);
   };
@@ -125,10 +133,11 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
   };
 
   if (isMobile) {
+    const split = splitNoteTitle(session.title, session.content);
     return (
       <div
         className="flex h-full min-h-11 cursor-pointer flex-col gap-2 rounded-2xl border border-border-subtle bg-surface-card p-4 active:bg-text-main/[0.04]"
-        style={label ? { background: `color-mix(in srgb, ${label.color} 4%, var(--surface-card))` } : undefined}
+        style={label ? { background: `color-mix(in srgb, ${label.color} 10%, var(--surface-card))` } : undefined}
         onClick={handleCardTap}
         onTouchStart={startLongPress}
         onTouchMove={cancelLongPress}
@@ -144,14 +153,27 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
             <AlertCircle size={15} className="shrink-0" aria-label={t('archive_decryption_error')} />
             <span className="truncate">{t('archive_decryption_error')}</span>
           </h4>
-        ) : session.title ? (
-          <h4 className="line-clamp-2 text-[15px] font-semibold leading-snug text-text-main">
-            {highlightText(session.title, searchQuery)}
-          </h4>
-        ) : null}
-        <p className="line-clamp-6 whitespace-pre-wrap text-[14px] leading-[1.45] text-pretty text-text-main/70">
-          {highlightText(session.content, searchQuery)}
-        </p>
+        ) : (
+          /* MF-14: значки — в строке названия, после него; название режется раньше значков. */
+          <div className="flex min-w-0 items-center gap-2">
+            {split.title ? (
+              <h4 className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-snug text-text-main">
+                {highlightText(split.title, searchQuery)}
+              </h4>
+            ) : <span className="flex-1" />}
+            <StorageStateIcons cloud={!!session._hasCloudCopy} device={!!session._isLocal} analyzed={!!aiProcessed} />
+          </div>
+        )}
+        {/* MF-16: без своего названия превью идёт после выведенного. */}
+        {split.preview && (
+          <p className="line-clamp-6 whitespace-pre-wrap text-[14px] leading-[1.45] text-pretty text-text-main/70">
+            {highlightText(split.preview, searchQuery)}
+          </p>
+        )}
+        {/* MF-13: метка в подвале карточки — точка и имя её цветом. */}
+        {label && (
+          <div className="mt-auto pt-1 text-[12px]"><LabelMark label={label} /></div>
+        )}
 
         {actionsOpen && (
           <MobileNoteActionsSheet
@@ -170,6 +192,13 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
             {...(onAIClick ? { onAIClick } : {})}
             aiExclusionLoading={!!aiExclusionLoading}
             {...(onAIExclusionClick ? { onAIExclusionClick } : {})}
+          />
+        )}
+        {renameSheetOpen && (
+          <MobileRenameSheet
+            initialTitle={session.title ?? ''}
+            onCancel={() => setRenameSheetOpen(false)}
+            onSave={title => { if (title !== session.title) onTitleChange?.(session, title); setRenameSheetOpen(false); }}
           />
         )}
       </div>

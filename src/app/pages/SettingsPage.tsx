@@ -12,6 +12,7 @@ import { AccountSecuritySection } from '../../features/settings/components/Accou
 import { AccountExportSection } from '../../features/settings/components/AccountExportSection';
 import { AboutSettingsSection } from '../../features/settings/components/AboutSettingsSection';
 import { AccountDeleteSection } from '../../features/settings/components/AccountDeleteSection';
+import { SettingsBackRow } from '../../features/settings/components/SettingsBackRow';
 
 export function SettingsPage() {
   const { t } = useLanguage();
@@ -70,6 +71,8 @@ export function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-surface-base text-text-main pb-24 md:pb-16">
+      {/* Вне колонки с overflow-x-hidden: там sticky не держится. */}
+      {isMobile && <SettingsBackRow />}
       <div className="mx-auto flex w-full max-w-5xl gap-10 px-4 sm:px-6 py-8 md:py-12">
 
         {/* Оглавление. Шесть разделов — это много прокрутки, и без указателя

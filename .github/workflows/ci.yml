@@ -91,6 +91,12 @@ jobs:
       run: bash scripts/cross-feature-check.sh
     - name: Raw overlay gate (AUDIT-part2 3.1, AG-GATE-1)
       run: bash scripts/raw-overlay-check.sh
+    # MF-18 (SA-1): var(--x) без объявления в index.css = прозрачный фон/пустое значение.
+    - name: Undeclared CSS variables gate (MF-18)
+      run: node scripts/check-undefined-css-vars.mjs
+    # MF-24 (SA-14): в мобильных компонентах — только слоты темы (или `color-ok:` с причиной).
+    - name: Mobile hard-coded colour gate (MF-24)
+      run: node scripts/check-mobile-colors.mjs
     - run: npm run test:ci
     # S-42.3: каждый паттерн детектора кризиса держится хотя бы одной фразой корпуса.
     - name: Crisis pattern coverage (S-42)

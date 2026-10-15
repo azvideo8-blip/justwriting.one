@@ -92,9 +92,12 @@ export function AppShell() {
   // viewport edge-to-edge (only clearing the fixed nav rail) instead of inheriting
   // the padded, scrolling <main> used by the other pages.
   const isChatPageDesktop = currentPath === '/ai' && layoutMode === 'desktop';
+  // SA-4: на телефоне экран ИИ = окно минус вкладки; без pt-8/px-4 документ
+  // был выше окна на 158 px и прокручивался вместе с шапкой.
+  const isChatPageMobile = currentPath === '/ai' && layoutMode !== 'desktop';
 
   return (
-    <AppLayout className="min-h-screen bg-surface-base text-text-main font-sans selection:bg-white/10">
+    <AppLayout className={cn("min-h-screen bg-surface-base text-text-main font-sans selection:bg-white/10", isChatPageMobile && "h-[100dvh] overflow-hidden")}>
       <a
         href="#main-content"
         onClick={(e) => {
@@ -127,6 +130,12 @@ export function AppShell() {
         "w-full relative z-10",
         isResetPassword ? "min-h-screen" : isChatPageDesktop
           ? "h-screen overflow-hidden pl-16"
+          : isChatPageMobile
+          // Баннер сети/сейфа стоит в потоке над main (MB-8): main забирает
+          // остаток окна, а не целые 100dvh.
+          // Две обёртки ErrorBoundary (div) между main и экраном тоже тянутся
+          // на всю высоту, иначе h-full экрана ИИ = высоте содержимого.
+          ? "flex-1 min-h-0 overflow-hidden pb-safe-nav [&>div]:h-full [&>div>div]:h-full"
           : cn(
               "min-h-screen pt-8",
               layoutMode === 'desktop' && "pl-20 pr-4",

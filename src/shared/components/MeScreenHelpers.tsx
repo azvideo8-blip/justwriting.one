@@ -25,13 +25,15 @@ export function StatCard({ value, label, accent }: {
   );
 }
 
-export function SettingRow({ label, children, hint }: {
+export function SettingRow({ label, children, hint, divider = true }: {
   label: string;
   children: React.ReactNode;
   hint?: string | undefined;
+  /** MF-10: последняя строка карточки, за которой своя линия, — без нижней. */
+  divider?: boolean;
 }) {
   return (
-    <div className="py-3.5 border-b border-white/[0.05] flex flex-col gap-1">
+    <div className={`py-3.5 flex flex-col gap-1${divider ? ' border-b border-border-subtle' : ''}`}>
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm text-text-main/80">{label}</span>
         {children}

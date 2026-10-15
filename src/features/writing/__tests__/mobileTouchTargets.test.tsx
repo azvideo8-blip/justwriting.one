@@ -68,26 +68,18 @@ vi.mock('../../../core/sync/SyncContext', () => ({
 }));
 
 describe('L-11: Mobile touch target compliance (WCAG 2.5.5 >= 44x44px)', () => {
-  it('MobileWriteToolbar session stats have min-h-[44px]', () => {
+  it('MobileWriteToolbar targets are 44 px', () => {
     const { container } = render(
       <MobileWriteToolbar
-        onPlay={vi.fn()}
-        onPause={vi.fn()}
         onStop={vi.fn()}
       />
     );
 
-    const wordsTarget = screen.getByRole('button', { name: 'writing_mode_words' });
-    expect(wordsTarget.className).toContain('min-h-[44px]');
-
-    const timeTarget = screen.getByRole('button', { name: 'writing_mode_timer' });
-    expect(timeTarget.className).toContain('min-h-[44px]');
-
     // All icon buttons on mobile toolbar are 44x44 (w-11 h-11)
     const buttons = container.querySelectorAll('button');
-    expect(buttons.length).toBeGreaterThanOrEqual(3);
+    expect(buttons.length).toBeGreaterThanOrEqual(2);
     for (const btn of Array.from(buttons)) {
-      expect(btn.className).toMatch(/w-11|clickable-target-expansion/);
+      expect(btn.className).toMatch(/w-11|min-h-11/);
     }
   });
 

@@ -94,7 +94,6 @@ describe('T-1 (c) AI panel components English localization (no Cyrillic characte
       <LanguageProvider>
         <AIChatComposer
           isMobile={false}
-          keyboardHeight={0}
           inputText={"Some text longer than 1500 characters so that the note paste button appears. ".repeat(30)}
           setInputText={() => {}}
           inputRef={{ current: null }}

@@ -11,7 +11,6 @@ import type { ArchiveSession } from '../../shared/types/common';
 import { useToast } from '../../shared/components/Toast';
 import { useProfile } from '../../features/auth/contexts/ProfileContext';
 import { useLayoutMode } from '../../shared/hooks/useLayoutMode';
-import { useKeyboardHeight } from '../../shared/hooks/useKeyboardHeight';
 import { cn } from '../../core/utils/utils';
 import { useAIPageData } from '../../features/ai/hooks/useAIPageData';
 import { AIChatSidebar } from '../../features/ai/components/chat/AIChatSidebar';
@@ -83,8 +82,6 @@ export function AIPage() {
   const [memoryOpen, setMemoryOpen] = useState(false);
   // MR-1: на телефоне список диалогов живёт в листе, который открывает ☰ в шапке.
   const [dialoguesOpen, setDialoguesOpen] = useState(false);
-  // MR-2: композер поднимается над панелью и следует за клавиатурой.
-  const keyboardHeight = useKeyboardHeight(0);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -92,7 +89,7 @@ export function AIPage() {
   const [previewSession, setPreviewSession] = useState<ArchiveSession | null>(null);
 
   return (
-    <div className={cn("bg-surface-base flex", isMobile ? "h-[100dvh] flex-col" : "h-screen flex-row")}>
+    <div className={cn("bg-surface-base flex", isMobile ? "h-full flex-col" : "h-screen flex-row")}>
       {!isMobile && (
         <AIChatSidebar
           dialogues={dialogues}
@@ -183,7 +180,6 @@ export function AIPage() {
 
         <AIChatComposer
           isMobile={isMobile}
-          keyboardHeight={keyboardHeight}
           inputText={inputText}
           setInputText={setInputText}
           inputRef={inputRef}

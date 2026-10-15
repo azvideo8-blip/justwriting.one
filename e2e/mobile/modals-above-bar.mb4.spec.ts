@@ -49,7 +49,7 @@ test.describe('MB-4: окно завершения над нижней пане�
     // в нижнюю панель.
     await editor.fill('Проверка окна завершения на телефоне. ' + 'Один два три четыре пять. '.repeat(6));
 
-    await page.getByRole('button', { name: /^Готово$/ }).click();
+    await page.locator('[data-write-toolbar]').getByRole('button', { name: /^Сохранить$/ }).click();
     const dialog = page.getByRole('dialog').first();
     await expect(dialog).toBeVisible({ timeout: 15_000 });
     await page.waitForTimeout(1_200);
@@ -93,7 +93,7 @@ test.describe('MB-4: лист действий с заметкой на 320 px',
     const editor = page.locator('textarea').first();
     await editor.waitFor({ state: 'visible', timeout: 30_000 });
     await editor.fill('Заметка для листа действий. Раз два три.');
-    await page.getByRole('button', { name: /^Готово$/ }).click();
+    await page.locator('[data-write-toolbar]').getByRole('button', { name: /^Сохранить$/ }).click();
     const finish = page.getByRole('dialog').first();
     await expect(finish).toBeVisible({ timeout: 15_000 });
     await finish.getByRole('button', { name: /^Сохранить$/ }).click();
@@ -142,7 +142,7 @@ test.describe('MB-4: лист действий с заметкой на 320 px',
     const editor = page.locator('textarea').first();
     await editor.waitFor({ state: 'visible', timeout: 30_000 });
     await editor.fill('Заметка для вложенного подтверждения. Раз два.');
-    await page.getByRole('button', { name: /^Готово$/ }).click();
+    await page.locator('[data-write-toolbar]').getByRole('button', { name: /^Сохранить$/ }).click();
     const finish = page.getByRole('dialog').first();
     await expect(finish).toBeVisible({ timeout: 15_000 });
     await finish.getByRole('button', { name: /^Сохранить$/ }).click();

@@ -8,7 +8,6 @@ import { renderWithProviders } from '../../../../../test/utils/render';
 function base(isMobile: boolean): AIChatComposerProps {
   return {
     isMobile,
-    keyboardHeight: isMobile ? 300 : 0,
     inputText: 'текст',
     setInputText: vi.fn(),
     inputRef: { current: null },

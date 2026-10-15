@@ -123,7 +123,7 @@ async function login(page: Page, u: { email: string; password: string }): Promis
     for (const dialog of await page.getByRole('dialog').all()) {
       if (!(await dialog.isVisible().catch(() => false))) continue;
       open = true;
-      for (const name of [/Код сохранён|Я сохранил/, /Обязательно: Я прочитал/]) {
+      for (const name of [/Код сохранён|Я сохранил/, /Обязательно: (Я прочитал|Текст прочитан)/]) {
         const box = dialog.getByRole('checkbox', { name });
         if (await box.isVisible().catch(() => false) && !(await box.isChecked().catch(() => true))) {
           await box.check({ timeout: 2_000 }).catch(() => {});

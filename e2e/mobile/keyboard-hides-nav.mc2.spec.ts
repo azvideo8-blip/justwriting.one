@@ -71,7 +71,7 @@ for (const { w, h, shrink } of [{ w: 360, h: 640, shrink: 280 }, { w: 390, h: 84
       const area = page.locator('textarea').first();
       await area.waitFor({ state: 'visible', timeout: 30_000 });
       await area.fill('Заметка для проверки панели вкладок в архиве.');
-      await page.getByRole('button', { name: /^Готово$/ }).click();
+      await page.locator('[data-write-toolbar]').getByRole('button', { name: /^Сохранить$/ }).click();
       const finish = page.getByRole('dialog').last();
       await finish.getByRole('button', { name: /^Сохранить$/ }).click();
       await expect(page.locator('[aria-labelledby="finish-modal-title"]'), 'окно завершения не закрылось — сохранение не дошло')

@@ -38,20 +38,7 @@ export function DictationBar({
   liveText, interimText, level, levels, levelFailed, phase, seconds, aiNoticeRemaining, onStop, onCancel,
 }: DictationBarProps) {
   const { t } = useLanguage();
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(() =>
-    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const handler = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
-
   const processing = phase === 'processing';
-  const heights = levels;
 
   return (
     <div
@@ -64,32 +51,8 @@ export function DictationBar({
           <Loader2 size={16} className="animate-spin" aria-hidden="true" />
           <span className="text-xs">{t('voice_processing')}</span>
         </div>
-      ) : levelFailed || prefersReducedMotion ? (
-        // Уровень недоступен (iOS Safari, часть Android) или анимация выключена:
-        // одна точка/полоса вместо волны. Диктовка при этом работает как обычно.
-        <div className="flex items-center gap-2" data-dictation-static>
-          <span
-            className={cn('w-2.5 h-2.5 rounded-full', prefersReducedMotion && !levelFailed ? 'bg-accent-danger' : 'bg-accent-danger animate-pulse')}
-            aria-hidden="true"
-          />
-          {prefersReducedMotion && !levelFailed && (
-            <span
-              className="h-1 w-24 rounded-full bg-accent-danger/40"
-              style={{ width: `${MIN_BAR_PCT + Math.round(level * (100 - MIN_BAR_PCT))}%` }}
-              aria-hidden="true"
-            />
-          )}
-        </div>
       ) : (
-        <div className="flex items-end gap-[2px] h-6" data-dictation-wave aria-hidden="true">
-          {heights.map((h, i) => (
-            <span
-              key={i}
-              className="w-[3px] rounded-full bg-text-main/60"
-              style={{ height: `${MIN_BAR_PCT + Math.round(h * (100 - MIN_BAR_PCT))}%` }}
-            />
-          ))}
-        </div>
+        <DictationWave level={level} levels={levels} levelFailed={levelFailed} />
       )}
 
       <div className="flex-1 min-w-0 text-sm text-text-main" aria-live="polite" data-dictation-words>
@@ -134,6 +97,49 @@ export function DictationBar({
       >
         {processing ? <MicOff size={14} aria-hidden="true" /> : <X size={16} aria-hidden="true" />}
       </button>
+    </div>
+  );
+}
+
+/** Волна уровня (или точка, если уровня нет / анимация выключена). Общая для
+ *  карточки записи на десктопе и строки записи в панели письма на телефоне (MF-4). */
+export function DictationWave({ level, levels, levelFailed }: { level: number; levels: number[]; levelFailed: boolean }) {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const handler = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  return levelFailed || prefersReducedMotion ? (
+    // Уровень недоступен (iOS Safari, часть Android) или анимация выключена:
+    // одна точка/полоса вместо волны. Диктовка при этом работает как обычно.
+    <div className="flex items-center gap-2" data-dictation-static>
+      <span
+        className={cn('w-2.5 h-2.5 rounded-full', prefersReducedMotion && !levelFailed ? 'bg-accent-danger' : 'bg-accent-danger animate-pulse')}
+        aria-hidden="true"
+      />
+      {prefersReducedMotion && !levelFailed && (
+        <span
+          className="h-1 w-24 rounded-full bg-accent-danger/40"
+          style={{ width: `${MIN_BAR_PCT + Math.round(level * (100 - MIN_BAR_PCT))}%` }}
+          aria-hidden="true"
+        />
+      )}
+    </div>
+  ) : (
+    <div className="flex items-end gap-[2px] h-6" data-dictation-wave aria-hidden="true">
+      {levels.map((h, i) => (
+        <span
+          key={i}
+          className="w-[3px] rounded-full bg-text-main/60"
+          style={{ height: `${MIN_BAR_PCT + Math.round(h * (100 - MIN_BAR_PCT))}%` }}
+        />
+      ))}
     </div>
   );
 }

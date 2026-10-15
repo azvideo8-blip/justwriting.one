@@ -19,9 +19,17 @@ export function useGuardedSpeechInput({ onSessionEnd, onError }: UseGuardedSpeec
 
   const isVaultActive = user ? useEncryptionStore.getState().getEncryptionEnabled(user.uid) : false;
 
-  const toggleListening = useCallback(async () => {
+  /** MF-5: `noticeHandled` — предупреждение уже показал лист на телефоне, и
+   *  нажатие «Записать» — это и есть согласие. Старт идёт в том же такте, без
+   *  await до startListening: иначе iOS не даёт микрофон. */
+  const toggleListening = useCallback(async (opts?: { noticeHandled?: boolean }) => {
     if (isListening) {
       stopListening();
+      return;
+    }
+    if (opts?.noticeHandled) {
+      markDictationNoticeSeen();
+      startListening();
       return;
     }
 
@@ -46,14 +54,7 @@ export function useGuardedSpeechInput({ onSessionEnd, onError }: UseGuardedSpeec
         cancelLabel: t('common_cancel'),
       });
       if (!ok) return;
-      try {
-        // v1 остаётся записанным: откат на предыдущую сборку не должен снова
-        // показывать старое предупреждение человеку, который уже согласился.
-        localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN, '1');
-        localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2, '1');
-      } catch {
-        // ignore quota/private mode errors
-      }
+      markDictationNoticeSeen();
     }
 
     startListening();
@@ -70,4 +71,34 @@ export function useGuardedSpeechInput({ onSessionEnd, onError }: UseGuardedSpeec
     hasSupport,
     isVaultActive,
   };
+}
+
+function markDictationNoticeSeen(): void {
+  try {
+    // v1 остаётся записанным: откат на предыдущую сборку не должен снова
+    // показывать старое предупреждение человеку, который уже согласился.
+    localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN, '1');
+    localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2, '1');
+  } catch {
+    // ignore quota/private mode errors
+  }
+}
+
+/** MF-5: показывать ли лист «Голосовой ввод» перед записью на телефоне. С сейфом —
+ *  всегда и без галочки; приватную часть — хотя бы раз (V2); дальше — пока не
+ *  отмечено «Больше не показывать» этим человеком. */
+export function voiceNoticeDecision(uid: string | null, vault: boolean): 'vault' | 'sheet' | 'start' {
+  if (vault) return 'vault';
+  try {
+    if (localStorage.getItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2) !== '1') return 'sheet';
+    if (uid && localStorage.getItem(STORAGE_KEYS.DICTATION_NOTICE_DISMISSED(uid)) === '1') return 'start';
+  } catch {
+    // приватный режим: лист показывается, запись не ломается
+  }
+  return 'sheet';
+}
+
+export function dismissVoiceNotice(uid: string | null): void {
+  if (!uid) return;
+  try { localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_DISMISSED(uid), '1'); } catch { /* приватный режим */ }
 }

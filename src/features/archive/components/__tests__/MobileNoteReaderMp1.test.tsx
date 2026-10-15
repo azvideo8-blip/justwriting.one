@@ -116,25 +116,25 @@ describe('MP-1: мобильная читалка заметки', () => {
     expect(screen.getByText(/Глина сохнет быстрее/)).toBeInTheDocument();
   });
 
-  it('в листе «⋯» есть «Изменить», копия, «Не показывать ИИ» и удаление — и нет облачных пунктов', async () => {
+  // MF-12: читалка открывает тот же полный лист, что список.
+  it('в листе «⋯» — «Продолжить писать», «Сохранить как…», «Не показывать ИИ» и удаление; строки «Изменить название» и копии нет', async () => {
     renderPreview();
     fireEvent.click(screen.getByRole('button', { name: 'Действия с заметкой' }));
     const sheet = await screen.findByRole('dialog', { name: 'Действия с заметкой' });
-    expect(within(sheet, 'Изменить', true)).toBeTruthy();
-    expect(within(sheet, 'Изменить название')).toBeTruthy();
-    expect(within(sheet, 'Скопировать как')).toBeTruthy();
+    expect(within(sheet, 'Продолжить писать', true)).toBeTruthy();
+    expect(within(sheet, 'Сохранить как…', true)).toBeTruthy();
     expect(within(sheet, 'Не показывать ИИ')).toBeTruthy();
     expect(within(sheet, 'Удалить заметку')).toBeTruthy();
-    expect(sheet.textContent).not.toMatch(/Загрузить на облако|Скачать на это устройство|Удалить локальную копию|Удалить облачную копию|Отправить изменения/);
-    expect(sheet.textContent).not.toContain('Назначить метку');
+    expect(sheet.textContent).not.toContain('Скопировать как');
+    expect(sheet.querySelector('[data-action="rename"]')).toBeNull();
   });
 
-  it('«Изменить» в листе ведёт в редактор этой же заметки', async () => {
+  it('«Продолжить писать» в листе ведёт в редактор этой же заметки', async () => {
     const onContinue = vi.fn();
     renderPreview({ onContinue });
     fireEvent.click(screen.getByRole('button', { name: 'Действия с заметкой' }));
     const sheet = await screen.findByRole('dialog', { name: 'Действия с заметкой' });
-    fireEvent.click(within(sheet, 'Изменить', true));
+    fireEvent.click(within(sheet, 'Продолжить писать', true));
     expect(onContinue).toHaveBeenCalledTimes(1);
   });
 
@@ -174,7 +174,7 @@ describe('Ревью 0.9.40: читалка умеет то же, что дес�
     renderPreview({ onTitleChange, onContinue });
     fireEvent.click(screen.getByRole('button', { name: 'Действия с заметкой' }));
     const sheet = await screen.findByRole('dialog', { name: 'Действия с заметкой' });
-    fireEvent.click(within(sheet, 'Изменить название'));
+    fireEvent.click(sheet.querySelector<HTMLElement>('button[aria-label="Изменить название"]')!);
     const rename = await screen.findByRole('dialog', { name: 'Изменить название' });
     const input = rename.querySelector('input')!;
     fireEvent.change(input, { target: { value: 'Новый круг' } });

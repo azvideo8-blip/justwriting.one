@@ -20,13 +20,15 @@ interface ArchiveTagBarProps {
   onResetTags: () => void;
   showControls: boolean;
   t?: (key: string) => string;
+  /** MF-8: на телефоне у меток своя строка, поэтому подпись — просто «Теги». */
+  labelKey?: string;
 }
 
 export function ArchiveTagBar({
   allTags, selectedTags, tagCounts, onToggleTag,
   renamingTag, renameTagValue, setRenameTagValue,
   onStartRename, onRenameSubmit, onRenameCancel, onDeleteTag,
-  onResetTags, showControls, t: propT,
+  onResetTags, showControls, t: propT, labelKey = 'archive_tags_label',
 }: ArchiveTagBarProps) {
   const { t: hookT } = useLanguage();
   const t = propT ?? hookT;
@@ -35,7 +37,7 @@ export function ArchiveTagBar({
   return (
     <div className="flex items-center gap-2 py-3 flex-wrap border-b border-border-subtle" >
       <span className="font-mono text-[9px] text-text-main/60 uppercase tracking-widest mr-1">
-        {t('archive_tags_label')}
+        {t(labelKey)}
       </span>
       {allTags.map(tag => {
         const active = selectedTags.includes(tag);

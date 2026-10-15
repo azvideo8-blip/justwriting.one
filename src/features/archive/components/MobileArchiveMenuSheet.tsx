@@ -15,7 +15,11 @@ interface MobileArchiveMenuSheetProps {
   onSortModeChange: (m: SortMode) => void;
   sortLabels: Record<SortMode, string>;
   onOpenTags: () => void;
+  /** MF-8: панель тегов открыта — пункт её прячет. */
+  tagsOpen?: boolean;
   onOpenCalendar: () => void;
+  /** MF-17: панель календаря открыта — пункт её прячет. */
+  calendarOpen?: boolean;
   activeTab: 'notes' | 'trash';
   onTabChange: (t: 'notes' | 'trash') => void;
   trashCount: number;
@@ -26,7 +30,7 @@ interface MobileArchiveMenuSheetProps {
 export function MobileArchiveMenuSheet(props: MobileArchiveMenuSheetProps) {
   const {
     open, onClose, viewMode, onViewModeChange, sortMode, onSortModeChange, sortLabels,
-    onOpenTags, onOpenCalendar, activeTab, onTabChange, trashCount, onClearTrash,
+    onOpenTags, tagsOpen, onOpenCalendar, calendarOpen, activeTab, onTabChange, trashCount, onClearTrash,
   } = props;
   const { t } = useLanguage();
   const [sortsOpen, setSortsOpen] = useState(false);
@@ -85,12 +89,12 @@ export function MobileArchiveMenuSheet(props: MobileArchiveMenuSheetProps) {
           ))}
 
           <button type="button" onClick={() => { onOpenTags(); onClose(); }} className={row}>
-            <span className="flex-1">{t('archive_menu_tags')}</span>
+            <span className="flex-1">{t(tagsOpen ? 'archive_menu_hide_tags' : 'archive_menu_tags')}</span>
             <ChevronRight size={16} className="shrink-0 text-text-main/45" />
           </button>
 
           <button type="button" onClick={() => { onOpenCalendar(); onClose(); }} className={row}>
-            <span className="flex-1">{t('archive_menu_calendar')}</span>
+            <span className="flex-1">{t(calendarOpen ? 'archive_menu_hide_calendar' : 'archive_menu_calendar')}</span>
             <ChevronRight size={16} className="shrink-0 text-text-main/45" />
           </button>
 

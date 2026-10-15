@@ -38,6 +38,8 @@ export const STORAGE_KEYS = {
   // D-5: текст предупреждения изменился по существу (второй хоп — текст в ИИ-сервис),
   // поэтому показываем его ещё раз тем, кто принял v1.
   DICTATION_NOTICE_SEEN_V2: 'jw_dictation_notice_seen_v2',
+  /** MF-5: «Больше не показывать» в листе «Голосовой ввод» на телефоне — по человеку. */
+  DICTATION_NOTICE_DISMISSED: (uid: string) => `jw_dictation_notice_dismissed_${uid}`,
   PENDING_RECOVERY_CODE: (uid: string) => `pending_recovery_code_${uid}`,
   /** V-1.1: шаг мастера приглашения по хэшу токена из ссылки (sessionStorage). */
   INVITE_WIZARD_STATE: (tokenHash: string) => `jw_invite_wizard_${tokenHash}`,

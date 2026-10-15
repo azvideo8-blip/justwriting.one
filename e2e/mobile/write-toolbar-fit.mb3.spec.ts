@@ -27,7 +27,7 @@ for (const c of CASES) {
       await editor.click();
       await editor.pressSequentially('проверка ширины панели на телефоне', { delay: 5 });
 
-      const stop = page.getByRole('button', { name: /^Готово$/ });
+      const stop = page.locator('[data-write-toolbar]').getByRole('button', { name: /^Сохранить$/ });
       await expect(stop).toBeVisible({ timeout: 10_000 });
       const box = await stop.boundingBox();
       expect(box, 'у «Стоп» нет геометрии').not.toBeNull();

@@ -15,7 +15,7 @@ async function saveNote(page: Page, text: string, title: string): Promise<void> 
   const editor = page.locator('textarea').first();
   await editor.waitFor({ state: 'visible', timeout: 30_000 });
   await editor.fill(text);
-  await page.getByRole('button', { name: /^Готово$/ }).click();
+  await page.locator('[data-write-toolbar]').getByRole('button', { name: /^Сохранить$/ }).click();
   const finish = page.getByRole('dialog').first();
   await expect(finish).toBeVisible({ timeout: 15_000 });
   const titleInput = finish.getByLabel(/Название/).first();

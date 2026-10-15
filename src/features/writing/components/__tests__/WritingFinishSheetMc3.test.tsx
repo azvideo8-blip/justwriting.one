@@ -102,9 +102,10 @@ describe('MC-3: лист «Записано.» на телефоне', () => {
     expect(dialog.className).toContain('finish-sheet-full');
   });
 
-  it('эхо первой фразы, название с подсказкой из текста, теги — строкой', () => {
+  // MF-6: курсивного эха первой фразы больше нет — она только в подсказке названия.
+  it('название с подсказкой из текста, теги — строкой', () => {
     renderModal();
-    expect(screen.getByText('Глина сохнет быстро.')).toBeInTheDocument();
+    expect(screen.queryByText('Глина сохнет быстро.')).toBeNull();
     const title = screen.getByLabelText('finish_title_label');
     expect(title.getAttribute('placeholder')).toContain('Глина сохнет');
     expect(screen.getByText('finish_tags')).toBeInTheDocument();

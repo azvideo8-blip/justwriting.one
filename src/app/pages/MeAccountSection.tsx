@@ -5,6 +5,8 @@ import { useLanguage } from '../../shared/i18n';
 import { SettingRow } from '../../shared/components/MeScreenHelpers';
 import { useSettings } from '../../core/settings/SettingsContext';
 import { Button } from '../../shared/components/Button';
+import { useLayoutMode } from '../../shared/hooks/useLayoutMode';
+import { useNavigate } from 'react-router-dom';
 
 interface MeAccountSectionProps {
   user: AppUser | null;
@@ -17,11 +19,16 @@ export function MeAccountSection({ user, onSignOut, onSignIn }: MeAccountSection
   const isGuest = !user;
 
   const { openSettings } = useSettings();
+  const { layoutMode } = useLayoutMode();
+  const navigate = useNavigate();
+  // MF-9: на телефоне строка «Настройки» ведёт в настройки приложения, а не в
+  // панель редактора; десктоп сохраняет панель.
+  const openAppSettings = () => (layoutMode === 'mobile' ? void navigate('/settings') : openSettings());
 
   return (
     <div>
       <SettingRow label={t('settings_language')}>
-        <div className="flex bg-white/[0.04] rounded-lg p-0.5 gap-0.5">
+        <div className="flex bg-text-main/[0.05] rounded-lg p-0.5 gap-0.5">
           {(['ru', 'en'] as const).map(lang => (
             <Button
               type="button"
@@ -32,8 +39,8 @@ export function MeAccountSection({ user, onSignOut, onSignIn }: MeAccountSection
               className={cn(
                 "min-w-11 min-h-11 px-3 py-1 rounded-md border-none cursor-pointer text-xs font-medium",
                 language === lang
-                  ? "bg-white/[0.08] text-[rgba(232,236,233,0.9)]"
-                  : "bg-transparent text-[rgba(74,81,77,1)]"
+                  ? "bg-text-main/[0.1] text-text-main"
+                  : "bg-transparent text-text-main/50"
               )}
             >
               {lang.toUpperCase()}
@@ -46,7 +53,7 @@ export function MeAccountSection({ user, onSignOut, onSignIn }: MeAccountSection
         <Button
           variant="secondary"
           size="sm"
-          onClick={() => openSettings()}
+          onClick={openAppSettings}
           className="min-h-11 text-xs px-3 py-1.5"
         >
           {t('settings_open_panel')}

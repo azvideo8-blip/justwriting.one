@@ -10,7 +10,7 @@ async function openSavedNote(page: Page, account: Account, title: string): Promi
   const area = page.locator('textarea').first();
   await area.waitFor({ state: 'visible', timeout: 30_000 });
   await area.fill(LONG_TEXT);
-  await page.getByRole('button', { name: /^Готово$/ }).click();
+  await page.locator('[data-write-toolbar]').getByRole('button', { name: /^Сохранить$/ }).click();
   const sheet = page.locator('[aria-labelledby="finish-modal-title"]');
   await sheet.getByLabel(/Название/).first().fill(title);
   await sheet.getByRole('button', { name: /^Сохранить$/ }).click();
