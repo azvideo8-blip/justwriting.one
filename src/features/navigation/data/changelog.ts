@@ -17,6 +17,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.42',
+    date: '2026-10-15',
+    // Тихий выпуск: основное — шлифовка мобильного макета, пока он закрыт для всех (итог — 0.10.0).
+    announce: false,
+    items: [
+      { category: 'fix', ru: 'В режиме «Свободный поток» время идёт вперёд; обратный отсчёт — только если выбрана цель по времени.', en: 'In «Free flow» mode the clock counts up; it counts down only when you have set a time goal.' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.9.41',
     date: '2026-10-15',
     // Тихий выпуск: основное — мобильный макет, пока он закрыт для всех (итог — 0.10.0).
