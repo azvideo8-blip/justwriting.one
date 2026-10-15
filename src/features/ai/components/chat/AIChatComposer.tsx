@@ -153,6 +153,10 @@ export function AIChatComposer(props: AIChatComposerProps) {
   useEffect(() => {
     const el = inputRef.current;
     if (!el) return;
+    // Пустое поле — всегда одна строка (rows={1}). Замер scrollHeight на монтировании
+    // ловил поле до раскладки: подсказка переносилась по буквам, и пустой композер
+    // оставался в 160 px, пока человек не начнёт печатать (CI 0.9.42, SA-4: 172 px).
+    if (!inputText) { el.style.height = ''; return; }
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, [inputText, inputRef]);
