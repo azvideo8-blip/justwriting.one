@@ -15,6 +15,7 @@ export const commonTranslations: Translations = {
   skip_to_content: { ru: 'Перейти к содержимому', en: 'Skip to content' },
   nav_notes_short: { ru: 'Заметки', en: 'Notes' },
   nav_profile_short: { ru: 'Профиль', en: 'Profile' },
+  nav_ai_short: { ru: 'ИИ', en: 'AI' },
   nav_login: { ru: 'Войти', en: 'Sign in' },
   nav_logout: { ru: 'Выйти', en: 'Sign out' },
 

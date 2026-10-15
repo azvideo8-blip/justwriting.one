@@ -35,8 +35,8 @@ for (const { w, h, shrink } of [{ w: 360, h: 640, shrink: 280 }, { w: 390, h: 84
       expect(await fullyInViewport(toolbar), 'панель письма за экраном').toBe(true);
 
       const inner = await page.evaluate(() => window.innerHeight);
-      const box = await nav(page).boundingBox();
-      expect(box && box.y >= inner - 1, `панель всё ещё в экране (y=${box?.y}, экран ${inner})`).toBe(true);
+      // Переход панели — 180 мс; после fill() он может быть в последних кадрах (y на ~1 px выше края) — ждём конца.
+      await expect.poll(async () => (await nav(page).boundingBox())?.y ?? 0, { timeout: 3_000, message: `панель всё ещё в экране (экран ${inner})` }).toBeGreaterThanOrEqual(inner - 1);
 
       const lines = await linesInEditor(page);
       expect(lines, `видно строк: ${lines.toFixed(1)}`).toBeGreaterThanOrEqual(7);

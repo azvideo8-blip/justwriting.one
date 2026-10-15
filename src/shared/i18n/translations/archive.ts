@@ -102,6 +102,14 @@ export const archiveTranslations: Translations = {
   archive_assign_label: { ru: 'Назначить метку', en: 'Assign label' },
   archive_no_label: { ru: 'Без метки', en: 'No label' },
   archive_tag_placeholder_short: { ru: 'тег', en: 'tag' },
+  // MQ-14: состояние в чипе панели письма (слово «Пауза» читалось как кнопка).
+  writing_paused_state: { ru: 'На паузе', en: 'Paused' },
+  // MQ-9: подписи групп в листе режима письма (лист ленивый — строки здесь, не в eager-пространстве).
+  writing_group_session: { ru: 'Сессия', en: 'Session' },
+  writing_group_how: { ru: 'Как писать', en: 'How to write' },
+  // MQ-3: баннер черновика, уже стоящего в редакторе (письмо на телефоне).
+  draft_restored: { ru: 'Черновик восстановлен', en: 'Draft restored' },
+  draft_remove: { ru: 'Убрать', en: 'Remove' },
   archive_tag_remove: { ru: 'Удалить тег', en: 'Remove tag' },
   archive_tag_delete_confirm: { ru: 'Удалить тег #{tag}? Он будет снят со всех заметок.', en: 'Delete tag #{tag}? It will be removed from all notes.' },
   archive_label_delete_confirm: { ru: 'Удалить метку? Она будет снята со всех заметок.', en: 'Delete label? It will be removed from all notes.' },
@@ -198,7 +206,7 @@ export const archiveTranslations: Translations = {
   archive_cloud_only_note: { ru: 'Заметка из облака', en: 'Cloud note' },
   archive_cloud_sync_failed: { ru: 'Облачная копия не синхронизирована', en: 'Cloud copy did not sync' },
   reading_time: { ru: '~{n} мин чтения', en: '~{n} min read' },
-  archive_preview_analyze_btn: { ru: 'Проанализировать', en: 'Analyze' },
+  archive_preview_analyze_btn: { ru: 'Разобрать заметку через ИИ', en: 'Analyse this note with AI' },
   archive_preview_analyzing: { ru: 'анализируется…', en: 'analysing…' },
   archive_preview_refresh_hint: { ru: 'Обнови страницу, чтобы увидеть разбор', en: 'Refresh the page to see the analysis' },
   archive_preview_ai_excluded: { ru: 'Заметка скрыта от ИИ. Разбор недоступен', en: 'Note is hidden from AI. Analysis unavailable' },

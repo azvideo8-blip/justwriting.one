@@ -2,14 +2,23 @@ import { useState } from 'react';
 import { ModalShell } from '../../../shared/components/ModalShell';
 import { Button } from '../../../shared/components/Button';
 import { useLanguage } from '../../../shared/i18n';
+import { useExitLinger } from '../../../shared/hooks/useExitLinger';
 
 /** MF-11: один лист переименования на всех входах телефона — читалка, строка
  *  списка, карточка сетки. Сохранение идёт тем же onTitleChange, что на десктопе. */
-export function MobileRenameSheet({ initialTitle, onCancel, onSave }: {
+export function MobileRenameSheet({ open = true, ...rest }: RenameSheetProps) {
+  // MQ-5: смонтирован всегда, тело живёт ещё 250 мс после закрытия — лист уходит вниз.
+  return useExitLinger(open) ? <RenameSheetBody open={open} {...rest} /> : null;
+}
+
+interface RenameSheetProps {
+  open?: boolean;
   initialTitle: string;
   onCancel: () => void;
   onSave: (title: string) => void;
-}) {
+}
+
+function RenameSheetBody({ open = true, initialTitle, onCancel, onSave }: RenameSheetProps) {
   const { t } = useLanguage();
   const [draft, setDraft] = useState(initialTitle);
   const save = () => {
@@ -17,7 +26,7 @@ export function MobileRenameSheet({ initialTitle, onCancel, onSave }: {
     if (title) onSave(title);
   };
   return (
-    <ModalShell open onClose={onCancel} labelId="note-rename-title" variant="sheet">
+    <ModalShell open={open} onClose={onCancel} labelId="note-rename-title" variant="sheet">
       <div className="p-5 pb-[calc(env(safe-area-inset-bottom,0px)+20px)]">
         <h2 id="note-rename-title" className="text-[17px] font-semibold text-text-main">{t('archive_rename_title')}</h2>
         <input

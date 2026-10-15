@@ -571,6 +571,10 @@ textarea {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+  /* MQ-15 (N-10): заливка удержания для выхода из потока — индикатор хода, а не украшение: 3 с ему нужны. */
+  [data-testid="stream-hold-fill"][data-holding="true"] {
+    transition-duration: 3000ms !important;
+  }
 }
 
 /* Focus band follows the caret: --focus-y (px) is set by useCaretEffects. */

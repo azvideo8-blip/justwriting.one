@@ -36,13 +36,17 @@ interface MobileWriteScreenProps {
   sessionType?: SessionType;
   onOpenSetup?: () => void;
   hasDraft?: boolean;
+  /** MQ-3: текст черновика уже стоит в редакторе (подставлен при открытии). */
+  draftInEditor?: boolean;
   restoreDraft?: () => void;
   discardDraft?: () => void;
+  /** MQ-3: «Убрать» — стереть и черновик, и текст в редакторе. */
+  removeDraft?: () => void;
 }
 
 export function MobileWriteScreen({
   onPlay, onStop, saveStatus, saveErrorKind, keystrokeTrackerRef, renderAiPanel,
-  status: statusProp, streakDays = 0, sessionType = 'free', onOpenSetup, hasDraft, restoreDraft, discardDraft,
+  status: statusProp, streakDays = 0, sessionType = 'free', onOpenSetup, hasDraft, draftInEditor, restoreDraft, discardDraft, removeDraft,
 }: MobileWriteScreenProps) {
   const { t, tp, language } = useLanguage();
   const { openSettings } = useSettings();
@@ -97,7 +101,6 @@ export function MobileWriteScreen({
         e.preventDefault();
       }
     }
-    resetIdleTimer();
   };
 
   const handleInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
@@ -133,36 +136,15 @@ export function MobileWriteScreen({
     if (status === 'writing') {
       intensityRef.current = Math.min(1, intensityRef.current + 0.2);
     }
-    resetIdleTimer();
   };
 
   const [focusMode, setFocusMode] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const editorAreaRef = useRef<HTMLDivElement>(null);
-  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lighthouseHideRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [lighthouseActive, setLighthouseActive] = useState(false);
+  // MQ-15 (N-15): «маяк» (lighthouse-pulse) снят на телефоне: тень на 28 px обрезалась overflow-hidden
+  // целиком, а перерисовывалась каждые 1,2 с впустую.
 
   useAutoHideCursor(editorAreaRef, autoHideCursor);
-
-  const resetIdleTimer = () => {
-    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    if (lighthouseHideRef.current) clearTimeout(lighthouseHideRef.current);
-    setLighthouseActive(false);
-    if (status === 'writing') {
-      idleTimerRef.current = setTimeout(() => {
-        setLighthouseActive(true);
-        lighthouseHideRef.current = setTimeout(() => setLighthouseActive(false), 1500);
-      }, 5000);
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      if (lighthouseHideRef.current) clearTimeout(lighthouseHideRef.current);
-    };
-  }, []);
   const swipeTouchStartY = useRef<number>(0);
   const swipeTouchStartX = useRef<number>(0);
 
@@ -274,10 +256,11 @@ export function MobileWriteScreen({
           раньше шапка уходила 0,3 с, пока в колонке уже стояла строка дзена, и текст дёргался. */}
       <div className="shrink-0 pt-[env(safe-area-inset-top,0px)]">
       <div className="relative h-11">
-      <AnimatePresence>
+      {/* MQ-15 (N-9): шапка проступает после дзена с нуля — не поверх ещё гаснущей строки дзена. */}
+      <AnimatePresence initial={false}>
         {!showZen && (
           <motion.div
-            initial={{ opacity: 1 }}
+            initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
@@ -319,6 +302,17 @@ export function MobileWriteScreen({
             </div>
             )}
 
+            {/* MQ-4: статус сохранения стоит слева, в одном слоте со временем, а не после «Aa»:
+                отдельный блок min-w-60 справа выталкивал «Aa» с края и сам уезжал за экран. */}
+            {saveMoment === null && saveStatus && saveStatus !== 'idle' && (
+              <span data-testid="save-status-text" className="max-w-[40%] shrink-0 truncate text-[12px] text-[var(--text-subtle)] tabular-nums">
+                {saveStatus === 'saving' ? t('save_status_saving') :
+                 saveStatus === 'saved'  ? t('save_status_saved')  :
+                 saveStatus === 'cloud-stale' ? <span className="text-[var(--accent-warning)]">{t('editor_cloud_stale')}</span> :
+                 saveStatus === 'error' ? <span className="text-[var(--accent-danger)]">{saveErrorKind === 'quota' ? t('editor_error_quota') : t('editor_error_save')}</span> : ''}
+              </span>
+            )}
+
             {saveMoment === null && (isIdleState ? (
               /* MC-1: дата словами («Среда, 14 октября») — сокращённое «ср»
                  читалось как часть интерфейса, а не как день. */
@@ -336,7 +330,7 @@ export function MobileWriteScreen({
               aria-label={t('topbar_title_placeholder')}
               inputMode="text"
               enterKeyHint="done"
-              className="flex-1 bg-transparent border-none outline-none text-base font-medium text-[var(--text-muted)] text-center font-sans"
+              className="min-w-0 flex-1 bg-transparent border-none outline-none text-base font-medium text-[var(--text-muted)] text-center font-sans"
             />
             ))}
 
@@ -345,17 +339,11 @@ export function MobileWriteScreen({
               type="button"
               onClick={() => openSettings()}
               aria-label={t('settings_title')}
-              className="w-11 h-11 shrink-0 -mr-2 flex items-center justify-center rounded-xl border border-[var(--border-light)] text-[13px] font-semibold text-[var(--text-muted)]"
+              className="press w-11 h-11 shrink-0 -mr-2 flex items-center justify-center rounded-xl border border-[var(--border-light)] text-[13px] font-semibold text-[var(--text-muted)]"
             >
               Aa
             </button>
 
-            <div className="text-[12px] text-[var(--text-subtle)] min-w-[60px] text-right tabular-nums">
-              {saveStatus === 'saving' ? t('save_status_saving') :
-               saveStatus === 'saved'  ? t('save_status_saved')  :
-               saveStatus === 'cloud-stale' ? <span className="text-[var(--accent-warning)]">{t('editor_cloud_stale')}</span> :
-               saveStatus === 'error' ? <span className="text-[var(--accent-danger)]">{saveErrorKind === 'quota' ? t('editor_error_quota') : t('editor_error_save')}</span> : ''}
-            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -396,22 +384,28 @@ export function MobileWriteScreen({
       {!showZen && isIdleState && (hasDraft || discardConfirm) && (
         <div className="px-5 pb-2 flex flex-col gap-2">
           {hasDraft && (
-            <div className="flex items-center gap-2 rounded-xl border border-[var(--border-light)] bg-[var(--surface-card)] px-3 py-2">
-              <span className="flex-1 min-w-0 text-[12px] text-[var(--text-muted)] truncate">{t('draft_restore_prompt')}</span>
-              <button type="button" onClick={() => restoreDraft?.()} className="h-9 px-3 rounded-lg text-[12px] font-semibold text-[var(--brand-primary)]">
-                {t('draft_restore')}
-              </button>
-              <button type="button" onClick={() => setDiscardConfirm(true)} className="h-9 px-3 rounded-lg text-[12px] font-medium text-[var(--text-muted)] border border-[var(--border-light)]">
-                {t('draft_discard')}
+            /* MQ-3: текст в две строки без обрезки, кнопки 44 px. Если черновик уже в
+               редакторе, «Восстановить» нечего делать — остаётся только «Убрать». */
+            <div className="flex items-center gap-2 rounded-xl border border-[var(--border-light)] bg-[var(--surface-card)] px-3 py-1">
+              <span className="flex-1 min-w-0 text-[13px] leading-snug text-[var(--text-muted)]">
+                {draftInEditor ? t('draft_restored') : t('draft_restore_prompt')}
+              </span>
+              {!draftInEditor && (
+                <button type="button" onClick={() => restoreDraft?.()} className="press min-h-11 px-3 rounded-lg text-[13px] font-semibold text-[var(--brand-primary)]">
+                  {t('draft_restore')}
+                </button>
+              )}
+              <button type="button" onClick={() => setDiscardConfirm(true)} className="press min-h-11 px-3 rounded-lg text-[13px] font-medium text-[var(--text-muted)]">
+                {draftInEditor ? t('draft_remove') : t('draft_discard')}
               </button>
             </div>
           )}
           {discardConfirm && (
             <div role="dialog" aria-modal="true" aria-labelledby="discard-draft-title" className="rounded-xl border border-[var(--border-light)] bg-surface-popup p-3 space-y-2">
-              <span id="discard-draft-title" className="block text-[12px] text-[var(--text-main)]">{t('draft_discard_confirm')}</span>
+              <span id="discard-draft-title" className="block text-[13px] text-[var(--text-main)]">{t('draft_discard_confirm')}</span>
               <div className="flex gap-2 justify-end">
-                <button type="button" onClick={() => setDiscardConfirm(false)} className="h-9 px-3 rounded-lg text-[12px] text-[var(--text-muted)]">{t('common_cancel')}</button>
-                <button type="button" onClick={() => { setDiscardConfirm(false); discardDraft?.(); }} className="h-9 px-3 rounded-lg text-[12px] font-semibold text-[var(--accent-danger)]">{t('draft_discard')}</button>
+                <button type="button" onClick={() => setDiscardConfirm(false)} className="min-h-11 px-3 rounded-lg text-[13px] text-[var(--text-muted)]">{t('common_cancel')}</button>
+                <button type="button" onClick={() => { setDiscardConfirm(false); (draftInEditor ? removeDraft : discardDraft)?.(); }} className="min-h-11 px-3 rounded-lg text-[13px] font-semibold text-[var(--accent-danger)]">{t('draft_discard')}</button>
               </div>
             </div>
           )}
@@ -455,7 +449,6 @@ export function MobileWriteScreen({
           onPaste={e => { if (streamMode) e.preventDefault(); }}
           placeholder={t('writing_placeholder_mobile')}
           inputMode="text"
-          className={lighthouseActive ? 'lighthouse-pulse' : ''}
           style={{
             width: '100%',
             height: '100%',

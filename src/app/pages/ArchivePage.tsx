@@ -253,7 +253,9 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
         {/* MR-4: min-w-[320px] нужен десктопной колонке, а на телефоне складывался
             с отступами main и давал горизонтальный скролл на 320. */}
         <div className={cn("flex gap-0 flex-1 min-h-0", !isMobile && "min-w-[320px]")}>
-          <div className="flex-1 min-w-0 pr-0 lg:pr-8 flex flex-col min-h-0">
+          {/* MQ-8: высокую панель календаря прокручивает колонка, а не сама панель — список под
+              ней получает свою высоту (70dvh) и остаётся достижим прокруткой колонки. */}
+          <div className={cn("flex-1 min-w-0 pr-0 lg:pr-8 flex flex-col min-h-0", isMobile && calendarOpen && "overflow-y-auto")}>
             <div className="shrink-0">
             {isMobile ? (
               <>
@@ -305,14 +307,14 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
             />
             )}
             {isMobile && activeTab === 'notes' && calendarOpen && (
-              <MobileInlinePanel testId="archive-calendar-panel" onClose={() => setCalendarOpen(false)} scrollable>
-                <div className="space-y-6 py-3">
+              <MobileInlinePanel testId="archive-calendar-panel" title={t('archive_menu_calendar')} onClose={() => setCalendarOpen(false)}>
+                <div className="space-y-5">
                   <ArchiveSidebarContent
                     filteredByFilters={filteredByFilters} streakDays={filteredStreakDays} statsTitle={statsTitle}
                     onReset={hasActiveFilter ? resetStatsFilter : undefined}
                     sessions={sessions} sessionsByDate={sessionsByDate} wordsByDate={wordsByDate} selectedDate={selectedDate}
                     onSelectDate={setSelectedDate} onSelectMonth={setSelectedMonth}
-                    wordCloud={wordCloud} maxCount={maxCount} onWordClick={setSearchQuery} collapseCloud
+                    wordCloud={wordCloud} maxCount={maxCount} onWordClick={setSearchQuery} collapseCloud flat
                   />
                 </div>
               </MobileInlinePanel>
@@ -320,7 +322,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
             {activeTab === 'notes' && (
               isMobile ? (
                 showTagLabelBars && (allTags.length > 0 || profileLabels.length > 0) && (
-                  <MobileInlinePanel testId="archive-tags-panel" onClose={() => setShowTagLabelBars(false)}>
+                  <MobileInlinePanel testId="archive-tags-panel" title={t('archive_menu_tags')} onClose={() => setShowTagLabelBars(false)}>
                   <div className="flex flex-col [&>div:last-child]:!border-b-0">
                     <ArchiveTagBar
                       allTags={allTags}
@@ -333,6 +335,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                       onRenameCancel={() => tagEditor.setRenamingTag(null)} onDeleteTag={tagEditor.setTagDeleteConfirm}
                       onResetTags={() => setSelectedTags([])} showControls={false} t={t}
                       labelKey="archive_tags_only"
+                      variant="sheet"
                     />
                     <ArchiveLabelBar
                       labels={profileLabels} selectedLabels={selectedLabels} onToggleLabel={toggleLabel}
@@ -346,6 +349,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                       editLabelColor={labelEditor.editLabelColor} setEditLabelColor={labelEditor.setEditLabelColor}
                       onUpdateLabel={labelEditor.handleUpdateLabel} onDeleteLabel={labelEditor.setLabelDeleteConfirm}
                       showControls={false} t={t}
+                      variant="sheet"
                     />
                   </div>
                   </MobileInlinePanel>
@@ -403,7 +407,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                 />
               </div>
             ) : (
-              <div className="mt-4 flex-1 min-h-0 pr-1">
+              <div className={cn("mt-4 pr-1", isMobile && calendarOpen ? "h-[70dvh] shrink-0" : "flex-1 min-h-0")}>
                 <ArchiveNoteList
                   viewMode={viewMode} loading={loading} error={error} filteredSessions={sortedSessions}
                   groupedSessions={groupedSessions} sortedDates={sortedDates} dateLocale={dateLocale}

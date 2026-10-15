@@ -9,6 +9,11 @@ import { Input } from '../../../shared/components/Input';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { getCurrentUser, reauthenticate } from '../../../core/auth';
 import { ModalShell } from '../../../shared/components/ModalShell';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
+
+// MQ-11: поле ≥ 16 px на телефоне (Safari на iPhone иначе увеличит страницу при фокусе), плейсхолдер —
+// `--text-muted` (≥ 4,5:1 во всех темах), а не text-main/40 (≈ 3,4:1).
+const FIELD = 'px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-base md:text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-muted';
 import { RecoveryCodeDisplayModal } from '../../../shared/components/RecoveryCodeDisplayModal';
 import {
   initializeEncryption,
@@ -38,6 +43,7 @@ interface EncryptionPasswordModalProps {
 
 export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose }: EncryptionPasswordModalProps) {
   const { t } = useLanguage();
+  const isMobile = useLayoutMode().layoutMode === 'mobile';
   const { showToast } = useToast();
   // Первичная настройка сейфа шла мимо ProfileContext: заметки шифровались
   // (флаг записи + ключ сессии стоят), но раздел настроек читает
@@ -283,14 +289,17 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
       onClose={() => onClose?.()}
       labelId="enc-modal-title"
       z="critical"
-      className="w-full max-w-[400px] bg-surface-card border border-border-subtle rounded-2xl p-6 shadow-lg relative"
+      variant={isMobile ? 'sheet' : 'modal'}
+      className={isMobile
+        ? 'p-6 relative overflow-y-auto'
+        : 'w-full max-w-[400px] bg-surface-card border border-border-subtle rounded-2xl p-6 shadow-lg relative'}
     >
           {onClose && (
             <button
               type="button"
               onClick={onClose}
               aria-label={t('close')}
-              className="absolute right-4 top-4 p-2 text-text-main/60 hover:text-text-main transition-colors rounded-lg"
+              className="absolute right-2 top-2 md:right-4 md:top-4 flex h-11 w-11 items-center justify-center md:h-auto md:w-auto md:p-2 text-text-main/60 hover:text-text-main transition-colors rounded-lg"
             >
               <X size={18} />
             </button>
@@ -367,7 +376,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
                 onChange={(e) => setRecoveryCode(e.target.value)}
                 placeholder={t('enc_recovery_code_placeholder')}
                 aria-label={t('enc_recovery_code_label')}
-                className="font-mono px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/40 uppercase"
+                className={`font-mono ${FIELD} uppercase`}
                 required
               />
             )}
@@ -379,7 +388,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 placeholder={isMigrate ? t('enc_migrate_current_password') : t('enc_current_password')}
                 aria-label={isMigrate ? t('enc_migrate_current_password') : t('enc_current_password')}
-                className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/40"
+                className={FIELD}
                 required
                 autoFocus={isMigrate}
               />
@@ -400,7 +409,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
                   : t('enc_new_password_placeholder')
               }
               aria-label={isUnlock && !isRecovering ? t('unlock_title') : t('enc_new_password_placeholder')}
-              className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/40"
+              className={FIELD}
               required
               autoFocus={(!isRecovering && isUnlock) || isSetup}
               minLength={isUnlock && !isRecovering ? undefined : MIN_PASSWORD_LENGTH}
@@ -413,14 +422,14 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder={isRecovering ? t('enc_recovery_confirm_password') : t('enc_confirm_password')}
                 aria-label={t('enc_confirm_password')}
-                className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/40"
+                className={FIELD}
                 required
                 minLength={MIN_PASSWORD_LENGTH}
               />
             )}
 
             {!isRecovering && isUnlock && (
-              <label className="flex items-center gap-2.5 px-1 cursor-pointer select-none text-sm text-text-main/70">
+              <label className="flex min-h-11 md:min-h-0 items-center gap-2.5 px-1 cursor-pointer select-none text-sm text-text-main/70">
                 <input
                   type="checkbox"
                   checked={rememberDevice}
@@ -439,7 +448,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
                 (isRecovering && (!recoveryCode || !confirmPassword)) ||
                 (!isUnlock && !confirmPassword)
               }
-              className="w-full py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-[var(--brand-primary)]"
+              className="w-full min-h-11 md:min-h-0 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-[var(--brand-primary)]"
             >
               {loading ? (
                 <Loader2 size={16} className="animate-spin" />
@@ -464,7 +473,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
                     setIsRecovering(true);
                     setError(null);
                   }}
-                  className="text-xs text-text-main/60 hover:text-text-main underline transition-colors"
+                  className="min-h-11 md:min-h-0 px-3 text-xs text-text-main/60 hover:text-text-main underline transition-colors"
                 >
                   {t('enc_recovery_link')}
                 </button>

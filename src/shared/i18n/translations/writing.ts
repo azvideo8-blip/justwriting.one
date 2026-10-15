@@ -7,7 +7,6 @@ export const writingTranslations: Translations = {
   // MR-6: токен режима под шапкой на телефоне.
   writing_mode_token: { ru: 'Режим сессии', en: 'Session mode' },
   // MF-3: чип панели письма — «120 сл».
-  writing_words_short: { ru: 'сл', en: 'w' },
   writing_resume: { ru: 'Продолжить', en: 'Resume' },
   writing_mode_flow_desc: { ru: 'Просто секундомер. Пиши сколько угодно.', en: 'Just a stopwatch. Write as much as you want.' },
   writing_mode_timer: { ru: 'По таймеру', en: 'Timer' },
@@ -84,7 +83,7 @@ export const writingTranslations: Translations = {
   // DC-W3: заголовок итогов — одна тёплая строка вместо «Сессия завершена.»
   finish_written_heading: { ru: 'Записано {words} {time}', en: 'Written {words} in {time}' },
   finish_written_bare: { ru: 'Записано.', en: 'Written.' },
-  finish_duration_under_minute: { ru: 'за меньше чем минуту', en: 'under a minute' },
+  finish_duration_under_minute: { ru: 'меньше чем за минуту', en: 'under a minute' },
   duration_minutes_one: { ru: 'за {count} минуту', en: '{count} minute' },
   duration_minutes_few: { ru: 'за {count} минуты', en: '{count} minutes' },
   duration_minutes_many: { ru: 'за {count} минут', en: '{count} minutes' },

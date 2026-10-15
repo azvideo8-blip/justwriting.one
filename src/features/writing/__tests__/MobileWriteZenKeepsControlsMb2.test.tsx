@@ -55,7 +55,7 @@ describe('MB-2: дзен на телефоне не съедает управл�
     expect(screen.getByRole('button', { name: 'topbar_save' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'voice_start' })).toBeTruthy();
     // MF-3: пауза ушла в лист сессии (тап по чипу), статистика — в чип.
-    expect(screen.getByRole('button', { name: 'writing_mode_token' }).textContent).toContain('writing_words_short');
+    expect(screen.getByRole('button', { name: 'writing_mode_token' }).textContent).toContain('writing_words');
   });
 
   it('в дзене: «Сохранить», чип и микрофон остаются, слова прячутся', () => {
@@ -64,7 +64,7 @@ describe('MB-2: дзен на телефоне не съедает управл�
     expect(screen.getByRole('button', { name: 'topbar_save' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'voice_start' })).toBeTruthy();
     const chip = screen.getByRole('button', { name: 'writing_mode_token' });
-    expect(chip.textContent).not.toContain('writing_words_short');
+    expect(chip.textContent).not.toContain('writing_words');
     expect(chip.textContent).toMatch(/▶/);
   });
 

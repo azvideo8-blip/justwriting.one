@@ -4,6 +4,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
+import { SECTION_LABEL } from '../../../shared/components/ModalShell';
 
 interface ArchiveTagBarProps {
   allTags: string[];
@@ -22,21 +23,24 @@ interface ArchiveTagBarProps {
   t?: (key: string) => string;
   /** MF-8: на телефоне у меток своя строка, поэтому подпись — просто «Теги». */
   labelKey?: string;
+  /** MQ-7: «sheet» — панель на телефоне: подпись строчная, фишки Inter 14 и 44 px. */
+  variant?: 'default' | 'sheet';
 }
 
 export function ArchiveTagBar({
   allTags, selectedTags, tagCounts, onToggleTag,
   renamingTag, renameTagValue, setRenameTagValue,
   onStartRename, onRenameSubmit, onRenameCancel, onDeleteTag,
-  onResetTags, showControls, t: propT, labelKey = 'archive_tags_label',
+  onResetTags, showControls, t: propT, labelKey = 'archive_tags_label', variant = 'default',
 }: ArchiveTagBarProps) {
+  const sheet = variant === 'sheet';
   const { t: hookT } = useLanguage();
   const t = propT ?? hookT;
   if (allTags.length === 0) return null;
 
   return (
     <div className="flex items-center gap-2 py-3 flex-wrap border-b border-border-subtle" >
-      <span className="font-mono text-[9px] text-text-main/60 uppercase tracking-widest mr-1">
+      <span className={sheet ? cn(SECTION_LABEL, 'mr-1') : 'font-mono text-[9px] text-text-main/60 uppercase tracking-widest mr-1'}>
         {t(labelKey)}
       </span>
       {allTags.map(tag => {
@@ -67,14 +71,15 @@ export function ArchiveTagBar({
               transition={{ type: 'spring', stiffness: 350, damping: 30 }}
               onClick={() => onToggleTag(tag)}
               className={cn(
-                 "px-2 py-0.5 rounded-full text-[10px] font-mono transition-colors border flex items-center gap-1",
+                sheet ? "min-h-11 gap-1.5 px-3 text-[14px] font-medium" : "px-2 py-0.5 text-[10px] font-mono gap-1",
+                "rounded-full transition-colors border flex items-center",
                 active
                   ? "bg-brand-soft/15 border-brand-soft/40 text-brand-soft"
                   : "bg-transparent border-border-subtle text-text-main/60 hover:text-text-main"
               )}
             >
               <span>#{tag}</span>
-              <span className={cn("font-mono text-[9px]", active ? "text-brand-soft/70" : "text-text-main/60")}>
+              <span className={cn(sheet ? "text-[12px]" : "font-mono text-[9px]", active ? "text-brand-soft/70" : "text-text-main/60")}>
                 {tagCounts?.[tag] ?? 0}
               </span>
             </motion.button>
@@ -100,7 +105,10 @@ export function ArchiveTagBar({
       {selectedTags.length > 0 && (
         <Button
           onClick={onResetTags}
-           className="px-2 py-0.5 rounded-full text-[10px] font-mono border border-dashed border-border-subtle text-text-main/60 hover:text-text-main transition-colors"
+          className={cn(
+            "rounded-full border border-dashed border-border-subtle text-text-main/60 hover:text-text-main transition-colors",
+            sheet ? "min-h-11 px-3 text-[14px] font-medium" : "px-2 py-0.5 text-[10px] font-mono",
+          )}
         >
           {t('archive_tags_reset')} ✕
         </Button>

@@ -11,7 +11,9 @@ export interface VoiceNotice {
   remaining: number | null;
 }
 
-export function MobileVoiceNoticeSheet({ notice, onCancel, onRecord }: {
+export function MobileVoiceNoticeSheet({ open = true, notice, onCancel, onRecord }: {
+  /** MQ-5: родитель держит лист смонтированным ещё на время ухода, пока `open` уже false. */
+  open?: boolean;
   notice: VoiceNotice;
   onCancel: () => void;
   /** Вызывается прямо из обработчика нажатия: без await до старта записи (iOS). */
@@ -20,7 +22,7 @@ export function MobileVoiceNoticeSheet({ notice, onCancel, onRecord }: {
   const { t } = useLanguage();
   const [dismiss, setDismiss] = useState(false);
   return (
-    <ModalShell open onClose={onCancel} labelId="voice-notice-title" variant="sheet">
+    <ModalShell open={open} onClose={onCancel} labelId="voice-notice-title" variant="sheet">
       <div className="px-6 pt-6 pb-4 space-y-4" data-voice-notice>
         <h2 id="voice-notice-title" className="text-[17px] font-semibold text-text-main">{t('voice_confirm_title')}</h2>
         {notice.vault ? (
@@ -41,10 +43,10 @@ export function MobileVoiceNoticeSheet({ notice, onCancel, onRecord }: {
           </label>
         )}
         <div className="flex gap-3 pt-2">
-          <button type="button" onClick={onCancel} className="min-h-11 flex-1 rounded-2xl border border-[var(--border-light)] text-sm font-semibold text-text-main">
+          <button type="button" onClick={onCancel} className="press min-h-11 flex-1 rounded-2xl border border-[var(--border-light)] text-sm font-semibold text-text-main">
             {t('common_cancel')}
           </button>
-          <button type="button" onClick={() => onRecord(dismiss && !notice.vault)} className="min-h-11 flex-1 rounded-2xl text-sm font-semibold" style={{ background: 'var(--text-main)', color: 'var(--bg-base)' }}>
+          <button type="button" onClick={() => onRecord(dismiss && !notice.vault)} className="press min-h-11 flex-1 rounded-2xl text-sm font-semibold" style={{ background: 'var(--text-main)', color: 'var(--bg-base)' }}>
             {t('voice_sheet_record')}
           </button>
         </div>

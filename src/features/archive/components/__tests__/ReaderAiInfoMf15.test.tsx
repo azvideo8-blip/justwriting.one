@@ -81,9 +81,9 @@ describe('MF-15: what the AI noticed', () => {
   it('a note with a summary has no analyse button; a note without one has it', () => {
     const info = openInfo(full);
     expect(info.querySelectorAll('button').length).toBeGreaterThan(0);
-    expect(screen.queryByRole('button', { name: /Обновить разбор|Проанализировать/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Обновить разбор|Разобрать заметку через ИИ/ })).toBeNull();
     cleanup();
     openInfo(null);
-    expect(screen.getByRole('button', { name: /Проанализировать/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Разобрать заметку через ИИ/ })).toBeInTheDocument();
   });
 });

@@ -38,6 +38,8 @@ export function MobileArchiveMenuSheet(props: MobileArchiveMenuSheetProps) {
   const sorts = Object.keys(sortLabels) as SortMode[];
 
   const row = 'w-full h-12 flex items-center gap-3 px-4 text-left text-sm text-text-main border-b border-border-subtle last:border-b-0';
+  // MQ-15 (N-5): строки-кнопки откликаются на касание, как в листе действий.
+  const btnRow = `${row} active:bg-text-main/[0.06] transition-colors`;
 
   return (
     <ModalShell open={open} onClose={onClose} labelId={titleId} variant="sheet">
@@ -72,7 +74,7 @@ export function MobileArchiveMenuSheet(props: MobileArchiveMenuSheetProps) {
             </span>
           </div>
 
-          <button type="button" onClick={() => setSortsOpen(o => !o)} className={row} aria-expanded={sortsOpen}>
+          <button type="button" onClick={() => setSortsOpen(o => !o)} className={btnRow} aria-expanded={sortsOpen}>
             <span className="flex-1">{t('archive_menu_sort')}</span>
             <span className="text-[11px] text-text-main/55 truncate max-w-[45%]">{sortLabels[sortMode]}</span>
             <ChevronRight size={16} className={cn('shrink-0 transition-transform', sortsOpen && 'rotate-90')} />
@@ -88,26 +90,29 @@ export function MobileArchiveMenuSheet(props: MobileArchiveMenuSheetProps) {
             </button>
           ))}
 
-          <button type="button" onClick={() => { onOpenTags(); onClose(); }} className={row}>
+          <button type="button" onClick={() => { onOpenTags(); onClose(); }} className={btnRow}>
             <span className="flex-1">{t(tagsOpen ? 'archive_menu_hide_tags' : 'archive_menu_tags')}</span>
             <ChevronRight size={16} className="shrink-0 text-text-main/45" />
           </button>
 
-          <button type="button" onClick={() => { onOpenCalendar(); onClose(); }} className={row}>
+          <button type="button" onClick={() => { onOpenCalendar(); onClose(); }} className={btnRow}>
             <span className="flex-1">{t(calendarOpen ? 'archive_menu_hide_calendar' : 'archive_menu_calendar')}</span>
             <ChevronRight size={16} className="shrink-0 text-text-main/45" />
           </button>
 
           {activeTab === 'notes' ? (
-            <button type="button" onClick={() => { onTabChange('trash'); onClose(); }} className={row}>
+            <button type="button" onClick={() => { onTabChange('trash'); onClose(); }} className={btnRow}>
               <span className="flex-1">{t('archive_tab_trash')}</span>
-              <span className="text-[11px] text-text-main/55">
-                {trashCount} · {t('archive_trash_days')}
-              </span>
+              {/* MQ-14: «0 · 10 дней» у пустой корзины не пишем. */}
+              {trashCount > 0 && (
+                <span className="text-[11px] text-text-main/55">
+                  {trashCount} · {t('archive_trash_days')}
+                </span>
+              )}
             </button>
           ) : (
             <>
-              <button type="button" onClick={() => { onTabChange('notes'); onClose(); }} className={row}>
+              <button type="button" onClick={() => { onTabChange('notes'); onClose(); }} className={btnRow}>
                 <span className="flex-1">{t('archive_menu_back_to_notes')}</span>
               </button>
               <button type="button" onClick={() => { onClearTrash(); }} className={cn(row, 'text-accent-danger')}>

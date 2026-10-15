@@ -49,11 +49,11 @@ describe('DocumentPreview — AI Analysis button states', () => {
     mockFetchRelatedNotes.mockResolvedValue([]);
   });
 
-  it('renders "Проанализировать" button and not a spinner when note has no summary', async () => {
+  it('renders "Разобрать заметку через ИИ" button and not a spinner when note has no summary', async () => {
     renderPreview(mockSession);
 
     await waitFor(() => {
-      expect(screen.getByText('Проанализировать')).toBeInTheDocument();
+      expect(screen.getByText('Разобрать заметку через ИИ')).toBeInTheDocument();
     });
     expect(screen.queryByText('анализируется…')).not.toBeInTheDocument();
   });
@@ -67,7 +67,7 @@ describe('DocumentPreview — AI Analysis button states', () => {
 
     renderPreview(mockSession);
 
-    const button = await screen.findByText('Проанализировать');
+    const button = await screen.findByText('Разобрать заметку через ИИ');
     fireEvent.click(button);
 
     expect(mockAnalyze).toHaveBeenCalledTimes(1);
@@ -83,7 +83,7 @@ describe('DocumentPreview — AI Analysis button states', () => {
 
     renderPreview(mockSession);
 
-    const button = await screen.findByText('Проанализировать');
+    const button = await screen.findByText('Разобрать заметку через ИИ');
     fireEvent.click(button);
 
     await waitFor(() => {
@@ -102,7 +102,7 @@ describe('DocumentPreview — AI Analysis button states', () => {
     await waitFor(() => {
       expect(screen.getByText('Заметка скрыта от ИИ. Разбор недоступен')).toBeInTheDocument();
     });
-    expect(screen.queryByText('Проанализировать')).not.toBeInTheDocument();
+    expect(screen.queryByText('Разобрать заметку через ИИ')).not.toBeInTheDocument();
     expect(screen.queryByText('анализируется…')).not.toBeInTheDocument();
   });
 
@@ -111,7 +111,7 @@ describe('DocumentPreview — AI Analysis button states', () => {
 
     renderPreview(mockSession);
 
-    const button = await screen.findByText('Проанализировать');
+    const button = await screen.findByText('Разобрать заметку через ИИ');
     fireEvent.click(button);
 
     await waitFor(() => {

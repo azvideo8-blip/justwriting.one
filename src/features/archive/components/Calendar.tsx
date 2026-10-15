@@ -18,9 +18,11 @@ interface CalendarProps {
   selectedDate: Date | null;
   onSelectDate: (date: Date | null) => void;
   onSelectMonth?: (month: Date) => void;
+  /** MQ-8: телефон — дни недели строчными, кнопки месяца 44 px. */
+  flat?: boolean;
 }
 
-export function Calendar({ sessions, sessionsByDate, wordsByDate, selectedDate, onSelectDate, onSelectMonth }: CalendarProps) {
+export function Calendar({ sessions, sessionsByDate, wordsByDate, selectedDate, onSelectDate, onSelectMonth, flat = false }: CalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const { t, tp, language } = useLanguage();
   const locale = language === 'ru' ? ru : enUS;
@@ -51,16 +53,16 @@ export function Calendar({ sessions, sessionsByDate, wordsByDate, selectedDate, 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <Button onClick={() => onSelectMonth?.(currentMonth)} className="text-sm font-medium text-text-main px-1 capitalize transition-colors hover:text-text-main/70">{format(currentMonth, 'LLLL yyyy', { locale })}</Button>
+        <Button onClick={() => onSelectMonth?.(currentMonth)} className={cn("text-sm font-medium text-text-main px-1 capitalize transition-colors hover:text-text-main/70", flat && "min-h-11")}>{format(currentMonth, 'LLLL yyyy', { locale })}</Button>
         <div className="flex items-center gap-1">
-          <IconButton onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-1 rounded transition-colors text-text-main/60 hover:bg-text-main/5 hover:text-text-main" label={t('calendar_prev_month')} icon={<ChevronLeft size={18} />} />
-          <IconButton onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-1 rounded transition-colors text-text-main/60 hover:bg-text-main/5 hover:text-text-main" label={t('calendar_next_month')} icon={<ChevronRight size={18} />} />
+          <IconButton onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className={cn("rounded transition-colors text-text-main/60 hover:bg-text-main/5 hover:text-text-main", flat ? "h-11 w-11 flex items-center justify-center" : "p-1")} label={t('calendar_prev_month')} icon={<ChevronLeft size={18} />} />
+          <IconButton onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className={cn("rounded transition-colors text-text-main/60 hover:bg-text-main/5 hover:text-text-main", flat ? "h-11 w-11 flex items-center justify-center" : "p-1")} label={t('calendar_next_month')} icon={<ChevronRight size={18} />} />
         </div>
       </div>
 
       <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
         {['calendar_mon', 'calendar_tue', 'calendar_wed', 'calendar_thu', 'calendar_fri', 'calendar_sat', 'calendar_sun'].map((key, i) => (
-          <div key={`${key}-${i}`} className="text-label text-text-main/60 uppercase tracking-wider text-center">{t(key)}</div>
+          <div key={`${key}-${i}`} className={cn("text-center", flat ? "text-[12px] text-text-muted" : "text-label text-text-main/60 uppercase tracking-wider")}>{t(key)}</div>
         ))}
         {Array.from({ length: offset }).map((_, i) => (
           <div key={`empty-${i}`} />

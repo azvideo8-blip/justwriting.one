@@ -1,9 +1,7 @@
-import React, { useRef } from 'react';
-import { motion } from 'motion/react';
+import React from 'react';
 import { X, AlertTriangle } from 'lucide-react';
 import { useLanguage } from '../../shared/i18n';
-import { useModalEscape } from '../hooks/useModalEscape';
-import { useFocusTrap } from '../hooks/useFocusTrap';
+import { ModalShell } from './ModalShell';
 import { cn } from '../../shared/utils/cn';
 import { Button } from './Button';
 import { IconButton } from './IconButton';
@@ -36,24 +34,14 @@ export function CancelConfirmModal({
 }: CancelConfirmModalProps) {
   const { t } = useLanguage();
   const v = variantConfig[variant];
-  const modalRef = useRef<HTMLDivElement>(null);
-
-  useModalEscape(isOpen, onCancel);
-  useFocusTrap(modalRef, isOpen);
-
-  if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[var(--z-overlay)] flex items-center justify-center p-4 bg-surface-base/80 backdrop-blur-xl">
-      <motion.div 
-        ref={modalRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="cancel-modal-title"
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="w-full max-w-sm rounded-3xl p-8 shadow-2xl space-y-6 text-center border bg-surface-card backdrop-blur-2xl border-border-subtle shadow-[0_0_40px_rgba(255,255,255,0.05)] relative"
-      >
+    <ModalShell
+      open={isOpen}
+      onClose={onCancel}
+      labelId="cancel-modal-title"
+      className="max-w-[384px] rounded-3xl p-8 shadow-2xl space-y-6 text-center border bg-surface-card border-border-subtle"
+    >
         <IconButton
           type="button"
           onClick={onCancel}
@@ -93,7 +81,6 @@ export function CancelConfirmModal({
             {confirmLabel || t('finish_discard')}
           </Button>
         </div>
-      </motion.div>
-    </div>
+    </ModalShell>
   );
 }

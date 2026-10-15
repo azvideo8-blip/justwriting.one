@@ -27,6 +27,9 @@ export function ToggleRow({ icon, label, hint, value, onChange }: {
   value: boolean;
   onChange: () => void;
 }) {
+  // MQ-17: на телефоне описание — 13 px `--text-muted`, а не .text-label (10 px, разрядка 0.08em, 60 %):
+  // многострочная проза разрядкой читается тяжело.
+  const mobile = useLayoutMode().layoutMode === 'mobile';
   return (
     <Button
       onClick={onChange}
@@ -35,7 +38,7 @@ export function ToggleRow({ icon, label, hint, value, onChange }: {
       {Boolean(icon) && <span className="text-text-main/60 shrink-0">{icon}</span>}
       <div className="flex-1 text-left">
         <span className="text-sm text-text-main/70">{label}</span>
-        {hint && <p className="text-label text-text-main/60 mt-0.5">{hint}</p>}
+        {hint && <p className={cn('mt-0.5', mobile ? 'text-[13px] leading-snug text-text-muted' : 'text-label text-text-main/60')}>{hint}</p>}
       </div>
       <div className={cn(
         "w-8 h-4 rounded-full relative transition-colors duration-200 shrink-0",

@@ -2,7 +2,7 @@
 // стоит, с «Больше не показывать» (по человеку). С сейфом — каждый раз и без
 // галочки. Старт записи — прямо из нажатия «Записать».
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, cleanup, fireEvent, act, renderHook } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, act, renderHook, waitFor } from '@testing-library/react';
 import { MobileWriteToolbar } from '../MobileWriteToolbar';
 import { useTimerStore } from '../../store/useTimerStore';
 import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
@@ -44,7 +44,8 @@ describe('MF-5: voice notice sheet before recording (mobile)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'common_cancel' }));
     expect(d.startAfterNotice).not.toHaveBeenCalled();
     expect(localStorage.getItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2)).toBeNull();
-    expect(screen.queryByText('voice_sheet_where_audio')).toBeNull();
+    // MQ-5: лист уходит вниз ещё ~250 мс, а не пропадает за кадр.
+    await waitFor(() => expect(screen.queryByText('voice_sheet_where_audio')).toBeNull());
   });
 
   it('«Записать» starts recording from the tap; without the tick the sheet shows again next time', async () => {
@@ -53,6 +54,7 @@ describe('MF-5: voice notice sheet before recording (mobile)', () => {
     await tapMic();
     fireEvent.click(await screen.findByRole('button', { name: 'voice_sheet_record' }));
     expect(d.startAfterNotice).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByText('voice_sheet_where_audio')).toBeNull());
     await tapMic();
     expect(await screen.findByText('voice_sheet_where_audio')).toBeInTheDocument();
   });
@@ -64,6 +66,7 @@ describe('MF-5: voice notice sheet before recording (mobile)', () => {
     fireEvent.click(await screen.findByRole('checkbox', { name: 'voice_sheet_dont_show' }));
     fireEvent.click(screen.getByRole('button', { name: 'voice_sheet_record' }));
     expect(localStorage.getItem(STORAGE_KEYS.DICTATION_NOTICE_DISMISSED('u_a'))).toBe('1');
+    await waitFor(() => expect(screen.queryByText('voice_sheet_where_audio')).toBeNull());
     await tapMic();
     expect(d.startAfterNotice).toHaveBeenCalledTimes(2);
     expect(screen.queryByText('voice_sheet_where_audio')).toBeNull();

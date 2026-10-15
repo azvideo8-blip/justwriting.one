@@ -192,6 +192,10 @@ tr:last-child td { border-bottom: 0; }
 
 .footer { max-width: 1120px; margin: 0 auto; padding: 24px; font-size: 14px; color: var(--muted); border-top: 1px solid var(--border); }
 .footer a { color: var(--muted); }
+/* MQ-16: ссылки подвала — список; на десктопе в строку через «·», на телефоне колонкой по 44 px. */
+.footer-links { display: inline; list-style: none; margin: 0; padding: 0; }
+.footer-links li { display: inline; }
+.footer-links li::before { content: " · "; }
 
 /* ── Узкий экран ─────────────────────────────────── */
 @media (max-width: 860px) {
@@ -216,6 +220,13 @@ tr:last-child td { border-bottom: 0; }
   .cards { grid-template-columns: minmax(0, 1fr); }
   .pager { flex-direction: column; }
   .pager a { max-width: none; }
+  /* MQ-16: margin-left:auto в колонке сжимал «Дальше» до ширины текста. */
+  .pager .next { margin-left: 0; }
+  .footer { display: flex; flex-direction: column; gap: 4px; }
+  .footer-links { display: flex; flex-direction: column; }
+  .footer-links li { display: block; }
+  .footer-links li::before { content: none; }
+  .footer-links li { display: flex; align-items: center; min-height: 44px; }
 }
 
 @media print {

@@ -21,7 +21,7 @@ describe('MF-8: Notes header and tags panel', () => {
 
   it('the panel has a 44 px × that closes it', () => {
     const onClose = vi.fn();
-    wrap(<MobileInlinePanel testId="p" onClose={onClose}><span>{'теги'}</span></MobileInlinePanel>);
+    wrap(<MobileInlinePanel testId="p" title="Теги и метки" onClose={onClose}><span>{'теги'}</span></MobileInlinePanel>);
     const x = screen.getByRole('button', { name: 'Закрыть' });
     expect(x.className).toContain('h-11');
     expect(x.className).toContain('w-11');

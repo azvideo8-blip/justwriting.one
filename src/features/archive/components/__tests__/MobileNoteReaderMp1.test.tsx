@@ -79,7 +79,7 @@ describe('MP-1: мобильная читалка заметки', () => {
 
     expect(screen.queryByText('Теги')).toBeNull();
     expect(screen.queryByText('Назначить метку')).toBeNull();
-    expect(screen.queryByText('Проанализировать')).toBeNull();
+    expect(screen.queryByText('Разобрать заметку через ИИ')).toBeNull();
     expect(screen.queryByText(/слов/)).toBeNull();
     expect(screen.queryByText('#глина')).toBeNull();
   });
@@ -103,7 +103,7 @@ describe('MP-1: мобильная читалка заметки', () => {
     expect(dialog.textContent).toContain('12 слов');
     expect(dialog).toHaveTextContent('Теги');
     expect(dialog).toHaveTextContent('Работа');
-    expect(dialog).toHaveTextContent('Проанализировать');
+    expect(dialog).toHaveTextContent('Разобрать заметку через ИИ');
   });
 
   it('«⋯» открывает лист действий, а не читалку заново', async () => {
@@ -144,7 +144,7 @@ describe('MP-1: мобильная читалка заметки', () => {
     expect(onAnalyzeNote).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Инфо' }));
     const dialog = await screen.findByRole('dialog', { name: 'Инфо' });
-    fireEvent.click(within(dialog, 'Проанализировать'));
+    fireEvent.click(within(dialog, 'Разобрать заметку через ИИ'));
     await waitFor(() => expect(onAnalyzeNote).toHaveBeenCalledWith('doc-mp1'));
   });
 
@@ -154,7 +154,7 @@ describe('MP-1: мобильная читалка заметки', () => {
     expect(screen.getByText(/Архив/)).toBeInTheDocument();
     expect(screen.getByText('Теги')).toBeInTheDocument();
     expect(screen.getByText('Работа')).toBeInTheDocument();
-    expect(screen.getByText('Проанализировать')).toBeInTheDocument();
+    expect(screen.getByText('Разобрать заметку через ИИ')).toBeInTheDocument();
     expect(screen.getByText(/12 слов/)).toBeInTheDocument();
   });
 });

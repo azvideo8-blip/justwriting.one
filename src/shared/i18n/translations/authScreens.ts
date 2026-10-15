@@ -71,7 +71,8 @@ export const authScreensTranslations: Translations = {
   first_run_policy_link: { ru: 'Читать политику полностью', en: 'Read the full policy' },
   first_run_consent_hint: { ru: 'Отметь согласие, чтобы продолжить', en: 'Tick the consent to continue' },
   first_run_policy_link_close: { ru: 'Свернуть политику', en: 'Hide the full policy' },
-  first_run_next: { ru: 'Дальше', en: 'Next' },
+  // MQ-13: подсказка под серой кнопкой шага с кодом (как first_run_consent_hint на шаге 1).
+  first_run_code_hint: { ru: 'Отметь «Код сохранён», чтобы продолжить', en: 'Tick that you saved the code to continue' },
   first_run_cloud_title: { ru: 'Облако', en: 'Cloud' },
   first_run_restore_switch_one: { ru: 'Загрузить {count} заметку из облака', en: 'Download {count} note from the cloud' },
   first_run_restore_switch_few: { ru: 'Загрузить {count} заметки из облака', en: 'Download {count} notes from the cloud' },

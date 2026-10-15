@@ -4,10 +4,10 @@ import { useTimerStore } from '../store/useTimerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useLanguage } from '../../../shared/i18n';
 import { formatTime } from '../../../core/utils/formatTime';
-import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
+import { ModalShell } from '../../../shared/components/ModalShell';
 import { Loader2, Mic, MicOff, Save, Square, X } from 'lucide-react';
 import { DictationWave } from './DictationBar';
 import { previewDictationCost, useDictation } from '../hooks/useDictation';
@@ -16,6 +16,7 @@ import { getCurrentUser } from '../../../core/auth';
 import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import type { VoiceNotice } from './MobileVoiceNoticeSheet';
+import { useExitLinger } from '../../../shared/hooks/useExitLinger';
 
 // MF-5: лист «Голосовой ввод» — ленивый кусок (запас бюджета index ~200 байт).
 const MobileVoiceNoticeSheet = lazy(() => import('./MobileVoiceNoticeSheet').then(m => ({ default: m.MobileVoiceNoticeSheet })));
@@ -39,7 +40,7 @@ interface MobileWriteToolbarProps {
 export function MobileWriteToolbar({
   onStop, onOpenSetup, streamMode, onToggleStreamMode, hideStats, sessionType: sessionTypeProp
 }: MobileWriteToolbarProps) {
-  const { t } = useLanguage();
+  const { t, tp } = useLanguage();
   const wordCount = useContentStore(s => s.wordCount);
   const dictation = useDictation();
   const { isListening, toggle, hasSupport, isVaultActive, aiNoticeRemaining } = dictation;
@@ -63,6 +64,9 @@ export function MobileWriteToolbar({
 
   const [showExitConfirm, setShowExitConfirm] = React.useState(false);
   const [voiceNotice, setVoiceNotice] = React.useState<VoiceNotice | null>(null);
+  // MQ-5: закрытие листа не стирает его текст — он нужен на время ухода вниз.
+  const [voiceOpen, setVoiceOpen] = React.useState(false);
+  const voiceMounted = useExitLinger(voiceOpen);
   // SA-25: жёлтая точка у микрофона объясняла себя только в aria-label. Предупреждение
   // человек уже прочитал в листе MF-5 (нажал «Записать») — тогда точка молчит, пока сейф
   // открыт; запертый сейф или ни разу не открытый лист — точка остаётся.
@@ -75,19 +79,25 @@ export function MobileWriteToolbar({
     if (isListening) { toggle(); return; }
     const decision = voiceNoticeDecision(getCurrentUser()?.uid ?? null, isVaultActive);
     if (decision === 'start') { dictation.startAfterNotice(); return; }
-    void previewDictationCost().then(remaining => setVoiceNotice({ vault: decision === 'vault', remaining }));
+    void previewDictationCost().then(remaining => {
+      setVoiceNotice({ vault: decision === 'vault', remaining });
+      setVoiceOpen(true);
+    });
   };
   const onRecord = (dismiss: boolean) => {
     if (dismiss) dismissVoiceNotice(getCurrentUser()?.uid ?? null);
-    setVoiceNotice(null);
+    setVoiceOpen(false);
     dictation.startAfterNotice();
   };
   const isIdle = status === 'idle';
+  // MQ-3: восстановленный черновик сохраняется сразу, без начатой сессии.
+  const canSave = !isIdle || wordCount > 0;
   const isPaused = status === 'paused';
   // MF-3: одна строка в чипе — режим, время, слова. Числа не обрезаются, режется
   // только название режима. Дзен оставляет состояние и время.
-  const words = `${sessionWords}${showWordGoal ? `/${wordGoal}` : ''} ${t('writing_words_short')}`;
-  const chipLead = isPaused ? `⏸ ${t('pause')}` : t(MODE_LABEL[sessionModeType]);
+  // MQ-14: слово целиком («37 слов»), а не «37 сл»; «На паузе» — состояние, а не кнопка «Пауза».
+  const words = `${sessionWords}${showWordGoal ? `/${wordGoal}` : ''} ${tp('writing_words', showWordGoal ? wordGoal : sessionWords)}`;
+  const chipLead = isPaused ? `⏸ ${t('writing_paused_state')}` : t(MODE_LABEL[sessionModeType]);
   const chipTail = isIdle ? '' : hideStats ? clock : `${clock} · ${words}`;
 
   // MB-5: панель стоит в общем столбце с панелью записи, поэтому её собственный
@@ -131,6 +141,7 @@ export function MobileWriteToolbar({
         <div className="absolute -top-5 left-1/2 -translate-x-1/2 overflow-hidden bg-[var(--accent-danger)] text-[var(--bg-base)] text-[11px] font-semibold px-2 py-0.5 rounded-full pointer-events-none shadow-[0_2px_4px_color-mix(in_srgb,var(--accent-danger)_20%,transparent)]">
           <span
             data-testid="stream-hold-fill"
+            data-holding={holding}
             aria-hidden="true"
             className="absolute inset-0 origin-left bg-[var(--bg-base)]/40"
             style={{ transform: holding ? 'scaleX(1)' : 'scaleX(0)', transition: holding ? 'transform 3000ms linear' : 'transform 200ms ease-out' }}
@@ -148,7 +159,7 @@ export function MobileWriteToolbar({
             onClick={dictation.cancel}
             disabled={dictation.phase === 'processing'}
             aria-label={t('voice_cancel')}
-            className="w-11 h-11 shrink-0 rounded-xl flex items-center justify-center border border-[var(--border-light)] text-[var(--text-muted)] disabled:opacity-40"
+            className="press w-11 h-11 shrink-0 rounded-xl flex items-center justify-center border border-[var(--border-light)] text-[var(--text-muted)] disabled:opacity-40"
           >
             <X size={18} aria-hidden="true" />
           </button>
@@ -174,7 +185,7 @@ export function MobileWriteToolbar({
               type="button"
               onClick={dictation.stop}
               aria-label={t('voice_stop_dictation')}
-              className="w-11 h-11 shrink-0 rounded-full flex items-center justify-center bg-accent-danger text-[var(--bg-base)]"
+              className="press w-11 h-11 shrink-0 rounded-full flex items-center justify-center bg-accent-danger text-[var(--bg-base)]"
             >
               <Square size={16} fill="currentColor" aria-hidden="true" />
             </button>
@@ -229,11 +240,11 @@ export function MobileWriteToolbar({
           <button
             type="button"
             onClick={onStop}
-            disabled={isIdle}
+            disabled={!canSave}
             aria-label={t('topbar_save')}
             className={cn(
               "press w-11 h-11 shrink-0 rounded-xl flex items-center justify-center transition-opacity",
-              isIdle ? "cursor-default opacity-45" : "cursor-pointer opacity-100"
+              canSave ? "cursor-pointer opacity-100" : "cursor-default opacity-45"
             )}
             style={{ background: 'var(--text-main)', color: 'var(--bg-base)' }}
           >
@@ -243,59 +254,47 @@ export function MobileWriteToolbar({
         </>
       )}
 
-      {voiceNotice && (
+      {voiceMounted && voiceNotice && (
         <Suspense fallback={null}>
-          <MobileVoiceNoticeSheet notice={voiceNotice} onCancel={() => setVoiceNotice(null)} onRecord={onRecord} />
+          <MobileVoiceNoticeSheet open={voiceOpen} notice={voiceNotice} onCancel={() => setVoiceOpen(false)} onRecord={onRecord} />
         </Suspense>
       )}
 
-      <AnimatePresence>
-        {showExitConfirm && (
-          <div
-            // color-ok: затемнение одинаково в любой теме.
-            className="fixed inset-0 z-[var(--z-sheet)] flex items-end justify-center bg-black/60 backdrop-blur-sm">
-            <div className="absolute inset-0" onClick={() => setShowExitConfirm(false)} />
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-              // color-ok: тень листа — чёрная в любой теме.
-              className="relative z-10 w-full max-w-lg bg-surface-popup border-t border-border-subtle rounded-t-[28px] overflow-hidden flex flex-col p-6 space-y-6 shadow-[0_-8px_32px_rgba(0,0,0,0.4)] pb-[calc(env(safe-area-inset-bottom,16px)+16px)]"
-            >
-              <div className="text-center space-y-2">
-                <h3 className="text-lg font-bold text-text-main">
-                  {t('stream_mode_exit_confirm')}
-                </h3>
-                <p className="text-sm text-text-main/60">
-                  {t('stream_mode_exit_desc')}
-                </p>
-              </div>
-              <div className="flex gap-3">
-                <Button
-                  variant="ghost"
-                  size="md"
-                  onClick={() => setShowExitConfirm(false)}
-                  className="flex-1 py-3.5 rounded-2xl border border-border-subtle text-text-main font-bold text-sm min-h-[44px]"
-                >
-                  {t('writing_cancel')}
-                </Button>
-                <Button
-                  variant="danger"
-                  size="md"
-                  onClick={() => {
-                    setShowExitConfirm(false);
-                    onToggleStreamMode?.();
-                  }}
-                  className="flex-1 py-3.5 rounded-2xl font-bold text-sm text-white min-h-[44px]"
-                >
-                  {t('storage_delete_confirm')}
-                </Button>
-              </div>
-            </motion.div>
+      {/* MQ-15 (W9, N-11): лист выхода из потока — ModalShell с порталом. Раньше он лежал внутри
+          панели с backdrop-blur, и `fixed inset-0` считался от панели высотой ~68 px, а не от экрана. */}
+      <ModalShell open={showExitConfirm} onClose={() => setShowExitConfirm(false)} labelId="stream-exit-title" variant="sheet">
+        <div className="p-6 space-y-6 pb-[calc(env(safe-area-inset-bottom,16px)+16px)]">
+          <div className="text-center space-y-2">
+            <h2 id="stream-exit-title" className="text-lg font-bold text-text-main">
+              {t('stream_mode_exit_confirm')}
+            </h2>
+            <p className="text-sm text-text-main/60">
+              {t('stream_mode_exit_desc')}
+            </p>
           </div>
-        )}
-      </AnimatePresence>
+          <div className="flex gap-3">
+            <Button
+              variant="ghost"
+              size="md"
+              onClick={() => setShowExitConfirm(false)}
+              className="flex-1 py-3.5 rounded-2xl border border-border-subtle text-text-main font-bold text-sm min-h-[44px]"
+            >
+              {t('writing_cancel')}
+            </Button>
+            <Button
+              variant="danger"
+              size="md"
+              onClick={() => {
+                setShowExitConfirm(false);
+                onToggleStreamMode?.();
+              }}
+              className="flex-1 py-3.5 rounded-2xl font-bold text-sm text-white min-h-[44px]"
+            >
+              {t('storage_delete_confirm')}
+            </Button>
+          </div>
+        </div>
+      </ModalShell>
     </div>
   );
 }

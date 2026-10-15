@@ -5,6 +5,7 @@ import { Label } from '../../../types';
 import { LABEL_PRESET_COLORS } from '../../../core/constants/labelColors';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
+import { SECTION_LABEL } from '../../../shared/components/ModalShell';
 
 interface ArchiveLabelBarProps {
   labels: Label[];
@@ -28,6 +29,8 @@ interface ArchiveLabelBarProps {
   onDeleteLabel: (id: string) => void;
   showControls: boolean;
   t?: (key: string) => string;
+  /** MQ-7: «sheet» — панель на телефоне: подпись строчная, фишки Inter 14 и 44 px. */
+  variant?: 'default' | 'sheet';
 }
 
 export function ArchiveLabelBar({
@@ -39,15 +42,16 @@ export function ArchiveLabelBar({
   editLabelName, setEditLabelName,
   editLabelColor: _editLabelColor, setEditLabelColor,
   onUpdateLabel, onDeleteLabel,
-  showControls, t: propT,
+  showControls, t: propT, variant = 'default',
 }: ArchiveLabelBarProps) {
+  const sheet = variant === 'sheet';
   const { t: hookT } = useLanguage();
   const t = propT ?? hookT;
   if (labels.length === 0 && !showControls) return null;
 
   return (
     <div className="flex items-center gap-2 py-3 flex-wrap border-b border-border-subtle" >
-      <span className="font-mono text-[9px] text-text-main/60 uppercase tracking-widest mr-1">
+      <span className={sheet ? cn(SECTION_LABEL, 'mr-1') : 'font-mono text-[9px] text-text-main/60 uppercase tracking-widest mr-1'}>
         {t('archive_labels')}
       </span>
       {labels.map(label => {
@@ -92,14 +96,15 @@ export function ArchiveLabelBar({
               onClick={() => onToggleLabel(label.id)}
               title={label.name === '…' ? t('archive_labels_vault_locked') : undefined}
               className={cn(
-                 "flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono transition-colors border",
+                sheet ? "min-h-11 gap-1.5 px-3 text-[14px] font-medium" : "gap-1 px-2 py-0.5 text-[10px] font-mono",
+                "flex items-center rounded-full transition-colors border",
                 active ? "border-transparent text-white" : "bg-transparent border-border-subtle text-text-main/60 hover:text-text-main/70"
               )}
               style={active ? { background: label.color, borderColor: label.color, boxShadow: `0 0 12px color-mix(in srgb, ${label.color} 45%, transparent)` } : {}}
             >
               <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: label.color }} />
               <span>{label.name}</span>
-              <span className={cn("font-mono text-[9px]", active ? "text-white/75" : "text-text-main/60")}>
+              <span className={cn(sheet ? "text-[12px]" : "font-mono text-[9px]", active ? "text-white/75" : "text-text-main/60")}>
                 {labelCounts?.[label.id] ?? 0}
               </span>
             </Button>
@@ -125,7 +130,10 @@ export function ArchiveLabelBar({
       {selectedLabels.length > 0 && (
         <Button
           onClick={() => selectedLabels.forEach(id => onToggleLabel(id))}
-           className="px-2 py-0.5 rounded-full text-[10px] font-mono border border-dashed border-border-subtle text-text-main/60 hover:text-text-main transition-colors"
+          className={cn(
+            "rounded-full border border-dashed border-border-subtle text-text-main/60 hover:text-text-main transition-colors",
+            sheet ? "min-h-11 px-3 text-[14px] font-medium" : "px-2 py-0.5 text-[10px] font-mono",
+          )}
         >
           {t('archive_tags_reset')} ✕
         </Button>

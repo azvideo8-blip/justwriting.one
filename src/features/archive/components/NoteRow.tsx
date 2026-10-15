@@ -15,7 +15,6 @@ import { MobileRenameSheet } from './MobileRenameSheet';
 import { LabelMark } from './LabelMark';
 import { StorageStateIcons } from './StorageStateIcons';
 import { MobileNoteActionsSheet } from '../../../app/components/MobileNoteActionsSheet';
-import { AnimatePresence } from 'motion/react';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
@@ -211,7 +210,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
               остаётся только время — mono, шириной 44 px. */}
           <div className={cn(
             'leading-tight whitespace-nowrap text-text-main/60 hover:text-text-main/70',
-            isMobile ? 'min-w-11 text-[12px] font-mono' : 'text-[13px] tabular-nums'
+            isMobile ? 'min-w-11 text-[12px] tabular-nums' : 'text-[13px] tabular-nums'
           )}>
             {isMobile ? (sessionTime ? format(sessionTime, 'HH:mm') : '—') : dateTimeLabel}
           </div>
@@ -396,9 +395,8 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                 долгого нажатия ряда, и следующий тап по ряду проглатывался
                 (ревью 0.9.39). `contents` — без влияния на раскладку. */}
             <div className="contents" onTouchStart={e => e.stopPropagation()}>
-            <AnimatePresence>
-              {actionsSheetOpen && (
-                <MobileNoteActionsSheet
+            {/* MQ-5: листы смонтированы всегда — уход вниз играет сам лист (useExitLinger). */}
+            <MobileNoteActionsSheet
                   isOpen={actionsSheetOpen}
                   onClose={() => setActionsSheetOpen(false)}
                   session={session}
@@ -416,15 +414,12 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                   aiExclusionLoading={!!aiExclusionLoading}
                   {...(onAIExclusionClick ? { onAIExclusionClick } : {})}
                 />
-              )}
-            </AnimatePresence>
-            {renameSheetOpen && (
               <MobileRenameSheet
+                open={renameSheetOpen}
                 initialTitle={session.title || ''}
                 onCancel={() => setRenameSheetOpen(false)}
                 onSave={title => { if (title !== (session.title || '')) onTitleChange?.(session, title); setRenameSheetOpen(false); }}
               />
-            )}
             </div>
           </>
         ) : (

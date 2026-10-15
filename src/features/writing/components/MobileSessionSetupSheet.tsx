@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Zap, Timer, Target, Clock, ChevronLeft, X } from 'lucide-react';
+import { Zap, Timer, Target, Clock, ChevronLeft, Check, X } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { ModalShell, SECTION_LABEL, SheetTitle } from '../../../shared/components/ModalShell';
 import { cn } from '../../../core/utils/utils';
@@ -36,6 +36,7 @@ export function MobileSessionSetupSheet({
   sessionRows,
 }: MobileSessionSetupSheetProps) {
   const { t, tp } = useLanguage();
+  const sessionType = useTimerStore(s => s.sessionType);
   const timerDuration = useTimerStore(s => s.timerDuration);
   const setTimerDuration = useTimerStore(s => s.setTimerDuration);
   const wordGoal = useTimerStore(s => s.wordGoal);
@@ -136,7 +137,8 @@ export function MobileSessionSetupSheet({
               {setupMode === 'selection' && (
                 <div className="space-y-4">
                   {sessionRows && (
-                    <div className="grid grid-cols-1 gap-2" data-session-rows>
+                    <div className="grid grid-cols-1 gap-2" data-session-rows role="group" aria-labelledby="setup-group-session">
+                      <div id="setup-group-session" className={SECTION_LABEL}>{t('writing_group_session')}</div>
                       {sessionRows.status !== 'idle' && (
                         <SessionRow
                           label={sessionRows.status === 'paused' ? t('writing_resume') : t('pause')}
@@ -150,25 +152,28 @@ export function MobileSessionSetupSheet({
                       <SessionRow label={`${t('ai_toggle')} ›`} onClick={() => { setSetupMode(null); sessionRows.onOpenAI(); }} />
                     </div>
                   )}
-                  <div className="space-y-1">
-                    <p className="text-xs text-text-main/60 font-medium leading-relaxed">
-                      {t('writing_how_to_write')}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-2.5">
+                  {/* MQ-9: две группы с подписями; иконки режимов одним приглушённым цветом
+                      (статус-цвета читались как предупреждения), текущий режим отмечен. */}
+                  <div className="grid grid-cols-1 gap-2.5" role="group" aria-labelledby="setup-group-how">
+                    <div id="setup-group-how" className={SECTION_LABEL}>{t('writing_group_how')}</div>
                     {[
-                      { id: 'stopwatch', icon: Zap, label: 'writing_mode_flow', desc: 'writing_mode_flow_desc', color: 'text-accent-warning', bg: 'bg-accent-warning/8' },
-                      { id: 'timer-config', icon: Timer, label: 'writing_mode_timer', desc: 'writing_mode_timer_desc', color: 'text-accent-info', bg: 'bg-accent-info/8' },
-                      { id: 'words-config', icon: Target, label: 'writing_mode_words', desc: 'writing_mode_words_desc', color: 'text-accent-danger', bg: 'bg-accent-danger/8' },
-                      { id: 'finish-by-config', icon: Clock, label: 'writing_mode_deadline', desc: 'writing_mode_deadline_desc', color: 'text-accent-success', bg: 'bg-accent-success/8' },
-                    ].map((mode) => (
+                      { id: 'stopwatch', icon: Zap, label: 'writing_mode_flow', desc: 'writing_mode_flow_desc', types: ['free', 'stopwatch'] },
+                      { id: 'timer-config', icon: Timer, label: 'writing_mode_timer', desc: 'writing_mode_timer_desc', types: ['timer'] },
+                      { id: 'words-config', icon: Target, label: 'writing_mode_words', desc: 'writing_mode_words_desc', types: ['words'] },
+                      { id: 'finish-by-config', icon: Clock, label: 'writing_mode_deadline', desc: 'writing_mode_deadline_desc', types: ['finish-by'] },
+                    ].map((mode) => {
+                      const current = mode.types.includes(sessionType);
+                      return (
                       <Button
                         key={mode.id}
                         onClick={() => mode.id === 'stopwatch' ? startCountdown('stopwatch') : setSetupMode(mode.id as SetupMode)}
-                        className="p-4 rounded-2xl border border-border-subtle bg-text-main/[0.03] flex items-center gap-4 text-left w-full press active:bg-text-main/[0.07] cursor-pointer min-h-[64px]"
+                        aria-current={current ? 'true' : undefined}
+                        className={cn(
+                          "p-4 rounded-2xl border bg-text-main/[0.03] flex items-center gap-4 text-left w-full press active:bg-text-main/[0.07] cursor-pointer min-h-[64px]",
+                          current ? "border-text-main/40" : "border-border-subtle",
+                        )}
                       >
-                        <div className={cn("p-2.5 rounded-xl shrink-0", mode.bg, mode.color)}>
+                        <div className="p-2.5 rounded-xl shrink-0 bg-text-main/[0.06] text-text-muted">
                           <mode.icon size={20} strokeWidth={2.2} />
                         </div>
                         <div className="min-w-0 flex-1">
@@ -179,8 +184,10 @@ export function MobileSessionSetupSheet({
                             {t(mode.desc)}
                           </div>
                         </div>
+                        {current && <Check size={18} className="shrink-0 text-text-main" aria-hidden="true" />}
                       </Button>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}

@@ -44,7 +44,7 @@ export function MobilePersonaSheet(props: MobilePersonaSheetProps) {
                   <span className="w-[9px] h-[9px] rounded-full shrink-0" style={{ background: v.color }} />
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-medium text-text-main truncate">{p.name}</span>
-                    <span className="block text-[11px] text-text-main/55 truncate">{role}</span>
+                    <span className="block text-[13px] text-text-muted truncate">{role}</span>
                   </span>
                 </button>
                 <button
@@ -66,7 +66,7 @@ export function MobilePersonaSheet(props: MobilePersonaSheetProps) {
             {t('ai_persona_create_row')}
           </button>
         </div>
-        <p className="px-4 py-3 text-[11px] text-text-main/55 border-t border-border-subtle">{t('ai_persona_sheet_footer')}</p>
+        <p className="px-4 py-3 text-[13px] text-text-muted border-t border-border-subtle">{t('ai_persona_sheet_footer')}</p>
       </div>
     </ModalShell>
   );

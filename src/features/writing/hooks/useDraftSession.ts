@@ -12,6 +12,9 @@ import {
 export interface DraftSessionState {
   hasDraft: boolean;
   setHasDraft: (v: boolean) => void;
+  /** MQ-3: текст черновика уже стоит в редакторе — «Восстановить» ему нечего делать. */
+  draftInEditor: boolean;
+  setDraftInEditor: (v: boolean) => void;
   handleCancel: () => Promise<void>;
   discardDraft: () => Promise<void>;
   autoLoadDraftIfEmpty: () => Promise<void>;
@@ -20,6 +23,7 @@ export interface DraftSessionState {
 
 export function useDraftSession(userId: string, isGuest: boolean): DraftSessionState {
   const [hasDraft, setHasDraft] = useState(false);
+  const [draftInEditor, setDraftInEditor] = useState(false);
 
   const discardDraft = useCallback(async () => {
     if (isGuest) {
@@ -77,6 +81,8 @@ export function useDraftSession(userId: string, isGuest: boolean): DraftSessionS
   return {
     hasDraft,
     setHasDraft,
+    draftInEditor,
+    setDraftInEditor,
     handleCancel,
     discardDraft,
     autoLoadDraftIfEmpty,

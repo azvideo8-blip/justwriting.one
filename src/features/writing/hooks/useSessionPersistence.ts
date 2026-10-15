@@ -40,6 +40,7 @@ export interface PersistenceActions {
   setPinnedThoughts: (thoughts: string[]) => void;
   setActiveSessionId: (id: string | null) => void;
   setHasDraft: (has: boolean) => void;
+  setDraftInEditor: (inEditor: boolean) => void;
   resetAndClear: () => void;
   resetSession: () => void;
   setStatus: (status: TimerStatus) => void;
@@ -74,7 +75,7 @@ export function useSessionPersistence(
     sessionStateRef.current = sessionState;
   }, [sessionState]);
 
-  const { setActiveSessionId, setHasDraft } = actions;
+  const { setActiveSessionId, setHasDraft, setDraftInEditor } = actions;
 
   const applyDraftToStore = useCallback((draft: LocalDraft) => {
     applyDraftToStores(draft);
@@ -93,16 +94,18 @@ export function useSessionPersistence(
     const draftToLoad = await WritingDraftService.loadDraft(userId);
     if (draftToLoad) {
       setHasDraft(true);
-      if (!useContentStore.getState().content) {
-        applyDraftToStore(draftToLoad);
-      }
+      const current = useContentStore.getState().content;
+      if (!current) applyDraftToStore(draftToLoad);
+      // MQ-3: текст черновика уже в редакторе (подставлен сейчас или стоял там и раньше) —
+      // «Восстановить» ему нечего делать. hasDraft при этом остаётся true: десктоп не меняется.
+      setDraftInEditor(!current || current === draftToLoad.content);
       await WritingDraftService.clearLegacyDraft(userId);
     }
     // If cloud draft is currently locked, do not prevent reloading once vault is unlocked.
     if (!WritingDraftService.isCloudDraftLocked()) {
       draftLoadedForRef.current = userId;
     }
-  }, [userId, setHasDraft, applyDraftToStore]);
+  }, [userId, setHasDraft, setDraftInEditor, applyDraftToStore]);
 
   /**
    * Forcefully restores the draft, overwriting any current content in the store.

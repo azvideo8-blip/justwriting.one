@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -30,9 +30,10 @@ const BACKDROP_Z: Record<'modal' | 'critical' | 'sheet', string> = {
 // SA-23: на телефоне 40 px размытия на весь экран — самое дорогое в iOS Safari; blur-sm + плотнее фон.
 const MODAL_BACKDROP = (z: keyof typeof BACKDROP_Z) =>
   `fixed inset-0 ${BACKDROP_Z[z]} flex items-center justify-center p-4 bg-surface-base/90 backdrop-blur-sm md:bg-surface-base/80 md:backdrop-blur-2xl`;
-const SHEET_BACKDROP =
+// MQ-11: слой листа задаётся пропом — окно сейфа (critical) поверх всего и листом на телефоне.
+const SHEET_BACKDROP = (z: keyof typeof BACKDROP_Z) =>
   // color-ok: затемнение под листом одинаково тёмное в любой теме.
-  `fixed inset-0 ${BACKDROP_Z.sheet} flex items-end justify-center bg-black/60 backdrop-blur-sm touch-none`;
+  `fixed inset-0 ${BACKDROP_Z[z]} flex items-end justify-center bg-black/60 backdrop-blur-sm touch-none`;
 
 // MF-20 (SA-6): уход вниз быстрее входа, по кривой читалки; затемнение плавно.
 const SHEET_EASE = [0.32, 0.72, 0, 1] as const;
@@ -43,6 +44,8 @@ const SHEET_BACKDROP_MOTION = {
   exit: { opacity: 0, transition: { duration: 0.2 } },
 };
 
+// MQ-5: лист открылся, пока прежний ещё в DOM (действия → переименование идёт уходом первого):
+// его затемнение не стартует с нуля — иначе на кадр проступает страница.
 const ANIMATION = {
   modal: {
     initial: { scale: 0.95, opacity: 0 },
@@ -50,9 +53,10 @@ const ANIMATION = {
     transition: { duration: 0.22, ease: 'easeOut' as const },
   },
   sheet: {
-    initial: { transform: 'translateY(100%)' },
-    animate: { transform: 'translateY(0%)', transition: { type: 'spring' as const, duration: 0.32, bounce: 0 } },
-    exit: { transform: 'translateY(100%)', transition: { duration: 0.2, ease: SHEET_EASE } },
+    // MQ-6: позиционный ключ `y`, а не строка `transform` — только его гасит MotionConfig reducedMotion.
+    initial: { y: '100%' },
+    animate: { y: '0%', transition: { type: 'spring' as const, duration: 0.32, bounce: 0 } },
+    exit: { y: '100%', transition: { duration: 0.2, ease: SHEET_EASE } },
   },
 };
 
@@ -93,6 +97,7 @@ export function ModalShell({
   const { layoutMode } = useLayoutMode();
   useModalEscape(open && variant === 'modal', onClose);
   useFocusTrap(ref, open);
+  const [handoff] = useState(() => open && variant === 'sheet' && !!document.querySelector('[role="dialog"]'));
   // MB-9: на телефоне «назад» закрывает лист/модалку, а не уводит из приложения.
   usePanelHistory(open, onClose, layoutMode !== 'desktop');
 
@@ -115,10 +120,10 @@ export function ModalShell({
     {open && (
     <motion.div
       key="modal-shell"
-      className={variant === 'sheet' ? SHEET_BACKDROP : MODAL_BACKDROP(z)}
+      className={variant === 'sheet' ? SHEET_BACKDROP(z) : MODAL_BACKDROP(z)}
       onClick={onClose}
       onTouchMove={variant === 'sheet' ? e => e.preventDefault() : undefined}
-      {...(variant === 'sheet' ? SHEET_BACKDROP_MOTION : {})}
+      {...(variant === 'sheet' ? { ...SHEET_BACKDROP_MOTION, ...(handoff ? { initial: { opacity: 1 } } : {}) } : {})}
     >
       <div className="absolute inset-0" onClick={onClose} />
       <motion.div

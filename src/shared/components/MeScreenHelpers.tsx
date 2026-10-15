@@ -39,7 +39,7 @@ export function SettingRow({ label, children, hint, divider = true }: {
         {children}
       </div>
       {hint && (
-        <div className="text-[11px] text-text-main/60">{hint}</div>
+        <div className="text-[13px] text-text-muted md:text-[11px] md:text-text-main/60">{hint}</div>
       )}
     </div>
   );

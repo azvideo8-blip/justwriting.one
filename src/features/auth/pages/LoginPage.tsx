@@ -224,7 +224,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
       >
         <div className="space-y-4">
           {!isModal && (
-            <JustWritingLogo size={64} variant="dark" className="mx-auto shadow-[0_0_30px_rgba(165,131,232,0.3)] rounded-2xl" />
+            <JustWritingLogo size={64} variant="dark" className="mx-auto rounded-2xl" />
           )}
           <h1 className={isModal ? "text-2xl font-bold tracking-tight text-text-main" : "text-5xl font-bold tracking-tight text-text-main"}>
             {isModal ? t('auth_sign_in') : 'justwriting.ru'}
@@ -262,7 +262,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={t('auth_email_placeholder')}
-                  className="pl-12 pr-4 py-3 outline-none transition-colors bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/40"
+                  className="pl-12 pr-4 py-3 outline-none transition-colors bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-muted"
                 />
               </div>
             </div>
@@ -279,7 +279,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="pl-12 pr-4 py-3 outline-none transition-colors bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/40"
+                  className="pl-12 pr-4 py-3 outline-none transition-colors bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-muted"
                 />
               </div>
             </div>
@@ -448,7 +448,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                       value={forgotEmail}
                       onChange={(e) => setForgotEmail(e.target.value)}
                       placeholder={t('auth_email_placeholder')}
-                      className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/40"
+                      className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-base md:text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-muted"
                     />
                   </div>
                   <div className="rounded-xl border border-accent-warning/30 bg-accent-warning/10 p-3 text-sm text-accent-warning mb-3 flex gap-2">
@@ -475,12 +475,6 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
               )}
             </motion.div>
           </motion.div>
-        )}
-
-        {!isModal && (
-          <p className="text-sm text-text-main/60">
-            {t('auth_tagline')}
-          </p>
         )}
       </motion.div>
     </div>

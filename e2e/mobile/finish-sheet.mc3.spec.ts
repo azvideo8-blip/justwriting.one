@@ -62,6 +62,27 @@ for (const { w, h } of [{ w: 360, h: 640 }, { w: 390, h: 844 }]) {
       await expect(page.getByText(title).first(), 'заметка не появилась в архиве').toBeVisible({ timeout: 20_000 });
     });
 
+    // MQ-1: введённый руками тег виден фишкой (подсказок на пустом аккаунте нет) и доходит до списка.
+    test('два введённых тега видны в листе и в строке списка', async ({ page }) => {
+      await zenOff(page);
+      const account: Account = await signInMobile(page, `mq1-tags-${w}`);
+      await openFinish(page);
+      const sheet = page.locator('[aria-labelledby="finish-modal-title"]');
+      const input = sheet.getByLabel(/Добавить тег/);
+      for (const tag of ['керамика', 'терпение']) {
+        await input.fill(tag);
+        await input.press('Enter');
+        await expect(sheet.getByRole('button', { name: new RegExp(`#${tag}`) }), `тег ${tag} не нарисован`).toBeVisible();
+      }
+      await sheet.getByRole('button', { name: /^Сохранить$/ }).click();
+      await expect(sheet).toBeHidden({ timeout: 20_000 });
+      await page.goto('/archive');
+      await openVaultFromBanner(page, account.password);
+      const row = page.getByText(/#керамика/).first();
+      await expect(row, 'тег не дошёл до строки списка').toBeVisible({ timeout: 20_000 });
+      await expect(page.getByText(/#терпение/).first()).toBeVisible();
+    });
+
     test('«×» возвращает к тексту без сохранения', async ({ page }) => {
       await zenOff(page);
       await signInMobile(page, `mc3-close-${w}`);

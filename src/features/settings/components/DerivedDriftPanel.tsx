@@ -5,6 +5,7 @@ import { useToast } from '../../../shared/components/Toast';
 import { Button } from '../../../shared/components/Button';
 import { reportError } from '../../../shared/errors/reportError';
 import { cn } from '../../../core/utils/utils';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 
 /** Одно семейство в сверке. `null` — не удалось посчитать; это не ноль. */
 interface DriftFamilyView { local: number | null; cloud: number | null }
@@ -29,6 +30,8 @@ interface DerivedDriftPanelProps {
  */
 export function DerivedDriftPanel({ userId, onLoad }: DerivedDriftPanelProps) {
   const { t } = useLanguage();
+  // MQ-17: на телефоне панель без своей рамки — она внутри карточки раздела.
+  const flatInner = useLayoutMode().layoutMode === 'mobile';
   const { showToast } = useToast();
   const [drift, setDrift] = useState<DerivedDriftView | null>(null);
   const [loading, setLoading] = useState(false);
@@ -62,7 +65,7 @@ export function DerivedDriftPanel({ userId, onLoad }: DerivedDriftPanelProps) {
     : null;
 
   return (
-    <div className="p-3 rounded-lg border border-border-subtle bg-surface-base/30 space-y-3" data-testid="derived-drift-panel">
+    <div className={cn('space-y-3', flatInner ? 'border-t border-border-subtle pt-3' : 'p-3 rounded-lg border border-border-subtle bg-surface-base/30')} data-testid="derived-drift-panel">
       {/* На узком экране кнопка уходит под заголовок, а не за край карточки. */}
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
         <div className="space-y-0.5 min-w-0 flex-1 basis-48">

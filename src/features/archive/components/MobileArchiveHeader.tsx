@@ -39,7 +39,7 @@ export function MobileArchiveHeader({
           type="button"
           onClick={onOpenMenu}
           aria-label={t('archive_more')}
-          className="w-11 h-11 shrink-0 flex items-center justify-center rounded-xl border border-border-subtle text-text-main/70"
+          className="press w-11 h-11 shrink-0 flex items-center justify-center rounded-xl border border-border-subtle text-text-main/70"
         >
           <MoreHorizontal size={20} />
         </button>

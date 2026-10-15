@@ -78,7 +78,7 @@ for (const { w, h } of SIZES) {
       // Метаданных в теле нет.
       await expect(reader.getByText(/мин чтения/), 'в теле осталось время чтения').toHaveCount(0);
       await expect(reader.getByText('Назначить метку'), 'в теле осталась метка').toHaveCount(0);
-      await expect(reader.getByText('Проанализировать'), 'в теле остался разбор').toHaveCount(0);
+      await expect(reader.getByText('Разобрать заметку через ИИ'), 'в теле остался разбор').toHaveCount(0);
       await shot(page, `mp1-reader-${w}`);
     });
 

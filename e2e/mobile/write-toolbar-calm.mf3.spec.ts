@@ -42,10 +42,10 @@ for (const [w, h] of [[320, 568], [360, 740], [390, 844]] as const) {
       expect(geo.chipOverflow, `числа в чипе вылезают на ${geo.chipOverflow}px`).toBeLessThanOrEqual(1);
       expect(await toolbar.locator('button').count(), 'в панели не три цели').toBe(3);
 
-      // Лист сессии: пауза → чип говорит «Пауза».
+      // Лист сессии: пауза → чип говорит «На паузе» (MQ-14).
       await chip.click();
       await page.getByRole('button', { name: /^Пауза$/ }).click();
-      await expect(chip).toContainText(/Пауза/, { timeout: 5_000 });
+      await expect(chip).toContainText(/На паузе/, { timeout: 5_000 });
       // ИИ-помощник открывает ту же панель ИИ, что раньше ✦.
       await chip.click();
       await expect(page.getByRole('button', { name: /^Новая заметка$/ })).toBeVisible();

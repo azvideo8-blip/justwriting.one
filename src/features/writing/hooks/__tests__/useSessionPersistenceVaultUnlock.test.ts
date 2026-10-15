@@ -32,6 +32,7 @@ describe('useSessionPersistence S-4 vault unlock draft reload', () => {
     setPinnedThoughts: vi.fn(),
     setActiveSessionId: vi.fn(),
     setHasDraft: vi.fn(),
+    setDraftInEditor: vi.fn(),
     resetAndClear: vi.fn(),
     resetSession: vi.fn(),
     setStatus: vi.fn(),

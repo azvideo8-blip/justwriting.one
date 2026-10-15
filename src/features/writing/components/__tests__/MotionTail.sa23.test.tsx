@@ -34,13 +34,14 @@ describe('SA-23: motion tail', () => {
   it('toast: translateY instead of scale 0.9, 220 in / 150 out', () => {
     const src = read('shared/components/Toast.tsx');
     expect(src).not.toMatch(/scale: 0\.9/);
-    expect(src).toContain("transform: 'translateY(12px)'");
+    // MQ-6: позиционный ключ `y` (строку `transform` Motion не гасит при reduced motion).
+    expect(src).toContain('y: 12');
     expect(src).toMatch(/duration: 0\.22/);
     expect(src).toMatch(/duration: 0\.15/);
   });
 
-  it('GoalToast 240/150, Toggle track 200 ms with the knob, checkmark does not start from nothing', () => {
-    expect(read('shared/components/GoalToast.tsx')).toMatch(/duration: 0\.24/);
+  it('GoalToast 220/150 (как у Toast, MQ-15), Toggle track 200 ms with the knob, checkmark does not start from nothing', () => {
+    expect(read('shared/components/GoalToast.tsx')).toMatch(/duration: 0\.22/);
     expect(read('shared/components/GoalToast.tsx')).not.toMatch(/duration: 0\.4/);
     expect(read('shared/components/Toggle.tsx')).toContain('duration-200');
     expect(read('shared/components/Toggle.tsx')).not.toContain('duration-300');
@@ -94,8 +95,8 @@ describe('SA-23: motion tail', () => {
   it('first-run steps change with a 16 px shift and a fade (O1)', () => {
     const src = read('features/auth/components/FirstRunStepper.tsx');
     expect(src).toContain("mode=\"wait\"");
-    expect(src).toContain("transform: 'translateX(16px)'");
-    expect(src).toContain("transform: 'translateX(-16px)'");
+    expect(src).toContain('x: 16');
+    expect(src).toContain('x: -16');
     expect(src.match(/<FirstRunStepper stepKey=/g)).toHaveLength(3);
   });
 });

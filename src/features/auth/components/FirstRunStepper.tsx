@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, Fragment, type ReactNode } from 'react';
 import { AlertTriangle, Check, Copy, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
@@ -40,9 +40,12 @@ function StepHeader({ index, total, title }: { index: number; total: number; tit
   return (
     <header className="flex items-center gap-3 px-5 pt-5 pb-3">
       <h1 className="flex-1 min-w-0 text-[20px] leading-tight font-semibold text-[var(--text-main)]">{title}</h1>
-      <span data-testid="first-run-step" className="shrink-0 text-[13px] text-[var(--text-muted)]">
-        {t('first_run_step', { current: String(index + 1), total: String(total) })}
-      </span>
+      {/* MQ-13: «Шаг 1 из 1» — счётчик для одного шага лишний. */}
+      {total > 1 && (
+        <span data-testid="first-run-step" className="shrink-0 text-[13px] text-[var(--text-muted)]">
+          {t('first_run_step', { current: String(index + 1), total: String(total) })}
+        </span>
+      )}
     </header>
   );
 }
@@ -211,17 +214,23 @@ export function FirstRunCodeStep({ position, code, onNext }: { position: StepPos
 
         <div className="rounded-2xl border border-[var(--border-light)] bg-surface-base p-4 space-y-3">
           <div className="text-[13px] text-[var(--text-muted)]">{t('enc_recovery_code_label')}</div>
-          <div data-testid="first-run-code" className="font-mono text-[20px] leading-snug font-bold tracking-wider text-[var(--text-main)] break-words">
-            {code}
+          {/* MQ-13: перенос только между группами — «…QZNC-» / «X9F0-N6ZE» посреди группы не рвётся. */}
+          <div data-testid="first-run-code" className="font-mono text-[20px] leading-snug font-bold tracking-wider text-[var(--text-main)]">
+            {code.split('-').map((group, i, all) => (
+              <Fragment key={i}>
+                <span className="whitespace-nowrap">{i < all.length - 1 ? `${group}-` : group}</span>
+                {i < all.length - 1 && <wbr />}
+              </Fragment>
+            ))}
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <Button onClick={() => void copy()} className="min-h-11 rounded-xl border border-[var(--border-light)] text-[15px] flex items-center justify-center gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => void copy()} className="min-h-11 flex-1 whitespace-nowrap px-3 rounded-xl border border-[var(--border-light)] text-[15px] flex items-center justify-center gap-2">
             {copied ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
             {t(copied ? 'enc_recovery_code_copied_btn' : 'enc_recovery_code_copy_btn')}
           </Button>
-          <Button onClick={download} className="min-h-11 rounded-xl border border-[var(--border-light)] text-[15px] flex items-center justify-center gap-2">
+          <Button onClick={download} className="min-h-11 flex-1 whitespace-nowrap px-3 rounded-xl border border-[var(--border-light)] text-[15px] flex items-center justify-center gap-2">
             <Download size={16} aria-hidden="true" />
             {t('enc_recovery_code_download_btn')}
           </Button>
@@ -237,20 +246,28 @@ export function FirstRunCodeStep({ position, code, onNext }: { position: StepPos
           <span className="text-[15px] text-[var(--text-main)]">{t('enc_recovery_code_confirm_checkbox')}</span>
         </label>
 
-        <div className="flex items-center justify-between gap-3 pt-1">
+        {/* MQ-12: строка целиком — label, подпись нажимается как сам переключатель. */}
+        <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 pt-1">
           <span className="flex-1 min-w-0 text-[15px] text-[var(--text-main)]">{t('enc_recovery_remember_device')}</span>
           <Toggle checked={rememberDevice} onChange={setRememberDevice} ariaLabel={t('enc_recovery_remember_device')} />
-        </div>
+        </label>
       </div>
 
       <footer className="px-5 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+20px)]">
         <Button
           onClick={() => onNext(rememberDevice)}
           disabled={!confirmed}
+          aria-describedby={confirmed ? undefined : 'first-run-code-hint'}
           className="w-full min-h-11 rounded-xl bg-brand-soft text-surface-base text-[16px] font-semibold disabled:opacity-40"
         >
-          {t('first_run_next')}
+          {t('privacy_modal_continue')}
         </Button>
+        {/* MQ-13: как на шаге 1 — серая кнопка не молчит. */}
+        {!confirmed && (
+          <p id="first-run-code-hint" data-testid="first-run-code-hint" className="mt-2 text-center text-[13px] text-[var(--text-muted)]">
+            {t('first_run_code_hint')}
+          </p>
+        )}
       </footer>
     </>
   );
@@ -462,9 +479,9 @@ function FirstRunStepper({ stepKey, children }: { stepKey: string; children: Rea
         <motion.div
           key={stepKey}
           data-stepper-step={stepKey}
-          initial={{ opacity: 0, transform: 'translateX(16px)' }}
-          animate={{ opacity: 1, transform: 'translateX(0px)' }}
-          exit={{ opacity: 0, transform: 'translateX(-16px)', transition: { duration: 0.15 } }}
+          initial={{ opacity: 0, x: 16 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -16, transition: { duration: 0.15 } }}
           transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
           className="flex min-h-0 flex-1 flex-col"
         >

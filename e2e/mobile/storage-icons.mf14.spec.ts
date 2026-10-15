@@ -39,7 +39,7 @@ test('MF-14: значки видны в списке и в сетке при д�
   const vw = 360;
   const box = (await cardIcons.boundingBox())!;
   expect(box.x + box.width, `значки за краем: ${box.x + box.width} > ${vw}`).toBeLessThanOrEqual(vw);
-  const titleBox = (await page.getByRole('heading', { level: 4 }).first().boundingBox())!;
+  const titleBox = (await page.getByRole('heading', { level: 2 }).first().boundingBox())!;
   expect(Math.abs(titleBox.y + titleBox.height / 2 - (box.y + box.height / 2)), 'значки не в строке названия').toBeLessThan(12);
   await shot(page, 'mf14-grid-360');
 });

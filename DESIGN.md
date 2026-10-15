@@ -10,6 +10,7 @@ colors:
   night-elevated: '#231542'
   night-popup: '#1B1231'
   night-card: '#1A103066'
+  warm-paper: '#FAF8F5'
   lavender-ink: '#F0EBFF'
   lavender-muted: '#9B89CC'
   lavender-border: '#A583E81F'

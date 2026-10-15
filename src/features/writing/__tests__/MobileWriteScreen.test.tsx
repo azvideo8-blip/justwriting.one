@@ -21,13 +21,14 @@ vi.mock('../../../shared/components/Toast', () => ({
 }));
 
 // Mock zustand stores
+const words = vi.hoisted(() => ({ count: 2 }));
 vi.mock('../store/useContentStore', () => ({
   useContentStore: (cb: any) => cb({
     content: 'Hello world',
     setContent: vi.fn(),
     title: 'Untitled',
     setTitle: vi.fn(),
-    wordCount: 2,
+    wordCount: words.count,
     initialWordCount: 0,
     wpm: 0,
     wpmHistory: [],
@@ -90,8 +91,11 @@ describe('MobileWriteScreen - Stream Mode & Keystrokes', () => {
   });
 
 
+  // MQ-3: «Готово» выключена в idle только при пустом редакторе — восстановленный черновик
+  // сохраняется без начатой сессии.
   it('MR-6: в idle редактор открыт, но не в фокусе, а «Готово» выключена', () => {
     timer.status = 'idle';
+    words.count = 0;
     try {
       render(<MobileWriteScreen onPlay={vi.fn()} onStop={vi.fn()} />);
       const area = screen.getByRole('textbox');
@@ -102,6 +106,7 @@ describe('MobileWriteScreen - Stream Mode & Keystrokes', () => {
       expect(done.hasAttribute('disabled')).toBe(true);
     } finally {
       timer.status = 'writing';
+      words.count = 2;
     }
   });
 

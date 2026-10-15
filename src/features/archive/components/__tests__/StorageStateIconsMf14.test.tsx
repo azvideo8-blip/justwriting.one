@@ -58,7 +58,7 @@ describe('MF-14: storage and AI state icons', () => {
   it('grid: the icons sit in the title line, the title truncates first', () => {
     render(<GridNoteCard session={{ ...base, _isLocal: true, title: 'Очень длинное название заметки про глину и круг' } as ArchiveSession} onClick={vi.fn()} userId="user_1" searchQuery="" />);
     const g = document.querySelector<HTMLElement>('[data-storage-state]')!;
-    const title = screen.getByRole('heading', { level: 4 });
+    const title = screen.getByRole('heading', { level: 2 });
     expect(g.parentElement).toBe(title.parentElement);
     expect(title.className).toContain('truncate');
     expect(title.className).toContain('min-w-0');

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useExitLinger } from '../../shared/hooks/useExitLinger';
 import { Download, Pencil, X } from 'lucide-react';
 import { useLanguage } from '../../shared/i18n';
 import { Label } from '../../types';
@@ -43,7 +44,12 @@ const ORDER: NoteActionId[] = ['open', 'addTag', 'download', 'upload', 'removeLo
 
 /** Лист действий на телефоне — один и тот же для списка, сетки и читалки.
  *  DC-A3: пункты строит та же `buildNoteActions`, что меню «⋯» на десктопе. */
-export function MobileNoteActionsSheet({
+export function MobileNoteActionsSheet(props: MobileNoteActionsSheetProps) {
+  // MQ-5: смонтирован всегда, тело живёт ещё 250 мс после закрытия — лист уходит вниз.
+  return useExitLinger(props.isOpen) ? <MobileNoteActionsSheetBody {...props} /> : null;
+}
+
+function MobileNoteActionsSheetBody({
   isOpen, onClose, session, userId, labels, onOpen, openLabel, onRename, onAddTag, onDelete,
   onLabelChange, onStorageChange, aiProcessed, aiLoading, onAIClick, aiExclusionLoading, onAIExclusionClick,
 }: MobileNoteActionsSheetProps) {
@@ -120,15 +126,15 @@ export function MobileNoteActionsSheet({
     );
   };
 
-  if (!isOpen) return null;
   const title = splitNoteTitle(session.title, session.content).title ?? t('common_untitled');
 
   return (
     <ModalShell open={isOpen} onClose={onClose} labelId="note-actions-sheet-title" variant="sheet">
-      <h3 id="note-actions-sheet-title" className="sr-only">{t('archive_note_actions')}</h3>
+      <h2 id="note-actions-sheet-title" className="sr-only">{t('archive_note_actions')}</h2>
       {/* MF-12: шапка — то же название, что в списке, и карандаш вместо строки «Изменить название». */}
       <div className="flex items-center gap-2 px-4 pt-4 pb-3 border-b border-border-subtle">
-        <div className="min-w-0 flex-1 truncate pl-2 text-base font-bold text-text-main">{title}</div>
+        {/* MQ-17: две строки вместо обрезки на 16 знаках. */}
+        <div className="min-w-0 flex-1 line-clamp-2 break-words pl-2 text-base font-bold text-text-main">{title}</div>
         <IconButton onClick={() => { onRename(); onClose(); }} className="w-11 h-11 rounded-full text-text-main/70" label={t('archive_rename_title')} icon={<Pencil size={18} />} />
         <IconButton onClick={onClose} className="w-11 h-11 rounded-full text-text-main/60" label={t('close')} icon={<X size={18} />} />
       </div>

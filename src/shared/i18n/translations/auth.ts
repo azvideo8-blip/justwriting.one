@@ -27,7 +27,6 @@ export const authTranslations: Translations = {
   // данным, а обусловливать им доступ к сервису нельзя.
   auth_age_required: { ru: 'Необходимо подтвердить возраст (16+) для регистрации.', en: 'You must confirm you are at least 16 years old to register.' },
   auth_has_account: { ru: 'Уже есть аккаунт? Войти', en: 'Already have an account? Sign In' },
-  auth_tagline: { ru: 'Никаких отвлекающих факторов. Только ты и твои слова.', en: 'No distractions. Just you and your words.' },
   auth_required_title: { ru: 'Требуется регистрация', en: 'Sign up required' },
   auth_required_hint: { ru: 'Создай аккаунт, чтобы получить доступ к этой функции.', en: 'Create an account to access this feature.' },
   auth_email:               { ru: 'Email',                  en: 'Email' },

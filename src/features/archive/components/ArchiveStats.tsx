@@ -4,15 +4,18 @@ import { cn } from '../../../core/utils/utils';
 import { ArchiveSession } from '../types';
 import { X } from 'lucide-react';
 import { IconButton } from '../../../shared/components/IconButton';
+import { SECTION_LABEL } from '../../../shared/components/ModalShell';
 
 interface ArchiveStatsProps {
   sessions: ArchiveSession[];
   streakDays: number;
   title: string;
   onReset?: (() => void) | undefined;
+  /** MQ-8: телефон — без карточек и моно-капса, нулевые показатели скрыты. */
+  flat?: boolean;
 }
 
-export function ArchiveStats({ sessions, streakDays, title, onReset }: ArchiveStatsProps) {
+export function ArchiveStats({ sessions, streakDays, title, onReset, flat = false }: ArchiveStatsProps) {
   const { t, tp } = useLanguage();
 
   const totalWords = sessions.reduce((s, n) => s + (n.wordCount || 0), 0);
@@ -29,6 +32,37 @@ export function ArchiveStats({ sessions, streakDays, title, onReset }: ArchiveSt
       ? [{ label: tp('archive_stat_streak', streakDays), value: streakDays, isStreak: true }]
       : []),
   ];
+
+  if (flat) {
+    const shown = stats.filter(s => Number(String(s.value).replace(/\D/g, '')) > 0);
+    return (
+      <div>
+        {(onReset || title) && (
+          <div className="flex items-center justify-between">
+            <div className={cn(SECTION_LABEL, 'truncate')}>{title}</div>
+            {onReset && (
+              <IconButton
+                onClick={onReset}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-text-main/60"
+                label={t('archive_stats_reset')}
+                icon={<X size={16} />}
+              />
+            )}
+          </div>
+        )}
+        {shown.length > 0 && (
+          <div className="flex flex-wrap gap-x-6 gap-y-2" data-testid="archive-stats-flat">
+            {shown.map(stat => (
+              <div key={stat.label}>
+                <div className="text-[17px] font-semibold tabular-nums leading-tight" style={stat.isStreak ? { color: 'var(--flow-pulse-color)' } : {}}>{stat.value}</div>
+                <div className="text-[12px] text-text-muted">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div>

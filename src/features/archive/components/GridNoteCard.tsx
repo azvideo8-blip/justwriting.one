@@ -144,22 +144,22 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
         onTouchEnd={cancelLongPress}
       >
         {session._locked ? (
-          <h4 className="flex items-center gap-1.5 text-[15px] italic leading-snug text-text-main/70">
+          <h2 className="flex items-center gap-1.5 text-[15px] italic leading-snug text-text-main/70">
             <Lock size={15} className="shrink-0 text-accent-warning/80" aria-label={t('archive_note_locked')} />
             <span className="truncate">{t('archive_note_locked')}</span>
-          </h4>
+          </h2>
         ) : session._decryptionError ? (
-          <h4 className="flex items-center gap-1.5 text-[15px] italic leading-snug text-accent-danger/80">
+          <h2 className="flex items-center gap-1.5 text-[15px] italic leading-snug text-accent-danger/80">
             <AlertCircle size={15} className="shrink-0" aria-label={t('archive_decryption_error')} />
             <span className="truncate">{t('archive_decryption_error')}</span>
-          </h4>
+          </h2>
         ) : (
           /* MF-14: значки — в строке названия, после него; название режется раньше значков. */
           <div className="flex min-w-0 items-center gap-2">
             {split.title ? (
-              <h4 className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-snug text-text-main">
+              <h2 className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-snug text-text-main">
                 {highlightText(split.title, searchQuery)}
-              </h4>
+              </h2>
             ) : <span className="flex-1" />}
             <StorageStateIcons cloud={!!session._hasCloudCopy} device={!!session._isLocal} analyzed={!!aiProcessed} />
           </div>
@@ -175,7 +175,7 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
           <div className="mt-auto pt-1 text-[12px]"><LabelMark label={label} /></div>
         )}
 
-        {actionsOpen && (
+        {/* MQ-5: листы смонтированы всегда — уход вниз играет сам лист (useExitLinger). */}
           <MobileNoteActionsSheet
             isOpen={actionsOpen}
             onClose={() => setActionsOpen(false)}
@@ -193,14 +193,12 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
             aiExclusionLoading={!!aiExclusionLoading}
             {...(onAIExclusionClick ? { onAIExclusionClick } : {})}
           />
-        )}
-        {renameSheetOpen && (
           <MobileRenameSheet
+            open={renameSheetOpen}
             initialTitle={session.title ?? ''}
             onCancel={() => setRenameSheetOpen(false)}
             onSave={title => { if (title !== session.title) onTitleChange?.(session, title); setRenameSheetOpen(false); }}
           />
-        )}
       </div>
     );
   }

@@ -332,7 +332,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
                       {ach.icon}
                     </div>
 
-                    <div className="text-[11px] font-medium leading-tight min-h-[28px] flex items-center" style={{ color: unlocked ? 'var(--text-main)' : 'var(--text-subtle)' }}>
+                    <div className="text-xs font-medium leading-tight min-h-[28px] flex items-center" style={{ color: unlocked ? 'var(--text-main)' : 'var(--text-subtle)' }}>
                       {t(ach.title)}
                     </div>
 

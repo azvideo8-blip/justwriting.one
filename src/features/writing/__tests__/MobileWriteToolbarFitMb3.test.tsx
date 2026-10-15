@@ -52,6 +52,6 @@ describe('MB-3: панель письма сжимается на статист
   it('в дзене статистика скрыта, а кнопки — нет', () => {
     render(<MobileWriteToolbar onStop={vi.fn()} hideStats />);
     expect(screen.getByRole('button', { name: 'topbar_save' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'writing_mode_token' }).textContent).not.toContain('writing_words_short');
+    expect(screen.getByRole('button', { name: 'writing_mode_token' }).textContent).not.toContain('writing_words');
   });
 });

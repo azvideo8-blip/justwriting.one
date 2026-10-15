@@ -40,7 +40,7 @@ describe('MF-16: no repeated first line', () => {
 
   it('a one-sentence note shows no preview line in the grid card', () => {
     const { container } = render(<GridNoteCard session={mk('Только одна фраза.')} onClick={vi.fn()} userId="user_1" searchQuery="" />);
-    expect(screen.getByRole('heading', { level: 4 }).textContent).toBe('Только одна фраза.');
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('Только одна фраза.');
     expect(container.querySelectorAll('p').length).toBe(0);
   });
 });

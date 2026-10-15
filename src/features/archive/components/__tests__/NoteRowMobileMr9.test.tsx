@@ -49,10 +49,11 @@ describe('MR-9: мобильный ряд заметки', () => {
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
 
-  it('колонка времени — mono, ширина 44 px, а высота ряда — 60 px', () => {
+  it('колонка времени — tabular-nums (не mono), ширина 44 px, а высота ряда — 60 px', () => {
     renderRow();
     const time = screen.getByText('09:33');
-    expect(time.className).toContain('font-mono');
+    expect(time.className).toContain('tabular-nums');
+    expect(time.className).not.toContain('font-mono');
     expect(time.className).toContain('min-w-11');
     const row = time.closest('div[class*="grid-cols"]');
     expect(row?.className).toContain('min-h-[60px]');

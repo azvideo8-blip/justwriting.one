@@ -13,6 +13,8 @@ export interface CloudSessionReturn extends BaseSessionReturn {
   userId: string;
   isGuest: false;
   hasDraft: boolean;
+  /** MQ-3: текст черновика уже в редакторе. */
+  draftInEditor: boolean;
   setHasDraft: (v: boolean) => void;
   saveStatus: DraftSaveStatus;
   saveErrorKind: 'quota' | 'unknown' | null;
@@ -69,6 +71,7 @@ export function useCloudWritingSession(user: AppUser, profile: UserProfile | nul
       setPinnedThoughts: base.setPinnedThoughts,
       setActiveSessionId: base.setActiveSessionId,
       setHasDraft: draft.setHasDraft,
+      setDraftInEditor: draft.setDraftInEditor,
       resetAndClear: base.resetAndClear,
       resetSession: base.resetSession,
       setStatus: base.setStatus,
@@ -77,14 +80,14 @@ export function useCloudWritingSession(user: AppUser, profile: UserProfile | nul
     }
   );
 
-  const { hasDraft, setHasDraft, handleCancel, autoLoadDraftIfEmpty, restoreDraft, discardDraft } = draft;
+  const { hasDraft, draftInEditor, setHasDraft, handleCancel, autoLoadDraftIfEmpty, restoreDraft, discardDraft } = draft;
   const { saveStatus, saveErrorKind, lastSavedAt, isOnline } = persistence;
   return useMemo(() => ({
     ...base,
     userId: user.uid,
     isGuest: false as const,
-    hasDraft, setHasDraft, saveStatus, saveErrorKind, lastSavedAt, isOnline,
+    hasDraft, draftInEditor, setHasDraft, saveStatus, saveErrorKind, lastSavedAt, isOnline,
     handleCancel, autoLoadDraftIfEmpty, restoreDraft, discardDraft,
-  }), [base, user.uid, hasDraft, setHasDraft, saveStatus, saveErrorKind, lastSavedAt, isOnline,
+  }), [base, user.uid, hasDraft, draftInEditor, setHasDraft, saveStatus, saveErrorKind, lastSavedAt, isOnline,
     handleCancel, autoLoadDraftIfEmpty, restoreDraft, discardDraft]);
 }

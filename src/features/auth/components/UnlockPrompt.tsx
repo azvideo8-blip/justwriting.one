@@ -13,6 +13,10 @@ import { MIN_PASSWORD_LENGTH } from '../../../shared/constants/passwordPolicy';
 import { Button } from '../../../shared/components/Button';
 import { Input } from '../../../shared/components/Input';
 import { ModalShell } from '../../../shared/components/ModalShell';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
+
+// MQ-11: поле ≥ 16 px на телефоне, плейсхолдер — `--text-muted` (≥ 4,5:1), как в окне сейфа.
+const FIELD = 'px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-base md:text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-muted';
 
 interface UnlockPromptProps {
   uid: string;
@@ -22,6 +26,7 @@ interface UnlockPromptProps {
 
 export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
   const { t } = useLanguage();
+  const isMobile = useLayoutMode().layoutMode === 'mobile';
   const { showToast } = useToast();
 
   const [isRecovering, setIsRecovering] = useState(false);
@@ -113,7 +118,8 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
       onClose={onClose}
       labelId="unlock-modal-title"
       z="critical"
-      className="w-full max-w-[380px] bg-surface-card border border-border-subtle rounded-2xl p-6 shadow-lg"
+      variant={isMobile ? 'sheet' : 'modal'}
+      className={isMobile ? 'p-6 overflow-y-auto' : 'w-full max-w-[380px] bg-surface-card border border-border-subtle rounded-2xl p-6 shadow-lg'}
     >
           <div className="w-10 h-10 rounded-2xl bg-brand-soft/10 border border-brand-soft/30 flex items-center justify-center mb-4">
             {isRecovering ? (
@@ -145,13 +151,13 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/40"
+                className={FIELD}
               />
               <div className="flex gap-2">
                 <Button
                   type="submit"
                   disabled={loading || !password || backoffSeconds > 0}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-[var(--brand-primary)]"
+                  className="flex-1 min-h-11 md:min-h-0 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-[var(--brand-primary)]"
                 >
                   {loading ? <Loader2 size={16} className="animate-spin" /> : <Lock size={14} />}
                   {backoffSeconds > 0 ? `${backoffSeconds}s...` : t('unlock_submit')}
@@ -160,7 +166,7 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
                 <Button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2.5 rounded-xl text-sm text-text-main/60 hover:text-text-main transition-colors"
+                  className="min-h-11 md:min-h-0 px-4 py-2.5 rounded-xl text-sm text-text-main/60 hover:text-text-main transition-colors"
                 >
                   {t('common_cancel')}
                 </Button>
@@ -173,7 +179,7 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
                     setIsRecovering(true);
                     setError(null);
                   }}
-                  className="text-xs text-text-main/60 hover:text-text-main underline transition-colors"
+                  className="min-h-11 md:min-h-0 px-3 text-xs text-text-main/60 hover:text-text-main underline transition-colors"
                 >
                   {t('enc_recovery_link')}
                 </button>
@@ -191,7 +197,7 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
                 value={recoveryCode}
                 onChange={e => setRecoveryCode(e.target.value)}
                 placeholder={t('enc_recovery_code_placeholder')}
-                className="font-mono px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/40 uppercase"
+                className={`font-mono ${FIELD} uppercase`}
                 required
               />
 
@@ -201,7 +207,7 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value)}
                 placeholder={t('enc_recovery_new_password')}
-                className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/40"
+                className={FIELD}
                 required
                 minLength={8}
               />
@@ -212,7 +218,7 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
                 value={confirmNewPassword}
                 onChange={e => setConfirmNewPassword(e.target.value)}
                 placeholder={t('enc_recovery_confirm_password')}
-                className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/40"
+                className={FIELD}
                 required
                 minLength={8}
               />
@@ -221,7 +227,7 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
                 <Button
                   type="submit"
                   disabled={loading || !recoveryCode || !newPassword || !confirmNewPassword}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-[var(--brand-primary)]"
+                  className="flex-1 min-h-11 md:min-h-0 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-[var(--brand-primary)]"
                 >
                   {loading ? <Loader2 size={16} className="animate-spin" /> : <KeyRound size={14} />}
                   {t('enc_recovery_submit')}
@@ -233,7 +239,7 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
                     setIsRecovering(false);
                     setError(null);
                   }}
-                  className="px-4 py-2.5 rounded-xl text-sm text-text-main/60 hover:text-text-main transition-colors"
+                  className="min-h-11 md:min-h-0 px-4 py-2.5 rounded-xl text-sm text-text-main/60 hover:text-text-main transition-colors"
                 >
                   {t('enc_recovery_back_to_password')}
                 </Button>

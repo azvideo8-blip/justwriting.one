@@ -1,6 +1,6 @@
 import React from 'react';
 import { SECTION_LABEL } from '../../../shared/components/ModalShell';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, X } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { Label } from '../../../types';
 import { Button } from '../../../shared/components/Button';
@@ -131,22 +131,33 @@ export function FinishModalTags({
         <div className="space-y-2">
           <div className={SECTION_LABEL}>{t('finish_tags')}</div>
           <div className="flex flex-wrap items-center gap-2">
-            {/* Лист держит бюджет контролов (MC-3 ≤ 14): подсказок не больше
-                трёх, остальное человек допишет сам в поле ниже. */}
-            {allSuggestions.slice(0, 3).map(tag => (
+            {/* MQ-1: выбранные теги видны всегда (с SA-24 подсказок может не быть
+                вовсе — введённый руками тег иначе нигде не рисовался). */}
+            {tags.map(tag => (
               <Button
                 type="button"
                 key={tag}
                 variant="ghost"
                 size="sm"
                 onClick={() => toggleTag(tag)}
-                aria-pressed={tags.includes(tag)}
-                className={cn(
-                  'min-h-11 rounded-full border px-3 text-[14px] font-medium',
-                  tags.includes(tag)
-                    ? 'border-text-main/40 bg-text-main/10 text-text-main'
-                    : 'border-border-subtle text-text-main/60',
-                )}
+                aria-label={`${t('archive_tag_remove')} #${tag}`}
+                className="min-h-11 gap-1.5 rounded-full border border-text-main/40 bg-text-main/10 px-3 text-[14px] font-medium text-text-main"
+              >
+                #{tag}
+                <X size={14} aria-hidden="true" />
+              </Button>
+            ))}
+            {/* Бюджет контролов MC-3 (≤ 14) считается по подсказкам: не больше трёх
+                ещё не выбранных, остальное человек допишет сам в поле ниже. */}
+            {allSuggestions.filter(tag => !tags.includes(tag)).slice(0, 3).map(tag => (
+              <Button
+                type="button"
+                key={tag}
+                variant="ghost"
+                size="sm"
+                onClick={() => toggleTag(tag)}
+                aria-pressed={false}
+                className="min-h-11 rounded-full border border-border-subtle px-3 text-[14px] font-medium text-text-main/60"
               >
                 #{tag}
               </Button>

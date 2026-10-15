@@ -16,6 +16,7 @@ import { reportError } from '../../../shared/errors/reportError';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { getOversizedRecordCount } from '../../../core/services/LocalStoreSyncService';
 import { DerivedDriftPanel, type DerivedDriftView } from './DerivedDriftPanel';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 
 interface SyncSettingsSectionProps {
   userId: string;
@@ -39,6 +40,8 @@ interface SyncSettingsSectionProps {
 
 export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreModal, onFindOrphans, onDeleteOrphans, onLoadDerivedDrift }: SyncSettingsSectionProps) {
   const { t, tp } = useLanguage();
+  // MQ-17: на телефоне внутренние панели — без своей рамки (карточка в карточке).
+  const flatInner = useLayoutMode().layoutMode === 'mobile';
   const { showToast } = useToast();
   const { isAuthenticated, isGuest } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
@@ -284,7 +287,7 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
             </div>
 
             {/* Honest sync state */}
-            <div className="p-3 rounded-lg border border-border-subtle bg-surface-base/30 space-y-1">
+            <div className={cn('space-y-1', flatInner ? 'border-t border-border-subtle pt-3' : 'p-3 rounded-lg border border-border-subtle bg-surface-base/30')}>
               <div className="flex items-center justify-between text-xs">
                 <span className="text-text-main/70">{t('settings_sync_state_label')}</span>
                 {syncStatus.status === 'synced' ? (

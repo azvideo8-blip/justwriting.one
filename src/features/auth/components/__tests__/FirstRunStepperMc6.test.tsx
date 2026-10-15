@@ -129,7 +129,7 @@ describe('MC-6: чем отвечать на первый вход', () => {
 
     expect(await screen.findByText('enc_recovery_code_title')).toBeInTheDocument();
     expect(screen.getByTestId('first-run-code').textContent).toBe('abcd-ef01-2345-6789');
-    const further = screen.getByRole('button', { name: /^first_run_next/ });
+    const further = screen.getByRole('button', { name: /^privacy_modal_continue/ });
     expect(further).toBeDisabled();
     fireEvent.click(screen.getByRole('checkbox', { name: /enc_recovery_code_confirm_checkbox/ }));
     await waitFor(() => expect(further).toBeEnabled());
@@ -146,12 +146,17 @@ describe('MC-6: чем отвечать на первый вход', () => {
     expect(sessionStorage.getItem(STORAGE_KEYS.PENDING_RECOVERY_CODE('u_stepper'))).toBeNull();
   });
 
-  it('один шаг остаётся одним шагом: счётчик не врал про «из 3»', () => {
+  // MQ-13: один шаг — счётчик «Шаг 1 из 1» лишний, его нет вовсе (и «из 3» тем более).
+  it('один шаг остаётся одним шагом: счётчика нет', () => {
     sessionStorage.clear();
     cloudPrompt.on = false;
-    renderFlow({ privacy: true, consent: false });
-    expect(screen.getByTestId('first-run-step').textContent).toContain('total=1');
-    cloudPrompt.on = true;
+    try {
+      renderFlow({ privacy: true, consent: false });
+      expect(screen.getByText('first_run_policy_title')).toBeInTheDocument();
+      expect(screen.queryByTestId('first-run-step')).toBeNull();
+    } finally {
+      cloudPrompt.on = true;
+    }
   });
 
   // Ревью 0.9.40. Мутации: строить очередь без пройденных шагов → красный первый
@@ -164,7 +169,7 @@ describe('MC-6: чем отвечать на первый вход', () => {
     expect(await screen.findByText('enc_recovery_code_title')).toBeInTheDocument();
     expect(screen.getByTestId('first-run-step').textContent).toContain('current=2 total=3');
     fireEvent.click(screen.getByRole('checkbox', { name: /enc_recovery_code_confirm_checkbox/ }));
-    fireEvent.click(screen.getByRole('button', { name: /^first_run_next/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^privacy_modal_continue/ }));
     expect(await screen.findByText('first_run_cloud_title')).toBeInTheDocument();
     expect(screen.getByTestId('first-run-step').textContent).toContain('current=3 total=3');
   });
@@ -174,7 +179,7 @@ describe('MC-6: чем отвечать на первый вход', () => {
     render(<LiveFlow onOpenChange={onOpenChange} />);
     await passPolicy();
     fireEvent.click(await screen.findByRole('checkbox', { name: /enc_recovery_code_confirm_checkbox/ }));
-    fireEvent.click(screen.getByRole('button', { name: /^first_run_next/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^privacy_modal_continue/ }));
     await screen.findByText('first_run_cloud_title');
     fireEvent.click(screen.getByRole('button', { name: /^first_run_cloud_on/ }));
     fireEvent.click(screen.getByRole('button', { name: /first_run_restore_switch:59/ }));

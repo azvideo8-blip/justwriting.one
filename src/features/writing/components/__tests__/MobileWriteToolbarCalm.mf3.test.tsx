@@ -32,7 +32,7 @@ describe('MF-3: calm writing toolbar', () => {
     const chip = screen.getByRole('button', { name: 'writing_mode_token' });
     expect(chip.textContent).toContain('writing_mode_flow');
     expect(chip.textContent).toContain(' 3:12');
-    expect(chip.textContent).toContain('120 writing_words_short');
+    expect(chip.textContent).toContain('120 writing_words');
     expect(screen.getByRole('button', { name: 'topbar_save' })).toBeEnabled();
     // ✦ «стоит запрос» больше не висит на микрофоне (MF-5).
     expect(container.querySelector('.lucide-sparkles')).toBeNull();
@@ -41,7 +41,7 @@ describe('MF-3: calm writing toolbar', () => {
   it('paused: the chip says so', () => {
     useTimerStore.setState({ status: 'paused' });
     render(<MobileWriteToolbar onStop={vi.fn()} />);
-    expect(screen.getByRole('button', { name: 'writing_mode_token' }).textContent).toMatch(/⏸ pause · 3:12/);
+    expect(screen.getByRole('button', { name: 'writing_mode_token' }).textContent).toMatch(/⏸ writing_paused_state · 3:12/);
   });
 
   it('the session sheet has pause, new note and the AI helper; each calls its handler and closes the sheet', () => {

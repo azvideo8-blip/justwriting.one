@@ -589,8 +589,8 @@ function WritingFinishModalBody({
   const reducedMotion = useReducedMotion();
   const slideTransition = { duration: 0.22, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] };
 
-  if (!isOpen) return null;
-
+  // MQ-5: тело не возвращает null при !isOpen — им владеет обёртка, которая держит его
+  // ещё 250 мс, пока ModalShell проигрывает уход (ранний return убивал этот уход, MF-20).
   const finalTitle = titleInputValue.trim() || title || '';
   const heading = buildFinishHeading({ sessionWords, sessionSeconds, quietStats, t, tp });
 

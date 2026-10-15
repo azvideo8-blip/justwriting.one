@@ -20,6 +20,7 @@ import { usePanelHistory } from '../../../shared/hooks/usePanelHistory';
 import { readingTimeMinutes } from '../../../shared/utils/readingTime';
 import { isBlankTitle } from '../../../shared/utils/titleUtils';
 import { MobileRenameSheet } from './MobileRenameSheet';
+import { splitNoteTitle } from './noteTitle';
 import { getDateLocale, toDate } from '../../../core/utils/dateUtils';
 import { getCurrentUser } from '../../../core/auth';
 import { toggleAIExclusion } from '../services/archiveCrud';
@@ -99,7 +100,7 @@ export function MobileNoteReader({
     ? t('archive_note_locked')
     : session._decryptionError
       ? t('archive_decryption_error')
-      : (!isBlankTitle(session.title) ? session.title : undefined) || t('session_untitled');
+      : splitNoteTitle(session.title, session.content).title || t('session_untitled');
 
   const handleExclusionClick = () => {
     const nextExcluded = !session.excludedFromAI;
@@ -124,9 +125,10 @@ export function MobileNoteReader({
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      initial={{ opacity: 0, transform: 'translateY(100%)' }}
-      animate={{ opacity: 1, transform: 'translateY(0px)' }}
-      exit={{ opacity: 0, transform: 'translateY(100%)' }}
+      initial={{ opacity: 0, y: '100%' }}
+      animate={{ opacity: 1, y: '0%' }}
+      // MQ-15 (R1): уходя вниз, экран остаётся непрозрачным — без затухания по пути.
+      exit={{ y: '100%' }}
       transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
       // not-a-modal: fullscreen mobile screen — читалка не окно, а экран
       // (тот же путь, что `MobileWriteScreen`, `MobileFocusScreen`,
@@ -212,9 +214,9 @@ export function MobileNoteReader({
           <ModalShell open={infoOpen} onClose={() => setInfoOpen(false)} labelId="note-reader-info-title" variant="sheet">
             <div className="custom-scrollbar max-h-[80dvh] overflow-y-auto px-5 pb-[calc(env(safe-area-inset-bottom,0px)+16px)]">
               <div className="flex items-center justify-between py-3">
-                <h3 id="note-reader-info-title" className="text-[17px] font-semibold text-text-main">
+                <h2 id="note-reader-info-title" className="text-[17px] font-semibold text-text-main">
                   {t('reader_info')}
-                </h3>
+                </h2>
                 <IconButton
                   onClick={() => setInfoOpen(false)}
                   className="h-11 w-11 rounded-xl"
@@ -229,8 +231,8 @@ export function MobileNoteReader({
                 {tp('archive_word_count', session.wordCount || 0)}
                 {' · '}
                 {t('reading_time', { n: readingTimeMinutes(session.wordCount || 0) })}
-                {' · '}
-                {Math.round((session.duration || 0) / 60)} {t('goal_time_min')}
+                {/* MQ-14: «· 0 мин» у короткой заметки не пишем. */}
+                {Math.round((session.duration || 0) / 60) > 0 && ` · ${Math.round((session.duration || 0) / 60)} ${t('goal_time_min')}`}
               </div>
 
               {((labels?.length ?? 0) > 0 || onAddLabel) && onLabelChange && (
@@ -377,7 +379,7 @@ export function MobileNoteReader({
 
 
 
-      {actionsOpen && (
+      {/* MQ-5: листы смонтированы всегда — уход вниз играет сам лист (useExitLinger). */}
         <MobileNoteActionsSheet
           isOpen={actionsOpen}
           onClose={() => setActionsOpen(false)}
@@ -400,16 +402,14 @@ export function MobileNoteReader({
           aiExclusionLoading={exclusionLoading}
           onAIExclusionClick={readable ? handleExclusionClick : undefined}
         />
-      )}
 
 
-      {renameOpen && (
         <MobileRenameSheet
+          open={renameOpen}
           initialTitle={isBlankTitle(session.title) ? '' : (session.title ?? '')}
           onCancel={() => setRenameOpen(false)}
           onSave={title => { if (onTitleChange && title !== session.title) onTitleChange(session, title); setRenameOpen(false); }}
         />
-      )}
     </motion.div>,
     document.body,
   );

@@ -115,8 +115,10 @@ const WritingPageUI = React.memo(function WritingPageUI() {
           sessionType={session.sessionType}
           onOpenSetup={() => setSetupMode('selection')}
           hasDraft={session.hasDraft}
+          draftInEditor={'draftInEditor' in session && session.draftInEditor}
           restoreDraft={() => void session.restoreDraft()}
           discardDraft={() => void session.discardDraft()}
+          removeDraft={() => void handleCancel()}
           onPlay={() => void handlePlay()}
           onStop={() => void onFinishClick()}
           saveStatus={session.saveStatus}

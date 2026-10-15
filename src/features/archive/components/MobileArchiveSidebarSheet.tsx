@@ -8,6 +8,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { getDateLocale } from '../../../core/utils/dateUtils';
 import { formatDayHeader } from '../utils/dayHeaders';
 import { Button } from '../../../shared/components/Button';
+import { cn } from '../../../core/utils/utils';
 import { IconButton } from '../../../shared/components/IconButton';
 import { ModalShell, SECTION_LABEL } from '../../../shared/components/ModalShell';
 
@@ -98,13 +99,15 @@ export function MobileArchiveSidebarSheet({
 type SidebarContentProps = Omit<MobileArchiveSidebarSheetProps, 'isOpen' | 'onClose'> & {
   /** MF-17: во встроенной панели облако слов свёрнуто за «Облако слов ›» — иначе панель выше экрана. */
   collapseCloud?: boolean | undefined;
+  /** MQ-8: во встроенной панели на телефоне — одна плоская поверхность, без вложенных карточек. */
+  flat?: boolean | undefined;
 };
 
 /** Календарь, статистика, дни и облако слов — общее содержимое листа (десктоп
  *  на узком окне) и встроенной панели над заметками на телефоне (MF-17). */
 export function ArchiveSidebarContent({
   filteredByFilters, streakDays, statsTitle, onReset, sessions, sessionsByDate, wordsByDate,
-  selectedDate, onSelectDate, onSelectMonth, wordCloud, maxCount, onWordClick, collapseCloud,
+  selectedDate, onSelectDate, onSelectMonth, wordCloud, maxCount, onWordClick, collapseCloud, flat = false,
 }: SidebarContentProps) {
   const [cloudOpen, setCloudOpen] = useState(!collapseCloud);
   const { t, tp, language } = useLanguage();
@@ -116,35 +119,42 @@ export function ArchiveSidebarContent({
   return (
     <>
           {/* Stats section */}
-          <div className="bg-text-main/[0.02] border border-border-subtle rounded-2xl p-4">
+          <div className={flat ? undefined : 'bg-text-main/[0.02] border border-border-subtle rounded-2xl p-4'}>
             <ArchiveStats
               sessions={filteredByFilters}
               streakDays={streakDays}
               title={statsTitle}
               onReset={onReset}
+              flat={flat}
             />
           </div>
 
-          <div className="h-px bg-border-subtle" />
+          {!flat && <div className="h-px bg-border-subtle" />}
 
           {/* Calendar Picker Section */}
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className={SECTION_LABEL}>
-                {t('archive_calendar_title')}
-              </span>
+              {/* MQ-8: во встроенной панели название «Календарь» уже в её шапке. */}
+              {flat ? <span /> : (
+                <span className={SECTION_LABEL}>
+                  {t('archive_calendar_title')}
+                </span>
+              )}
               {selectedDate && (
                 <Button
                   onClick={() => onSelectDate(null)}
-                  className="text-label font-mono text-brand-soft/80 hover:text-brand-soft flex items-center gap-1 bg-brand-soft/10 border border-brand-soft/20 rounded-lg px-2 py-0.5"
+                  className={flat
+                    ? 'min-h-11 text-[13px] font-medium text-brand-soft flex items-center gap-1 rounded-lg px-3'
+                    : 'text-label font-mono text-brand-soft/80 hover:text-brand-soft flex items-center gap-1 bg-brand-soft/10 border border-brand-soft/20 rounded-lg px-2 py-0.5'}
                 >
                   ✕ {format(selectedDate, 'd MMM yyyy')}
                 </Button>
               )}
             </div>
 
-            <div className="flex justify-center bg-text-main/[0.02] border border-border-subtle rounded-2xl p-2">
+            <div className={flat ? undefined : 'flex justify-center bg-text-main/[0.02] border border-border-subtle rounded-2xl p-2'}>
               <Calendar
+                flat={flat}
                 sessions={sessions}
                 sessionsByDate={sessionsByDate}
                 wordsByDate={wordsByDate}
@@ -167,15 +177,15 @@ export function ArchiveSidebarContent({
 
           {dayKeys.length > 0 && (
             <>
-              <div className="h-px bg-border-subtle" />
+              {!flat && <div className="h-px bg-border-subtle" />}
 
               <div className="space-y-3">
                 <span className={`${SECTION_LABEL} block`}>
                   {t('archive_days_counts_title')}
                 </span>
-                <div className="rounded-2xl border border-border-subtle bg-text-main/[0.02] divide-y divide-border-subtle">
+                <div className={flat ? 'divide-y divide-border-subtle' : 'rounded-2xl border border-border-subtle bg-text-main/[0.02] divide-y divide-border-subtle'}>
                   {dayKeys.map(key => (
-                    <div key={key} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[13px]">
+                    <div key={key} className={cn('flex items-center justify-between gap-3 py-2.5 text-[13px]', !flat && 'px-4')}>
                       <span className="min-w-0 truncate text-text-main">{formatDayHeader(key, t, locale)}</span>
                       <span className="shrink-0 text-text-main/60">
                         {tp('archive_note_count', sessionsByDate[key] ?? 0)} · {tp('archive_word_count', wordsByDate?.[key] ?? 0)}
@@ -194,14 +204,14 @@ export function ArchiveSidebarContent({
           )}
           {wordCloud.length > 0 && cloudOpen && (
             <>
-              <div className="h-px bg-border-subtle" />
+              {!flat && <div className="h-px bg-border-subtle" />}
 
               {/* Word Cloud Tag list */}
               <div className="space-y-3">
                 <span className={`${SECTION_LABEL} block`}>
                   {t('archive_wordcloud_title')}
                 </span>
-                <div className="flex flex-wrap gap-x-3 gap-y-2 bg-text-main/[0.02] border border-border-subtle rounded-2xl p-4">
+                <div className={cn('flex flex-wrap gap-x-3 gap-y-2', !flat && 'bg-text-main/[0.02] border border-border-subtle rounded-2xl p-4')}>
                   {wordCloud.map(({ word, count }) => {
                     const size = 11 + Math.round((count / maxCount) * 8);
                     const opacity = 0.4 + (count / maxCount) * 0.6;

@@ -78,7 +78,7 @@ export function BottomNav() {
   const tabs = [
     { id: 'write' as const, path: '/',        label: t('nav_write'),          icon: <PenIcon /> },
     { id: 'archive' as const, path: '/archive', label: t('nav_notes_short'),  icon: <ArchiveIcon /> },
-    { id: 'ai' as const, path: '/ai',          label: 'AI',                    icon: <Sparkles size={22} strokeWidth={1.6} aria-hidden="true" /> },
+    { id: 'ai' as const, path: '/ai',          label: t('nav_ai_short'),       icon: <Sparkles size={22} strokeWidth={1.6} aria-hidden="true" /> },
     { id: 'me' as const,   path: '/me',       label: t('nav_profile_short'),  icon: <MeIcon /> },
   ];
 
@@ -109,7 +109,7 @@ export function BottomNav() {
     <nav
       data-testid="mobile-bottom-nav"
       className={cn(
-        'fixed bottom-0 left-0 right-0 z-[var(--z-sidebar)] bg-surface-card/85 backdrop-blur-md border-t border-border-subtle flex justify-around pt-2 pb-safe',
+        'fixed bottom-0 left-0 right-0 z-[var(--z-sidebar)] bg-surface-popup border-t border-border-subtle flex justify-around pt-2 pb-safe',
         hidesForKeyboard && 'translate-y-full',
       )}
       style={{

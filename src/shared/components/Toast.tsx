@@ -70,9 +70,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             <motion.div
               key={toast.id}
               // SA-23: вход 220 мс, уход 150 мс, сдвиг вместо масштаба 0.9 — без пружины по умолчанию.
-              initial={{ opacity: 0, transform: 'translateY(12px)' }}
-              animate={{ opacity: 1, transform: 'translateY(0px)' }}
-              exit={{ opacity: 0, transform: 'translateY(-6px)', transition: { duration: 0.15 } }}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6, transition: { duration: 0.15 } }}
               transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
               className={cn(
                 "px-4 py-3 rounded-2xl text-sm font-medium backdrop-blur-xl border shadow-lg pointer-events-auto flex items-center gap-3",

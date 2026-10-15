@@ -1,6 +1,6 @@
 // G-6 (R3-032, R3-034, R3-035): лист действий на телефоне, aria у «⋯», контраст.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, within, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, within, cleanup, waitFor } from '@testing-library/react';
 import { getSessionKey } from '../../../../core/crypto/encrypt';
 import { NoteRow } from '../NoteRow';
 import { ArchiveSession } from '../../types';
@@ -92,7 +92,7 @@ describe('G-6: строка архива', () => {
 
   // R3-032: список строит общая функция, но «Добавить тег» передавал только
   // десктоп. Лист здесь настоящий — заглушка `() => null` это и прятала.
-  it('лист действий на телефоне: «Добавить тег» есть и открывает поле в строке', () => {
+  it('лист действий на телефоне: «Добавить тег» есть и открывает поле в строке', async () => {
     layoutMode = 'mobile';
     renderRow();
 
@@ -106,7 +106,8 @@ describe('G-6: строка архива', () => {
 
     fireEvent.click(within(sheet).getByRole('button', { name: 'archive_add_tag_aria' }));
 
-    expect(screen.queryByRole('dialog')).toBeNull();
+    // MQ-5: лист уходит ~250 мс, а не пропадает за кадр.
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(screen.getByPlaceholderText('archive_tag_placeholder_short')).toBeInTheDocument();
   });
 });
