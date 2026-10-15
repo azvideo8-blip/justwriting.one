@@ -118,9 +118,9 @@ describe('MB-2: подсказка дзена по типу указателя',
   it('MR-7: в дзене остаётся одна строка шапки, поля названия и подсказки свайпа нет', () => {
     zen.isZenActive = true;
     const { container } = render(<MobileWriteScreen onPlay={vi.fn()} onStop={vi.fn()} />);
-    // Одна строка 30 px с временем и словами.
+    // Одна строка в слоте 44 px (SA-10) с временем и словами.
     const row = screen.getByTestId('zen-header-row');
-    expect(row.className).toContain('h-[30px]');
+    expect(row.parentElement!.className).toContain('h-11');
     expect(row?.textContent).toContain('writing_words');
     // Поле названия в дзене скрыто.
     expect(screen.queryByRole('textbox', { name: /topbar_title_placeholder/ })).toBeNull();

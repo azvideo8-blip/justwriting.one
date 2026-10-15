@@ -94,3 +94,18 @@ describe('MC-5: ответ ИИ', () => {
     expect(container.textContent, 'монограмма пропала').toContain('Гп');
   });
 });
+
+// SA-17: в читалке нет даты (она была только в «Инфо»); у «Продолжить писать»
+// значок «наружу»; пункты листа действий — карточки в рамках.
+describe('SA-17: дата в читалке', () => {
+  beforeEach(() => { cleanup(); layoutMode = 'mobile'; });
+
+  it('под заголовком — строка даты 13 px', () => {
+    render(<MobileNoteReader session={session} onClose={vi.fn()} onContinue={vi.fn()} />);
+    const date = screen.getByTestId('reader-date');
+    expect(date.textContent).toMatch(/14 октября/);
+    expect(date.textContent).toMatch(/20:15/);
+    expect(date.className).toContain('text-[13px]');
+    expect(date.previousElementSibling?.textContent).toBe(TITLE);
+  });
+});

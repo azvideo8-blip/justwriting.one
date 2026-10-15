@@ -1,15 +1,19 @@
 import React from 'react';
 import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
+import { SECTION_LABEL } from '../../../shared/components/ModalShell';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 
 export function Section({ title, children }: { title?: string; children: React.ReactNode }) {
+  // SA-15: на телефоне метка раздела — строчная, как в листах; десктоп прежний.
+  const { layoutMode } = useLayoutMode();
   return (
     <div className="space-y-2">
       {/* Заголовок необязателен: на странице настроек его теперь рисует сама
           страница — с номером и пояснением. Раздел, рисующий свой заголовок
           внутри чужого, давал две одинаковые строки подряд. */}
       {title !== undefined && title !== '' && (
-        <p className="font-mono text-[10px] uppercase tracking-widest text-text-main/60 px-1">{title}</p>
+        <p className={cn('px-1', layoutMode === 'mobile' ? SECTION_LABEL : 'font-mono text-[10px] uppercase tracking-widest text-text-main/60')}>{title}</p>
       )}
       <div className="space-y-1">{children}</div>
     </div>

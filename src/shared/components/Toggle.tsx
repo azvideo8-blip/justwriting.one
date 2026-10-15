@@ -20,7 +20,7 @@ export function Toggle({ checked, onChange, disabled, className, ariaLabel }: To
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cn(
-        "w-12 h-6 rounded-full p-1 transition-colors duration-300 flex items-center shrink-0",
+        "w-12 h-6 rounded-full p-1 transition-colors duration-200 flex items-center shrink-0",
         checked ? "bg-text-main" : "bg-text-main/20",
         disabled && "opacity-50 cursor-not-allowed",
         className

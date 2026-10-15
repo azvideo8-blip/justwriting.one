@@ -1,7 +1,7 @@
 // MR-1: список диалогов на телефоне — листовый sheet поверх донной панели.
 // Проверяется без сети: данные подсовываются те же, что получает сайдбар.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, cleanup } from '@testing-library/react';
 import { MobileDialogueListSheet } from '../MobileDialogueListSheet';
 import type { AIDialogue } from '../../../../../core/storage/localDb';
 
@@ -108,5 +108,38 @@ describe('MR-1: MobileDialogueListSheet', () => {
     vi.useRealTimers();
     expect(props.onSelectDialogue).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: /ai_to_archive/ })).toBeTruthy();
+  });
+
+  // SA-11: фокус не в поиске на телефоне; ноль архива не показывается; группы без капса.
+  describe('SA-11', () => {
+    const touch = (coarse: boolean) => {
+      window.matchMedia = ((q: string) => ({ matches: coarse && q.includes('coarse'), media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, onchange: null, dispatchEvent: () => false })) as typeof window.matchMedia;
+    };
+
+    it('на телефоне открытие листа не фокусирует поиск', () => {
+      touch(true);
+      setup();
+      expect(document.activeElement?.tagName).not.toBe('INPUT');
+    });
+
+    it('с мышью поиск по-прежнему получает фокус', () => {
+      touch(false);
+      setup();
+      expect(document.activeElement?.tagName).toBe('INPUT');
+    });
+
+    it('архив пуст — строки архива нет; не пуст — счёт без нуля', () => {
+      setup({ archivedDialogues: [] });
+      expect(screen.queryByRole('button', { name: /ai_dialogues_archived_row/ })).toBeNull();
+      cleanup();
+      setup();
+      expect(screen.getByRole('button', { name: /ai_dialogues_archived_row · 1/ })).toBeTruthy();
+    });
+
+    it('заголовки групп не капсом и без разрядки', () => {
+      setup();
+      const head = screen.getByText('ai_dialogues_today');
+      expect(head.className).not.toMatch(/uppercase|tracking|font-mono/);
+    });
   });
 });

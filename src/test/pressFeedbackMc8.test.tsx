@@ -104,7 +104,8 @@ describe('MC-8: класс press', () => {
 
   it('в index.css есть блок (hover: none) с 160 мс и override для reduced-motion', () => {
     expect(css).toMatch(/@media \(hover: none\)/);
-    expect(css).toMatch(/transform 160ms cubic-bezier\(0\.23, 1, 0\.32, 1\)/);
+    expect(css).toMatch(/transform 160ms var\(--ease-out-strong\)/);
+    expect(css).toMatch(/--ease-out-strong: cubic-bezier\(0\.23, 1, 0\.32, 1\)/);
     expect(css).toMatch(/\.press:active \{\s*transform: scale\(0\.97\);/);
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\) \{\s*\.\press,\s*\.\press:active \{\s*transform: none;/);
   });

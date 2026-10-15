@@ -12,8 +12,11 @@ interface InlineTagsProps {
   /** «row» — строка архива и карточка: без тегов — приглушённая плашка
    *  «+ тег», с тегами — «+» после них; видны всегда (владелец, 2026-09-30,
    *  отменил скрытие до hover из DC-A4). Поле ввода можно открыть и снаружи —
-   *  пунктом меню «Добавить тег». */
-  variant?: 'row' | 'panel';
+   *  пунктом меню «Добавить тег». «sheet» — лист «Инфо» на телефоне (SA-19):
+   *  Inter 13, «×» и «+ тег» — настоящие цели 44 px рядом друг с другом, без
+   *  расширения через ::after, чья зона перекрывала соседа и могла удалить тег
+   *  вместо добавления. */
+  variant?: 'row' | 'panel' | 'sheet';
   isAdding?: boolean | undefined;
   onStartAdding?: (() => void) | undefined;
   onStopAdding?: (() => void) | undefined;
@@ -81,9 +84,24 @@ export function InlineTags({
     closeInput();
   };
 
+  const sheet = variant === 'sheet';
+
   return (
-    <div className="flex flex-wrap gap-1.5 items-center" onClick={e => e.stopPropagation()}>
-      {tags.map(tag => (
+    <div className={cn('flex flex-wrap items-center', sheet ? 'gap-x-2 gap-y-1' : 'gap-1.5')} onClick={e => e.stopPropagation()}>
+      {tags.map(tag => sheet ? (
+        <span
+          key={tag}
+          className="flex items-center rounded-full bg-text-main/[0.05] pl-3 text-[13px] text-text-main"
+        >
+          #{tag}
+          <IconButton
+            onClick={e => removeTag(e, tag)}
+            className="h-11 w-11 rounded-full text-text-main/60"
+            label={t('archive_tag_remove')}
+            icon={<X size={14} aria-hidden="true" />}
+          />
+        </span>
+      ) : (
         <span
           key={tag}
           className="group/tag flex items-center gap-1 font-mono text-label text-text-main/60 border border-border-subtle rounded px-1.5 py-0.5 hover:border-text-main/20 transition-colors"
@@ -159,7 +177,7 @@ export function InlineTags({
         <Button
           onClick={e => { e.stopPropagation(); openInput(); }}
           aria-label={t('archive_add_tag_aria')}
-          className={cn(
+          className={sheet ? 'min-h-11 rounded-full px-3 text-[13px] font-medium text-text-muted' : cn(
             // G-6 (R3-035): сама кнопка 20×20, цель нажатия — 44px. Там, где
             // hover нет (тач), «+» виден сразу: иначе он невидим, но объявляется.
             // p-0: без него отступы Button растягивали кнопку до 32×20.
@@ -171,7 +189,7 @@ export function InlineTags({
               : "border border-border-subtle hover:border-brand-soft/40",
           )}
         >
-          {variant === 'row' && tags.length === 0 ? t('archive_tag_add_short') : '+'}
+          {sheet || (variant === 'row' && tags.length === 0) ? t('archive_tag_add_short') : '+'}
         </Button>
       )}
     </div>

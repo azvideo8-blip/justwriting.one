@@ -27,8 +27,9 @@ const BACKDROP_Z: Record<'modal' | 'critical' | 'sheet', string> = {
 
 // AUDIT-part3 1: критичные модалки (поверх всего — unlock, consent) задают
 // слой пропом, а не копией классов бэкдропа.
+// SA-23: на телефоне 40 px размытия на весь экран — самое дорогое в iOS Safari; blur-sm + плотнее фон.
 const MODAL_BACKDROP = (z: keyof typeof BACKDROP_Z) =>
-  `fixed inset-0 ${BACKDROP_Z[z]} flex items-center justify-center p-4 bg-surface-base/80 backdrop-blur-2xl`;
+  `fixed inset-0 ${BACKDROP_Z[z]} flex items-center justify-center p-4 bg-surface-base/90 backdrop-blur-sm md:bg-surface-base/80 md:backdrop-blur-2xl`;
 const SHEET_BACKDROP =
   // color-ok: затемнение под листом одинаково тёмное в любой теме.
   `fixed inset-0 ${BACKDROP_Z.sheet} flex items-end justify-center bg-black/60 backdrop-blur-sm touch-none`;
@@ -54,6 +55,14 @@ const ANIMATION = {
     exit: { transform: 'translateY(100%)', transition: { duration: 0.2, ease: SHEET_EASE } },
   },
 };
+
+// SA-15: одна мобильная метка раздела и один заголовок листа — строчные, без
+// разрядки (DESIGN.md: Quiet Label / Sentence-Case). Листы не рисуют свои.
+export const SECTION_LABEL = 'text-[13px] font-semibold text-text-muted';
+
+export function SheetTitle({ id, children }: { id: string; children: ReactNode }) {
+  return <h2 id={id} className="text-[17px] font-semibold text-text-main">{children}</h2>;
+}
 
 export interface ModalShellProps {
   open: boolean;

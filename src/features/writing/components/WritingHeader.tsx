@@ -50,6 +50,8 @@ export const WritingHeader = React.memo(function WritingHeader({
   const sessionStartSeconds = useTimerStore(s => s.sessionStartSeconds);
   const wordGoal = useTimerStore(s => s.wordGoal);
   const timerDuration = useTimerStore(s => s.timerDuration);
+  const sessionType = useTimerStore(s => s.sessionType);
+  const timeGoalExplicit = useTimerStore(s => s.timeGoalExplicit);
   
   const setWordGoal = useTimerStore(s => s.setWordGoal);
   const setTimerDuration = useTimerStore(s => s.setTimerDuration);
@@ -181,6 +183,8 @@ export const WritingHeader = React.memo(function WritingHeader({
               <HeaderStats
                 wordGoal={wordGoal}
                 timerDuration={timerDuration}
+                sessionType={sessionType}
+                timeGoalExplicit={timeGoalExplicit}
                 onSetWordGoal={(v) => setWordGoal(v, wordCount)}
                 onSetTimerDuration={setTimerDuration}
                 sessionWords={sessionWords}

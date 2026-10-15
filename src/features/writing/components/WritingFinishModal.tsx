@@ -21,6 +21,7 @@ import { IconButton } from '../../../shared/components/IconButton';
 import { useToast } from '../../../shared/components/Toast';
 import { ModalShell } from '../../../shared/components/ModalShell';
 import { readingTimeMinutes } from '../../../shared/utils/readingTime';
+import { suggestExistingTags } from '../utils/tagSuggestions';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { getOrCreateGuestId } from '../../../core/storage/localDb';
@@ -241,12 +242,15 @@ const MOOD_OPTIONS: { emoji: string; key: string }[] = [
 ];
 
 function MoodRow({
+  quiet = false,
   selectedMood,
   onSelect,
   disabled,
   echoText,
   t,
 }: {
+  /** SA-24: телефон — подписи 12 px `--text-muted` без обёрток с opacity (контраст ≥ 4.5:1). */
+  quiet?: boolean;
   selectedMood: string | undefined;
   onSelect: (mood: string | undefined) => void;
   disabled: boolean;
@@ -255,11 +259,13 @@ function MoodRow({
 }) {
   return (
     <div className="space-y-2.5">
-      <div className="flex items-baseline justify-center gap-1.5 text-label-sm text-text-main/60">
+      <div className={cn('flex items-baseline justify-center gap-1.5', quiet ? 'text-[12px] text-text-muted' : 'text-label-sm text-text-main/60')}>
         <span>{t('mood_checkin_title')}</span>
-        <span className="text-text-main/40">· {t('mood_optional_hint')}</span>
+        <span className={quiet ? undefined : 'text-text-main/40'}>· {t('mood_optional_hint')}</span>
       </div>
-      <div className="flex justify-center gap-1">
+      {/* SA-24: с подписями 12 px шесть настроений в одну строку не влезают в 360 px (живой снимок:
+          «дость», «Интер» за краем) — на телефоне сетка 3×2. */}
+      <div className={quiet ? 'mx-auto grid max-w-xs grid-cols-3 gap-y-1' : 'flex justify-center gap-1'}>
         {MOOD_OPTIONS.map((item) => {
           const active = selectedMood === item.emoji;
           return (
@@ -271,19 +277,23 @@ function MoodRow({
               disabled={disabled}
               onClick={() => onSelect(active ? undefined : item.emoji)}
               className={cn(
-                'flex flex-col items-center gap-1 rounded-xl px-2 py-1.5 transition-colors hover:bg-text-main/5',
+                'press flex flex-col items-center gap-1 rounded-xl px-2 py-1.5 transition-colors hover:bg-text-main/5',
                 disabled && 'opacity-50 cursor-not-allowed'
               )}
             >
               <span
                 className={cn(
-                  'text-2xl leading-none transition-all',
+                  'text-2xl leading-none transition-[scale,opacity,filter] duration-150 ease-out',
                   active ? 'scale-110 drop-shadow-[0_0_10px_var(--brand-soft)]' : selectedMood ? 'opacity-40' : ''
                 )}
               >
                 {item.emoji}
               </span>
-              <span className={cn('text-[10px] whitespace-nowrap', active ? 'text-text-main' : 'text-text-main/50')}>
+              <span className={cn(
+                'whitespace-nowrap',
+                quiet ? 'text-[12px]' : 'text-[10px]',
+                active ? 'text-text-main' : quiet ? 'text-text-muted' : 'text-text-main/50',
+              )}>
                 {t(item.key)}
               </span>
             </button>
@@ -553,10 +563,28 @@ function WritingFinishModalBody({
 
   const popularWords = tfidfWords ?? fallbackPopularWords;
 
+  // SA-24: на телефоне — только уже существующие теги человека, совпавшие с текстом, не больше двух.
+  const [userTags, setUserTags] = useState<string[]>([]);
+  React.useEffect(() => {
+    if (!isOpen || !isMobile) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const uid = getCurrentUser()?.uid ?? getOrCreateGuestId();
+        const docs = await LocalDocumentService.getDocumentsByOwner(uid);
+        if (!cancelled) setUserTags(Array.from(new Set(docs.flatMap(d => d.tags ?? []))));
+      } catch {
+        // без подсказок — не беда
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isOpen, isMobile]);
+
   const allSuggestions = React.useMemo(() => {
+    if (isMobile) return suggestExistingTags(content, userTags);
     const suggestions = new Set([(title || '').trim(), ...popularWords].filter(Boolean));
     return Array.from(suggestions);
-  }, [title, popularWords]);
+  }, [isMobile, content, userTags, title, popularWords]);
 
   const reducedMotion = useReducedMotion();
   const slideTransition = { duration: 0.22, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] };
@@ -720,8 +748,9 @@ function WritingFinishModalBody({
               </div>
 
               {/* Владелец: настроение остаётся, но тихой строкой. */}
-              <div className="mt-6 opacity-70">
+              <div className="mt-6">
                 <MoodRow
+                  quiet
                   selectedMood={selectedMood}
                   onSelect={setSelectedMood}
                   disabled={isSaving}

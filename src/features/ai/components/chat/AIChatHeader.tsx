@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Brain, Settings, Download, Pencil, Archive, Trash2, Plus, ChevronDown, Info, Menu, MoreHorizontal } from 'lucide-react';
 import { IconButton } from '../../../../shared/components/IconButton';
-import { ModalShell } from '../../../../shared/components/ModalShell';
+import { ModalShell, SECTION_LABEL } from '../../../../shared/components/ModalShell';
 import { useLanguage } from '../../../../shared/i18n';
 import { cn } from '../../../../core/utils/utils';
 import { Monogram } from '../AIChatPresentational';
@@ -145,7 +145,7 @@ export function AIChatHeader(props: AIChatHeaderProps) {
             <button
               type="button"
               onClick={() => setPersonaSheetOpen(true)}
-              className="flex items-center gap-2 min-h-11 max-w-full px-3 rounded-full text-sm font-semibold text-text-main truncate"
+              className="press flex items-center gap-2 min-h-11 max-w-full px-3 rounded-full text-sm font-semibold text-text-main truncate"
               style={{ background: `${headerVisual.color}14`, borderColor: `${headerVisual.color}55`, borderWidth: 1 }}
             >
               <Monogram color={headerVisual.color} mono={headerVisual.mono} size={18} />
@@ -200,7 +200,7 @@ export function AIChatHeader(props: AIChatHeaderProps) {
                 <Brain size={16} /> {t('ai_memory_title')}
               </button>
               <div className="w-full rounded-xl border border-border-subtle p-3 space-y-2">
-                <div className="text-[10px] font-mono uppercase tracking-wider text-text-main/60">{t('ai_volume_response_heading')}</div>
+                <div className={SECTION_LABEL}>{t('ai_volume_response_heading')}</div>
                 <div className="flex gap-1.5">
                   {volumeOptions.map(len => (
                     <button

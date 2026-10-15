@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Archive, Pencil, RotateCcw, Trash2, FileText } from 'lucide-react';
 import type { AIDialogue } from '../../../../core/storage/localDb';
-import { ModalShell } from '../../../../shared/components/ModalShell';
+import { ModalShell, SECTION_LABEL } from '../../../../shared/components/ModalShell';
 import { useLanguage } from '../../../../shared/i18n';
 import { Button } from '../../../../shared/components/Button';
 import { IconButton } from '../../../../shared/components/IconButton';
 import { cn } from '../../../../core/utils/utils';
 import { personaVisual } from '../../constants/personaVisuals';
 import { relativeDate } from '../../../../core/utils/dateUtils';
+import { hasOnlyTouchPointer } from '../../../../shared/utils/touchPointer';
 
 export interface MobileDialogueListSheetProps {
   open: boolean;
@@ -115,13 +116,15 @@ export function MobileDialogueListSheet(props: MobileDialogueListSheetProps) {
               onChange={e => setQuery(e.target.value)}
               placeholder={t('ai_dialogues_search_placeholder')}
               aria-label={t('ai_dialogues_search_placeholder')}
+              // SA-11: на телефоне фокус в поиске поднимал клавиатуру поверх списка.
+              data-no-initial-focus={hasOnlyTouchPointer() ? '' : undefined}
               className="w-full rounded-xl border border-border-subtle bg-surface-base px-3 py-2.5 text-sm text-text-main"
             />
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2">
             {groups.map(g => (
               <div key={g.key}>
-                <div className="px-3 pt-3 pb-1 text-[10px] font-mono uppercase tracking-wider text-text-main/55">{g.label}</div>
+                <div className={`px-3 pt-3 pb-1 ${SECTION_LABEL}`}>{g.label}</div>
                 {g.items.map(d => {
                   const v = personaVisual(d.personaId, d.personaName);
                   const isActive = activeDialogueId === d.id;
@@ -137,7 +140,8 @@ export function MobileDialogueListSheet(props: MobileDialogueListSheetProps) {
                       className="w-full text-left flex items-start gap-3 px-3 py-3 rounded-xl transition-colors active:bg-surface-elevated"
                       style={isActive ? { background: `linear-gradient(90deg, ${v.color}16, transparent 75%)` } : undefined}
                     >
-                      <span className="mt-1.5 w-[9px] h-[9px] rounded-full shrink-0" style={{ background: v.color }} />
+                      {/* SA-11: цвет персоны — только у открытого диалога, смысл подписан в строке ниже. */}
+                      {isActive && <span className="mt-1.5 w-[9px] h-[9px] rounded-full shrink-0" style={{ background: v.color }} />}
                       <span className="min-w-0 flex-1">
                         <span className={cn('block text-sm font-medium truncate', isActive ? 'text-text-main' : 'text-text-main/70')}>{d.title}</span>
                         <span className="mt-1 flex items-center gap-1.5 text-[11px] text-text-main/55 truncate">
@@ -154,17 +158,21 @@ export function MobileDialogueListSheet(props: MobileDialogueListSheetProps) {
             {rows.length === 0 && (
               <div className="py-8 text-center text-xs text-text-main/60">{t('ai_no_active_dialogues')}</div>
             )}
-            <Button
-              onClick={() => setShowArchived(!showArchived)}
-              className="w-full mt-2 px-3 py-3 rounded-xl text-sm font-medium text-text-main/75 border border-border-subtle flex items-center justify-between"
-            >
-              <span>
-                {showArchived ? t('ai_dialogues_active_row') : t('ai_dialogues_archived_row')}
-                {' · '}
-                {showArchived ? dialogues.length : archivedDialogues.length}
-              </span>
-              {showArchived ? <RotateCcw size={15} /> : <Archive size={15} />}
-            </Button>
+            {/* SA-11: «ноль — не показатель»: пустой архив строки не получает, ноль не пишем. */}
+            {(showArchived || archivedDialogues.length > 0) && (
+              <Button
+                onClick={() => setShowArchived(!showArchived)}
+                className="w-full mt-2 px-3 py-3 rounded-xl text-sm font-medium text-text-main/75 border border-border-subtle flex items-center justify-between"
+              >
+                <span>
+                  {showArchived ? t('ai_dialogues_active_row') : t('ai_dialogues_archived_row')}
+                  {(showArchived ? dialogues.length : archivedDialogues.length) > 0
+                    ? ` · ${showArchived ? dialogues.length : archivedDialogues.length}`
+                    : ''}
+                </span>
+                {showArchived ? <RotateCcw size={15} /> : <Archive size={15} />}
+              </Button>
+            )}
           </div>
         </div>
       </ModalShell>

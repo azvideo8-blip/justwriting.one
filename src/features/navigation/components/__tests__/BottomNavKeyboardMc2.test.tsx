@@ -108,4 +108,18 @@ describe('MC-2: нижняя панель и клавиатура', () => {
     const second = renderNav();
     expect((second.container.querySelector('nav') as HTMLElement).style.transitionDuration).toBe('0s');
   });
+
+  // SA-8: Tailwind v4 переводит `translate-y-full` в свойство `translate`;
+  // переход должен идти по тому же свойству. Мутация: вернуть 'transform' → красный.
+  it('SA-8: the hide transition animates the property the class changes (translate)', () => {
+    keyboard = { overlay: 300, up: true };
+    route = '/';
+    reduced = false;
+    cleanup();
+    renderNav();
+    const nav = navEl();
+    expect(nav.className).toContain('translate-y-full');
+    expect(nav.style.transitionProperty).toBe('translate');
+    expect(nav.style.transitionDuration).toBe('180ms');
+  });
 });

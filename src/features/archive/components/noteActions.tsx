@@ -1,4 +1,4 @@
-import { Cloud, Copy, ExternalLink, EyeOff, HardDrive, Pencil, Sparkles, Tag, Trash2, type LucideIcon } from 'lucide-react';
+import { Cloud, Copy, ExternalLink, EyeOff, HardDrive, Pencil, PenLine, Sparkles, Tag, Trash2, type LucideIcon } from 'lucide-react';
 import { Label } from '../../../types';
 import { MenuEntry } from '../../../shared/components/Menu';
 import { AIExclusion, NoteStorageActions, StorageDoc } from './useNoteStorageActions';
@@ -102,7 +102,8 @@ export function buildNoteActions(input: NoteActionsInput): NoteMenuSection[] {
     });
   };
 
-  action('open', 'main', openLabel ?? t('archive_preview'), ExternalLink, onOpen);
+  // SA-17: «Продолжить писать» остаётся внутри приложения — значок «наружу» только у «Открыть».
+  action('open', 'main', openLabel ?? t('archive_preview'), openLabel ? PenLine : ExternalLink, onOpen);
   action('rename', 'main', t('archive_rename_title'), Pencil, onRename);
   if (onCopy) {
     action('copy', 'main', t('archive_copy_modal_title'), Copy, onCopy);

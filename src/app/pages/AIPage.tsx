@@ -222,7 +222,7 @@ export function AIPage() {
           onSelectDialogue={(id, personaId) => {
             setActiveDialogueId(id);
             setSelectedPersonaId(personaId);
-            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
           }}
           onRename={(id, title) => { void handleRenameDialogue(id, title); }}
           onArchive={(id) => { void handleArchive(id); }}

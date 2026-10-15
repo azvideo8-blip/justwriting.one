@@ -13,6 +13,8 @@ import { DictationWave } from './DictationBar';
 import { previewDictationCost, useDictation } from '../hooks/useDictation';
 import { dismissVoiceNotice, voiceNoticeDecision } from '../hooks/useGuardedSpeechInput';
 import { getCurrentUser } from '../../../core/auth';
+import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
+import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import type { VoiceNotice } from './MobileVoiceNoticeSheet';
 
 // MF-5: лист «Голосовой ввод» — ленивый кусок (запас бюджета index ~200 байт).
@@ -61,6 +63,11 @@ export function MobileWriteToolbar({
 
   const [showExitConfirm, setShowExitConfirm] = React.useState(false);
   const [voiceNotice, setVoiceNotice] = React.useState<VoiceNotice | null>(null);
+  // SA-25: жёлтая точка у микрофона объясняла себя только в aria-label. Предупреждение
+  // человек уже прочитал в листе MF-5 (нажал «Записать») — тогда точка молчит, пока сейф
+  // открыт; запертый сейф или ни разу не открытый лист — точка остаётся.
+  const vaultUnlocked = useEncryptionStore(s => s.isVaultUnlocked);
+  const showVaultWarn = isVaultActive && !isListening && (!vaultUnlocked || !voiceNoticeSeen());
 
   // MF-5: микрофон на телефоне. Отмеченное «Больше не показывать» — старт сразу,
   // в том же нажатии; иначе — лист, и старт уже из его «Записать».
@@ -92,14 +99,20 @@ export function MobileWriteToolbar({
 
   const longPressTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // SA-23 (W8): удержание 3 с для выхода из потока было невидимым — теперь значок режима заливается.
+  const [holding, setHolding] = React.useState(false);
+
   const handleTouchStart = () => {
     if (!streamMode || !onToggleStreamMode) return;
+    setHolding(true);
     longPressTimer.current = setTimeout(() => {
+      setHolding(false);
       setShowExitConfirm(true);
     }, 3000);
   };
 
   const handleTouchEnd = () => {
+    setHolding(false);
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
     }
@@ -115,8 +128,14 @@ export function MobileWriteToolbar({
       style={toolbarStyle}
     >
       {streamMode && (
-        <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-[var(--accent-danger)] text-[var(--bg-base)] text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-[0.05em] pointer-events-none shadow-[0_2px_4px_color-mix(in_srgb,var(--accent-danger)_20%,transparent)]">
-          {t('stream_mode_label')}
+        <div className="absolute -top-5 left-1/2 -translate-x-1/2 overflow-hidden bg-[var(--accent-danger)] text-[var(--bg-base)] text-[11px] font-semibold px-2 py-0.5 rounded-full pointer-events-none shadow-[0_2px_4px_color-mix(in_srgb,var(--accent-danger)_20%,transparent)]">
+          <span
+            data-testid="stream-hold-fill"
+            aria-hidden="true"
+            className="absolute inset-0 origin-left bg-[var(--bg-base)]/40"
+            style={{ transform: holding ? 'scaleX(1)' : 'scaleX(0)', transition: holding ? 'transform 3000ms linear' : 'transform 200ms ease-out' }}
+          />
+          <span className="relative">{t('stream_mode_label')}</span>
         </div>
       )}
       {hasSupport && (dictation.phase === 'recording' || dictation.phase === 'processing') ? (
@@ -168,7 +187,7 @@ export function MobileWriteToolbar({
           onClick={() => onOpenSetup?.()}
           aria-label={t('writing_mode_token')}
           data-write-chip
-          className="flex min-h-11 min-w-0 flex-1 items-center gap-1 rounded-full border border-[var(--border-light)] bg-[var(--surface-card)] px-3 text-[13px] font-medium text-[var(--text-muted)] tabular-nums"
+          className="press flex min-h-11 min-w-0 flex-1 items-center gap-1 rounded-full border border-[var(--border-light)] bg-[var(--surface-card)] px-3 text-[13px] font-medium text-[var(--text-muted)] tabular-nums"
         >
           {hideStats && !isIdle
             ? <span aria-hidden="true" className="shrink-0">{isPaused ? '⏸' : '▶'}</span>
@@ -186,14 +205,18 @@ export function MobileWriteToolbar({
                 className={cn(
                   "w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer border shrink-0",
                   isListening
-                    ? "border-accent-danger bg-accent-danger/10 text-accent-danger animate-pulse"
-                    : isVaultActive
+                    ? "border-accent-danger bg-accent-danger/10 text-accent-danger"
+                    : showVaultWarn
                     ? "border-accent-warning/50 bg-accent-warning/5 text-accent-warning"
                     : "border-[var(--border-light)] bg-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]"
                 )}
                 icon={isListening ? <MicOff size={18} /> : <Mic size={18} />}
               />
-              {isVaultActive && !isListening && (
+              {/* SA-23 (W10): запись — статичная точка, а не пульс в краю глаза во время письма. */}
+              {isListening && (
+                <span aria-hidden="true" className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-accent-danger pointer-events-none" />
+              )}
+              {showVaultWarn && (
                 <span
                   className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-accent-warning pointer-events-none"
                   title={t('voice_vault_badge')}
@@ -209,7 +232,7 @@ export function MobileWriteToolbar({
             disabled={isIdle}
             aria-label={t('topbar_save')}
             className={cn(
-              "w-11 h-11 shrink-0 rounded-xl flex items-center justify-center transition-opacity",
+              "press w-11 h-11 shrink-0 rounded-xl flex items-center justify-center transition-opacity",
               isIdle ? "cursor-default opacity-45" : "cursor-pointer opacity-100"
             )}
             style={{ background: 'var(--text-main)', color: 'var(--bg-base)' }}
@@ -240,9 +263,6 @@ export function MobileWriteToolbar({
               // color-ok: тень листа — чёрная в любой теме.
               className="relative z-10 w-full max-w-lg bg-surface-popup border-t border-border-subtle rounded-t-[28px] overflow-hidden flex flex-col p-6 space-y-6 shadow-[0_-8px_32px_rgba(0,0,0,0.4)] pb-[calc(env(safe-area-inset-bottom,16px)+16px)]"
             >
-              <div className="flex justify-center">
-                <div className="w-12 h-1.5 rounded-full bg-text-main/10" />
-              </div>
               <div className="text-center space-y-2">
                 <h3 className="text-lg font-bold text-text-main">
                   {t('stream_mode_exit_confirm')}
@@ -278,4 +298,8 @@ export function MobileWriteToolbar({
       </AnimatePresence>
     </div>
   );
+}
+
+function voiceNoticeSeen(): boolean {
+  try { return localStorage.getItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2) === '1'; } catch { return false; }
 }

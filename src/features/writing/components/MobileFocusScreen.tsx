@@ -39,16 +39,25 @@ export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
     return () => clearTimeout(timerHideRef.current);
   }, []);
 
-  const [intensity, setIntensity] = useState(0);
+  // SA-10: полоса свечения живёт в ref и двигается transform — без перерисовки
+  // всего экрана пять раз в секунду и без Layout от margin-left.
+  const intensityRef = useRef(0);
+  const glowRef = useRef<HTMLDivElement>(null);
   const glowStyle = {
     background: 'linear-gradient(90deg, transparent, var(--flow-pulse-color, var(--brand-primary)) 50%, transparent)',
-    marginLeft: `${20 + intensity * 20}%`,
-    opacity: intensity > 0 ? 0.3 + intensity * 0.5 : 0,
+    marginLeft: '20%',
+    opacity: 0,
     transitionTimingFunction: 'cubic-bezier(.4,.2,.2,1)' as const,
     filter: 'blur(1px)',
   };
   useEffect(() => {
-    const decay = setInterval(() => setIntensity(i => Math.max(0, i - 0.04)), 200);
+    const decay = setInterval(() => {
+      intensityRef.current = Math.max(0, intensityRef.current - 0.04);
+      const node = glowRef.current;
+      if (!node) return;
+      node.style.opacity = String(intensityRef.current > 0 ? 0.3 + intensityRef.current * 0.5 : 0);
+      node.style.transform = `translateX(${(intensityRef.current * 100) / 3}%)`;
+    }, 200);
     return () => clearInterval(decay);
   }, []);
 
@@ -96,7 +105,7 @@ export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
         value={content}
         onChange={e => {
           setContent(e.target.value);
-          setIntensity(i => Math.min(1, i + 0.2));
+          intensityRef.current = Math.min(1, intensityRef.current + 0.2);
           showTimerBriefly();
         }}
         autoFocus
@@ -137,7 +146,8 @@ export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
 
       <div className="absolute left-0 right-0 bottom-0 h-0.5 pointer-events-none overflow-hidden">
         <div
-          className="h-full w-[60%] transition-[opacity,margin-left] duration-500"
+          ref={glowRef}
+          className="h-full w-[60%] transition-[opacity,transform] duration-300"
           style={glowStyle}
         />
       </div>

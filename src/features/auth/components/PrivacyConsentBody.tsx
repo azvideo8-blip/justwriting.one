@@ -41,19 +41,24 @@ export function PrivacyConsentText() {
  * чтобы поле было видно и попасть в него было чем. На десктопе вариант не
  * используется, разметка остаётся прежней.
  */
-export function PrivacyConsentCheckboxes({ checked, onChecked, aiConsent, onAiConsent, large = false }: {
+export function PrivacyConsentCheckboxes({ checked, onChecked, aiConsent, onAiConsent, large = false, className, show = 'both' }: {
   checked: boolean;
   onChecked: (v: boolean) => void;
   aiConsent: boolean;
   onAiConsent: (v: boolean) => void;
   large?: boolean;
+  /** SP SA-2: подвал степпера держит галочки плотнее, чем тело окна. */
+  className?: string;
+  /** SP SA-2: степпер разводит галочки — обязательная в подвале, ИИ-согласие в теле. */
+  show?: 'both' | 'required' | 'ai';
 }) {
   const { t } = useLanguage();
   const box = large ? 'h-6 w-6 mt-1' : 'mt-0.5';
   const caption = large ? 'text-[15px]' : 'text-xs';
 
   return (
-    <div className={cn('border-t border-border-subtle/50', large ? 'pt-5 space-y-4 mt-5' : 'pt-4 space-y-3 mt-4')}>
+    <div className={cn('border-t border-border-subtle/50', large ? 'pt-5 space-y-4 mt-5' : 'pt-4 space-y-3 mt-4', className)}>
+      {show !== 'ai' && (
       <label className="flex items-start gap-3 cursor-pointer">
         <input
           type="checkbox"
@@ -66,12 +71,14 @@ export function PrivacyConsentCheckboxes({ checked, onChecked, aiConsent, onAiCo
           {t('privacy_consent_accept_before')}<a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline">{t('privacy_consent_data_policy')}</a>{t('privacy_consent_and')}<a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline">{t('privacy_consent_terms')}</a>
         </span>
       </label>
+      )}
 
       {/* Отдельная галочка, и это принципиально. Тексты дневника по своей
           природе относятся к специальным категориям (ст. 10 152-ФЗ), а
           согласие на них, спрятанное в общее «согласен с политикой», не
           считается данным. Галочка не обязательна: отказ оставляет письмо и
           хранение записей, забирая только функции ИИ. */}
+      {show !== 'required' && (
       <label className="flex items-start gap-3 cursor-pointer">
         <input
           type="checkbox"
@@ -84,6 +91,7 @@ export function PrivacyConsentCheckboxes({ checked, onChecked, aiConsent, onAiCo
           {t('privacy_consent_ai_text_before')}<a href="/consent" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline">{t('privacy_consent_ai_link')}</a>{t('privacy_consent_ai_text_after')}
         </span>
       </label>
+      )}
     </div>
   );
 }

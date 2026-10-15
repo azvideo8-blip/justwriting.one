@@ -27,6 +27,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { localDayKey } from '../../../core/utils/dateUtils';
 import { noteMetaFor } from '../utils/noteMeta';
 import { followUpKey } from '../utils/followUpKey';
+import { useChatFollow } from './useChatFollow';
 
 type ResponseLength = 'short' | 'standard' | 'detailed';
 
@@ -562,9 +563,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     });
   }, [activeDialogue]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [displayMessages.length, streamingMessage]);
+  useChatFollow(messagesEndRef, displayMessages.length, displayMessages[displayMessages.length - 1]?.role, streamingMessage, activeDialogueId);
 
   useEffect(() => {
     const { key, lastAssistant } = followUpKey(displayMessages);

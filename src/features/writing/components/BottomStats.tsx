@@ -6,6 +6,7 @@ import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { formatTime } from '../../../core/utils/formatTime';
+import { sessionClockSeconds, timeGoalCountsDown } from '../utils/sessionModeLabels';
 import { useLanguage } from '../../../shared/i18n';
 import { useWritingSettings } from '../../../core/settings/WritingSettingsContext';
 import { GoalPopup } from './GoalPopup';
@@ -53,12 +54,14 @@ export function BottomStats({ onPlay, onPause, onStop, compact, saveStatus = 'id
   const { isListening, toggle, hasSupport, isVaultActive, aiNoticeRemaining } = useDictation();
 
 
-  const { status, seconds, wordGoal, timerDuration, sessionStartWords, sessionStartSeconds, setWordGoal, setTimerDuration } = useTimerStore(
+  const { status, seconds, wordGoal, timerDuration, sessionType, timeGoalExplicit, sessionStartWords, sessionStartSeconds, setWordGoal, setTimerDuration } = useTimerStore(
     useShallow((s: ReturnType<typeof useTimerStore.getState>) => ({
       status: s.status,
       seconds: s.seconds,
       wordGoal: s.wordGoal,
       timerDuration: s.timerDuration,
+      sessionType: s.sessionType,
+      timeGoalExplicit: s.timeGoalExplicit,
       sessionStartWords: s.sessionStartWords,
       sessionStartSeconds: s.sessionStartSeconds,
       setWordGoal: s.setWordGoal,
@@ -68,18 +71,16 @@ export function BottomStats({ onPlay, onPause, onStop, compact, saveStatus = 'id
 
   const sessionWords = Math.max(0, wordCount - sessionStartWords);
   const sessionSeconds = seconds - sessionStartSeconds;
-  const timeRemaining = timerDuration > 0
-    ? Math.max(0, timerDuration - sessionSeconds)
-    : sessionSeconds;
+  // SP-D1: без выбранной цели часы идут вперёд и полосы времени нет.
+  const countsDown = timeGoalCountsDown(sessionType, timerDuration, timeGoalExplicit);
+  const clockSeconds = sessionClockSeconds(sessionType, timerDuration, sessionSeconds, timeGoalExplicit);
 
   const wordPct = wordGoal > 0
     ? Math.min(100, Math.round(sessionWords / wordGoal * 100))
     : Math.min(100, Math.round(sessionWords / 500 * 100));
-  const timePct = timerDuration > 0
-    ? Math.min(100, Math.round(sessionSeconds / timerDuration * 100))
-    : Math.min(100, Math.round(sessionSeconds / 1800 * 100));
+  const timePct = countsDown ? Math.min(100, Math.round(sessionSeconds / timerDuration * 100)) : 0;
   const wordDone = wordGoal > 0 && sessionWords >= wordGoal;
-  const timeDone = timerDuration > 0 && sessionSeconds >= timerDuration;
+  const timeDone = countsDown && sessionSeconds >= timerDuration;
 
   const [wordPopupOpen, setWordPopupOpen] = useState(false);
   const [timePopupOpen, setTimePopupOpen] = useState(false);
@@ -180,7 +181,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact, saveStatus = 'id
               </svg>
             )}
           </div>
-          {!compact && (
+          {!compact && countsDown && (
             <div className="w-20 h-[3px] rounded-full bg-border-subtle mt-1.5">
               <motion.div
                 initial={{ width: 0 }}
@@ -218,15 +219,15 @@ export function BottomStats({ onPlay, onPause, onStop, compact, saveStatus = 'id
         >
           <div className="flex items-baseline gap-1.5 leading-none">
             <span className={cn("text-lg font-medium leading-none tabular-nums whitespace-nowrap", timeDone ? "text-accent-success" : "text-text-main")}>
-              {timerDuration > 0 ? formatTime(timeRemaining) : formatTime(sessionSeconds)}
+              {formatTime(clockSeconds)}
             </span>
-            {timerDuration > 0 && (
+            {countsDown && (
               <span className={cn("text-xs", timeDone ? "text-accent-success/60" : "text-text-main/60")}>
                 {timeDone ? t('goal_time_done') : t('goal_time_remaining')}
               </span>
             )}
           </div>
-          {!compact && (
+          {!compact && countsDown && (
             <div className="w-20 h-[3px] rounded-full bg-border-subtle mt-1.5">
               <motion.div
                 initial={{ width: 0 }}
@@ -238,7 +239,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact, saveStatus = 'id
           )}
           {!compact && (
             <span className="text-label text-text-main/60 tracking-wide mt-1 hidden sm:block">
-              {timerDuration > 0
+              {countsDown
                 ? `${t('goal_time_of')} ${Math.round(timerDuration / 60)} ${t('goal_time_min')}`
                 : t('header_time')}
             </span>

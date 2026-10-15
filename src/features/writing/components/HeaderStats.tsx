@@ -3,12 +3,16 @@ import { motion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 import { formatTime } from '../../../core/utils/formatTime';
+import type { SessionType } from '../store/types';
+import { sessionClockSeconds, timeGoalCountsDown } from '../utils/sessionModeLabels';
 import { GoalPopup } from './GoalPopup';
 import { HeaderVisibility } from '../../../core/settings/WritingSettingsContext';
 
 interface HeaderStatsProps {
   wordGoal: number;
   timerDuration: number;
+  sessionType: SessionType;
+  timeGoalExplicit: boolean;
   onSetWordGoal: (v: number) => void;
   onSetTimerDuration: (v: number) => void;
   sessionWords: number;
@@ -20,7 +24,7 @@ interface HeaderStatsProps {
 }
 
 export const HeaderStats = memo(function HeaderStats({
-  wordGoal, timerDuration, onSetWordGoal, onSetTimerDuration,
+  wordGoal, timerDuration, sessionType, timeGoalExplicit, onSetWordGoal, onSetTimerDuration,
   sessionWords, sessionSeconds, wordCount, wpm, status,
   visibility
 }: HeaderStatsProps) {
@@ -48,11 +52,13 @@ export const HeaderStats = memo(function HeaderStats({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const timeRemaining = timerDuration > 0 ? Math.max(0, timerDuration - sessionSeconds) : sessionSeconds;
+  // SP-D1: без выбранной цели часы идут вперёд и полосы времени нет.
+  const countsDown = timeGoalCountsDown(sessionType, timerDuration, timeGoalExplicit);
+  const clockSeconds = sessionClockSeconds(sessionType, timerDuration, sessionSeconds, timeGoalExplicit);
   const wordProgress = wordGoal > 0 ? Math.min(100, Math.round(sessionWords / wordGoal * 100)) : null;
-  const timeProgress = timerDuration > 0 ? Math.min(100, Math.round(sessionSeconds / timerDuration * 100)) : null;
+  const timeProgress = countsDown ? Math.min(100, Math.round(sessionSeconds / timerDuration * 100)) : null;
   const wordDone = wordGoal > 0 && sessionWords >= wordGoal;
-  const timeDone = timerDuration > 0 && sessionSeconds >= timerDuration;
+  const timeDone = countsDown && sessionSeconds >= timerDuration;
 
   return (
     <div className="flex items-center border-t border-border-subtle rounded-none">
@@ -127,15 +133,15 @@ export const HeaderStats = memo(function HeaderStats({
       >
         <div className="flex items-baseline gap-1.5 leading-none">
           <span className={cn("text-xl sm:text-2xl font-medium tabular-nums", timeDone ? "text-accent-success" : "text-text-main")}>
-            {timerDuration > 0 ? formatTime(timeRemaining) : formatTime(sessionSeconds)}
+            {formatTime(clockSeconds)}
           </span>
-          {timerDuration > 0 && (
+          {countsDown && (
             <span className={cn("text-sm sm:text-base", timeDone ? "text-accent-success/70" : "text-text-subtle")}>
               {timeDone ? t('goal_time_done') : t('goal_time_remaining')}
             </span>
           )}
         </div>
-        {timeProgress !== null && timerDuration > 0 && (
+        {timeProgress !== null && (
           <div className="w-full h-[2px] bg-border-subtle mt-1.5 rounded-full overflow-hidden">
             <motion.div
               className={cn("h-[2px] rounded-full", timeDone ? "bg-accent-success progress-glow" : "bg-gradient-to-r from-brand-primary to-brand-soft progress-glow")}
@@ -145,7 +151,7 @@ export const HeaderStats = memo(function HeaderStats({
           </div>
         )}
         <span className="text-label-sm text-text-muted mt-1">
-          {timerDuration > 0
+          {countsDown
             ? `${t('goal_time_of')} ${Math.round(timerDuration / 60)} ${t('goal_time_min')}`
             : t('header_time_hint')}
         </span>

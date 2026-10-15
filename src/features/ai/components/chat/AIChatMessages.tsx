@@ -265,7 +265,7 @@ export function AIChatMessages(props: AIChatMessagesProps) {
       {/* z-0, не выше: шапка и поле ввода стоят на z-10, и их выпадающие
           списки обязаны ложиться поверх сообщений. Фон-свечение — тоже z-0, но
           раньше в DOM, поэтому остаётся под сообщениями. */}
-      <div className={cn("relative z-0 flex-1 overflow-y-auto py-7", isMobile ? 'min-h-0 px-5' : "px-6")}>
+      <div data-chat-scroll className={cn("relative z-0 flex-1 overflow-y-auto py-7", isMobile ? 'min-h-0 px-5' : "px-6")}>
         <div className="max-w-[1600px] mx-auto flex flex-col gap-7" aria-live="polite">
           {proactiveHint && !activeDialogueId && (
             <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-brand-soft/10 border border-brand-soft/20 text-sm text-brand-soft">
@@ -439,7 +439,7 @@ export function AIChatMessages(props: AIChatMessagesProps) {
                 </div>
                 <div className="flex items-center gap-2 mr-1">
                   <button type="button" onClick={() => onDeleteMessage(i)} className="text-text-main/30 hover:text-accent-danger transition-colors" aria-label={t('ai_delete_message')}><Trash2 size={11} /></button>
-                  <span className="text-[9px] font-mono uppercase tracking-[0.14em] text-text-main/60">{t('ai_you')}</span>
+                  <span className={cn("text-text-main/60", isMobile ? "text-[12px]" : "text-[9px] font-mono uppercase tracking-[0.14em]")}>{t('ai_you')}</span>
                 </div>
               </div>
             );

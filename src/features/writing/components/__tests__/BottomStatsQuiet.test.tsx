@@ -31,7 +31,7 @@ vi.mock('../../store/useContentStore', () => ({
 vi.mock('../../store/useTimerStore', () => ({
   useTimerStore: (sel: (s: unknown) => unknown) =>
     sel({
-      status: 'writing', seconds: 120, wordGoal: 0, timerDuration: 1800,
+      status: 'writing', seconds: 120, wordGoal: 0, timerDuration: 1800, sessionType: 'free', timeGoalExplicit: true,
       sessionStartWords: 0, sessionStartSeconds: 0,
       setWordGoal: vi.fn(), setTimerDuration: vi.fn(),
       getState: () => ({ status: 'writing' }),

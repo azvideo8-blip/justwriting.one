@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AlertTriangle, Check, Copy, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { AnimatePresence, motion } from 'motion/react';
 import { useLanguage } from '../../../shared/i18n';
 import { Button } from '../../../shared/components/Button';
 import { Toggle } from '../../../shared/components/Toggle';
@@ -68,6 +69,12 @@ export function FirstRunPolicyStep({ position, onNext }: { position: StepPositio
   const [policyOpen, setPolicyOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const policyRef = useRef<HTMLDivElement>(null);
+
+  // Ссылка живёт в подвале, а текст раскрывается в теле: показать его, не заставляя искать.
+  useEffect(() => {
+    if (policyOpen) policyRef.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [policyOpen]);
 
   const accept = async () => {
     setSaving(true);
@@ -110,6 +117,7 @@ export function FirstRunPolicyStep({ position, onNext }: { position: StepPositio
 
         {policyOpen && (
           <div
+            ref={policyRef}
             data-testid="first-run-policy-full"
             className="max-h-[45dvh] overflow-y-auto rounded-2xl border border-[var(--border-light)] bg-[var(--surface-card)] p-4"
           >
@@ -117,8 +125,12 @@ export function FirstRunPolicyStep({ position, onNext }: { position: StepPositio
           </div>
         )}
 
+        {/* Необязательное ИИ-согласие — в теле: оно длинное, и в подвале на 360×640 съедало
+            весь экран (живой снимок: тело 30 px из 640). Решение остаётся за человеком, галочка снята. */}
         <PrivacyConsentCheckboxes
           large
+          show="ai"
+          className="mt-2 border-t-0 pt-0"
           checked={checked}
           onChecked={setChecked}
           aiConsent={aiConsent}
@@ -128,14 +140,33 @@ export function FirstRunPolicyStep({ position, onNext }: { position: StepPositio
         {error !== null && <p className="text-[13px] text-accent-danger">{error}</p>}
       </div>
 
-      <footer className="px-5 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+20px)]">
+      {/* SA-2: обязательная галочка и кнопка — в подвале, не в конце прокрутки: на 360×640
+          обязательная галочка стояла на 2,8 экрана ниже серой кнопки. Прокручивается текст. */}
+      <footer data-testid="first-run-policy-footer" className="px-5 pt-1 pb-[calc(env(safe-area-inset-bottom,0px)+20px)] border-t border-border-subtle/50">
+        <PrivacyConsentCheckboxes
+          large
+          show="required"
+          className="mt-0 border-t-0 pt-3"
+          checked={checked}
+          onChecked={setChecked}
+          aiConsent={aiConsent}
+          onAiConsent={setAiConsent}
+        />
+
         <Button
           onClick={() => void accept()}
           disabled={!checked || saving}
-          className="w-full min-h-11 rounded-xl bg-brand-soft text-surface-base text-[16px] font-semibold disabled:opacity-40"
+          aria-describedby={checked ? undefined : 'first-run-consent-hint'}
+          className="mt-3 w-full min-h-11 rounded-xl bg-brand-soft text-surface-base text-[16px] font-semibold disabled:opacity-40"
         >
           {t('privacy_modal_continue')}
         </Button>
+        {/* Серая кнопка молча — не ответ: говорим, чего не хватает. */}
+        {!checked && (
+          <p id="first-run-consent-hint" data-testid="first-run-consent-hint" className="mt-2 text-center text-[13px] text-[var(--text-muted)]">
+            {t('first_run_consent_hint')}
+          </p>
+        )}
       </footer>
     </>
   );
@@ -356,7 +387,7 @@ export function FirstRunFlow({ uid, showPrivacy, showConsent, onPrivacyDone, onC
 
   if (step === 'policy') {
     return (
-      <FirstRunStepper>
+      <FirstRunStepper stepKey="policy">
         <FirstRunPolicyStep
           position={{ index: safeIndex, total: steps.length }}
           onNext={async (aiConsent) => {
@@ -373,7 +404,7 @@ export function FirstRunFlow({ uid, showPrivacy, showConsent, onPrivacyDone, onC
 
   if (step === 'code' && pendingCode !== null) {
     return (
-      <FirstRunStepper>
+      <FirstRunStepper stepKey="code">
         <FirstRunCodeStep
           position={{ index: safeIndex, total: steps.length }}
           code={pendingCode}
@@ -401,7 +432,7 @@ export function FirstRunFlow({ uid, showPrivacy, showConsent, onPrivacyDone, onC
   if (step !== 'cloud') return null;
 
   return (
-    <FirstRunStepper>
+    <FirstRunStepper stepKey="cloud">
       <FirstRunCloudStep
         position={{ index: safeIndex, total: steps.length }}
         cloudCount={shouldPrompt ? cloudCount : 0}
@@ -422,10 +453,24 @@ export function FirstRunFlow({ uid, showPrivacy, showConsent, onPrivacyDone, onC
 }
 
 /** not-a-modal: fullscreen first-run stepper */
-function FirstRunStepper({ children }: { children: ReactNode }) {
+function FirstRunStepper({ stepKey, children }: { stepKey: string; children: ReactNode }) {
+  // SA-23 (O1): шаги сменяются со сдвигом 16 px и прозрачностью (220 мс вход, 150 мс уход) —
+  // иначе «Шаг 2 из 3» читается как перезагрузка страницы. Reduced motion снимает сдвиг (MotionConfig).
   return (
     <div data-testid="first-run-stepper" className="fixed inset-0 z-[var(--z-critical)] flex flex-col bg-surface-base">
-      {children}
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={stepKey}
+          data-stepper-step={stepKey}
+          initial={{ opacity: 0, transform: 'translateX(16px)' }}
+          animate={{ opacity: 1, transform: 'translateX(0px)' }}
+          exit={{ opacity: 0, transform: 'translateX(-16px)', transition: { duration: 0.15 } }}
+          transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          {children}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }

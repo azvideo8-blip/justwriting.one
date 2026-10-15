@@ -1,4 +1,5 @@
 import React from 'react';
+import { SECTION_LABEL } from '../../../shared/components/ModalShell';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { Label } from '../../../types';
@@ -89,7 +90,7 @@ export function FinishModalTags({
     return (
       <div className="space-y-5">
         <div className="space-y-1.5">
-          <div className="text-[13px] font-semibold uppercase tracking-wider text-text-subtle">{t('finish_title_label')}</div>
+          <div className={SECTION_LABEL}>{t('finish_title_label')}</div>
           <Input
             type="text"
             aria-label={t('finish_title_label')}
@@ -103,7 +104,7 @@ export function FinishModalTags({
 
         {labels.length > 0 && (
           <div className="space-y-2">
-            <div className="text-[13px] font-semibold uppercase tracking-wider text-text-subtle">{t('finish_labels')}</div>
+            <div className={SECTION_LABEL}>{t('finish_labels')}</div>
             <div className="flex flex-wrap gap-2">
               {labels.map(label => (
                 <Button
@@ -128,7 +129,7 @@ export function FinishModalTags({
         )}
 
         <div className="space-y-2">
-          <div className="text-[13px] font-semibold uppercase tracking-wider text-text-subtle">{t('finish_tags')}</div>
+          <div className={SECTION_LABEL}>{t('finish_tags')}</div>
           <div className="flex flex-wrap items-center gap-2">
             {/* Лист держит бюджет контролов (MC-3 ≤ 14): подсказок не больше
                 трёх, остальное человек допишет сам в поле ниже. */}

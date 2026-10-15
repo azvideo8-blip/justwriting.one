@@ -9,7 +9,7 @@ import { getDateLocale } from '../../../core/utils/dateUtils';
 import { formatDayHeader } from '../utils/dayHeaders';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
-import { ModalShell } from '../../../shared/components/ModalShell';
+import { ModalShell, SECTION_LABEL } from '../../../shared/components/ModalShell';
 
 interface MobileArchiveSidebarSheetProps {
   isOpen: boolean;
@@ -55,20 +55,18 @@ export function MobileArchiveSidebarSheet({
 
   return (
     <ModalShell open={isOpen} onClose={onClose} labelId="archive-sidebar-sheet-title" variant="sheet">
-        {/* Grab Handle */}
-        <div className="flex justify-center py-3">
-          <div className="w-12 h-1.5 rounded-full bg-text-main/10" />
-        </div>
+        {/* SA-23: ручку убрали — перетаскивания у листа нет, а ручка его обещала. */}
+        <div className="h-3" aria-hidden="true" />
 
         {/* Header */}
         <div className="flex justify-between items-center px-6 pb-3">
-          <div className="flex items-center gap-2 text-sm font-bold text-text-main/60 uppercase tracking-widest">
+          <div className={`flex items-center gap-2 ${SECTION_LABEL}`}>
             <SlidersHorizontal size={16} />
             <span id="archive-sidebar-sheet-title">{t('archive_stats_title')}</span>
           </div>
           <IconButton
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-text-main/[0.05] border-none flex items-center justify-center text-text-main/60 hover:text-text-main/70 cursor-pointer"
+            className="w-11 h-11 rounded-full bg-text-main/[0.05] border-none flex items-center justify-center text-text-main/60 hover:text-text-main/70 cursor-pointer"
             label={t('common_close')}
             icon={<X size={18} />}
           />
@@ -87,7 +85,7 @@ export function MobileArchiveSidebarSheet({
           <div className="pt-2">
             <Button
               onClick={onClose}
-              className="w-full py-3.5 rounded-2xl font-bold text-sm text-surface-base border-none cursor-pointer text-center active:scale-[0.98] transition-colors bg-[var(--brand-primary)]"
+              className="w-full py-3.5 rounded-2xl font-bold text-sm text-surface-base border-none cursor-pointer text-center press bg-[var(--brand-primary)]"
             >
               {t('common_close')}
             </Button>
@@ -132,7 +130,7 @@ export function ArchiveSidebarContent({
           {/* Calendar Picker Section */}
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="font-mono text-label text-text-main/60 uppercase tracking-widest">
+              <span className={SECTION_LABEL}>
                 {t('archive_calendar_title')}
               </span>
               {selectedDate && (
@@ -172,7 +170,7 @@ export function ArchiveSidebarContent({
               <div className="h-px bg-border-subtle" />
 
               <div className="space-y-3">
-                <span className="font-mono text-label text-text-main/60 uppercase tracking-widest block">
+                <span className={`${SECTION_LABEL} block`}>
                   {t('archive_days_counts_title')}
                 </span>
                 <div className="rounded-2xl border border-border-subtle bg-text-main/[0.02] divide-y divide-border-subtle">
@@ -200,7 +198,7 @@ export function ArchiveSidebarContent({
 
               {/* Word Cloud Tag list */}
               <div className="space-y-3">
-                <span className="font-mono text-label text-text-main/60 uppercase tracking-widest block">
+                <span className={`${SECTION_LABEL} block`}>
                   {t('archive_wordcloud_title')}
                 </span>
                 <div className="flex flex-wrap gap-x-3 gap-y-2 bg-text-main/[0.02] border border-border-subtle rounded-2xl p-4">

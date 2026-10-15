@@ -109,11 +109,13 @@ export function BottomNav() {
     <nav
       data-testid="mobile-bottom-nav"
       className={cn(
-        'fixed bottom-0 left-0 right-0 z-[var(--z-sidebar)] bg-surface-card/85 backdrop-blur-xl border-t border-border-subtle flex justify-around pt-2 pb-safe',
+        'fixed bottom-0 left-0 right-0 z-[var(--z-sidebar)] bg-surface-card/85 backdrop-blur-md border-t border-border-subtle flex justify-around pt-2 pb-safe',
         hidesForKeyboard && 'translate-y-full',
       )}
       style={{
-        transitionProperty: 'transform',
+        // SA-8: `translate-y-full` в Tailwind v4 меняет свойство `translate`, не `transform` —
+        // переход по `transform` его не видел, и панель прыгала.
+        transitionProperty: 'translate',
         transitionDuration: reducedMotion ? '0s' : '180ms',
         transitionTimingFunction: 'cubic-bezier(0.23, 1, 0.32, 1)',
       }}

@@ -122,7 +122,8 @@ export function MobileWriteScreen({
       const node = glowBarRef.current;
       if (node) {
         node.style.opacity = String(status === 'writing' ? 0.3 + intensityRef.current * 0.55 : 0);
-        node.style.marginLeft = `${20 + intensityRef.current * 20}%`;
+        // SA-10: transform вместо margin-left — без Layout каждые 200 мс. 20 % контейнера = 33 % ширины полосы (60 %).
+        node.style.transform = `translateX(${(intensityRef.current * 100) / 3}%)`;
       }
     }, 200);
     return () => clearInterval(decay);
@@ -213,7 +214,8 @@ export function MobileWriteScreen({
   // (3 с вместо 1,2 с): оно обязано остаться видимым.
   const saveMoment = useSaveMomentStore(s => s.moment);
   const reducedMotion = useReducedMotion();
-  const streakShown = useCountUp(streakDays, 300);
+  // SA-10: серия не считается с нуля при каждом заходе на вкладку — только растёт; reduced motion — без счёта.
+  const streakShown = useCountUp(streakDays, reducedMotion ? 0 : 300, streakDays);
   useEffect(() => {
     if (!saveMoment) return;
     const ms = saveMoment.warningText !== null ? SAVE_WARNING_MS : SAVE_MOMENT_MS;
@@ -268,13 +270,18 @@ export function MobileWriteScreen({
       {/* not-a-modal: fullscreen mobile screen */}
       <div className="fixed inset-0 bg-surface-base flex flex-col z-30">
 
+      {/* SA-10: шапка и строка дзена — в одном слоте 44 px, кроссфейд 150 мс:
+          раньше шапка уходила 0,3 с, пока в колонке уже стояла строка дзена, и текст дёргался. */}
+      <div className="shrink-0 pt-[env(safe-area-inset-top,0px)]">
+      <div className="relative h-11">
       <AnimatePresence>
         {!showZen && (
           <motion.div
             initial={{ opacity: 1 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="flex items-center justify-between px-5 pt-3 pb-2 gap-3 pt-[calc(env(safe-area-inset-top,0px)+12px)]"
+            transition={{ duration: 0.15 }}
+            className="absolute inset-0 flex items-center justify-between px-5 gap-3"
           >
             {saveMoment !== null ? (
               /* MC-4: на 1,2 с (или 3 с у предупреждения) шапка письма говорит
@@ -343,7 +350,7 @@ export function MobileWriteScreen({
               Aa
             </button>
 
-            <div className="text-[10px] font-mono text-[var(--text-subtle)] tracking-[0.06em] uppercase min-w-[60px] text-right tabular-nums">
+            <div className="text-[12px] text-[var(--text-subtle)] min-w-[60px] text-right tabular-nums">
               {saveStatus === 'saving' ? t('save_status_saving') :
                saveStatus === 'saved'  ? t('save_status_saved')  :
                saveStatus === 'cloud-stale' ? <span className="text-[var(--accent-warning)]">{t('editor_cloud_stale')}</span> :
@@ -353,24 +360,36 @@ export function MobileWriteScreen({
         )}
       </AnimatePresence>
 
-      {/* MR-7: в дзене шапка сворачивается в одну строку 30 px — время, слова и
+      {/* MR-7: в дзене шапка сворачивается в одну строку — время, слова и
       статус сохранения. Раньше в дзене не было ни чего, и человек терял счёт. */}
+      <AnimatePresence>
       {showZen && (
-        <div data-testid="zen-header-row" className="flex items-center h-[30px] px-5 gap-3 shrink-0 pt-[env(safe-area-inset-top,0px)]">
+        <motion.div
+          key="zen-row"
+          data-testid="zen-header-row"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+          className="absolute inset-0 flex items-center px-5 gap-3"
+        >
           <span className="font-mono text-[12px] tabular-nums text-[var(--text-muted)] truncate">
             {formatTime(clockSeconds)}
             {' · '}
             {sessionWords} {tp('writing_words', sessionWords)}
           </span>
           <span className="flex-1" />
-          <span className="text-[10px] font-mono uppercase tracking-[0.06em] text-[var(--text-subtle)] tabular-nums shrink-0">
+          <span className="text-[12px] text-[var(--text-subtle)] tabular-nums shrink-0">
             {saveStatus === 'saving' ? t('save_status_saving') :
              saveStatus === 'saved' ? t('save_status_saved') :
              saveStatus === 'cloud-stale' ? <span className="text-[var(--accent-warning)]">{t('editor_cloud_stale')}</span> :
              saveStatus === 'error' ? <span className="text-[var(--accent-danger)]">{t('editor_error_save')}</span> : ''}
           </span>
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
+      </div>
+      </div>
 
       {/* MC-1: второй строки в idle больше нет — токен режима уехал в панель
         письма. Здесь остаются только баннер черновика и его подтверждение. */}
@@ -417,7 +436,8 @@ export function MobileWriteScreen({
               animate={{ opacity: 0, filter: reducedMotion ? 'blur(0px)' : 'blur(2px)' }}
               exit={{ opacity: 0 }}
               transition={{ duration: reducedMotion ? 0.12 : 0.2, ease: [0.23, 1, 0.32, 1] }}
-              className="pointer-events-none absolute inset-x-6 top-0 whitespace-pre-wrap text-pretty text-[18px] leading-[1.7] text-[var(--text-main)]"
+              className="pointer-events-none absolute inset-x-6 top-4 whitespace-pre-wrap text-pretty leading-[1.7] text-[var(--text-main)]"
+              style={{ fontFamily: fontFamilyStr, fontSize: fontSize || 18 }}
             >
               {saveMoment.text}
             </motion.p>
@@ -457,7 +477,7 @@ export function MobileWriteScreen({
           <div
             ref={glowBarRef}
             className={cn(
-              "h-full w-[60%] ml-[20%] transition-[opacity,margin-left] duration-[600ms] ease-[cubic-bezier(.4,.2,.2,1)] blur-[1px] bg-[linear-gradient(90deg,transparent,var(--flow-pulse-color,var(--brand-primary))_50%,transparent)]",
+              "h-full w-[60%] ml-[20%] transition-[opacity,transform] duration-300 ease-[cubic-bezier(.4,.2,.2,1)] blur-[1px] bg-[linear-gradient(90deg,transparent,var(--flow-pulse-color,var(--brand-primary))_50%,transparent)]",
               isRunning ? "opacity-30" : "opacity-0"
             )}
           />

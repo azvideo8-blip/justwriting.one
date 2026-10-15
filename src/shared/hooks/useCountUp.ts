@@ -1,14 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 
-export function useCountUp(target: number, duration = 800) {
-  const [value, setValue] = useState(0);
-  const startValueRef = useRef(0);
+/** `initial` — с чего начинать на первом показе; без него счёт идёт с нуля. */
+export function useCountUp(target: number, duration = 800, initial = 0) {
+  const [value, setValue] = useState(initial);
+  const startValueRef = useRef(initial);
 
   useEffect(() => {
     const start = performance.now();
     let rafId: number;
     const tick = (now: number) => {
-      const pct = Math.min((now - start) / duration, 1);
+      const pct = duration > 0 ? Math.min((now - start) / duration, 1) : 1;
       const current = Math.round(startValueRef.current + pct * (target - startValueRef.current));
       setValue(current);
       if (pct < 1) rafId = requestAnimationFrame(tick);

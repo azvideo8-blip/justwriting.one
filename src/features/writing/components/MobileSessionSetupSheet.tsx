@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Zap, Timer, Target, Clock, ChevronLeft, X } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
-import { ModalShell } from '../../../shared/components/ModalShell';
+import { ModalShell, SECTION_LABEL, SheetTitle } from '../../../shared/components/ModalShell';
 import { cn } from '../../../core/utils/utils';
 import { useTimerStore } from '../store/useTimerStore';
 import { SetupMode } from './WritingSetup';
@@ -107,10 +107,8 @@ export function MobileSessionSetupSheet({
       {/* Slide-up Bottom Sheet Panel — MF-20: смонтирован всегда, open даёт уход с анимацией. */}
       {(
         <ModalShell open={!!setupMode && setupMode !== 'countdown'} onClose={() => setSetupMode(null)} labelId="setup-sheet-title" variant="sheet" className="max-h-[90vh]">
-          {/* Grab Handle */}
-          <div className="flex justify-center py-3">
-            <div className="w-12 h-1.5 rounded-full bg-text-main/10" />
-          </div>
+          {/* SA-23: ручку убрали — перетаскивания у листа нет, а ручка его обещала. */}
+          <div className="h-3" aria-hidden="true" />
 
             {/* Back / Close Actions */}
             <div className="flex justify-between items-center px-6 pb-2">
@@ -123,13 +121,11 @@ export function MobileSessionSetupSheet({
                   {t('writing_back')}
                 </Button>
               ) : (
-                <span className="text-sm font-bold text-text-main/60 uppercase tracking-widest">
-                  {t('writing_select_mode')}
-                </span>
+                <SheetTitle id="setup-sheet-title">{t('writing_select_mode')}</SheetTitle>
               )}
               <IconButton
                 onClick={() => setSetupMode(null)}
-                className="w-8 h-8 rounded-full bg-text-main/[0.05] border-none flex items-center justify-center text-text-main/60 hover:text-text-main/70 cursor-pointer"
+                className="w-11 h-11 rounded-full bg-text-main/[0.05] border-none flex items-center justify-center text-text-main/60 hover:text-text-main/70 cursor-pointer"
                 label={t('close')}
                 icon={<X size={18} />}
               />
@@ -170,7 +166,7 @@ export function MobileSessionSetupSheet({
                       <Button
                         key={mode.id}
                         onClick={() => mode.id === 'stopwatch' ? startCountdown('stopwatch') : setSetupMode(mode.id as SetupMode)}
-                        className="p-4 rounded-2xl border border-border-subtle bg-text-main/[0.03] flex items-center gap-4 text-left w-full active:bg-text-main/[0.07] active:scale-[0.99] transition-colors cursor-pointer min-h-[64px]"
+                        className="p-4 rounded-2xl border border-border-subtle bg-text-main/[0.03] flex items-center gap-4 text-left w-full press active:bg-text-main/[0.07] cursor-pointer min-h-[64px]"
                       >
                         <div className={cn("p-2.5 rounded-xl shrink-0", mode.bg, mode.color)}>
                           <mode.icon size={20} strokeWidth={2.2} />
@@ -218,7 +214,7 @@ export function MobileSessionSetupSheet({
                               autoFocus
                             />
                           </div>
-                          <span className="text-label font-bold uppercase tracking-widest text-text-main/60 mt-2">
+                          <span className={`${SECTION_LABEL} mt-2`}>
                             {t('writing_minutes')}
                           </span>
 
@@ -258,7 +254,7 @@ export function MobileSessionSetupSheet({
                               autoFocus
                             />
                           </div>
-                          <span className="text-label font-bold uppercase tracking-widest text-text-main/60 mt-2">
+                          <span className={`${SECTION_LABEL} mt-2`}>
                             {t('writing_words')}
                           </span>
 
@@ -297,7 +293,7 @@ export function MobileSessionSetupSheet({
                               autoFocus
                             />
                           </div>
-                          <span className="text-label font-bold uppercase tracking-widest text-text-main/60 mt-2">
+                          <span className={`${SECTION_LABEL} mt-2`}>
                             {t('writing_time')}
                           </span>
                           {finishByError && (
@@ -313,7 +309,7 @@ export function MobileSessionSetupSheet({
                     <div className="w-full pt-4">
                       <Button
                         onClick={handleStartWithValidation}
-                        className="w-full py-4 rounded-2xl font-bold text-sm bg-text-main text-surface-base active:scale-[0.98] transition-colors cursor-pointer"
+                        className="w-full py-4 rounded-2xl font-bold text-sm bg-text-main text-surface-base press cursor-pointer"
                       >
                         {t('writing_start')}
                       </Button>
@@ -335,7 +331,7 @@ function SessionRow({ label, onClick }: { label: string; onClick: () => void }) 
     <button
       type="button"
       onClick={onClick}
-      className="min-h-11 w-full rounded-2xl border border-[var(--border-light)] px-4 text-left text-sm font-semibold text-text-main active:scale-[0.99] transition-transform"
+      className="min-h-11 w-full rounded-2xl border border-[var(--border-light)] px-4 text-left text-sm font-semibold text-text-main press"
     >
       {label}
     </button>

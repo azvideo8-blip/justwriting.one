@@ -106,4 +106,18 @@ describe('MF-12 / MC-9: one note-actions sheet', () => {
     expect(exp.md).not.toHaveBeenCalled();
     expect(await screen.findByText(/сейф|Сейф|заблок/i)).toBeInTheDocument();
   });
+
+  // SA-17: «Продолжить писать» не уводит из приложения, а пункты — строки без рамок.
+  it('the reader «Продолжить писать» row has a pen icon, not an external link; rows have no borders', () => {
+    const reader = renderSheet({ openLabel: 'Продолжить писать' }).list;
+    const first = reader.querySelector('[data-action="open"] svg')!;
+    expect(first.getAttribute('class')).not.toMatch(/external-link/);
+    expect(first.getAttribute('class')).toMatch(/pen-line/);
+    cleanup();
+    const list = renderSheet().list;
+    expect(list.querySelector('[data-action="open"] svg')!.getAttribute('class')).toMatch(/external-link/);
+    for (const row of Array.from(list.querySelectorAll('[data-action]'))) {
+      expect(row.className, `${row.getAttribute("data-action")}: has a border`).not.toMatch(/\bborder\b|bg-text-main\/\[0\.02\]/);
+    }
+  });
 });

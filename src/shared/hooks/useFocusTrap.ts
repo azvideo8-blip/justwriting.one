@@ -7,6 +7,9 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, isActive: boole
     const previouslyFocused = document.activeElement as HTMLElement | null;
     const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
     const getFocusable = () => Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE));
+    // data-no-initial-focus: поле, которому не нужен фокус при открытии (SA-11:
+    // поиск в листе диалогов на телефоне поднимал клавиатуру поверх списка).
+    const getInitial = () => getFocusable().find(el => !el.hasAttribute('data-no-initial-focus')) ?? getFocusable()[0];
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Tab') return;
@@ -24,11 +27,11 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, isActive: boole
 
     const observer = new MutationObserver(() => {
       if (!document.activeElement || !container.contains(document.activeElement)) {
-        getFocusable()[0]?.focus();
+        getInitial()?.focus();
       }
     });
 
-    getFocusable()[0]?.focus();
+    getInitial()?.focus();
     document.addEventListener('keydown', handleKeyDown);
     // Only observe childList (not subtree) to reduce excessive callbacks
     observer.observe(container, { childList: true });

@@ -104,11 +104,11 @@ export function MobileNoteActionsSheet({
     { key: 'docx', label: t('export_docx'), run: () => runExport(() => exportAsDocx(session, exportStrings)) },
   ];
 
+  // SA-17: строки меню на всю ширину — значок и текст слева, без рамок; пять
+  // одинаковых карточек подряд читались как форма, а не как меню.
   const rowClass = (destructive = false) => cn(
-    'w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm text-left font-medium transition-colors border',
-    destructive
-      ? 'text-accent-danger bg-accent-danger/10 border-accent-danger/20 active:bg-accent-danger/20'
-      : 'text-text-main/80 bg-text-main/[0.02] border-border-subtle active:bg-text-main/[0.06]',
+    'w-full min-h-[48px] justify-start flex items-center gap-3 px-2 py-3 rounded-xl text-[15px] text-left font-medium',
+    destructive ? 'text-accent-danger active:bg-accent-danger/10' : 'text-text-main/85 active:bg-text-main/[0.06]',
   );
   const row = (section: NoteActionItem) => {
     const Icon = section.icon;
@@ -133,7 +133,7 @@ export function MobileNoteActionsSheet({
         <IconButton onClick={onClose} className="w-11 h-11 rounded-full text-text-main/60" label={t('close')} icon={<X size={18} />} />
       </div>
 
-      <div data-testid="note-actions-list" className="px-6 py-5 overflow-y-auto no-scrollbar space-y-2 pb-[calc(env(safe-area-inset-bottom,0px)+88px)]">
+      <div data-testid="note-actions-list" className="px-4 py-3 overflow-y-auto no-scrollbar pb-[calc(env(safe-area-inset-bottom,0px)+88px)]">
         {saveAsOpen ? (
           <div className="space-y-2" data-testid="note-save-as">
             <div className="flex items-center justify-between">
@@ -182,7 +182,7 @@ export function MobileNoteActionsSheet({
               <span>{t('archive_save_as')}</span>
             </Button>
             {deleteItem && (
-              <div data-testid="note-actions-danger" className="mt-5 space-y-2">{row(deleteItem)}</div>
+              <div data-testid="note-actions-danger" className="mt-3 border-t border-border-subtle pt-3">{row(deleteItem)}</div>
             )}
           </>
         )}

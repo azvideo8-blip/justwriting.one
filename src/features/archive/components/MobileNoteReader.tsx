@@ -13,7 +13,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
-import { ModalShell } from '../../../shared/components/ModalShell';
+import { ModalShell, SECTION_LABEL } from '../../../shared/components/ModalShell';
 import { InlineTags } from './InlineTags';
 import { MobileNoteActionsSheet } from '../../../app/components/MobileNoteActionsSheet';
 import { usePanelHistory } from '../../../shared/hooks/usePanelHistory';
@@ -160,6 +160,10 @@ export function MobileNoteReader({
 
       <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-[var(--reading-gutter)] pb-8 pt-2">
         <h1 className="font-serif text-[26px] leading-[1.2] text-text-main">{title}</h1>
+        {/* SA-17: когда это было — читателю дневника нужно сразу, а не после «Инфо». */}
+        <time data-testid="reader-date" dateTime={date.toISOString()} className="mt-1.5 block text-[13px] text-text-subtle">
+          {format(date, date.getFullYear() === new Date().getFullYear() ? 'd MMMM, HH:mm' : 'd MMMM yyyy, HH:mm', { locale: getDateLocale(language) })}
+        </time>
         {session._locked ? (
           <div className="mt-6 rounded-2xl border border-accent-warning/20 bg-accent-warning/5 p-5 text-center">
             <p className="text-[15px] text-text-main/80">{t('archive_locked_preview_desc')}</p>
@@ -191,7 +195,7 @@ export function MobileNoteReader({
                   <button
                     type="button"
                     onClick={() => onSelectRelated(note.documentId)}
-                    className="flex min-h-12 w-full items-center justify-between gap-3 py-2 text-left"
+                    className="press flex min-h-12 w-full items-center justify-between gap-3 py-2 text-left"
                   >
                     <span className="truncate text-[15px] text-text-main/85">{note.title}</span>
                     <span className="shrink-0 text-[13px] text-text-subtle">{note.date}</span>
@@ -231,7 +235,7 @@ export function MobileNoteReader({
 
               {((labels?.length ?? 0) > 0 || onAddLabel) && onLabelChange && (
                 <div className="mt-5">
-                  <div className="text-[13px] uppercase tracking-wider text-text-subtle">
+                  <div className={SECTION_LABEL}>
                     {t('archive_assign_label')}
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -311,10 +315,11 @@ export function MobileNoteReader({
               )}
 
               <div className="mt-5">
-                <div className="text-[13px] uppercase tracking-wider text-text-subtle">
+                <div className={SECTION_LABEL}>
                   {t('finish_tags')}
                 </div>
                 <InlineTags
+                  variant="sheet"
                   tags={session.tags || []}
                   onChange={tags => onTagsChange?.(session, tags)}
                   allTags={allTags}
@@ -325,7 +330,7 @@ export function MobileNoteReader({
               </div>
 
               <div className="mt-5">
-                <div className="text-[13px] uppercase tracking-wider text-text-subtle">
+                <div className={SECTION_LABEL}>
                   {t('archive_preview_ai_title')}
                 </div>
                 {summary ? (

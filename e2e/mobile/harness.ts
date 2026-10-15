@@ -209,7 +209,7 @@ async function walkFirstRunStepper(page: Page, syncOn: boolean, forgetDevice: bo
   if (title && !seen.includes(title)) seen.push(title);
 
   let acted = false;
-  for (const name of [/Обязательно|прочитал|required|I have read/i, /Код сохранён|сохранил|Recovery code saved|saved the code/i]) {
+  for (const name of [/^Обязательно|прочитал|^Required|I have read/i, /Код сохранён|сохранил|Recovery code saved|saved the code/i]) {
     if (await tickBox(stepper, name)) acted = true;
   }
   if (forgetDevice) {
@@ -395,6 +395,17 @@ export function horizontalOverflow(page: Page): Promise<Overflow> {
       const r = el.getBoundingClientRect();
       if (r.width === 0) continue;
       if (r.right > vw + 1 || r.left < -1) {
+        // Внутри своего прокручиваемого контейнера (тепловая карта в `overflow-x-auto`)
+        // широкий элемент страницу не растягивает: считаем только то, что вылезло из самого контейнера.
+        let clipped = false;
+        for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+          const ox = getComputedStyle(a).overflowX;
+          if (ox === 'auto' || ox === 'scroll' || ox === 'hidden') {
+            const ar = a.getBoundingClientRect();
+            if (ar.left >= -1 && ar.right <= vw + 1) { clipped = true; break; }
+          }
+        }
+        if (clipped) continue;
         const cls = typeof el.className === 'string' && el.className ? `.${el.className.split(' ')[0]}` : '';
         offenders.push(`${el.tagName.toLowerCase()}${cls} x=${Math.round(r.left)}..${Math.round(r.right)}`);
       }

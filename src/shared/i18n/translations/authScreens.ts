@@ -69,6 +69,7 @@ export const authScreensTranslations: Translations = {
   first_run_step: { ru: 'Шаг {current} из {total}', en: 'Step {current} of {total}' },
   first_run_policy_title: { ru: 'Что происходит с твоим текстом', en: 'What happens to your text' },
   first_run_policy_link: { ru: 'Читать политику полностью', en: 'Read the full policy' },
+  first_run_consent_hint: { ru: 'Отметь согласие, чтобы продолжить', en: 'Tick the consent to continue' },
   first_run_policy_link_close: { ru: 'Свернуть политику', en: 'Hide the full policy' },
   first_run_next: { ru: 'Дальше', en: 'Next' },
   first_run_cloud_title: { ru: 'Облако', en: 'Cloud' },

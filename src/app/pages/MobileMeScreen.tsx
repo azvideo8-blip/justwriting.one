@@ -61,6 +61,9 @@ function MobileStatusCard({ uid }: { uid: string | null }) {
     { label: t('me_status_vault'), value: t(unlocked ? 'me_status_vault_open' : 'me_status_vault_locked'), dot: !unlocked, onTap: () => void navigate('/settings#security') },
   ];
   if (isAdmin) rows.push({ label: t('admin_tab_diagnostics'), value: '', dot: false, onTap: () => void navigate('/diagnostics') });
+  // SA-25: точка на вкладке «Профиль» ведёт сюда — строки, где что-то не так, идут первыми
+  // и говорят словами (13 px, без обрезки), а не 11 px в углу.
+  rows.sort((a, b) => Number(!!b.dot) - Number(!!a.dot));
 
   return (
     <div className="rounded-2xl border border-border-subtle bg-text-main/[0.02] overflow-hidden">
@@ -69,10 +72,15 @@ function MobileStatusCard({ uid }: { uid: string | null }) {
           key={r.label}
           type="button"
           onClick={r.onTap}
-          className="w-full h-12 flex items-center gap-3 px-4 text-left border-b border-border-subtle last:border-b-0"
+          className="w-full min-h-12 py-2 flex items-center gap-3 px-4 text-left border-b border-border-subtle last:border-b-0"
         >
           <span className="flex-1 min-w-0 text-sm text-text-main truncate">{r.label}</span>
-          <span className="text-[11px] text-text-muted truncate max-w-[45%]">{r.value}</span>
+          <span
+            data-testid={r.dot ? 'status-row-warn' : undefined}
+            className={r.dot ? 'max-w-[55%] text-right text-[13px] leading-snug text-text-main/85' : 'text-[11px] text-text-muted truncate max-w-[45%]'}
+          >
+            {r.value}
+          </span>
           {r.dot && <span aria-hidden="true" className="w-2 h-2 rounded-full bg-accent-warning shrink-0" />}
           <ChevronRight size={16} className="shrink-0 text-text-muted" aria-hidden="true" />
         </button>
