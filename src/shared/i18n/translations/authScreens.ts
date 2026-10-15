@@ -96,7 +96,8 @@ export const authScreensTranslations: Translations = {
     en: 'Required: ',
   },
   privacy_consent_accept_before: {
-    ru: 'Текст прочитан, принимаю ',
+    // Текст согласия: не меняется без новой версии согласия (решение владельца 2026-10-15).
+    ru: 'Я прочитал и принимаю ',
     en: 'I have read and accept the ',
   },
   privacy_consent_data_policy: {
