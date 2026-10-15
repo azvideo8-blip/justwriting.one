@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.41 — 2026-10-15
+
+- **[RU]** Текст, надиктованный до первой буквы, теперь считается в записи — в числе слов и в статистике.
+- **[EN]** Text dictated before the first typed letter now counts in the entry — in the word count and in your stats.
+- **[RU]** ИИ реже выдаёт за твои слова короткие фразы в кавычках, которых в записях нет.
+- **[EN]** The AI less often presents short phrases in quotes as your words when they are not in your notes.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.9.40 — 2026-10-14
 
 - **[RU]** Исправлены мелкие недоработки.

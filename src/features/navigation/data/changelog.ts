@@ -17,6 +17,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.41',
+    date: '2026-10-15',
+    // Тихий выпуск: основное — мобильный макет, пока он закрыт для всех (итог — 0.10.0).
+    announce: false,
+    items: [
+      { category: 'fix', ru: 'Текст, надиктованный до первой буквы, теперь считается в записи — в числе слов и в статистике.', en: 'Text dictated before the first typed letter now counts in the entry — in the word count and in your stats.' },
+      { category: 'fix', ru: 'ИИ реже выдаёт за твои слова короткие фразы в кавычках, которых в записях нет.', en: 'The AI less often presents short phrases in quotes as your words when they are not in your notes.' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.9.40',
     date: '2026-10-14',
     // Тихий выпуск: правки мобильного макета, пока он закрыт для всех (итог — 0.10.0).
