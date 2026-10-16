@@ -50,7 +50,7 @@ describe('adminDeleteUserLogic', () => {
     for (const call of deleteCalls) expect(call[1]).toEqual([TARGET]);
 
     // V-3: в той же транзакции пишется след «кто и кого удалил» (0038).
-    const audit = clientQuery.mock.calls.find(c => String(c[0]).includes('public.admin_actions'));
+    const audit = clientQuery.mock.calls.find(c => String(c[0]).includes('insert into public.admin_actions'));
     expect(audit).toBeDefined();
     expect(audit?.[1]).toEqual([ADMIN, 'delete_user', TARGET]);
     expect(adminRun.indexOf('commit')).toBeGreaterThan(adminRun.indexOf(String(audit?.[0])));
@@ -81,7 +81,7 @@ describe('adminDeleteUserLogic', () => {
     expect(statements()).not.toContain('commit');
     // След пишется только про реальное удаление: иначе в audit была бы
     // строка про несуществующий аккаунт.
-    expect(statements().some(s => s.includes('public.admin_actions'))).toBe(false);
+    expect(statements().some(s => s.includes('insert into public.admin_actions'))).toBe(false);
   });
 
   it('a garbage id is rejected', async () => {
