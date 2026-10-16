@@ -15,4 +15,6 @@ paths = [
   '''docs/fable-prompt-error-surfaces-audit\.md''',
   # отчёт размеров сборки: хеш имени чанка похож на ключ
   '''bundle-stats\.html''',
+  # синтетический OPENROUTER_API_KEY «test-key-r7q016» в тесте тел ошибок поставщика (R7)
+  '''api/__tests__/providerErrorBody\.r7q016\.test\.ts''',
 ]
