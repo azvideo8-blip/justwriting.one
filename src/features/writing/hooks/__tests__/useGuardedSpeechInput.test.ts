@@ -78,7 +78,7 @@ describe('useGuardedSpeechInput', () => {
     // D-5: предупреждение переписано, поэтому его актуальная версия — v2.
     // Ассерт прежний: видевший текущее предупреждение не дерётся вторично.
     localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN, '1');
-    localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2, '1');
+    localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2('guest'), '1');
     const { result } = renderHook(() => useGuardedSpeechInput({ onSessionEnd: vi.fn() }));
 
     await act(async () => {
@@ -97,7 +97,7 @@ describe('useGuardedSpeechInput', () => {
     await act(async () => { await result.current.toggleListening(); });
     expect(mockConfirm).toHaveBeenCalledTimes(1);
     expect(mockConfirm).toHaveBeenCalledWith(expect.objectContaining({ message: 'voice_confirm_desc' }));
-    expect(localStorage.getItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2)).toBe('1');
+    expect(localStorage.getItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2('guest'))).toBe('1');
     expect(mockStart).toHaveBeenCalledTimes(1);
 
     mockConfirm.mockClear();

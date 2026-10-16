@@ -159,15 +159,21 @@ export async function updateDocumentSessionStats(
     mood?: string | null;
     /** `mood` — шифротекст; без этого признака он лёг бы на открытую строку. */
     moodEncrypted?: boolean;
-    sessionsCount?: number;
+    /**
+     * R7Q-003: сколько сессий несёт ЭТА выгрузка. Абсолют из локальной копии не
+     * шлётся никогда — им писатель со старой копией уносил облачный счётчик
+     * назад. Нет поля — считаем один ход (обычное сохранение).
+     */
+    sessionsDelta?: number;
     lastSessionAt?: Date;
   }
 ): Promise<void> {
-  if (stats.sessionsCount === undefined) {
+  const delta = Math.max(0, stats.sessionsDelta ?? 1);
+  if (delta > 0) {
     // Атомарно в БД (0020): две вкладки или два устройства больше не
     // теряют инкременты из-за read-modify-write гонки.
     const { error: rpcError } = await getSupabase()
-      .rpc('increment_document_sessions', { p_uuid: documentId, p_delta: 1 });
+      .rpc('increment_document_sessions', { p_uuid: documentId, p_delta: delta });
     if (rpcError != null) throw rpcError;
   }
 
@@ -185,7 +191,6 @@ export async function updateDocumentSessionStats(
 
   const updateData: Record<string, unknown> = {
     currentVersion: stats.currentVersion,
-    ...(stats.sessionsCount !== undefined ? { sessionsCount: stats.sessionsCount } : {}),
     lastSessionAt: stats.lastSessionAt !== undefined ? stats.lastSessionAt : new Date(),
   };
   if (stats.mood !== undefined) updateData.mood = stats.mood;

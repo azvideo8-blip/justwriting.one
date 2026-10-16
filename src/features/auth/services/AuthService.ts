@@ -137,6 +137,21 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean; isAcc
       // R3-2: код восстановления старых версий лежал в localStorage — при выходе убираем.
       const { STORAGE_KEYS } = await import('../../../shared/constants/storageKeys');
       if (currentUid) localStorage.removeItem(STORAGE_KEYS.PENDING_RECOVERY_CODE(currentUid));
+      // R7F-008: отметка обмена ссылки — { at, email }: адрес человека лежал в
+      // localStorage сутки и переживал обычный выход (выход «на этом компьютере»
+      // стирает такие ключи подметанием, обычный — нет). Выход заканчивает тот
+      // самый сценарий «открыл письмо второй раз», для которого отметка и нужна,
+      // поэтому она убирается здесь. Ключ с другим содержимым (не отметка) не
+      // трогается: префикс — не обещание формата всего мира.
+      for (const key of Object.keys(localStorage)) {
+        if (!key.startsWith(STORAGE_KEYS.LINK_EXCHANGED_PREFIX)) continue;
+        try {
+          const raw = JSON.parse(localStorage.getItem(key) ?? '') as { at?: unknown };
+          if (typeof raw.at === 'number') localStorage.removeItem(key);
+        } catch {
+          /* не наша отметка — не трогаем */
+        }
+      }
     } catch {
       /* ignore */
     }

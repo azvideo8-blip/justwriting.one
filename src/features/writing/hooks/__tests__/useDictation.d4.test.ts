@@ -32,7 +32,7 @@ const { guarded, meter, punctuate, willPunctuate, isNoteHidden, append, showToas
   isNoteHidden: vi.fn(async () => false),
   append: vi.fn(),
   showToast: vi.fn(),
-  meta: { savedDocumentId: 'doc_1' as string | null },
+  meta: { savedDocumentId: 'doc_1' as string | null, draftNonce: 'draft-1' },
 }));
 
 vi.mock('../useGuardedSpeechInput', () => ({
@@ -49,7 +49,7 @@ vi.mock('../../../../shared/hooks/useMicLevel', () => ({
 vi.mock('../appendDictation', () => ({ appendDictation: append }));
 
 vi.mock('../../store/useSessionMetaStore', () => ({
-  useSessionMetaStore: { getState: () => ({ savedDocumentId: meta.savedDocumentId }) },
+  useSessionMetaStore: { getState: () => ({ savedDocumentId: meta.savedDocumentId, draftNonce: meta.draftNonce }) },
 }));
 
 vi.mock('../../../../shared/components/Toast', () => ({ useToast: () => ({ showToast }) }));
@@ -86,6 +86,7 @@ beforeEach(() => {
   meter.level = 0.3;
   meter.failed = false;
   meta.savedDocumentId = 'doc_1';
+  meta.draftNonce = 'draft-1';
   willPunctuate.mockReturnValue({ yes: true, remaining: 7 });
   isNoteHidden.mockResolvedValue(false);
   registerDictationAi({ punctuate, willPunctuate, noteHidden: isNoteHidden });
@@ -205,6 +206,48 @@ describe('D-4: useDictation', () => {
     expect(action.label).toBe('voice_copy_text');
     action.onClick();
     expect(writeText).toHaveBeenCalledWith('Сказано вслух.');
+    started.unmount();
+  });
+
+  it('R7Q-008 (i): две РАЗНЫЕ несохранённые заметки — это не «та же заметка»', async () => {
+    // Неслyшащаяся деталь: у обеих savedDocumentId === null, и прежнее
+    // сравнение `null !== null` давало «заметка та же» — текст диктовки
+    // уезжал в черновик B, открытый человеком, пока шла пунктуация.
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    let resolvePunct: ((v: { text: string; punctuated: boolean }) => void) | undefined;
+    punctuate.mockReturnValue(new Promise(r => { resolvePunct = r; }));
+
+    meta.savedDocumentId = null;
+    meta.draftNonce = 'draft-A';
+    const started = renderHook(() => useDictation());
+    startSession(started.result);
+    endSession('сказано вслух');
+
+    meta.savedDocumentId = null;
+    meta.draftNonce = 'draft-B';
+    await act(async () => { resolvePunct?.({ text: 'Сказано вслух.', punctuated: true }); });
+
+    expect(append, 'в чужой новый черновик текст класть нельзя').not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith('voice_not_inserted_note_changed', 'warning', expect.anything());
+    started.unmount();
+  });
+
+  it('R7Q-008 (j): черновик сохранили во время пунктуации — текст идёт в свою заметку', async () => {
+    // Прежним кодом null → 'doc_new' читалось как смена заметки: только что
+    // сказанное снижалось до тоста с копированием и в свою заметку не попадало.
+    punctuate.mockResolvedValue({ text: 'Сказано вслух.', punctuated: true });
+    meta.savedDocumentId = null;
+    meta.draftNonce = 'draft-A';
+    const started = renderHook(() => useDictation());
+    startSession(started.result);
+    endSession('сказано вслух');
+
+    meta.savedDocumentId = 'doc_new';
+    await act(async () => { await Promise.resolve(); });
+
+    expect(append).toHaveBeenCalledWith('Сказано вслух.');
+    expect(showToast).not.toHaveBeenCalledWith('voice_not_inserted_note_changed', 'warning', expect.anything());
     started.unmount();
   });
 

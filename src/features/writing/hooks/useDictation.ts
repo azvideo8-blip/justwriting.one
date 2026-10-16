@@ -151,6 +151,10 @@ export function useDictation(): DictationApi {
   const [aiNotice, setAiNotice] = useState<{ yes: boolean; remaining: number }>({ yes: false, remaining: 0 });
 
   const docIdRef = useRef<string | null>(null);
+  // R7Q-008: пара «id заметки + идентификатор черновика». Одного id мало: у
+  // двух разных несохранённых заметок он null, а сохранение черновика во время
+  // пунктуации (null → id) — это та же заметка, а не смена.
+  const targetRef = useRef<{ docId: string | null; nonce: string }>({ docId: null, nonce: '' });
   // Номер доставки: ответ ИИ, пришедший после таймаута или отмены, обязан быть
   // брошен, иначе текст вставится второй раз.
   const deliverySeqRef = useRef(0);
@@ -177,7 +181,7 @@ export function useDictation(): DictationApi {
   // Пунктуация идёт до пятнадцати секунд после Stop, и человек успевает открыть
   // другую заметку: вставка обязана попасть туда, где начиналась запись.
   const deliverToStartNote = useCallback((text: string): boolean => {
-    if (useSessionMetaStore.getState().savedDocumentId !== docIdRef.current) {
+    if (!sameDictationTarget(targetRef.current, useSessionMetaStore.getState())) {
       offerCopy(text, 'voice_not_inserted_note_changed');
       return false;
     }
@@ -299,8 +303,10 @@ export function useDictation(): DictationApi {
     }
     // documentId снимается на старте, а не на стопе: смена заметки посреди записи
     // должна быть заметна и отменяема.
-    const docId = useSessionMetaStore.getState().savedDocumentId;
+    const snap = useSessionMetaStore.getState();
+    const docId = snap.savedDocumentId;
     docIdRef.current = docId;
+    targetRef.current = { docId, nonce: snap.draftNonce };
     setAiNotice(aiDeps.willPunctuate());
     void aiDeps.noteHidden(docId ?? undefined).then(hidden => {
       if (hidden) setAiNotice({ yes: false, remaining: 0 });
@@ -348,7 +354,7 @@ export function useDictation(): DictationApi {
   useEffect(() => {
     if (!isHost || !session.isListening) return;
     const id = setInterval(() => {
-      if (useSessionMetaStore.getState().savedDocumentId === docIdRef.current) return;
+      if (sameDictationTarget(targetRef.current, useSessionMetaStore.getState())) return;
       const said = liveTextRef.current;
       cancel();
       if (said) offerCopy(said, 'voice_cancelled_note_changed');
@@ -406,4 +412,14 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   } finally {
     if (timer) clearTimeout(timer);
   }
+}
+/** Принадлежит ли текущая редакторская сессия той же заметке, что и старт записи. */
+export function sameDictationTarget(
+  captured: { docId: string | null; nonce: string },
+  now: { savedDocumentId: string | null; draftNonce: string },
+): boolean {
+  if (now.draftNonce !== captured.nonce) return false;
+  if (now.savedDocumentId === captured.docId) return true;
+  // Тот же черновик был сохранён во время пунктуации: id появился — заметка та же.
+  return captured.docId === null;
 }

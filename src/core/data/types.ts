@@ -28,7 +28,9 @@ export interface IDataProvider {
       currentVersion: number;
       mood?: string | null;      // null implies field deletion
       moodEncrypted?: boolean;   // mood is ciphertext: the row must be encrypted as a whole
-      sessionsCount?: number;    // undefined implies incrementing by 1
+      /** R7Q-003: приращение числа ходов за ЭТУ выгрузку; абсолют из локальной
+       *  копии не шлётся — им устаревший писатель откатывал облачный счётчик. */
+      sessionsDelta?: number;    // undefined implies incrementing by 1
       lastSessionAt?: Date;      // undefined implies using the current server time
     }
   ): Promise<void>;

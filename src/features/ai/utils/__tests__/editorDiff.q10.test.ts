@@ -13,6 +13,28 @@ describe('Q-10: diffPostAgainstNote', () => {
     expect(d.rolesAdded).toEqual(expect.arrayContaining(['брат', 'подруга']));
   });
 
+  it('R7F-016: сумма с единицей не удваивается в плашке', () => {
+    const note = 'Она одолжила 12 500 руб. и напомнила про срок.';
+    const post = 'Она помогла деньгами и напомнила про срок.';
+    const d = diffPostAgainstNote(post, note);
+    // «12 500» и «12 500 руб» — один и тот же факт: в плашке он один раз.
+    expect(d.numbersRemoved.filter(n => n.includes('12 500'))).toEqual(['12 500 руб']);
+  });
+
+  it('R7F-016: год — не «убранное число»', () => {
+    const note = 'В 2024 году мы переехали, и это было тяжело.';
+    const post = 'Мы переехали, и это было тяжело.';
+    const d = diffPostAgainstNote(post, note);
+    expect(d.numbersRemoved, 'дата не потерянный факт').toEqual([]);
+  });
+
+  it('R7F-016: настоящее число в том же посте по-прежнему видно', () => {
+    const note = 'В 2024 году мы одолжили 300 и разъехались.';
+    const post = 'В 2024 году мы разъехались.';
+    const d = diffPostAgainstNote(post, note);
+    expect(d.numbersRemoved).toEqual(['300']);
+  });
+
   it('имя в другом падеже — имя осталось в посте', () => {
     const post = 'Олю пришлось уговаривать полчаса, а она ведь только хотела помочь.';
     const d = diffPostAgainstNote(post, NOTE);

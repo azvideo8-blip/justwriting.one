@@ -79,11 +79,21 @@ async function attachedNoteAppendix(
   const blocks: string[] = [];
   for (const id of ids) {
     const doc = await db.get('documents', id);
-    // Скрытая от ИИ, в корзине или удалённая заметка текстом не делится.
-    if (isExcludedFromAI(doc)) { blocks.push(`> ${hiddenLabel}`); continue; }
     const text = await latestVersionContent(db, id);
     // Короткое тело стоит в ходу дословно (useAIPageData, `inline`): не дублируем.
-    if (!text || content.includes(text)) continue;
+    const inTurn = text !== null && content.includes(text);
+    // Скрытая от ИИ, в корзине или удалённая заметка текстом не делится.
+    if (isExcludedFromAI(doc)) {
+      // R7F-012: если то же тело уже лежит в самой реплике (заметку скрыли
+      // ПОСЛЕ хода), плашка «текст заметки не выгружен» врёт про собственный
+      // экспорт: читатель видит и тело, и отрицание. Вырезать текст из
+      // человеческой реплики — портить дневник, поэтому правдивой делает
+      // именно плашку: без неё тело остаётся там, где его написал автор.
+      if (inTurn) continue;
+      blocks.push(`> ${hiddenLabel}`);
+      continue;
+    }
+    if (!text || inTurn) continue;
     blocks.push(text.split('\n').map(line => `> ${line}`).join('\n'));
   }
   return blocks.length > 0 ? `\n\n${blocks.join('\n\n')}` : '';

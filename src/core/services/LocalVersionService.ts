@@ -102,6 +102,18 @@ export const LocalVersionService = {
     return cursor?.value.content ?? '';
   },
 
+  /**
+   * R7Q-002: пустая строка из `getLatestContent` значит и «версий нет» (текст
+   * ещё не приехал), и «заметку очистили». Страховка обязана различать эти
+   * случаи, иначе заметку с нулевым текстом нельзя открыть вовсе.
+   */
+  async hasVersion(documentId: string, ownerId?: string): Promise<boolean> {
+    const db = await getLocalDb(ownerId);
+    const tx = db.transaction('versions', 'readonly');
+    const range = IDBKeyRange.bound([documentId, 0], [documentId, Number.MAX_SAFE_INTEGER]);
+    return (await tx.store.index('by-doc-version').count(range)) > 0;
+  },
+
   async getLatestPreview(documentId: string, maxLength = 100, customUid?: string): Promise<string> {
     const db = await getLocalDb(customUid);
     const tx = db.transaction('versions', 'readonly');

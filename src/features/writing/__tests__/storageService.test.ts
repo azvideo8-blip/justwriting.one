@@ -329,6 +329,9 @@ describe('StorageService.addCloudCopy', () => {
       expect.objectContaining({
         firstSessionAt: new Date(customFirstSessionAt),
         lastSessionAt: new Date(customLastSessionAt),
+        // R7Q-003: накопленные счётчики локальной копии едут в единственную
+        // запись (insert), а не дописываются сверху абсолютным патчем.
+        sessionsCount: 5,
       })
     );
 
@@ -340,14 +343,14 @@ describe('StorageService.addCloudCopy', () => {
       })
     );
 
-    expect(MockDocumentService.updateDocumentAfterSession).toHaveBeenCalledWith(
-      GUEST,
-      cloudId,
-      expect.objectContaining({
-        sessionsCount: 5,
-        lastSessionAt: new Date(customLastSessionAt),
-      })
-    );
+    const statsCall = MockDocumentService.updateDocumentAfterSession.mock.calls.at(-1) as
+      [string, string, Record<string, unknown>];
+    expect(statsCall[1]).toBe(cloudId);
+    expect(statsCall[2]).toMatchObject({ lastSessionAt: new Date(customLastSessionAt) });
+    // Ряд создан этим прогоном, его счётчики уже внутри строки: приращение
+    // нулевое, иначе первая синхронизация удвоила бы ходы. Абсолюта тут больше нет.
+    expect(statsCall[2].sessionsDelta).toBe(0);
+    expect('sessionsCount' in statsCall[2]).toBe(false);
   });
 
   it('preserves cloud version savedAt and doc metadata when copying to local', async () => {

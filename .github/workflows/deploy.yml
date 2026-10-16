@@ -30,6 +30,13 @@ jobs:
     # dependabot) остаётся на github-хостинге — вешать его туда же означало
     # бы непредсказуемую конкуренцию за память с живой базой.
     runs-on: [self-hosted, justwriting-vps]
+    # R7Q-030: workflow_dispatch выбирает ветку в форме запуска, и с любой другой
+    # ветки прогон получил бы те же секреты выкатки (SSH-ключ прода, JWT, адрес
+    # и логин служебного аккаунта) и те же права на `sudo` на прод-машине.
+    # Окружение production — заслонка мягкая: правила живут в настройках
+    # репозитория и их можно снять одним кликом, а без них шаг вообще не помечен
+    # как защищённый. Поэтому ветка записана здесь, в коде.
+    if: github.ref == 'refs/heads/main'
     # R5-034: окружение production на GitHub пускает выкатку только из main.
     environment: production
     # R4-8: зависшая выкатка не держит очередь (cancel-in-progress: false) вечно.
@@ -54,7 +61,14 @@ jobs:
         run: |
           set -euo pipefail
           state=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "$RUNS_URL" \
-            | node -e 'const w=JSON.parse(require("fs").readFileSync(0,"utf8")).workflow_runs[0];console.log(w?`${w.status}/${w.conclusion}`:"none")')
+            | node -e 'const rs=(JSON.parse(require("fs").readFileSync(0,"utf8")).workflow_runs)||[];
+            // R7Q-030: засчитывается только push этого коммита именно в main. В
+            // прогонах с тем же sha есть PR-прогон (другие секреты, другой
+            // merge-базис) и прогон той же сборки из рабочей ветки: раньше
+            // брался workflow_runs[0] — самый свежий, и зелёный PR вместо push в
+            // main выпускал код, который на main никто не проверял.
+            const w=rs.find(r=>r.event==="push"&&r.head_branch==="main");
+            console.log(w?`${w.status}/${w.conclusion}`:"none")')
           echo "CI $GITHUB_SHA: $state"
           if [ "$state" != "completed/success" ]; then
             echo "::error::CI этого коммита не зелёный ($state). Дождитесь зелёного CI."
@@ -72,7 +86,13 @@ jobs:
       - run: npm ci
 
       - name: Браузер для предрендера и проверки
-        run: npx playwright install --with-deps chromium
+        # R7F-024: `--with-deps` ставит системные пакеты через apt и требует sudo.
+        # Раннер живёт на проде и состоит в sudo (это отдельный шаг владельца),
+        # а прогон выкатки sudo не должен ни запрашивать, ни тем более что-то
+        # доустанавливать в систему между шагами. Системные зависимости браузера
+        # уже стоят (тот же chromium гоняется в gates.yml без --with-deps);
+        # если их действительно нет — шаг падает здесь, а не после выкатки.
+        run: npx playwright install chromium
 
       # Проверки до выкатки, а не после. Красный тест не должен доезжать до
       # сервера — это единственное, ради чего вообще стоит городить автоматику
@@ -113,18 +133,6 @@ jobs:
           fi
           echo "секреты проверки на месте"
 
-      - name: Ключ доступа
-        run: |
-          # EA-11: раннер живёт на проде — ключ во временном каталоге прогона,
-          # а не в ~/.ssh пользователя, и удаляется в конце при любом исходе.
-          umask 077
-          echo "${{ secrets.DEPLOY_SSH_KEY }}" > "$RUNNER_TEMP/deploy_key"
-          # Отпечаток хоста заранее, а не TOFU: иначе первый же перехват
-          # соединения останется незамеченным.
-          echo "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > "$RUNNER_TEMP/known_hosts"
-          echo "DEPLOY_SSH=ssh -i $RUNNER_TEMP/deploy_key -o UserKnownHostsFile=$RUNNER_TEMP/known_hosts -o IdentitiesOnly=yes" >> "$GITHUB_ENV"
-          echo "DEPLOY_SCP=scp -i $RUNNER_TEMP/deploy_key -o UserKnownHostsFile=$RUNNER_TEMP/known_hosts -o IdentitiesOnly=yes" >> "$GITHUB_ENV"
-
       - name: Сборка клиента
         if: inputs.what != 'api'
         # Эти два значения вшиваются в бандл на сборке, а не читаются в рантайме.
@@ -164,6 +172,24 @@ jobs:
           fi
           echo "sha256 dist/index.html = $INDEX_SHA256"
           echo "INDEX_SHA256=$INDEX_SHA256" >> "$GITHUB_ENV"
+
+      # R7F-024: ключ появляется ровно там, где его начинают читать. До этого
+      # шага прогон — сборка и проверки, которым приватный ключ прода не нужен;
+      # раньше он лежал в $RUNNER_TEMP с самого начала (типы, тесты, npm ci,
+      # сборка — десятки минут), и любая подстановка `${{ }}` в любом из этих
+      # шагов могла его отдать. Шаг без `if`: при what = api выкатка клиента
+      # пропускается, а службе ключ нужен сразу следующим шагом.
+      - name: Ключ доступа
+        run: |
+          # EA-11: раннер живёт на проде — ключ во временном каталоге прогона,
+          # а не в ~/.ssh пользователя, и удаляется в конце при любом исходе.
+          umask 077
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > "$RUNNER_TEMP/deploy_key"
+          # Отпечаток хоста заранее, а не TOFU: иначе первый же перехват
+          # соединения останется незамеченным.
+          echo "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > "$RUNNER_TEMP/known_hosts"
+          echo "DEPLOY_SSH=ssh -i $RUNNER_TEMP/deploy_key -o UserKnownHostsFile=$RUNNER_TEMP/known_hosts -o IdentitiesOnly=yes" >> "$GITHUB_ENV"
+          echo "DEPLOY_SCP=scp -i $RUNNER_TEMP/deploy_key -o UserKnownHostsFile=$RUNNER_TEMP/known_hosts -o IdentitiesOnly=yes" >> "$GITHUB_ENV"
 
       - name: Выкатка клиента
         id: deploy_client

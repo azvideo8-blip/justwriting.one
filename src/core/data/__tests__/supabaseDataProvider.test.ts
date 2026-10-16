@@ -125,12 +125,12 @@ describe('SupabaseDataProvider', () => {
       expect(doc).not.toHaveProperty('labelId');
     });
 
-    it('updateDocumentSessionStats with provided sessionsCount transforms stats', async () => {
+    it('updateDocumentSessionStats sends the delta of this push, never an absolute (R7Q-003)', async () => {
       await SupabaseDataProvider.updateDocumentSessionStats('user-1', 'doc-1', {
         totalWords: 300,
         durationDelta: 600,
         currentVersion: 3,
-        sessionsCount: 5,
+        sessionsDelta: 5,
         mood: 'calm',
         lastSessionAt: new Date('2026-08-15T13:00:00.000Z'),
       });
@@ -143,9 +143,12 @@ describe('SupabaseDataProvider', () => {
         p_words: 300,
         p_duration_delta: 600,
       });
+      expect(supabaseClientModule.getSupabase().rpc).toHaveBeenCalledWith('increment_document_sessions', {
+        p_uuid: 'doc-1',
+        p_delta: 5,
+      });
       expect(mockQueryBuilder.update).toHaveBeenCalledWith({
         current_version: 3,
-        sessions_count: 5,
         mood: 'calm',
         last_session_at: '2026-08-15T13:00:00.000Z',
       });

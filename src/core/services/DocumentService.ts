@@ -201,7 +201,8 @@ export const DocumentService = {
       durationDelta: number;
       currentVersion: number;
       mood?: string | undefined;
-      sessionsCount?: number | undefined;
+      /** R7Q-003: приращение за эту выгрузку, не абсолют из локальной копии. */
+      sessionsDelta?: number | undefined;
       lastSessionAt?: Date | undefined;
     }
   ): Promise<void> {
@@ -211,7 +212,7 @@ export const DocumentService = {
       currentVersion: data.currentVersion,
       mood: data.mood ?? null,
     };
-    if (data.sessionsCount !== undefined) payload.sessionsCount = data.sessionsCount;
+    if (data.sessionsDelta !== undefined) payload.sessionsDelta = data.sessionsDelta;
     if (data.lastSessionAt !== undefined) payload.lastSessionAt = data.lastSessionAt;
 
     if (data.mood) {

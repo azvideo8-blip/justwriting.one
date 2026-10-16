@@ -730,7 +730,20 @@ function waitForNextOrAbort<T>(
     }
 
     if (controller.signal.aborted || res.destroyed) {
+      // R7Q-017: сюда приходит и дедлайн в 150 с (`timedOut`), и уход клиента
+      // (который уже закрыл расчёт в `res.on('close')`). Прежний `return` без
+      // settle оставлял дневной слот списанным, резерв `ai_global_daily` —
+      // занятым (до конца дня, и он общий: другие пользователи упираются в 429
+      // раньше), а браузер висел до proxy_read_timeout nginx: заголовков нет,
+      // ответа нет. `settle` защёлкнут, поэтому повторный вызов после 'close'
+      // ничего не удваивает.
+      await settlement.settle('failed');
       endChat(endSignals());
+      if (!res.headersSent) {
+        sendError(res, 504, 'UPSTREAM_TIMEOUT', 'AI provider did not start answering in time');
+      } else if (!res.writableEnded) {
+        res.end();
+      }
       return;
     }
 

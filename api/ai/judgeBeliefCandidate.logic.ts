@@ -149,7 +149,7 @@ export async function judgeBeliefCandidateLogic(ctx: AiContext, uid: string, dat
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {
       throw new AiError('resource-exhausted', 'AI service temporarily unavailable.');
     }
-    console.warn('[judgeBeliefCandidate] judge failure (throwing unavailable):', msg);
+    console.warn('[judgeBeliefCandidate] judge failure (throwing unavailable):', safeErrorShape(e));
     throw new AiError('unavailable', 'Judge service error or timeout.');
   }
 }

@@ -34,6 +34,13 @@ services:
       GOTRUE_MAILER_TEMPLATES_INVITE: "https://justwriting.ru/email/invite.html"
       GOTRUE_DISABLE_SIGNUP: "true"
       GOTRUE_RATE_LIMIT_HEADER: "X-Real-IP"
+      # R7F-007: телефонное направление выключено совсем — SMS-провайдера нет,
+      # телефонов у пользователей нет, а `external.phone: true` + 
+      # `phone_autoconfirm: true` (проверено на проде через /auth/v1/settings)
+      # означают, что при первом же включении регистрации телефонные аккаунты
+      # создавались бы без подтверждения.
+      GOTRUE_EXTERNAL_PHONE_ENABLED: "false"
+      GOTRUE_SMS_AUTOCONFIRM: "false"
 
   # Без этого Kong подменяет X-Real-IP своим видом адреса — адресом nginx, и
   # лимиты GoTrue (GOTRUE_RATE_LIMIT_HEADER выше) снова общие на всех. Kong

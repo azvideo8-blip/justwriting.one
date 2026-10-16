@@ -7,10 +7,9 @@
 // даёт `safeErrorShape` (src/shared/ai/errorShape.ts): статус, имя, код — без сообщения.
 //
 // Что ловит регулярка: аргумент — голое имя пойманной ошибки (`e`, `err`, `error`,
-// `e1`…), или интерполяция `${e}` / `${err.message}` / `${error.cause}` внутри строки.
-// Известная слепая зона: ошибка, предварительно сохранённая в переменную с другим
-// именем (`const m = String(e)` и затем `console.error(…, m)`), и вызовы, собранные
-// через spread. Тогда сторожит только поведение (serverLogsPrivacy.audit42.test.ts).
+// `e1`…), или интерполяция `${e}` / `${err.message}` / `${error.cause}` внутри строки,
+// и (R7Q-016) то же после переименования: `const msg = String(e.message)` и затем
+// `console.error(…, msg)` / `${msg}`. По-прежнему вне покрытия — spread-аргументы.
 import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -33,8 +32,22 @@ function splitArgs(source: string, openIdx: number): string[] {
   return args;
 }
 
+/** Имена переменных, в которые предварительно сохранена пойманная ошибка. */
+function errorDerivedVars(source: string): Set<string> {
+  const names = new Set<string>();
+  const decl = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*([^;\n]*)/g;
+  for (const m of source.matchAll(decl)) {
+    const init = m[2] ?? '';
+    if (!/(?:^|[^.\w$])(?:e|err|error|e\d+|error\d+)(?:[^.\w$]|$)/.test(init)) continue;
+    if (!/\.message\b|String\s*\(/.test(init)) continue;
+    names.add(m[1]!);
+  }
+  return names;
+}
+
 function findOffenders(file: string, source: string): string[] {
   const out: string[] = [];
+  const derived = errorDerivedVars(source);
   const call = /console\.(?:error|warn)\s*\(/g;
   for (const m of source.matchAll(call)) {
     const openIdx = (m.index ?? 0) + m[0].length - 1;
@@ -42,7 +55,14 @@ function findOffenders(file: string, source: string): string[] {
     if (args.some(a => /safeErrorShape\s*\(/.test(a))) continue;
     const bare = args.some(a => BARE_ARG.test(a));
     const interp = args.some(a => INTERP.test(a));
-    if (!bare && !interp) continue;
+    // R7Q-016: прежняя слепая зона — ошибка, переименованная в `msg` (или
+    // извлечённая через `String(e.message)`), и напечатанная уже под другим именем:
+    // и как отдельный аргумент, и внутри конкатенации/шаблонной строки.
+    const derivedRe = derived.size > 0
+      ? new RegExp(`\\b(?:${[...derived].map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`)
+      : null;
+    const derivedArg = derivedRe !== null && args.some(a => derivedRe.test(a));
+    if (!bare && !interp && !derivedArg) continue;
     const line = source.slice(0, m.index).split('\n').length;
     out.push(`api/ai/${file}:${line}: ${source.split('\n')[line - 1]?.trim().slice(0, 100)}`);
   }
@@ -55,5 +75,37 @@ describe('FX-2: храповик формата ошибок в api/ai', () => {
     const offenders = files.flatMap(f => findOffenders(f, readFileSync(join(AI_DIR, f), 'utf8')));
     // 1 — список печатается в сообщении падения, чтобы его можно было сверить с тикетом.
     expect(offenders, `мест, печатающих сырую ошибку: ${offenders.length}\n${offenders.join('\n')}`).toEqual([]);
+  });
+
+  it('ловит ошибку, сохранённую в переменную (пояс тикета: `msg`)', () => {
+    const src = [
+      'try { await x() } catch (e) {',
+      '  const msg = String((e as { message?: string })?.message ?? e);',
+      "  console.warn('[AI judge] soft failure:', msg);",
+      '}',
+    ].join('\n');
+    expect(findOffenders('judge.logic.ts', src)).toHaveLength(1);
+  });
+
+  it('ловит интерполяцию `${msg}` внутри строки', () => {
+    const src = [
+      'catch (e) {',
+      '  const msg = (e as Error).message;',
+      "  console.error('[t] failed: ' + msg);",
+      '}',
+    ].join('\n');
+    expect(findOffenders('t.logic.ts', src)).toHaveLength(1);
+  });
+
+  it('не ловит safeErrorShape(msg) и служебные строки без ошибки', () => {
+    const src = [
+      'catch (e) {',
+      '  const msg = String((e as { message?: string })?.message ?? e);',
+      "  if (/quota/i.test(msg)) throw new AiError('resource-exhausted', 'x');",
+      "  console.warn('[AI judge] soft failure:', safeErrorShape(e));",
+      "  console.log('[AI judge] verdicts:', verdicts.length);",
+      '}',
+    ].join('\n');
+    expect(findOffenders('clean.logic.ts', src)).toEqual([]);
   });
 });

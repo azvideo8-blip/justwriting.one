@@ -59,7 +59,42 @@ export async function deleteUserRows(client: Pick<PoolClient, 'query'>, uid: str
   return res.rowCount ?? 0;
 }
 
+/**
+ * R7Q-012: почему самоудаление этого аккаунта запрещено (null — разрешено).
+ * Служебный список и роль читает база, клиенту здесь доверять нечему: `role`
+ * защищает триггер `protect_user_columns` (0015), `service_accounts` (0040)
+ * для `authenticated` закрыт полностью.
+ */
+async function selfDeleteGuard(uid: string): Promise<string | null> {
+  try {
+    const service = await pool.query('select 1 from public.service_accounts where uid = $1', [uid]);
+    if ((service.rowCount ?? 0) > 0) {
+      return 'Служебный аккаунт удалить нельзя — на нём держится проверка выкатки.';
+    }
+    const me = await pool.query('select role from public.users where uid = $1', [uid]);
+    if (me.rows[0]?.role !== 'admin') return null;
+    const peers = await pool.query(
+      "select 1 from public.users where role = 'admin' and uid <> $1 limit 1",
+      [uid],
+    );
+    if ((peers.rowCount ?? 0) > 0) return null;
+    return 'Вы последний админ — удаление закроет админку. Сначала назначьте второго администратора.';
+  } catch (e) {
+    // Fail-closed: не смогли проверить — не удаляем. Молчаливый отказ здесь стоил
+    // бы каждой выкатки, а человек всегда может повторить позже.
+    console.error('[api/account] self-delete guard failed:', e instanceof Error ? e.message : e);
+    return 'Не удалось проверить, можно ли удалять этот аккаунт. Повторите позже.';
+  }
+}
+
 export async function deleteAccountLogic(_ctx: unknown, uid: string): Promise<unknown> {
+  // R7Q-012: те же две проверки, что на админском эндпоинте (admin.logic.ts), — и
+  // до транзакции, и до кулдауна: отказ не должен тратить слот удаления.
+  // Служебный аккаунт держит проверку входа при выкатке (0040), последний админ —
+  // доступ к админке; на телефоне их удаляет один неверный тап в Настройках.
+  const protectedReason = await selfDeleteGuard(uid);
+  if (protectedReason !== null) throw new AiError('permission-denied', protectedReason);
+
   if (!acquireDeleteSlot(uid)) {
     throw new AiError('resource-exhausted', 'Too many deletion attempts. Try again later.');
   }

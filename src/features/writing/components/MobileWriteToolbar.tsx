@@ -71,7 +71,8 @@ export function MobileWriteToolbar({
   // человек уже прочитал в листе MF-5 (нажал «Записать») — тогда точка молчит, пока сейф
   // открыт; запертый сейф или ни разу не открытый лист — точка остаётся.
   const vaultUnlocked = useEncryptionStore(s => s.isVaultUnlocked);
-  const showVaultWarn = isVaultActive && !isListening && (!vaultUnlocked || !voiceNoticeSeen());
+  const noticeUid = getCurrentUser()?.uid ?? null;
+  const showVaultWarn = isVaultActive && !isListening && (!vaultUnlocked || !voiceNoticeSeen(noticeUid));
 
   // MF-5: микрофон на телефоне. Отмеченное «Больше не показывать» — старт сразу,
   // в том же нажатии; иначе — лист, и старт уже из его «Записать».
@@ -299,6 +300,8 @@ export function MobileWriteToolbar({
   );
 }
 
-function voiceNoticeSeen(): boolean {
-  try { return localStorage.getItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2) === '1'; } catch { return false; }
+// R7F-015: отметка о предупреждении принадлежит аккаунту, а не устройству.
+function voiceNoticeSeen(uid: string | null): boolean {
+  if (!uid) return false;
+  try { return localStorage.getItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2(uid)) === '1'; } catch { return false; }
 }

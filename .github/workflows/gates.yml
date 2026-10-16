@@ -33,6 +33,53 @@ permissions:
   contents: read
 
 jobs:
+  # R7Q-029: push тега — единственный не-ручной вход в эти ворота, и он же
+  # единственный, где код прогона задаёт кто угодно, кто умеет ставить теги.
+  # Тег на коммите вне main (горящая правка, откат ветки, чужой форк) раньше
+  # гонял сорокаминутный прогон мутаций и живой базы по коду, которого на main
+  # нет, — и зелёный результат ничего про main не обещал.
+  #
+  # Проверка вынесена в отдельный дешёвый джоб и не прикрывается `always()`:
+  # он обязан быть зелёным и на schedule, и по кнопке (для них решение — «пустить»),
+  # иначе нужные джобы отсеются вместе с ним. Падение этого джоба видно красным —
+  # ворота не превращаются в «зелёное ничего».
+  tag_on_main:
+    name: Релизный тег — на main? (R7Q-029)
+    runs-on: [self-hosted, justwriting-vps]
+    timeout-minutes: 5
+    outputs:
+      run_gates: ${{ steps.decide.outputs.run_gates }}
+
+    steps:
+      - name: Checkout repository
+        if: github.event_name == 'push'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Нужна история: `--is-ancestor` сверяет коммит тега с main, а на
+          # глубине 1 локально есть только сам коммит тега.
+          fetch-depth: 0
+
+      - name: Решение по входу
+        id: decide
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" != "push" ]; then
+            echo "run_gates=true" >> "$GITHUB_OUTPUT"
+            echo "пуск не по тегу ($GITHUB_EVENT_NAME) — ворота как обычно"
+            exit 0
+          fi
+          # Единственный push-триггер здесь — тег (branches у push нет).
+          # Refspec только main: при пуше тега остальные ветки в клоне могут не
+          # лежать, а сверять больше не с чем.
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/main; then
+            echo "run_gates=true" >> "$GITHUB_OUTPUT"
+            echo "коммит тега $GITHUB_SHA лежит на main"
+          else
+            echo "run_gates=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::коммит тега $GITHUB_SHA не на main — тяжёлые ворота не запускаются"
+          fi
+
   secrets_history:
     name: Full-history secret scan (B-4 / R2-017)
     # Тот же зафиксированный gitleaks, что и у push-гейта: версия, sha256 и
@@ -63,9 +110,16 @@ jobs:
     # Каждый день — только полная история секретов: гонять сорокаминутный
     # прогон мутаций и живых БД ежедневно — это и ресурсы раннера, и шум в
     # отчётах вместо сигнала. Раз в неделю — да (см. второй cron).
-    if: github.event_name != 'schedule' || github.event.schedule == '47 21 * * 0'
+    # R7Q-029: и только с коммита, который реально лежит на main (см. tag_on_main)
+    # — тег, поставленный вне main, не должен выпускать на прод-раннер код,
+    # который на main не проверялся.
+    needs: tag_on_main
+    if: needs.tag_on_main.outputs.run_gates == 'true' && (github.event_name != 'schedule' || github.event.schedule == '47 21 * * 0')
     runs-on: [self-hosted, justwriting-vps]
-    timeout-minutes: 40
+    # Шаг 5 (стенд двух устройств, R7Q-035) добавляет до 25 минут к прогону,
+    # который раньше умещался в сорок. Раннер свой и постоянный — лишние минуты
+    # это очередь следующих прогонов, а не платные минуты GitHub.
+    timeout-minutes: 65
 
     steps:
       - name: Checkout repository
@@ -182,4 +236,15 @@ jobs:
           trap 'bash scripts/stand/down.sh' EXIT
           bash scripts/stand/up.sh
           npx playwright test -c playwright.stand.config.ts
+
+      # R7Q-035: слияние диалогов на двух профилях браузера (e2e/*.stand.spec.ts)
+      # существовало только как ручная команда — ни в CI, ни в воротах этот набор
+      # не запускался ни разу, и регресс выгрузки/CAS ловился уже на проде.
+      # Обёртка поднимает свой стенд (порты 3600/3610/8699/3016/5443/3604/3605 —
+      # не шаг 3 и не шаг 4), стартует API с заглушкой ИИ и гасит всё по trap'у.
+      # Chromium ставить не нужно: шаг 4 принёс его в ~/.cache/ms-playwright этого
+      # же раннера, повторный install был бы холостым.
+      - name: 5. Стендовый набор двух устройств (s38)
+        timeout-minutes: 25
+        run: bash scripts/ci/s38-e2e.sh
 

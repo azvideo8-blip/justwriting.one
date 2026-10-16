@@ -160,7 +160,7 @@ describe('partial metadata update on a row that is still plaintext', () => {
     table.push(legacyRow());
 
     await DocumentService.updateDocumentAfterSession(USER, DOC, {
-      totalWords: 10, durationDelta: 120, currentVersion: 2, mood: '😊', sessionsCount: 2,
+      totalWords: 10, durationDelta: 120, currentVersion: 2, mood: '😊',
     });
 
     expectNoPlaintext(stored(), { title: 'Письмо себе', tags: [], mood: '😊' });

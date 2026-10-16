@@ -6,6 +6,7 @@ import { cosineSimilarity } from '../utils/vectorSearch';
 import { reportError } from '../../../shared/errors/reportError';
 import { reportAIDegradation } from '../utils/aiDegradationReporter';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
+import { loadVisibleNoteKeys } from '../utils/retrieval/docSnapshot';
 
 
 interface Thread {
@@ -161,11 +162,15 @@ export const AIThreadService = {
     try {
       const db = await getLocalDb();
       const threads = await db.getAll('aiThreads');
+      // R7Q-019: пересказ линии сложен из заметок — одна скрытая или корзинная
+      // убивает линию целиком, как в гранях профиля (W-3).
+      const visible = await loadVisibleNoteKeys();
       const matched = [];
       const now = Date.now();
 
       for (const t of threads) {
         if (!t.summary) continue;
+        if (!t.noteIds.every(id => visible.has(id))) continue;
         const sim = cosineSimilarity(queryVector, t.centroid);
         if (sim > 0.6) {
           const ageDays = Math.max(0, now - t.lastNoteAt) / (24 * 60 * 60 * 1000);

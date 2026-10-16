@@ -28,7 +28,7 @@ export function useGuardedSpeechInput({ onSessionEnd, onError }: UseGuardedSpeec
       return;
     }
     if (opts?.noticeHandled) {
-      markDictationNoticeSeen();
+      markDictationNoticeSeen(user?.uid ?? null);
       startListening();
       return;
     }
@@ -36,7 +36,11 @@ export function useGuardedSpeechInput({ onSessionEnd, onError }: UseGuardedSpeec
     const isVault = user ? useEncryptionStore.getState().getEncryptionEnabled(user.uid) : false;
     // D-5: предупреждение переписано (текст диктовки уходит в ИИ-сервис за знаками
     // препинания), поэтому оно показывается ещё раз тем, кто видел только v1.
-    const noticeSeen = typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2) === '1';
+    // R7F-015: отметка принадлежит аккаунту. Гость живёт под гостевым ключом:
+    // он не «другой зарегистрированный аккаунт», и подметание при выходе его
+    // стирает (LS-6).
+    const noticeUid = user?.uid ?? 'guest';
+    const noticeSeen = typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2(noticeUid)) === '1';
 
     if (isVault) {
       const ok = await confirm({
@@ -54,7 +58,7 @@ export function useGuardedSpeechInput({ onSessionEnd, onError }: UseGuardedSpeec
         cancelLabel: t('common_cancel'),
       });
       if (!ok) return;
-      markDictationNoticeSeen();
+      markDictationNoticeSeen(user?.uid ?? null);
     }
 
     startListening();
@@ -73,14 +77,15 @@ export function useGuardedSpeechInput({ onSessionEnd, onError }: UseGuardedSpeec
   };
 }
 
-function markDictationNoticeSeen(): void {
+function markDictationNoticeSeen(uid: string | null): void {
   try {
-    // v1 остаётся записанным: откат на предыдущую сборку не должен снова
-    // показывать старое предупреждение человеку, который уже согласился.
+    // v1 остаётся записанным на устройстве: откат на предыдущую сборку не должен
+    // снова показывать старое предупреждение человеку, который уже согласился.
     localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN, '1');
-    localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2, '1');
+    localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2(uid ?? 'guest'), '1');
   } catch {
-    // ignore quota/private mode errors
+    // намеренно: приватный режим и переполнение квоты — согласие от этого не
+    // отзывается, предупреждение просто будет показано снова.
   }
 }
 
@@ -90,7 +95,7 @@ function markDictationNoticeSeen(): void {
 export function voiceNoticeDecision(uid: string | null, vault: boolean): 'vault' | 'sheet' | 'start' {
   if (vault) return 'vault';
   try {
-    if (localStorage.getItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2) !== '1') return 'sheet';
+    if (!uid || localStorage.getItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2(uid)) !== '1') return 'sheet';
     if (uid && localStorage.getItem(STORAGE_KEYS.DICTATION_NOTICE_DISMISSED(uid)) === '1') return 'start';
   } catch {
     // приватный режим: лист показывается, запись не ломается

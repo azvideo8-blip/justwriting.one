@@ -88,6 +88,12 @@ interface AiLimitState {
   /** SA-2: сервер не смог прочитать свои лимиты (`X-AI-Quota-Status:
    *  unavailable`) — прошлое число на экране больше не-current. */
   limitUnknown: boolean;
+  /**
+   * R7Q-021: момент, когда заголовки ответа в последний раз подтвердили счётчик.
+   * Вызов, после которого он изменился, списывать второй раз не нужно: сервер
+   * уже вернул `X-AI-Quota-Used` post-increment.
+   */
+  headerSyncAt: number;
   isAdmin: boolean;
   loadLimit: () => void;
   loadLimitFromServer: () => Promise<void>;
@@ -123,6 +129,7 @@ export const useAiLimitStore = create<AiLimitState>((set, get) => ({
   loaded: false,
   reconciled: false,
   limitUnknown: false,
+  headerSyncAt: 0,
   isAdmin: false,
 
   loadLimit() {
@@ -239,6 +246,7 @@ export const useAiLimitStore = create<AiLimitState>((set, get) => ({
       resetsAt: getMidnightUtc(),
       loaded: true,
       reconciled: true,
+      headerSyncAt: Date.now(),
       limitUnknown: false,
     });
   },

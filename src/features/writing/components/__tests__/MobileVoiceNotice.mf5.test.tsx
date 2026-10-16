@@ -43,13 +43,13 @@ describe('MF-5: voice notice sheet before recording (mobile)', () => {
     expect(screen.getByText(/voice_sheet_cost.*30/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'common_cancel' }));
     expect(d.startAfterNotice).not.toHaveBeenCalled();
-    expect(localStorage.getItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2)).toBeNull();
+    expect(localStorage.getItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2(d.uid))).toBeNull();
     // MQ-5: лист уходит вниз ещё ~250 мс, а не пропадает за кадр.
     await waitFor(() => expect(screen.queryByText('voice_sheet_where_audio')).toBeNull());
   });
 
   it('«Записать» starts recording from the tap; without the tick the sheet shows again next time', async () => {
-    localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2, '1');
+    localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2(d.uid), '1');
     render(<MobileWriteToolbar onStop={vi.fn()} />);
     await tapMic();
     fireEvent.click(await screen.findByRole('button', { name: 'voice_sheet_record' }));
@@ -60,7 +60,7 @@ describe('MF-5: voice notice sheet before recording (mobile)', () => {
   });
 
   it('ticked «Больше не показывать» → the next tap records at once; another user still sees the sheet', async () => {
-    localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2, '1');
+    localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2(d.uid), '1');
     render(<MobileWriteToolbar onStop={vi.fn()} />);
     await tapMic();
     fireEvent.click(await screen.findByRole('checkbox', { name: 'voice_sheet_dont_show' }));
@@ -85,7 +85,7 @@ describe('MF-5: voice notice sheet before recording (mobile)', () => {
 
   it('vault on → the sheet every time, vault text, no checkbox, even after dismissal', async () => {
     d.vault = true;
-    localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2, '1');
+    localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2(d.uid), '1');
     localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_DISMISSED('u_a'), '1');
     render(<MobileWriteToolbar onStop={vi.fn()} />);
     await tapMic();
@@ -119,6 +119,6 @@ describe('MF-5: «Записать» path in useGuardedSpeechInput', () => {
     void result.current.toggleListening({ noticeHandled: true });
     expect(startListening).toHaveBeenCalledTimes(1);
     expect(confirm).not.toHaveBeenCalled();
-    expect(localStorage.getItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2)).toBe('1');
+    expect(localStorage.getItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2(d.uid))).toBe('1');
   });
 });

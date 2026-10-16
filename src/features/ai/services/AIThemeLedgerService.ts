@@ -8,6 +8,7 @@ import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncServ
 import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
 import { localDayKey } from '../../../core/utils/dateUtils';
+import { loadVisibleNoteKeys } from '../utils/retrieval/docSnapshot';
 
 
 export const THEME_MATCH_THRESHOLD = 0.82;
@@ -352,9 +353,16 @@ export const AIThemeLedgerService = {
     return await db.getAll('aiThemeLedger');
   },
 
+  /**
+   * R7Q-019: тема, у которой хоть одно доказательство лежит в скрытой, корзинной
+   * или пропавшей заметке, не отдаётся вовсе — дословную фразу этой заметки из
+   * summary хирургически не вырезать. Так же устроены грани профиля (W-3).
+   */
   async getActive(): Promise<ThemeRecord[]> {
     const db = await getLocalDb();
-    return await db.getAllFromIndex('aiThemeLedger', 'by-tier', 'active');
+    const rows = await db.getAllFromIndex('aiThemeLedger', 'by-tier', 'active');
+    const visible = await loadVisibleNoteKeys();
+    return rows.filter(t => t.evidence.every(e => visible.has(e.noteId)));
   },
 
   async get(id: string): Promise<ThemeRecord | undefined> {

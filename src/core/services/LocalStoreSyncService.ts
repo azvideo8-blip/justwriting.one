@@ -457,6 +457,8 @@ export function getLocalStoreSyncSummary(uid: string): { pending: number; dead: 
 
 const OVERSIZED_LS_KEY = 'ai_sync_oversized_records';
 const DEBOUNCE_DELAY_MS = 1500;
+// R7Q-006: запертый сейф повторяем не через дебаунс в 1,5 с, а через 30 с —
+// иначе это постоянный опрос на весь вечер.
 
 interface PendingSyncItem {
   store: SupportedLocalStoreName;
@@ -1068,10 +1070,22 @@ export class LocalStoreSyncManager {
           stored = await DataProvider.saveLocalStoreRecordIfUnchanged(uid, 'aiDialogues', key, headPayload, expected);
         }
         if (!stored) {
-          // Проигравшая попытка убирает ТОЛЬКО свои строки: победитель их не
-          // называет, а чужие имена он мог уже переписать своим содержимым.
+          // R7Q-005: «свои» строки проигравший писал ДО того, как их успел
+          // принять победитель: перечитав облако, тот переиспользует ровно эти
+          // ключи (байты совпали), и его head называет их. Прежнее безусловное
+          // удаление оставляло облако с head'ом на отсутствующее окно — третий
+          // читатель по такой ссылке отказывает всему диалогу, а не половине, и
+          // чинится только следующей удачной записью того же устройства. Если
+          // между удалением и починкой устройство уходит в офлайн — облако
+          // остаётся сломанным.
+          //
+          // Убираем через ту же проверку, что и cleanup победителя: текущий head
+          // перечитывается непосредственно перед удалением, названное им окно не
+          // удаляется, а остальное дополнительно держится за grace-период —
+          // строку мог как раз принять кто-то третий, кто пишет сейчас.
+          // Осиротевшие окна проигравшей попытки доживают до штатной уборки.
           if (batch.length > 0) {
-            await DataProvider.deleteLocalStoreRecordsByKeys(uid, 'aiDialogues', batch.map(p => p.key));
+            await this.deleteSafeOrphanWindows(uid, key, batch.map(p => p.key), cloud?.segments ?? []);
           }
         } else {
           if (plan.toDelete.length > 0) {
@@ -1113,11 +1127,11 @@ export class LocalStoreSyncManager {
     }
   }
 
-  private resetTimer(): void {
+  private resetTimer(delayMs = DEBOUNCE_DELAY_MS): void {
     if (this.timer) clearTimeout(this.timer);
     this.timer = setTimeout(() => {
       void this.flushPending();
-    }, DEBOUNCE_DELAY_MS);
+    }, delayMs);
   }
 
   public async flushPending(forceManual = false): Promise<{ synced: number; failed: number; skippedLocked: boolean; skippedOversized: number }> {
@@ -1144,6 +1158,9 @@ export class LocalStoreSyncManager {
     // Check encryption status: if encryption enabled but session key locked, postpone!
     if (getEncryptionEnabled(uid) && !getSessionKey()) {
       result.skippedLocked = true;
+      // R7Q-006: будильник снят на входе, а очередь полна — без этой строки
+      // правки ждали бы, пока человек снова что-нибудь наберёт.
+      if (this.pending.size > 0) this.resetTimer(30_000);
       return result;
     }
 
@@ -1177,7 +1194,12 @@ export class LocalStoreSyncManager {
     }
 
     if (this.pending.size === 0) return result;
-    if (this.isSyncing) return result;
+    if (this.isSyncing) {
+      // R7Q-006: идущий проход не увидит то, что добавилась после его чтения, и
+      // по своим итогам ничего не запланирует.
+      if (this.pending.size > 0) this.resetTimer();
+      return result;
+    }
 
     // Изменения маркеров складываются и пишутся один раз в конце: проход по
     // ручному бэкфиллу касается тысяч записей, а перечитывать и перезаписывать

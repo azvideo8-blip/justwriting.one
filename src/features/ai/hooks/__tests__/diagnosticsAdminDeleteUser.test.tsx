@@ -5,11 +5,13 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 // удаления список перечитывается (меняется users.length, эффект зовёт fetchData
 // заново), поэтому здесь перечитания висят в полёте: строка может исчезнуть
 // только потому, что её убрал сам клиент — именно это и проверяется.
-const { callAi, getUsers, showToast, confirmDialog } = vi.hoisted(() => ({
+const { callAi, getUsers, showToast, confirmDialog, reauthenticate, getCurrentUser } = vi.hoisted(() => ({
   callAi: vi.fn(async (..._args: unknown[]): Promise<unknown> => ({ success: true })),
   getUsers: vi.fn(async (): Promise<unknown> => []),
   showToast: vi.fn(),
   confirmDialog: vi.fn(async () => true),
+  reauthenticate: vi.fn(async (_email: string, _password: string) => {}),
+  getCurrentUser: vi.fn(() => ({ uid: 'admin-1', email: 'admin@example.com' })),
 }));
 
 // Остальные экспорты callAi (onAiQuotaHeaders) оставляем настоящими: стор
@@ -19,6 +21,11 @@ vi.mock('../../../../core/ai/callAi', async (importOriginal) => {
   return { ...actual, callAi: (...a: unknown[]) => callAi(...a) };
 });
 vi.mock('../../../../core/data', () => ({ DataProvider: { getUsers: () => getUsers() } }));
+vi.mock('../../../../core/auth', () => ({
+  getCurrentUser: () => getCurrentUser(),
+  reauthenticate: (email: string, password: string) => reauthenticate(email, password),
+  sendPasswordResetEmail: vi.fn(async () => {}),
+}));
 vi.mock('../../../../shared/components/Toast', () => ({ useToast: () => ({ showToast }) }));
 vi.mock('../../../../shared/components/ConfirmDialog', () => ({ useConfirmDialog: () => ({ confirm: confirmDialog }) }));
 vi.mock('../../../../shared/i18n', () => ({ useLanguage: () => ({ t: (k: string) => k }) }));
@@ -43,6 +50,8 @@ beforeEach(() => {
   deleteFails = false;
   confirmDialog.mockReset();
   confirmDialog.mockResolvedValue(true);
+  reauthenticate.mockReset();
+  reauthenticate.mockResolvedValue(undefined);
   showToast.mockClear();
   getUsers.mockImplementation(async () => {
     listCalls += 1;
@@ -74,16 +83,48 @@ describe('админка: «Удалить» пользователя', () => {
     unmount();
   });
 
-  it('подтверждение — вызов adminDeleteUser, и строка уходит из списка', async () => {
+  // R7Q-009: подтверждение диалога больше не удаляет — удаление требует свежего
+  // ввода пароля, иначе живой токен, перехваченный в обход экрана, стирает архив
+  // одним POST'ом. Сервер сверяет `amr`, клиент обязан его обновить reauth'ом.
+  it('подтверждение без пароля ничего не удаляет', async () => {
     const { result, unmount } = renderAdmin();
     await waitFor(() => expect(uids(result)).toEqual(['u-1', 'u-2']));
 
     await act(async () => { await result.current.handleDeleteUser(result.current.users[0]!); });
 
+    expect(result.current.pendingDeleteUid).toBe('u-1');
+    expect(callAi.mock.calls.some(c => c[0] === 'adminDeleteUser')).toBe(false);
+    expect(reauthenticate).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it('пароль → re-auth → adminDeleteUser, и строка уходит из списка', async () => {
+    const { result, unmount } = renderAdmin();
+    await waitFor(() => expect(uids(result)).toEqual(['u-1', 'u-2']));
+
+    await act(async () => { await result.current.handleDeleteUser(result.current.users[0]!); });
+    await act(async () => { await result.current.confirmDeleteUser(result.current.users[0]!, 'current-password'); });
+
+    expect(reauthenticate).toHaveBeenCalledWith('admin@example.com', 'current-password');
     expect(callAi).toHaveBeenCalledWith('adminDeleteUser', { uid: 'u-1' });
     await waitFor(() => expect(uids(result)).toEqual(['u-2']));
     expect(showToast).toHaveBeenCalledWith('admin_delete_user_success', 'success');
     expect(result.current.deletingUid).toBeNull();
+    expect(result.current.pendingDeleteUid).toBeNull();
+    unmount();
+  });
+
+  it('неверный пароль — удаления нет, ошибка показана у строки', async () => {
+    reauthenticate.mockRejectedValueOnce(Object.assign(new Error('Invalid login credentials'), { code: 'invalid_credentials' }));
+    const { result, unmount } = renderAdmin();
+    await waitFor(() => expect(uids(result)).toEqual(['u-1', 'u-2']));
+
+    await act(async () => { await result.current.handleDeleteUser(result.current.users[0]!); });
+    await act(async () => { await result.current.confirmDeleteUser(result.current.users[0]!, 'wrong'); });
+
+    expect(callAi).not.toHaveBeenCalledWith('adminDeleteUser', expect.anything());
+    expect(result.current.deletePasswordError).toBe('settings_delete_account_wrong_password');
+    expect(uids(result)).toEqual(['u-1', 'u-2']);
     unmount();
   });
 
@@ -93,6 +134,7 @@ describe('админка: «Удалить» пользователя', () => {
     await waitFor(() => expect(uids(result)).toEqual(['u-1', 'u-2']));
 
     await act(async () => { await result.current.handleDeleteUser(result.current.users[0]!); });
+    await act(async () => { await result.current.confirmDeleteUser(result.current.users[0]!, 'current-password'); });
 
     expect(callAi).toHaveBeenCalledWith('adminDeleteUser', { uid: 'u-1' });
     expect(showToast).toHaveBeenCalledWith('admin_delete_user_error', 'error');
@@ -110,8 +152,10 @@ describe('админка: «Удалить» пользователя', () => {
     const { result, unmount } = renderAdmin();
     await waitFor(() => expect(uids(result)).toEqual(['u-1', 'u-2']));
 
+    await act(async () => { await result.current.handleDeleteUser(result.current.users[0]!); });
+
     let done = false;
-    act(() => { void result.current.handleDeleteUser(result.current.users[0]!).then(() => { done = true; }); });
+    act(() => { void result.current.confirmDeleteUser(result.current.users[0]!, 'current-password').then(() => { done = true; }); });
     await waitFor(() => expect(result.current.deletingUid).toBe('u-1'));
     expect(uids(result)).toEqual(['u-1', 'u-2']);
 

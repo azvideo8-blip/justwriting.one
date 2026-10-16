@@ -126,6 +126,15 @@ test('2. ссылка открыта второй раз в новой вкла�
   await setPassword(second, freshPassword());
   await second.getByRole('button', { name: 'Не сейчас' }).click();
 
+  // R7F-005: «Не сейчас» ведёт на тот же шаг кода, что и «Включить». Сейф
+  // создаётся на шаге пароля независимо от ответа про облако, а код показывают
+  // один раз — прежний путь «Не сейчас → сразу редактор» означал, что человек
+  // теряет единственный показ кода и остаётся с незакрытым сейфом.
+  await expect(second.getByRole('heading', { name: 'Сохрани код восстановления' })).toBeVisible({ timeout: 30_000 });
+  await expect(second.getByText(/[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/)).toBeVisible();
+  await second.getByRole('checkbox', { name: /Я сохранил/ }).check();
+  await second.getByRole('button', { name: 'Начать писать' }).click();
+
   await expect(second.locator('textarea').first()).toBeVisible({ timeout: 30_000 });
   const uid = await uidOf(second);
   expect(await vaultInCloud(uid)).toBe(true);
@@ -147,6 +156,10 @@ test('3. обмененная ссылка в свежем браузере го
   const page2 = await other.newPage();
   await page2.goto(`/reset-password?token_hash=${token}&type=invite`);
   await expect(page2.getByText(/Эта ссылка-приглашение уже использована/)).toBeVisible({ timeout: 30_000 });
-  await expect(page2.getByText(/Если вы начали настройку в другом браузере/)).toBeVisible();
+  // Смысл, а не вся строка: формулировку правили в 0.9.41 («Если вы начали
+  // настройку…» → «Если настройка началась в другом браузере или на другом
+  // устройстве…»), а спек остался на прежнем тексте и краснел с базы партии —
+  // его никто не запускал, пока набор не поставили в ворота (R7Q-035).
+  await expect(page2.getByText(/вернись туда и заверши/)).toBeVisible();
   await other.close();
 });

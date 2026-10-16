@@ -21,6 +21,7 @@ import { useProfileStats } from '../../features/profile/hooks/useProfileStats';
 import { useSyncStatus } from '../../core/sync/useSyncStatus';
 import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
 import { useEncryptionStore } from '../../core/crypto/useEncryptionStore';
+import { useVaultPasswordOutOfSync } from '../../core/crypto/useVaultPasswordOutOfSync';
 import { useAdminStatus } from '../../features/auth/hooks/useAdminStatus';
 import { getDateLocale } from '../../core/utils/dateUtils';
 import { syncStatusText } from './syncStatusText';
@@ -45,6 +46,8 @@ function MobileStatusCard({ uid }: { uid: string | null }) {
   const entries = useActivityLogStore(st => st.entries);
   const setPanelOpen = useActivityLogStore(st => st.setPanelOpen);
   const unlocked = useEncryptionStore(st => st.isVaultUnlocked);
+  // R7F-006: тот же факт, что и плашка в настройках, — строкой в статусе профиля.
+  const vaultStale = useVaultPasswordOutOfSync(uid);
   const { isAdmin } = useAdminStatus();
 
   const errorCount = entries.filter(e => e.level === 'error').length;
@@ -58,7 +61,7 @@ function MobileStatusCard({ uid }: { uid: string | null }) {
   const rows: { label: string; value: string; dot?: boolean; onTap: () => void; href?: never }[] = [
     { label: t('sync_indicator_label'), value: syncText, dot: syncStatus.status !== 'synced' && syncStatus.status !== 'sync_off', onTap: () => void navigate('/settings#sync') },
     { label: t('activity_log_aria'), value: activityText, dot: errorCount + warnCount > 0, onTap: () => setPanelOpen(true) },
-    { label: t('me_status_vault'), value: t(unlocked ? 'me_status_vault_open' : 'me_status_vault_locked'), dot: !unlocked, onTap: () => void navigate('/settings#security') },
+    { label: t('me_status_vault'), value: t(unlocked ? (vaultStale ? 'me_status_vault_stale' : 'me_status_vault_open') : 'me_status_vault_locked'), dot: !unlocked || vaultStale, onTap: () => void navigate('/settings#security') },
   ];
   if (isAdmin) rows.push({ label: t('admin_tab_diagnostics'), value: '', dot: false, onTap: () => void navigate('/diagnostics') });
   // SA-25: точка на вкладке «Профиль» ведёт сюда — строки, где что-то не так, идут первыми

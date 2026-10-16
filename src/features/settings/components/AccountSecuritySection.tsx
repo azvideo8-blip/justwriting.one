@@ -8,6 +8,7 @@ import { reportError } from '../../../shared/errors/reportError';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { Section } from './SettingsHelpers';
 import { AccountVaultSection } from './AccountVaultSection';
+import { VaultOutOfSyncBanner } from './VaultOutOfSyncBanner';
 import { AccountAISection } from './AccountAISection';
 import { Button } from '../../../shared/components/Button';
 import { MIN_PASSWORD_LENGTH } from '../../../shared/constants/passwordPolicy';
@@ -197,6 +198,10 @@ export function AccountSecuritySection({ userId }: AccountSecuritySectionProps) 
               </Button>
             </div>
           </div>
+
+          {/* R7F-006: сейф на прежнем пароле — пока человек об этом не знает,
+              у него нет обратной дороги при смене устройства. */}
+          <VaultOutOfSyncBanner userId={userId} />
 
           {/* End-to-End Encryption Vault */}
           <AccountVaultSection userId={userId} />

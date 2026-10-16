@@ -13,6 +13,8 @@ vi.mock('../../../../shared/i18n', () => ({
 vi.mock('../../hooks/useDictation', () => ({
   useDictation: () => ({ isListening: false, phase: 'idle', toggle: vi.fn(), hasSupport: true, isVaultActive: true, aiNoticeRemaining: null }),
 }));
+// R7F-015: отметка о предупреждении теперь по аккаунту — нужен предсказуемый uid.
+vi.mock('../../../../core/auth', () => ({ getCurrentUser: () => ({ uid: 'u_mic' }) }));
 vi.mock('../../../../core/crypto/useEncryptionStore', () => ({
   useEncryptionStore: (cb: (s: { isVaultUnlocked: boolean }) => unknown) => cb({ isVaultUnlocked: enc.unlocked }),
 }));
@@ -30,7 +32,7 @@ describe('SA-25: the vault dot at the microphone', () => {
   });
 
   it('notice seen and the vault open: no dot, no yellow outline', () => {
-    localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2, '1');
+    localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2('u_mic'), '1');
     render(<MobileWriteToolbar onStop={vi.fn()} />);
     expect(dot()).toBeNull();
     expect(mic().className).not.toContain('border-accent-warning');
@@ -39,7 +41,7 @@ describe('SA-25: the vault dot at the microphone', () => {
   });
 
   it('notice seen but the vault is locked: the dot stays', () => {
-    localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2, '1');
+    localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2('u_mic'), '1');
     enc.unlocked = false;
     render(<MobileWriteToolbar onStop={vi.fn()} />);
     expect(dot()).not.toBeNull();

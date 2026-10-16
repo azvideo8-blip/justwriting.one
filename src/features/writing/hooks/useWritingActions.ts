@@ -25,6 +25,7 @@ import { reportError } from '../../../shared/errors/reportError';
 import { logger } from '../../../shared/errors/logger';
 import { emitDomainEvent } from '../../../core/events/domainEvents';
 import { isBlankTitle } from '../../../shared/utils/titleUtils';
+import { countWords } from '../../../shared/utils/countWords';
 import { getEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
 import { isVersionContentTooLarge } from '../../../core/services/VersionService';
 
@@ -75,21 +76,31 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
         }
       }
 
-      if (!content && (doc.totalWords ?? 0) > 0 && (doc.cloudId || !localId)) {
+      // R7Q-002: пустой текст — это либо «версий ещё нет», либо «заметку
+      // очистили». Отказывать только в первом случае: во втором заметка
+      // оставалась нечитаемой через «Продолжить» (страховка считала отметку
+      // `totalWords`, которая после сокращения текста остаётся большой).
+      // Проверка идёт после `!content`, чтобы на обычном пути не считать версии.
+      if (!content && !(localId && await LocalVersionService.hasVersion(localId)) && (doc.cloudId || !localId)) {
         throw new Error('Refusing to open empty editor for non-empty note');
       }
+
+      // R7Q-001: отсечка хода — по фактическому тексту, как в `useSessionContinue`.
+      // `doc.totalWords` для этого не годится: в облаке это наивысшая отметка длины
+      // (0039, W-2), и после сокращения заметки ход писался бы в ноль.
+      const baseline = countWords(content);
 
       loadDraftIntoStore({
         content,
         title: doc.title,
-        wordCount: doc.totalWords,
+        wordCount: baseline,
         savedDocumentId: localId,
         accumulatedDuration: doc.totalDuration,
         initialDuration: doc.totalDuration,
       });
 
       // Reset goals so no false "goal reached" toast fires when loading a large doc
-      useTimerStore.setState({ wordGoal: 0, timerDuration: 0, sessionStartWords: doc.totalWords });
+      useTimerStore.setState({ wordGoal: 0, timerDuration: 0, sessionStartWords: baseline });
       useContentStore.getState().setTags(doc.tags);
       useContentStore.getState().setLabelId(doc.labelId);
       flow.setSetupMode(null);

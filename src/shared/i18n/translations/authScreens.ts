@@ -589,8 +589,10 @@ export const authScreensTranslations: Translations = {
     en: 'Save your recovery code',
   },
   invite_wizard_recovery_desc: {
-    ru: 'Если забудете пароль, этот код — единственный способ открыть заметки из облака. Мы его не храним и показываем один раз.',
-    en: 'If you forget your password, this code is the only way to open notes from the cloud. We do not store it and show it only once.',
+    // R7F-005: сейф защищает и локальные заметки — «открыть заметки из облака»
+    // было неверным обоснованием, по которому код можно было не показывать.
+    ru: 'Если забудете пароль, без этого кода не открыть сейф — ни заметки в облаке, ни на этом устройстве. Мы его не храним и показываем один раз.',
+    en: 'If you forget your password, this code is the only way to open the vault — both your notes in the cloud and on this device. We do not store it and show it only once.',
   },
   invite_wizard_copied: {
     ru: 'Скопировано',
@@ -603,10 +605,6 @@ export const authScreensTranslations: Translations = {
   invite_wizard_download: {
     ru: 'Скачать',
     en: 'Download',
-  },
-  invite_wizard_download_file_content: {
-    ru: 'Код восстановления justwriting\n\n{recoveryCode}\n\nОн нужен, если забудете пароль: без него зашифрованные заметки не открыть.\n',
-    en: 'justwriting recovery code\n\n{recoveryCode}\n\nNeeded if you forget your password: without it, encrypted notes cannot be opened.\n',
   },
   invite_wizard_saved_checkbox: {
     ru: 'Я сохранил(а) код в надёжном месте',

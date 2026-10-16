@@ -288,7 +288,7 @@ describe('M-5: выгрузка head’ом и сегментами', () => {
     expect(heads(await localDialogue(d.id))).toEqual(['Вопрос', 'Ответ', 'Новый', 'Новый']);
   });
 
-  it('проигравший CAS убирает СВОИ строки и повторяет союз: ни один ход не потерян', async () => {
+  it('проигравший CAS не сносит окна, которые мог принять победитель, и повторяет союз: ни один ход не потерян', async () => {
     const d = await bigDialogue();
     await flush();
     const winner = new Map([...cloud]);
@@ -302,11 +302,24 @@ describe('M-5: выгрузка head’ом и сегментами', () => {
     casResult = true;
 
     expect(r.failed, 'выгрузка не должна считаться успешной').toBe(1);
-    // Облако не тронуто победителем, а свои строки проигравший снёс.
-    for (const k of segKeys(d.id)) expect(winner.has(rowKey('aiDialogues', k)), `строка победителя удалена: ${k}`).toBe(true);
-    const leftovers = segKeys(d.id).filter(k => !before.includes(k));
-    expect(leftovers, `осиротевшие строки проигравшего: ${leftovers.join(', ')}`).toEqual([]);
+    // Облако победителя не тронуто. Сверяем по снимку победителя, а не по
+    // текущему списку строк: с R7Q-005 строки проигравшего остаются живыми, и
+    // «каждая текущая строка была у победителя» больше не то, что проверяется.
+    for (const k of [...winner.keys()]) expect(cloud.has(k), `строка победителя удалена: ${k}`).toBe(true);
     expect(headPayload(d.id).updatedAt, 'head победителя перезаписан').toBe(winner.get(rowKey('aiDialogues', d.id))!.payload.updatedAt);
+
+    // R7Q-005: строки проигравшей попытки сразу не сносятся. Проигравший не может
+    // знать, успел ли победитель перечитать облако и принять ровно их (байты
+    // совпадают — план переиспользует), а безусловное удаление оставляло head на
+    // отсутствующее окно, и третий читатель отказывал всему диалогу. Названное
+    // текущим head'ом не удаляется, неназванное доживает до штатной уборки после
+    // grace-периода (это проверяет dialogueUploadPaged.s49 и новый
+    // dialogueCasLoserWindows.r7q005).
+    const leftovers = segKeys(d.id).filter(k => !before.includes(k));
+    expect(leftovers.length, `окно проигравшей попытки не осталось в облаке: ${before.join(', ')} → ${segKeys(d.id).join(', ')}`)
+      .toBeGreaterThan(0);
+    const named = new Set((headPayload(d.id).segments as Array<{ key: string }>).map(s => s.key));
+    for (const k of named) expect(cloud.has(rowKey('aiDialogues', k)), `head называет мёртвую строку ${k}`).toBe(true);
 
     // Штатный повтор доводит дело: ход в облаке, head свежий.
     const r2 = await flushRaw();

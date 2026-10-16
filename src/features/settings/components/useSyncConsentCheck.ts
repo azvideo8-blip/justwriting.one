@@ -57,7 +57,12 @@ export function useSyncConsentCheck(suspended = false) {
       }
     };
 
-    void checkLocalDocs();
+    // R7Q-015: в Safari с «блокировать все файлы cookie» любое обращение к
+    // localStorage бросает SecurityError. Без этой рамки async-функция
+    // отвергалась необработанно, showConsent так и не становился true, и на новом
+    // устройстве вопрос про облачную синхронизацию не задавался ни сейчас, ни
+    // позже. Отказ хранилища значит «ключа нет», а он ведёт к показу.
+    void checkLocalDocs().catch(() => setShowConsent(true));
     return () => { cancelled = true; };
   }, [user, isAuthenticated, isGuest, authState, suspended]);
 

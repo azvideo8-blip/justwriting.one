@@ -7,11 +7,12 @@ import { InviteWizard } from '../components/InviteWizard';
 import { isAccountReloadPending, reloadForAccountChange } from '../../../core/auth/accountReload';
 import { passwordErrorKind, type PasswordErrorKind } from '../utils/passwordErrorKind';
 import { useLanguage } from '../../../shared/i18n';
+import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 
 // Смена аккаунта перезагружает страницу (accountReload.ts). Две отметки
 // переживают эту перезагрузку: ссылка уже обменена (второй обмен ответил бы
 // «ссылка устарела») и пароль уже изменён.
-const exchangedKey = (hash: string) => `jw_link_exchanged_${hash}`;
+const exchangedKey = (hash: string) => `${STORAGE_KEYS.LINK_EXCHANGED_PREFIX}${hash}`;
 const RESET_DONE_KEY = 'jw_password_reset_done';
 // 2026-10-05: отметка обмена — в localStorage, а не только в sessionStorage.
 // Ссылку из письма часто открывают второй раз — новой вкладкой, где

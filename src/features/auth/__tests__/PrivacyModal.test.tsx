@@ -62,13 +62,13 @@ describe('PrivacyModal (AG-ONBOARD-3)', () => {
 
     fireEvent.click(submitBtn);
 
-    await waitFor(() => {
-      expect(DataProvider.updateProfile).toHaveBeenCalledWith('user_123', expect.objectContaining({
-        privacyVersion: AI_CONSENT_VERSION_REQUIRED,
-        aiConsentAt: null,
-        aiConsentVersion: null,
-      }));
-    });
+    // R7F-004: незаложенная галка ИИ не пишет `aiConsentAt: null` — это не отзыв
+    // уже данного согласия (раньше запись стирала его и серверного свидетеля).
+    await waitFor(() => expect(DataProvider.updateProfile).toHaveBeenCalled());
+    const payload = (vi.mocked(DataProvider.updateProfile).mock.calls[0] as [string, Record<string, unknown>])[1];
+    expect(payload.privacyVersion).toBe(AI_CONSENT_VERSION_REQUIRED);
+    expect('aiConsentAt' in payload).toBe(false);
+    expect('aiConsentVersion' in payload).toBe(false);
 
     expect(localStorage.getItem('privacy_accepted_user_123')).toBe(String(AI_CONSENT_VERSION_REQUIRED));
     expect(onAccepted).toHaveBeenCalledTimes(1);

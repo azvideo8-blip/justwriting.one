@@ -1,5 +1,6 @@
 import { getLocalDb } from '../../../../core/storage/localDb';
 import type { LocalDocument, AIDocumentSummary } from '../../../../core/storage/localDb';
+import { isExcludedFromAI } from '../isExcludedFromAI';
 
 /**
  * X-5: снимки хранилищ на один вызов поиска.
@@ -20,4 +21,23 @@ export async function loadSummarySnapshot(): Promise<Map<string, AIDocumentSumma
   const db = await getLocalDb();
   const summaries = await db.getAll('aiSummaries');
   return new Map(summaries.map(s => [s.documentId, s]));
+}
+
+/**
+ * R7Q-019/R7F-010: номера заметок, доступных ИИ, — и локальный id, и постоянный
+ * uuid. Производные (хронология, доказательства тем, сюжетные линии) ссылаются на
+ * заметку то одним, то другим, а на второе устройство строка приезжает с чужим
+ * локальным id — там «заметки нет», и по тому же правилу S-51 она не показывается.
+ * Снимок читается на каждый ход, поэтому сокрытие заметки видно сразу, даже если
+ * чистка производных на этом устройстве не дошла.
+ */
+export async function loadVisibleNoteKeys(): Promise<Set<string>> {
+  const db = await getLocalDb();
+  const keys = new Set<string>();
+  for (const d of await db.getAll('documents')) {
+    if (isExcludedFromAI(d)) continue;
+    if (d.id) keys.add(d.id);
+    if (d.uuid) keys.add(d.uuid);
+  }
+  return keys;
 }

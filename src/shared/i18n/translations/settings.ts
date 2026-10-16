@@ -166,6 +166,11 @@ export const settingsTranslations: Translations = {
   settings_lock_vault: { ru: 'Заблокировать сейф', en: 'Lock Vault' },
   settings_vault_unlocked: { ru: 'Сейф разблокирован', en: 'Vault Unlocked' },
   settings_vault_unlocked_desc: { ru: 'Ты можешь расшифровать и редактировать зашифрованные заметки. Также можно зашифровать все существующие незашифрованные заметки.', en: 'You can decrypt and edit encrypted notes. You can also encrypt all existing unencrypted notes.' },
+  // R7F-006: молчащий сейф на прежнем пароле — самая дорогая из находок: обратная
+  // дорога закрывается в момент потери устройства, и человек об этом не знает.
+  vault_out_of_sync_title: { ru: 'Сейф всё ещё на прежнем пароле', en: 'The vault is still on your old password' },
+  vault_out_of_sync_desc: { ru: 'Пароль входа сброшен по почте, а сейф открылся ключом устройства. Новое устройство попросит прежний пароль — успейте выпустить код восстановления.', en: 'Your sign-in password was reset by e-mail, but this device opened the vault with its saved key. A new device will ask for the old password — issue a recovery code while you still can.' },
+  vault_out_of_sync_needs_password: { ru: 'Ключ устройства не выгружается — код выпускается по прежнему паролю сейфа, в разделе ниже.', en: "This device's key cannot be exported — the code needs the vault's previous password, in the section below." },
   settings_passwords_dont_match: { ru: 'Пароли не совпадают.', en: 'Passwords do not match.' },
   settings_export_all_desc: { ru: 'Скачать все заметки одним ZIP-архивом (отдельные .txt файлы без разметки).', en: 'Download all notes as a single ZIP archive (separate .txt files without markup).' },
   settings_export_all_button: { ru: 'Экспортировать всё в ZIP', en: 'Export all to ZIP' },

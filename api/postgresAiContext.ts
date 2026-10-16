@@ -50,6 +50,25 @@ const EFFECTIVE_TOKEN_LIMIT = DAILY_SPEND_LIMIT_RUB != null && DAILY_SPEND_LIMIT
   ? Math.min(GLOBAL_TOKEN_LIMIT, Math.floor((DAILY_SPEND_LIMIT_RUB / RUB_PER_1M_TOKENS) * 1_000_000))
   : GLOBAL_TOKEN_LIMIT;
 
+/**
+ * Резерв глобального дневного бюджета одним стейтментом.
+ *
+ * R7Q-024(b): условие денежного потолка стоит и на вставке первого запроса дня
+ * (`SELECT … WHERE $3 <= $4`), а не только в ветке `ON CONFLICT … WHERE`: иначе
+ * одна оценка входа при низком AI_DAILY_SPEND_LIMIT_RUB съедала весь суточный
+ * бюджет. Пустой RETURNING = отказ, как при переполнении.
+ */
+export const RESERVE_GLOBAL_REQUEST_SQL = `
+       INSERT INTO public.ai_global_daily (date, call_count, tokens)
+       SELECT $1, 1, $3::int
+        WHERE $3::int <= $4::bigint
+       ON CONFLICT (date) DO UPDATE SET
+         call_count = public.ai_global_daily.call_count + 1,
+         tokens     = coalesce(public.ai_global_daily.tokens, 0) + $3::int
+       WHERE public.ai_global_daily.call_count < $2::int
+         AND coalesce(public.ai_global_daily.tokens, 0) + $3::int <= $4::bigint
+       RETURNING coalesce(tokens, 0) AS tokens_reserved`;
+
 async function tryReserveGlobalRequest(allowance = 8192): Promise<GlobalReservation | null | { error: 'unavailable' }> {
   const date = today();
   try {
@@ -57,14 +76,7 @@ async function tryReserveGlobalRequest(allowance = 8192): Promise<GlobalReservat
     // после инкремента call_count, и N конкурентных запросов видели один и тот
     // же устаревший остаток — потолок был мягким под нагрузкой.
     const res = await pool.query(
-      `INSERT INTO public.ai_global_daily (date, call_count, tokens)
-       VALUES ($1, 1, $3::int)
-       ON CONFLICT (date) DO UPDATE SET
-         call_count = public.ai_global_daily.call_count + 1,
-         tokens     = coalesce(public.ai_global_daily.tokens, 0) + $3::int
-       WHERE public.ai_global_daily.call_count < $2::int
-         AND coalesce(public.ai_global_daily.tokens, 0) + $3::int <= $4::bigint
-       RETURNING coalesce(tokens, 0) AS tokens_reserved`,
+      RESERVE_GLOBAL_REQUEST_SQL,
       [date, GLOBAL_DAILY_LIMIT, allowance, EFFECTIVE_TOKEN_LIMIT],
     );
     if (res.rows.length === 0) {
@@ -267,36 +279,10 @@ async function checkAndIncrementBulkLimit(
   // Окно и счётчик двигаются одним стейтментом: если окно истекло — оно
   // начинается заново со счётчиком 1, иначе счётчик растёт внутри текущего.
   //
-  // Если запрос упал (таблицы ещё нет — миграция накатывается отдельно от
-  // выкатки службы, — или база моргнула), окно пропускается, а суточный
-  // потолок ниже остаётся в силе. Уронить весь фоновый ИИ из-за недоступного
-  // ограничителя частоты хуже, чем на время не ограничивать частоту; но молча
-  // это происходить не должно, поэтому в журнал уходит громкая строка.
-  try {
-    const { rows } = await pool.query(
-      `INSERT INTO public.ai_bulk_cooldown (uid, endpoint, window_start, calls)
-       VALUES ($1, $3, now(), 1)
-       ON CONFLICT (uid, endpoint) DO UPDATE SET
-         window_start = CASE
-           WHEN public.ai_bulk_cooldown.window_start < now() - ($2 || ' milliseconds')::interval
-           THEN now() ELSE public.ai_bulk_cooldown.window_start END,
-         calls = CASE
-           WHEN public.ai_bulk_cooldown.window_start < now() - ($2 || ' milliseconds')::interval
-           THEN 1 ELSE public.ai_bulk_cooldown.calls + 1 END
-       RETURNING calls`,
-      [uid, String(BULK_WINDOW_MS), endpoint],
-    );
-    if (Number(rows[0]?.calls ?? 1) > BULK_MAX_PER_WINDOW) return 'RATE_LIMIT';
-  } catch (e: unknown) {
-    if (pgCode(e) === '23503') {
-      return { ok: false, day: today(), reason: 'unauthorized' };
-    }
-    console.error(
-      '[postgresAiContext] AUD-18 bulk window unavailable — rate limiting is OFF, ' +
-      'daily cap still applies. Apply supabase/migrations/0022_ai_bulk_cooldown.sql.',
-      e,
-    );
-  }
+  // R7Q-024(a): двигаются они в ОДНОЙ транзакции с суточным потолком. Прежний
+  // upsert окна коммитился до проверки дневного лимита, и каждый отказ
+  // `limit_exceeded` сжигал слот частотного окна — фоновые проходы, упёршиеся
+  // в потолок, лишались бюджета окна целиком.
   let client;
   try {
     client = await pool.connect();
@@ -315,6 +301,43 @@ async function checkAndIncrementBulkLimit(
 
   try {
     await client.query('BEGIN');
+    // Если таблицы ограничителя нет (миграция накатывается отдельно от выкатки
+    // службы) или база моргнула — окно пропускается, суточный потолок ниже
+    // остаётся в силе: уронить весь фоновый ИИ из-за недоступного счётчика
+    // частоты хуже, чем на время не ограничивать частоту. Молча это происходить
+    // не должно, поэтому строка в журнал уходит громкая, а сама вставка
+    // откатывается к savepoint — аборт транзакции съел бы и суточную проверку.
+    await client.query('SAVEPOINT bulk_window');
+    try {
+      const { rows } = await client.query(
+        `INSERT INTO public.ai_bulk_cooldown (uid, endpoint, window_start, calls)
+         VALUES ($1, $3, now(), 1)
+         ON CONFLICT (uid, endpoint) DO UPDATE SET
+           window_start = CASE
+             WHEN public.ai_bulk_cooldown.window_start < now() - ($2 || ' milliseconds')::interval
+             THEN now() ELSE public.ai_bulk_cooldown.window_start END,
+           calls = CASE
+             WHEN public.ai_bulk_cooldown.window_start < now() - ($2 || ' milliseconds')::interval
+             THEN 1 ELSE public.ai_bulk_cooldown.calls + 1 END
+         RETURNING calls`,
+        [uid, String(BULK_WINDOW_MS), endpoint],
+      );
+      if (Number(rows[0]?.calls ?? 1) > BULK_MAX_PER_WINDOW) {
+        await client.query('ROLLBACK');
+        return 'RATE_LIMIT';
+      }
+    } catch (e: unknown) {
+      if (pgCode(e) === '23503') {
+        await client.query('ROLLBACK');
+        return { ok: false, day: today(), reason: 'unauthorized' };
+      }
+      await client.query('ROLLBACK TO SAVEPOINT bulk_window');
+      console.error(
+        '[postgresAiContext] AUD-18 bulk window unavailable — rate limiting is OFF, ' +
+        'daily cap still applies. Apply supabase/migrations/0022_ai_bulk_cooldown.sql.',
+        e,
+      );
+    }
     const date = today();
     const resolvedKind = kind ?? (endpoint === 'chat' ? 'internal_chat' : 'bulk');
     const limit = resolvedKind === 'internal_chat' ? INTERNAL_CHAT_DAILY_LIMIT : BULK_LIMIT;

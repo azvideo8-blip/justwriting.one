@@ -30,6 +30,15 @@ export const INTERNAL_CALL_RESTRICTIONS: InternalCallRestrictions = {
 
 export const INTERNAL_CALL_MAX_INPUT_CHARS = 4000;
 
+/**
+ * R7Q-018: потолок входа `system_task`. Он выше общего для внутренних вызовов,
+ * потому что легитимный самый большой клиент здесь — дайджест диалога: 10 окон
+ * по `API_MSG_CAP` (9 500) = 95 000 знаков. Без потолка один аккаунт мог
+ * зарезервировать на вызов оценку входа до 200 000 знаков и сделать 60 таких
+ * вызовов в день из пула `internal_chat`.
+ */
+export const SYSTEM_TASK_MAX_INPUT_CHARS = 100_000;
+
 export function isInternalCall(callType: InternalCallType | null | undefined): boolean {
   return callType !== undefined && callType !== null;
 }
@@ -75,13 +84,16 @@ export function validateInternalCallRestrictions(params: {
     throw err('System prompt not allowed for this internal call.');
   }
 
-  // DA-2: ограничить размер входа внутренних вызовов суммарно ≤ 4000 символов
-  if (!isSystemTask) {
+  // DA-2: ограничить размер входа внутренних вызовов суммарно ≤ 4000 символов.
+  // R7Q-018: у `system_task` своя, более высокая планка — до неё он был единственным
+  // внутренним вызовом без границы входа при самом большом резерве на вызов.
+  const inputCap = isSystemTask ? SYSTEM_TASK_MAX_INPUT_CHARS : INTERNAL_CALL_MAX_INPUT_CHARS;
+  {
     const totalChars = (params.messages as Array<{ content?: unknown }>).reduce((sum, m) => {
       return sum + (typeof m?.content === 'string' ? m.content.length : 0);
     }, 0);
-    if (totalChars > INTERNAL_CALL_MAX_INPUT_CHARS) {
-      throw err(`Total input length exceeds ${INTERNAL_CALL_MAX_INPUT_CHARS} characters for internal call.`);
+    if (totalChars > inputCap) {
+      throw err(`Total input length exceeds ${inputCap} characters for internal call.`);
     }
   }
 

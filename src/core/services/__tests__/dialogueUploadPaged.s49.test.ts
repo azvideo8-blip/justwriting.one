@@ -267,11 +267,28 @@ describe('S-49: dialogues over one page merge and write with a condition too', (
     expect(texts, `ход потерян: ${JSON.stringify(texts)}`).toEqual(['Общий вопрос', 'Общий ответ', 'Вопрос с B', 'Ответ с B', 'Вопрос с A', 'Ответ с A']);
     const headAfter = cloud.get(rowKey('aiDialogues', d.id))!.payload as { head: boolean; segments: Array<{ key: string }> };
     expect(headAfter.head, 'победитель оставил манифест вместо head').toBe(true);
-    // M-5: чистятся обе ветки — и осиротевшие сегменты проигравшей попытки, и
-    // страницы legacy-копии, на которую наехал CAS.
     const named = new Set(headAfter.segments.map(s => s.key));
-    for (const k of cloudKeys(d.id).filter(x => x.includes('@seg'))) expect(named.has(k), `head не называет ${k}`).toBe(true);
+    // R7Q-005: названная head'ом строка обязана быть в облаке. Ссылка на
+    // отсутствующее окно стоит третьему читателю отказа по всему диалогу.
+    for (const k of named) expect(cloudKeys(d.id).includes(k), `head называет ${k}, а строки нет`).toBe(true);
+    // M-5: страницы legacy-копии, на которую наехал CAS, убираются сразу — их
+    // не называет никто и никогда.
     expect(cloudKeys(d.id).filter(k => k.includes('#')), `страницы остались: ${cloudKeys(d.id).join(', ')}`).toEqual([]);
+    // А вот окно проигравшей попытки, которого head не назвал, сразу не уходит:
+    // проигравший не может знать, принял ли его победитель (это и был R7Q-005),
+    // поэтому он проходит через ту же проверку, что и cleanup победителя —
+    // названное не трогает, свежее держит grace. Окно обязано исчезнуть, когда
+    // grace прошёл, иначе это не уборка, а свалка.
+    const orphans = cloudKeys(d.id).filter(x => x.includes('@seg') && !named.has(x));
+    expect(orphans.length, `осиротевших окон: ${orphans.join(', ')}`).toBe(1);
+    for (const k of orphans) {
+      const row = cloud.get(rowKey('aiDialogues', k))!;
+      row.stamped_at = T('09:40');
+    }
+    LocalStoreSyncService.scheduleStoreSync('aiDialogues', d.id);
+    await flush();
+    expect(cloudKeys(d.id).filter(x => x.includes('@seg') && !named.has(x)), 'окно не ушло после grace')
+      .toEqual([]);
   });
 
   it('сжатие обратно под размер строки оставляет формат head и убирает лишние строки', async () => {

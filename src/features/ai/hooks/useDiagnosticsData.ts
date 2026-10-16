@@ -12,7 +12,7 @@ import { useToast } from '../../../shared/components/Toast';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { useLanguage } from '../../../shared/i18n';
 import { UserProfile, AdminUserItem } from '../../../types';
-import { getCurrentUser, sendPasswordResetEmail } from '../../../core/auth';
+import { getCurrentUser, reauthenticate, sendPasswordResetEmail } from '../../../core/auth';
 import { reportError } from '../../../shared/errors/reportError';
 import { useAdminStatus } from '../../auth/hooks/useAdminStatus';
 
@@ -91,6 +91,11 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
   const [invitingUser, setInvitingUser] = useState(false);
   const [sendingResetEmail, setSendingResetEmail] = useState<string | null>(null);
   const [deletingUid, setDeletingUid] = useState<string | null>(null);
+  // R7Q-009: перед удалением админ вводит свой пароль — сервер сверяет свежий
+  // ввод по claim'у `amr` (AUD-20), и живым токеном в обход экрана архив уже
+  // не стереть. До подтверждения сервер не вызывается вовсе.
+  const [pendingDeleteUid, setPendingDeleteUid] = useState<string | null>(null);
+  const [deletePasswordError, setDeletePasswordError] = useState<string | null>(null);
 
   const fetchAIUsage = useCallback(async () => {
     setAiUsageLoading(true);
@@ -481,15 +486,39 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       destructive: true,
     });
     if (!ok) return;
+    setDeletePasswordError(null);
+    setPendingDeleteUid(user.uid);
+  };
+
+  const cancelDeleteUser = () => {
+    setPendingDeleteUid(null);
+    setDeletePasswordError(null);
+  };
+
+  const confirmDeleteUser = async (user: AdminUserItem, password: string) => {
+    if (!password) return;
+    const label = user.email || user.uid;
     setDeletingUid(user.uid);
+    setDeletePasswordError(null);
     try {
+      // Свежий ввод: без него `dispatcher` отвечает 403 REAUTH_REQUIRED.
+      const email = getCurrentUser()?.email;
+      if (!email) throw new Error('REAUTH_FAILED');
+      await reauthenticate(email, password);
       await AdminUserService.deleteUser(user.uid);
+      setPendingDeleteUid(null);
       showToast(t('admin_delete_user_success', { email: label }), 'success');
       setUsers(prev => prev.filter(u => u.uid !== user.uid));
     } catch (e: unknown) {
       reportError(e, { action: 'adminDeleteUser' });
-      const errMsg = e instanceof Error ? e.message : 'Ошибка сервера';
-      showToast(t('admin_delete_user_error', { error: errMsg }), 'error');
+      const err = (e ?? {}) as { code?: string; message?: string };
+      if (err.code === 'invalid_credentials' || /invalid login credentials/i.test(err.message ?? '')) {
+        // Пароль не подошёл — удаляемый аккаунт не тронут, просим ввести заново.
+        setDeletePasswordError(t('settings_delete_account_wrong_password'));
+      } else {
+        const errMsg = e instanceof Error ? e.message : 'Ошибка сервера';
+        showToast(t('admin_delete_user_error', { error: errMsg }), 'error');
+      }
     } finally {
       setDeletingUid(null);
     }
@@ -514,6 +543,10 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     users,
     invitingUser,
     sendingResetEmail,
+    pendingDeleteUid,
+    deletePasswordError,
+    cancelDeleteUser,
+    confirmDeleteUser,
     deletingUid,
     handleDeleteUser,
     handleInviteUser,

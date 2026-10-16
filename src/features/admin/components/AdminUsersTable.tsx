@@ -13,8 +13,66 @@ interface AdminUsersTableProps {
   sendingResetEmail?: string | null;
   onDeleteUser?: (user: AdminUserItem) => void;
   deletingUid?: string | null;
+  /** R7Q-009: строка, для которой админ уже подтвердил удаление и должен ввести пароль. */
+  pendingDeleteUid?: string | null;
+  onDeleteUserConfirm?: (user: AdminUserItem, password: string) => void;
+  onDeleteUserCancel?: () => void;
+  deletePasswordError?: string | null;
   /** Свою строку удалить нельзя — для этого удаление аккаунта в настройках. */
   currentUid?: string | null;
+}
+
+/**
+ * R7Q-009: необратимое удаление чужого архива требует свежего ввода пароля —
+ * ровно того же барьера, что и самоудаление (AUD-20). Форму держит этот компонент,
+ * чтобы введённый текст не жил в состоянии списка.
+ */
+function DeleteReauthForm({
+  busy, error, onConfirm, onCancel,
+}: {
+  busy: boolean;
+  error: string | null;
+  onConfirm: (password: string) => void;
+  onCancel: () => void;
+}) {
+  const { t } = useLanguage();
+  const [password, setPassword] = React.useState('');
+
+  return (
+    <form
+      className="flex flex-col gap-2"
+      onSubmit={(e) => { e.preventDefault(); if (password && !busy) onConfirm(password); }}
+    >
+      <label className="text-xs text-text-main/70">{t('admin_delete_user_confirm_title')}</label>
+      <input
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        placeholder={t('settings_delete_account_password_placeholder')}
+        aria-label={t('settings_delete_account_password_placeholder')}
+        autoComplete="current-password"
+        className="px-2 py-1.5 rounded-lg text-xs outline-none bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-[var(--brand-soft)]/40"
+      />
+      {error && <p role="alert" className="text-xs text-accent-danger">{error}</p>}
+      <div className="flex items-center gap-2">
+        <button
+          type="submit"
+          disabled={busy || !password}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-accent-danger/40 text-accent-danger hover:border-accent-danger/70 transition-colors disabled:opacity-40"
+        >
+          {busy ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+          {t('admin_delete_user_btn')}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-2 py-1.5 rounded-lg text-xs text-text-main/60 hover:text-text-main transition-colors"
+        >
+          {t('writing_cancel')}
+        </button>
+      </div>
+    </form>
+  );
 }
 
 export function AdminUsersTable({
@@ -25,6 +83,10 @@ export function AdminUsersTable({
   sendingResetEmail,
   onDeleteUser,
   deletingUid,
+  pendingDeleteUid,
+  onDeleteUserConfirm,
+  onDeleteUserCancel,
+  deletePasswordError,
   currentUid,
 }: AdminUsersTableProps) {
   const { t } = useLanguage();
@@ -109,7 +171,15 @@ export function AdminUsersTable({
                         {t('admin_reset_password_btn')}
                       </button>
                     )}
-                    {onDeleteUser && u.role !== 'admin' && !u.service && u.uid !== currentUid && (
+                    {onDeleteUser && pendingDeleteUid === u.uid && onDeleteUserConfirm && (
+                      <DeleteReauthForm
+                        busy={deletingUid === u.uid}
+                        error={deletePasswordError ?? null}
+                        onConfirm={(password) => onDeleteUserConfirm(u, password)}
+                        onCancel={() => onDeleteUserCancel?.()}
+                      />
+                    )}
+                    {onDeleteUser && u.role !== 'admin' && !u.service && u.uid !== currentUid && pendingDeleteUid !== u.uid && (
                       <button
                         type="button"
                         onClick={() => onDeleteUser(u)}

@@ -21,7 +21,11 @@ export function initAiDomainEvents(): () => void {
 
   const unsub = onDomainEvent(async (e) => {
     switch (e.type) {
-      case 'note.deleted': {
+      // R7F-010: корзина — то же исключение из ИИ (`isExcludedFromAI` читает
+      // trashedAt), а убирала производные только явная «скрыть от ИИ». Заметка,
+      // положенная в корзину, продолжала поставлять факты и цитаты в подсказки.
+      case 'note.deleted':
+      case 'note.trashed': {
         const [{ NoteAnalysisService }, { invalidateMiniSearchCache }] = await Promise.all([
           import('./services/NoteAnalysisService'),
           import('./utils/noteRetriever'),

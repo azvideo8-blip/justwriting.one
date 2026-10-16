@@ -14,6 +14,8 @@ let poolResult: { rows: unknown[] } = { rows: [{ tokens_reserved: 8192 }] };
 let poolShouldThrow: Error | null = null;
 let poolConnectShouldThrow: Error | null = null;
 let clientQueryShouldThrow: Error | null = null;
+/** Бросать только на запросах, подходящих под предикат (окно частоты живёт в транзакции). */
+let clientThrowsWhen: ((text: string) => boolean) | null = null;
 let clientResults: Array<{ rows: unknown[] }> = [];
 let clientRole: string | null = 'user';
 
@@ -32,6 +34,7 @@ vi.mock('pg', () => {
         removeListener: vi.fn().mockReturnThis(),
         query: vi.fn(async (text: string, params?: unknown[]) => {
           clientQueries.push({ text, params: params ?? [] });
+          if (clientThrowsWhen?.(text)) throw new Error('relation "ai_bulk_cooldown" does not exist');
           if (clientQueryShouldThrow) throw clientQueryShouldThrow;
           // R10-8: роль читается на том же соединении, но слот clientResults не
           // тратит — иначе фикстуры со счётчиками разъезжаются на один запрос.
@@ -57,6 +60,7 @@ beforeEach(() => {
   poolShouldThrow = null;
   poolConnectShouldThrow = null;
   clientQueryShouldThrow = null;
+  clientThrowsWhen = null;
   clientResults = [];
   clientRole = 'user';
 });
@@ -186,7 +190,7 @@ describe('2.19 refunds target the charged day', () => {
   });
 
   it('checkAndIncrementBulkLimit returns a verdict object with day', async () => {
-    clientResults = [{ rows: [{ call_count: 1 }] }];
+    clientResults = [{ rows: [] }, { rows: [] }, { rows: [{ calls: 1 }] }, { rows: [{ call_count: 1 }] }];
     const verdict = await postgresAiContext.checkAndIncrementBulkLimit('u1');
     if (typeof verdict !== 'object' || verdict === null || !('ok' in verdict)) throw new Error('expected success');
     expect(verdict.ok).toBe(true);
@@ -201,42 +205,59 @@ describe('2.19 refunds target the charged day', () => {
 // postgresAiContext). Фальсификация: снять проверку счётчика — второй тест
 // перестаёт получать RATE_LIMIT.
 describe('AUD-18 bulk interval limit', () => {
+  // R7Q-024(a): окно двигается на том же соединении и в той же транзакции, что и
+  // суточный счётчик, поэтому фикстура читает clientResults: [0] — окно, [1] —
+  // дневной счётчик, а проверки идут по clientQueries.
   it('moves a per-(uid, endpoint) sliding window before charging the daily limit', async () => {
-    poolResult = { rows: [{ calls: 1 }] };
-    clientResults = [{ rows: [{ call_count: 1 }] }];
-    await postgresAiContext.checkAndIncrementBulkLimit('u1', 'rerank');
+    // BEGIN, SAVEPOINT, окно, суточный счётчик — слоты тратятся по порядку.
+    clientResults = [{ rows: [] }, { rows: [] }, { rows: [{ calls: 1 }] }, { rows: [{ call_count: 1 }] }];
+    const verdict = await postgresAiContext.checkAndIncrementBulkLimit('u1', 'rerank');
+    expect(verdict).toEqual({ ok: true, day: TODAY });
 
-    expect(poolQueries[0]!.text).toMatch(/INSERT INTO (public\.)?ai_bulk_cooldown \(uid, endpoint, window_start, calls\)/);
-    expect(poolQueries[0]!.text).toMatch(/ON CONFLICT \(uid, endpoint\)/);
-    expect(poolQueries[0]!.text).toMatch(/window_start < now\(\) - \(\$2 \|\| ' milliseconds'\)::interval/);
-    expect(poolQueries[0]!.text).toMatch(/THEN 1 ELSE (public\.)?ai_bulk_cooldown\.calls \+ 1 END/);
-    expect(poolQueries[0]!.params).toEqual(['u1', expect.any(String), 'rerank']);
+    const window = clientQueries.find(q => /ai_bulk_cooldown/.test(q.text));
+    const daily = clientQueries.find(q => /ai_daily_limit/.test(q.text));
+    expect(window?.text).toMatch(/INSERT INTO (public\.)?ai_bulk_cooldown \(uid, endpoint, window_start, calls\)/);
+    expect(window?.text).toMatch(/ON CONFLICT \(uid, endpoint\)/);
+    expect(window?.text).toMatch(/window_start < now\(\) - \(\$2 \|\| ' milliseconds'\)::interval/);
+    expect(window?.text).toMatch(/THEN 1 ELSE (public\.)?ai_bulk_cooldown\.calls \+ 1 END/);
+    expect(window?.params).toEqual(['u1', expect.any(String), 'rerank']);
+    // И то, и другое — внутри одной транзакции: BEGIN раньше окна, окно раньше
+    // дневного счётчика, COMMIT последним.
+    expect(clientQueries[0]?.text).toBe('BEGIN');
+    expect(daily?.text).toMatch(/INSERT INTO (public\.)?ai_daily_limit/);
+    expect(clientQueries.findIndex(q => /ai_bulk_cooldown/.test(q.text)))
+      .toBeLessThan(clientQueries.findIndex(q => /ai_daily_limit/.test(q.text)));
+    expect(clientQueries.at(-1)?.text).toBe('COMMIT');
   });
 
   it('lets a burst through inside the window budget', async () => {
     // Двадцатый вызов в окне ещё проходит: индексация и поиск бурстят.
-    poolResult = { rows: [{ calls: 20 }] };
-    clientResults = [{ rows: [{ call_count: 3 }] }];
+    clientResults = [{ rows: [] }, { rows: [] }, { rows: [{ calls: 20 }] }, { rows: [{ call_count: 3 }] }];
     const verdict = await postgresAiContext.checkAndIncrementBulkLimit('u1', 'embed');
     expect(verdict).not.toBe('RATE_LIMIT');
-    expect(clientQueries.length).toBeGreaterThan(0);
+    expect(clientQueries.some(q => /ai_daily_limit/.test(q.text))).toBe(true);
   });
 
   it('falls through to the daily cap when the window table is missing', async () => {
     // Миграция накатывается отдельно от выкатки службы: пока таблицы нет,
     // ограничитель частоты выключен, но суточный потолок обязан работать.
-    poolShouldThrow = new Error('relation "ai_bulk_cooldown" does not exist');
-    clientResults = [{ rows: [{ call_count: 7 }] }];
+    clientThrowsWhen = (text) => /ai_bulk_cooldown/.test(text);
+    clientResults = [{ rows: [] }, { rows: [] }, { rows: [] }, { rows: [{ call_count: 7 }] }];
     const verdict = await postgresAiContext.checkAndIncrementBulkLimit('u1', 'embed');
     expect(verdict).toEqual({ ok: true, day: TODAY });
     expect(clientQueries.some(q => /ai_daily_limit/.test(q.text))).toBe(true);
+    // Откат к savepoint, а не всей транзакции: иначе суточная проверка пропала бы.
+    expect(clientQueries.some(q => /ROLLBACK TO SAVEPOINT/i.test(q.text))).toBe(true);
+    expect(clientQueries.at(-1)?.text).toBe('COMMIT');
   });
 
   it("returns 'RATE_LIMIT' and never touches the daily counter past the budget", async () => {
-    poolResult = { rows: [{ calls: 21 }] };
+    clientResults = [{ rows: [] }, { rows: [] }, { rows: [{ calls: 21 }] }];
     const verdict = await postgresAiContext.checkAndIncrementBulkLimit('u1', 'rerank');
     expect(verdict).toBe('RATE_LIMIT');
-    expect(clientQueries).toHaveLength(0);
+    expect(clientQueries.some(q => /ai_daily_limit/.test(q.text))).toBe(false);
+    // Откат обязателен: он возвращает и слот окна, сожжённый этим отказом.
+    expect(clientQueries.at(-1)?.text).toBe('ROLLBACK');
   });
 });
 

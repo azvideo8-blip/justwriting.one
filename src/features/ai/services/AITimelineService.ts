@@ -1,21 +1,28 @@
 import { getLocalDb, type AITimelineEntry } from '../../../core/storage/localDb';
 import { localDayKey, localMonthKey } from '../../../core/utils/dateUtils';
+import { loadVisibleNoteKeys } from '../utils/retrieval/docSnapshot';
+
+/** R7Q-019: запись хронологии принадлежит скрытой, корзинной или пропавшей заметке — читатель её не отдаёт. */
+async function dropInvisible(entries: AITimelineEntry[]): Promise<AITimelineEntry[]> {
+  const visible = await loadVisibleNoteKeys();
+  return entries.filter(e => visible.has(e.documentId));
+}
 
 export const AITimelineService = {
   async getByMonth(month: string): Promise<AITimelineEntry[]> {
     const db = await getLocalDb();
-    return db.getAllFromIndex('aiTimeline', 'by-month', month);
+    return dropInvisible(await db.getAllFromIndex('aiTimeline', 'by-month', month));
   },
 
   async getByDateRange(from: string, to: string): Promise<AITimelineEntry[]> {
     const db = await getLocalDb();
     const range = IDBKeyRange.bound(from, to);
-    return db.getAllFromIndex('aiTimeline', 'by-date', range);
+    return dropInvisible(await db.getAllFromIndex('aiTimeline', 'by-date', range));
   },
 
   async getMostRecent(n = 1): Promise<AITimelineEntry[]> {
     const db = await getLocalDb();
-    const entries = await db.getAll('aiTimeline');
+    const entries = await dropInvisible(await db.getAll('aiTimeline'));
     return entries
       .sort((a, b) => b.date.localeCompare(a.date))
       .slice(0, n);

@@ -77,6 +77,21 @@ function extractPerAccountLocalStorageTemplates(): Set<string> {
       tpl = tpl.replace(/\$\{[^}]*(?:uid|userId|ownerId|targetUid)[^}]*\}/gi, SENTINEL);
       templates.add(tpl);
     }
+
+    // R7F-021: ключ, собранный конкатенацией, — тот же пер-аккаунтный ключ, но
+    // шаблонным литералом он не является. Прежним экстрактором он был невидим,
+    // а из этого списка builtToAnotherAccount выводит «чужие» формы: незадекларированный
+    // `'prefix_' + uid` не узнавался как чужой и стирался выходом другого
+    // человека. Разрешаем оба порядка и только внутри обращения к хранилищу —
+    // вне его конкатенации с uid бывают служебными (recordId в синхронизации).
+    const CONCAT = /(?:localStorage|sessionStorage)\s*\.\s*(?:setItem|getItem|removeItem)\(\s*['"]([^'"]+)['"]\s*\+\s*(?:uid|userId|ownerId|targetUid)(?![\w])/gi;
+    for (const m of content.matchAll(CONCAT)) {
+      if (m[1]) templates.add(m[1] + SENTINEL);
+    }
+    const CONCAT_REV = /(?:localStorage|sessionStorage)\s*\.\s*(?:setItem|getItem|removeItem)\(\s*(?:uid|userId|ownerId|targetUid)\s*\+\s*['"]([^'"]+)['"]/gi;
+    for (const m of content.matchAll(CONCAT_REV)) {
+      if (m[1] !== undefined) templates.add(SENTINEL + m[1]);
+    }
   }
 
   return templates;
@@ -86,6 +101,26 @@ describe('accountScopedKeys inventory test (LS-5 + LS-8)', () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
+  });
+
+  it('R7F-021: конкатенированный ключ хранилища попадает в инвентарь', () => {
+    // Проба настоящим файлом в src: экстрактор ходит по дереву, поэтому
+    // проверяем именно его, а не свою регулярку на строке-образце.
+    const probePath = path.resolve(__dirname, '../../../../src/features/auth/services/__r7f021_probe.ts');
+    fs.writeFileSync(probePath, [
+      'export function touch(uid: string): void {',
+      "  localStorage.setItem('r7f021_probe_' + uid, '1');",
+      "  localStorage.removeItem(uid + '_r7f021_probe');",
+      '}',
+      '',
+    ].join('\n'));
+    try {
+      const extracted = extractPerAccountLocalStorageTemplates();
+      expect([...extracted].filter(t => t.includes('r7f021_probe')).sort(), 'обе формы конкатенации')
+        .toEqual([SENTINEL + '_r7f021_probe', 'r7f021_probe_' + SENTINEL]);
+    } finally {
+      fs.rmSync(probePath);
+    }
   });
 
   it('forward check: every per-account localStorage template is declared in accountScopedLocalStorageKeys', () => {

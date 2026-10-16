@@ -93,12 +93,16 @@ async function shouldAutoDownloadVectors(
  * Совпадает ли облачный вектор с текущим текстом заметки. Локального текста нет
  * (заметка ещё не приехала) или хэш не записан — сравнивать нечего, запись
  * принимается как раньше: `reattachOrphanedAnalysis` довяжет её позже.
+ *
+ * R7F-010: заметка есть локально и она скрыта или в корзине — не принимается:
+ * это лишняя копия текста скрытой записи, и её не за кем пересчитывать.
  */
-async function cloudVectorMatchesNote(decoded: AIDocumentEmbedding): Promise<boolean> {
+export async function cloudVectorMatchesNote(decoded: AIDocumentEmbedding): Promise<boolean> {
   if (!decoded.contentHash) return true;
   const db = await getLocalDb();
   const doc = await db.get('documents', decoded.documentId);
-  if (!doc || isExcludedFromAI(doc)) return true;
+  if (!doc) return true;
+  if (isExcludedFromAI(doc)) return false;
   const content = await LocalVersionService.getLatestContent(decoded.documentId);
   if (!content) return true;
   return (await sha256Hex(content)) === decoded.contentHash;

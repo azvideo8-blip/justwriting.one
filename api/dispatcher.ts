@@ -76,7 +76,10 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
     // AUD-20: необратимое удаление требует свежего ввода пароля. Клиент делает
     // reauthenticate перед вызовом; здесь это подтверждается по подписанному
     // токену, чтобы прямой вызов с живым токеном не стирал архив в обход экрана.
-    if (endpoint === 'deleteAccount' && !passwordRecentlyVerified(session)) {
+    // R7Q-009: `adminDeleteUser` — второе необратимое удаление на сервере, и оно
+    // этого барьера не платило: украденный живой токен стирал чужой дневник
+    // одним POST'ом, хотя прочитать его не мог.
+    if ((endpoint === 'deleteAccount' || endpoint === 'adminDeleteUser') && !passwordRecentlyVerified(session)) {
       json(res, 403, { error: { code: 'REAUTH_REQUIRED', message: 'Re-enter your password to delete the account.' } });
       return;
     }

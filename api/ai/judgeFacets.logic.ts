@@ -111,7 +111,7 @@ export async function judgeFacetsLogic(ctx: AiContext, uid: string, data: unknow
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {
       throw new AiError('resource-exhausted', 'AI service temporarily unavailable.');
     }
-    console.warn('[AI judge] soft failure (returning empty verdicts):', msg);
+    console.warn('[AI judge] soft failure (returning empty verdicts):', safeErrorShape(e));
     return { verdicts: [] };
   }
 }

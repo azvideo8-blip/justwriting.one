@@ -62,15 +62,32 @@ describe('InviteWizard', () => {
     await throughPassword();
     expect(updateUserPassword).toHaveBeenCalledWith('long-password-1');
     expect(AuthService.signInWithEmail).toHaveBeenCalledWith('new@example.com', 'long-password-1');
-    expect(DataProvider.updateProfile).toHaveBeenCalledWith(UID, expect.objectContaining({ privacyVersion: expect.any(Number), aiConsentAt: null }));
+    // R7F-004: без галки ИИ в запись не уходят aiConsentAt/aiConsentVersion —
+    // снятая галка не отзывала бы согласие, данное раньше.
+    expect(DataProvider.updateProfile).toHaveBeenCalledWith(UID, expect.objectContaining({ privacyVersion: expect.any(Number) }));
+    const consentPayload = (vi.mocked(DataProvider.updateProfile).mock.calls.at(-1) as [string, Record<string, unknown>])[1];
+    expect('aiConsentAt' in consentPayload).toBe(false);
     expect(localStorage.getItem(`privacy_accepted_${UID}`)).not.toBeNull();
   });
 
-  it('«Не сейчас» leaves sync off, asks nothing later and drops the pending code', async () => {
+  // R7F-005 (правило (c) раунда 7: код нельзя пропустить). Раньше «Не сейчас»
+  // вызывал finish(false) и стирал pending-код, ни разу его не показав, — хотя
+  // сейф, защищающий и локальные заметки, уже был создан на этом пароле.
+  it('«Не сейчас» тоже показывает код и стирает его только после подтверждения', async () => {
     renderWizard();
     await throughPassword();
     fireEvent.click(screen.getByRole('button', { name: 'Не сейчас' }));
-    await screen.findByText('EDITOR');
+
+    expect(await screen.findByText('Сохрани код восстановления')).toBeTruthy();
+    expect(screen.getByText('ABCD-EFGH-IJKL')).toBeTruthy();
+    expect(sessionStorage.getItem(`pending_recovery_code_${UID}`)).toBe('ABCD-EFGH-IJKL');
+
+    const start = screen.getByRole('button', { name: 'Начать писать' });
+    expect(start).toBeDisabled();
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(start);
+
+    await waitFor(() => expect(screen.getByText('EDITOR')).toBeTruthy());
     expect(localStorage.getItem(`auto_sync_enabled_${UID}`)).toBe('false');
     expect(localStorage.getItem(`auto_sync_asked_${UID}`)).toBe('true');
     expect(sessionStorage.getItem(`pending_recovery_code_${UID}`)).toBeNull();

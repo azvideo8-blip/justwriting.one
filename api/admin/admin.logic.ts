@@ -5,6 +5,9 @@ import { pool } from '../db';
 import { getSupabaseAdmin } from './supabaseAdmin';
 import { deleteUserRows } from '../account';
 
+/** R7Q-009: почасовой бюджет админских удалений (считается по admin_actions). */
+export const ADMIN_DELETES_PER_HOUR = 5;
+
 const inviteSchema = z.object({
   email: z.string().trim().toLowerCase().pipe(z.string().email().max(254)),
 });
@@ -167,6 +170,25 @@ export async function adminDeleteUserLogic(
   const service = await pool.query('select 1 from public.service_accounts where uid = $1', [target]);
   if ((service.rowCount ?? 0) > 0) {
     throw new AiError('permission-denied', 'Служебный аккаунт удалить нельзя — на нём держится проверка выкатки.');
+  }
+
+  // R7Q-009: бюджет считаем по следам в `admin_actions`, а не в памяти процесса:
+  // рестарт службы, второй инстанс и параллельные вкладки админа не должны
+  // обнулять счётчик. Порог — «несколько устаревших приглашений в час», массовое
+  // зачистка архивов штатным сценарием не бывает.
+  const budget = await pool.query(
+    `select count(*)::int as used
+       from public.admin_actions
+      where admin_uid = $1
+        and action = 'delete_user'
+        and at > now() - interval '1 hour'`,
+    [uid],
+  );
+  if ((budget.rows[0]?.used ?? 0) >= ADMIN_DELETES_PER_HOUR) {
+    throw new AiError(
+      'resource-exhausted',
+      `Не больше ${ADMIN_DELETES_PER_HOUR} удалений в час. Повторите позже — или разберите списки по одному.`,
+    );
   }
 
   const client = await pool.connect();

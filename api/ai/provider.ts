@@ -8,6 +8,7 @@ import {
   resolveChatModel,
   resolveProviderRouting,
 } from '../../src/shared/ai/requestConfig.js';
+import { safeErrorShape } from '../../src/shared/ai/errorShape.js';
 
 // RouterAI is the sole AI provider: an OpenAI-compatible gateway, billed in
 // roubles and reachable from Russia (OpenRouter is not). The wire format is
@@ -36,6 +37,16 @@ const EMBED_BASE_URL = process.env.AI_EMBED_BASE_URL ?? OPENROUTER_BASE_URL;
 async function getActiveModel(): Promise<string> {
   return ACTIVE_CHAT_MODEL;
 }
+
+/**
+ * R7Q-016: из тела отказа наружу не уходит ни байт — 4xx/5xx провайдера эхом
+ * возвращают фрагмент отправленного запроса (текст заметки, портрет, память,
+ * реплики диалога), а `Error.message` печатают шесть внутренних логик.
+ * Единственное служебное, что по телю различают, — отказ по квоте: он остаётся
+ * словом `quota` в сообщении, и regexp'ы логик продолжают срабатывать.
+ */
+const QUOTA_HINT_RE = /spending cap|quota|resource_exhausted|exceeded|too many requests/i;
+const quotaHint = (errBody: string): string => (QUOTA_HINT_RE.test(errBody) ? ' quota' : '');
 
 export interface GenerateParams {
   system?: string | undefined;
@@ -158,8 +169,8 @@ async function generateOpenRouter(params: GenerateParams): Promise<GenerateResul
       if (isTransient && attempt < MAX_ATTEMPTS) {
         const remainingAfterErr = deadline - Date.now();
         if (remainingAfterErr >= MIN_REMAINING_MS) {
-          const errMsg = err instanceof Error ? err.message : String(err);
-          console.warn(`[aiProvider] attempt ${attempt} transient network error: ${errMsg}`);
+          // R7Q-016: сеть тоже печатается формой ошибки — сообщение fetch может нести фрагмент запроса.
+          console.warn(`[aiProvider] attempt ${attempt} transient network error ${safeErrorShape(err)}`);
           await new Promise(r => setTimeout(r, 500 * attempt));
           continue;
         }
@@ -176,15 +187,18 @@ async function generateOpenRouter(params: GenerateParams): Promise<GenerateResul
     if (transientStatus && attempt < MAX_ATTEMPTS) {
       const remainingAfterErr = deadline - Date.now();
       if (remainingAfterErr >= MIN_REMAINING_MS) {
-        const errBody = await res.text().catch(() => '');
-        console.warn(`[aiProvider] attempt ${attempt} transient ${res.status}: ${errBody.slice(0, 200)}`);
+        // R7Q-016: тело читаем, чтобы освободить соединение, и тут же забываем —
+        // в журнал уходит только статус. Текст отказа 4xx/5xx эхом возвращает
+        // кусок отправленного запроса, то есть текст заметок человека.
+        await res.text().catch(() => {});
+        console.warn(`[aiProvider] attempt ${attempt} transient ${res.status}`);
         await new Promise(r => setTimeout(r, 500 * attempt));
         continue;
       }
     }
 
-    const errText = await res.text().catch(() => '');
-    throw new Error(`OpenRouter ${res.status}: ${errText.slice(0, 300)}`);
+    const errBody = await res.text().catch(() => '');
+    throw new Error(`OpenRouter ${res.status}${quotaHint(errBody)}`);
   }
 
   // fetch() resolves as soon as the HEADERS arrive; for a non-streaming
@@ -278,8 +292,7 @@ async function embedOpenRouter(texts: string[]): Promise<EmbedResult> {
       if (isTransient && attempt < MAX_ATTEMPTS) {
         const remainingAfterErr = deadline - Date.now();
         if (remainingAfterErr >= MIN_REMAINING_MS) {
-          const errMsg = err instanceof Error ? err.message : String(err);
-          console.warn(`[aiProvider embed] attempt ${attempt} transient network error: ${errMsg}`);
+          console.warn(`[aiProvider embed] attempt ${attempt} transient network error ${safeErrorShape(err)}`);
           await new Promise(r => setTimeout(r, 500 * attempt));
           continue;
         }
@@ -296,15 +309,15 @@ async function embedOpenRouter(texts: string[]): Promise<EmbedResult> {
     if (transientStatus && attempt < MAX_ATTEMPTS) {
       const remainingAfterErr = deadline - Date.now();
       if (remainingAfterErr >= MIN_REMAINING_MS) {
-        const errBody = await res.text().catch(() => '');
-        console.warn(`[aiProvider embed] attempt ${attempt} transient ${res.status}: ${errBody.slice(0, 200)}`);
+        await res.text().catch(() => {});   // R7Q-016: тело не печатается
+        console.warn(`[aiProvider embed] attempt ${attempt} transient ${res.status}`);
         await new Promise(r => setTimeout(r, 500 * attempt));
         continue;
       }
     }
 
-    const errText = await res.text().catch(() => '');
-    throw new Error(`OpenRouter embed ${res.status}: ${errText.slice(0, 300)}`);
+    const errBody = await res.text().catch(() => '');
+    throw new Error(`OpenRouter embed ${res.status}${quotaHint(errBody)}`);
   }
 
   let jsonTimerId: ReturnType<typeof setTimeout>;

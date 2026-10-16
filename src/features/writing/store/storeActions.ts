@@ -2,7 +2,7 @@ import { onDomainEvent } from '../../../core/events/domainEvents';
 import { WritingDraftService } from '../services/WritingDraftService';
 import { useContentStore, clearWordCalcTimer } from './useContentStore';
 import { useTimerStore } from './useTimerStore';
-import { useSessionMetaStore } from './useSessionMetaStore';
+import { newDraftNonce, useSessionMetaStore } from './useSessionMetaStore';
 import { TimerStatus, SessionType } from './types';
 import type { ContentStateData } from './useContentStore';
 import type { TimerStateData } from './useTimerStore';
@@ -116,9 +116,11 @@ export function loadDraftIntoStore(draft: {
     seconds: 0,
     sessionStartSeconds: 0,
   });
+  // R7Q-008: загрузка черновика — это новая заметка, даже если обе ещё без id.
   useSessionMetaStore.setState({
     savedDocumentId: draft.savedDocumentId ?? null,
     sessionStartTime: null,
+    draftNonce: newDraftNonce(),
   });
 }
 

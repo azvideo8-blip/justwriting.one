@@ -70,6 +70,32 @@ describe('DR-7: экспорт диалога с заметкой и ходом 
     }
   });
 
+  it('R7F-012: скрытую ПОСЛЕ хода заметку плашка не объявляет не выгруженным то, что в ходе есть', async () => {
+    // Короткая заметка (≤9000 знаков) попадает в ход дословно (useAIPageData,
+    // inline). Прежним кодом экспорт при этом печатал и тело, и строку
+    // «[текст заметки не выгружен: скрыта от ИИ]» под ним.
+    await seedNote({ excludedFromAI: true });
+    const d = await seedDialogue(
+      `[#${NOTE_ID} · 2026-10-09]\n[Прикреплена заметка: "Заметка для экспорта"]\n\n— — —\n${NOTE_TEXT}\n\nВопрос: разбери`,
+    );
+    const md = await AIDialogueService.exportAsMarkdown(d.id);
+
+    expect(md, 'тело осталось в самой реплике — это текст человека').toContain(NOTE_TEXT);
+    expect(md, 'но экспорт не утверждает, что текст не выгружен')
+      .not.toContain('[текст заметки не выгружен: скрыта от ИИ]');
+  });
+
+  it('R7F-012: длинная скрытая заметка по-прежнему заменяется заглушкой', async () => {
+    await seedNote({ excludedFromAI: true }, LONG_FILLER);
+    const d = await seedDialogue(
+      `[#${NOTE_ID} · 2026-10-09]\n[Прикреплена заметка: "Заметка для экспорта"]\n\n— — —\nВопрос: разбери`,
+    );
+    const md = await AIDialogueService.exportAsMarkdown(d.id);
+
+    expect(md).toContain('[текст заметки не выгружен: скрыта от ИИ]');
+    expect(md).not.toContain(LONG_FILLER.slice(0, 60));
+  });
+
   it('(c) ход мыслей ответа уезжает свёрнутым блоком перед ответом', async () => {
     await seedNote();
     const d = await AIDialogueService.create({

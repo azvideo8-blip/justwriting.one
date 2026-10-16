@@ -117,6 +117,13 @@ const SUM_RE = /\d[\d\s.,:]{0,9}\s*(?:тыс\.?|руб(?:лей|ля|ль)?|₽|
 const LINE_TIMECODE = /^[ \t]*\[?\d{1,2}:\d{2}(?::\d{2})?\]?[ \t]*/gm;
 const FULL_TIMECODE = /\b\d{1,2}:\d{2}:\d{2}\b/g;
 const stripTimecodes = (s: string) => s.replace(LINE_TIMECODE, ' ').replace(FULL_TIMECODE, ' ');
+// R7F-016: год — не сумма и не измеримое число, которое модель «убрала». Без
+// этого «В 2024 году мы переехали» попадало в плашку «убраны числа: 2024», а
+// человек читал это как потерю факта.
+// \b перед кириллицей не помогает: `\w` — это латиница и цифры, поэтому
+// «2024 году» конец слова проверяется отрицанием буквы, а не границей.
+const YEAR_PHRASE = /(?:^|[^0-9а-яё])(?:1\d{3}|20\d{2})(?:\s*-\s*\d{2,4})?\s*(?:г[а-яё]*|лет)(?![а-яё])/gi;
+const stripYears = (s: string) => s.replace(YEAR_PHRASE, ' ');
 
 // LD-1: для автора, который работает с людьми, сеанс клиента — не «ещё один
 // персонаж без имени», а чужая история в уязвимом положении. PRIVACY Редактора
@@ -204,15 +211,24 @@ export function diffPostAgainstNote(
     .filter(role => rolePattern(role.stems).test(post) && !rolePattern(role.stems).test(source))
     .map(role => role.key);
 
-  const numbersFrom = stripTimecodes(source);
-  const numbersInto = stripTimecodes(post);
+  const numbersFrom = stripYears(stripTimecodes(source));
+  const numbersInto = stripYears(stripTimecodes(post));
   const numbersRemoved: string[] = [];
   for (const num of new Set([...numbersFrom.matchAll(NUMBER_RE)].map(m => m[0].trim()))) {
     if (!numbersInto.includes(num)) numbersRemoved.push(num);
   }
   for (const sum of new Set([...numbersFrom.matchAll(SUM_RE)].map(m => m[0].replace(/\s+/g, ' ').trim()))) {
-    const bare = sum.split(/\s/)[0]!;
-    if (numbersRemoved.includes(bare)) continue;
+    // R7F-016: «12 500 руб» — это число 12 500 и единица; прежний
+    // `split(/\s/)[0]` давал «12», и дедуп не срабатывал: в плашке стояло и
+    // «12 500», и «12 500 руб» за один и тот же факт.
+    const bare = (sum.match(NUMBER_RE)?.[0] ?? sum).replace(/[\s\u00A0]+/g, ' ').trim();
+    const plain = numbersRemoved.indexOf(bare);
+    if (plain >= 0) {
+      // Число уже попало в плашку без единицы измерения — оставляем более информативную
+      // запись: «12 500 руб», а не «12 500».
+      numbersRemoved[plain] = sum;
+      continue;
+    }
     if (!numbersInto.includes(sum) && !numbersInto.includes(bare)) numbersRemoved.push(sum);
   }
 

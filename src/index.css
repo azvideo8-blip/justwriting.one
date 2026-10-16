@@ -21,6 +21,12 @@
   --color-accent-warning: var(--accent-warning);
   --color-accent-danger: var(--accent-danger);
   --color-accent-info: var(--accent-info);
+  /* R7F-026: `bg-accent`/`text-accent` использовались 17 раз, а токена не было
+     ни в @theme, ни в собранном CSS — на странице приглашения и сброса пароля
+     кнопки выходили белым текстом без фона (в `theme-notion` — белым по белому).
+     Значение то же, что у основной кнопки: `--brand-primary` задан в `:root` и
+     темами не переопределяется (theme-notion меняет только `--brand-soft`). */
+  --color-accent: var(--brand-primary);
 
   /* Muted text tokens */
   --color-text-muted: var(--text-muted);

@@ -11,6 +11,7 @@ import { getLocalDb } from '../../storage/localDb';
 import * as cryptoHelpers from '../../crypto/cryptoHelpers';
 import * as encryptModule from '../../crypto/encrypt';
 import { registerActiveEditorDocIdGetter } from '../../sync/activeEditor';
+import { onDomainEvent, _resetDomainEventHandlersForTests } from '../../events/domainEvents';
 
 describe('SYNC-CURSOR-3: reconcileLinkedDocuments (Policy B)', () => {
   const userId = 'user_reconcile_test';
@@ -779,5 +780,105 @@ describe('SYNC-CURSOR-3: reconcileLinkedDocuments (Policy B)', () => {
     const versions = await db.getAllFromIndex('versions', 'by-document', localDocId);
     const nums = versions.map(v => v.version).sort((a, b) => a - b);
     expect(new Set(nums).size).toBe(nums.length);
+  });
+
+  // R7F-010: флаг «не показывать ИИ» / корзина приехали забором с другого
+  // устройства. Без события производные заметки (хронология, цитаты тем, линии)
+  // жили на этом устройстве бессрочно — их чистит подписчик из features/ai.
+  describe('R7F-010: прибытие флага скрытия чистит производные', () => {
+    afterEach(() => {
+      // Подписчики нужны только этому блоку: иначе они доедут до следующих тестов файла.
+      _resetDomainEventHandlersForTests();
+    });
+
+    const seedVisible = async () => {
+      const db = await getLocalDb(userId);
+      await db.put('documents', {
+        id: localDocId,
+        guestId: userId,
+        title: 'Note',
+        currentVersion: 1,
+        totalWords: 10,
+        totalDuration: 100,
+        sessionsCount: 1,
+        firstSessionAt: 1000,
+        lastSessionAt: 1000,
+        tags: [],
+        linkedCloudId: cloudDocId,
+        lastSyncedCloudVersion: 1,
+        lastSeenCloudUpdatedAt: '2026-09-19T10:00:00.000Z',
+      });
+      return db;
+    };
+
+    it('облако скрыло заметку → событие note.excludedFromAI по локальному id', async () => {
+      await seedVisible();
+      const seen: Array<{ id: string; excluded: boolean }> = [];
+      onDomainEvent(e => { if (e.type === 'note.excludedFromAI') seen.push({ id: e.documentId, excluded: e.excluded }); });
+
+      vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([{
+        id: cloudDocId,
+        title: 'Note',
+        currentVersion: 2,
+        excludedFromAI: true,
+        updatedAt: new Date('2026-09-19T12:00:00.000Z'),
+      } as any]);
+      vi.spyOn(VersionService, 'getVersions').mockResolvedValue([
+        { version: 1, content: 'Local version 1 text', wordCount: 10 },
+        { version: 2, content: 'Cloud v2 text', wordCount: 12 },
+      ] as any);
+
+      await SyncService.reconcileLinkedDocuments(userId);
+
+      expect(seen).toEqual([{ id: localDocId, excluded: true }]);
+    });
+
+    it('облако положило заметку в корзину → то же событие', async () => {
+      await seedVisible();
+      const seen: string[] = [];
+      onDomainEvent(e => { if (e.type === 'note.excludedFromAI') seen.push(e.documentId); });
+
+      vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([{
+        id: cloudDocId,
+        title: 'Note',
+        currentVersion: 2,
+        trashedAt: new Date('2026-09-19T12:00:00.000Z'),
+        updatedAt: new Date('2026-09-19T12:00:00.000Z'),
+      } as any]);
+      vi.spyOn(VersionService, 'getVersions').mockResolvedValue([
+        { version: 1, content: 'Local version 1 text', wordCount: 10 },
+        { version: 2, content: 'Cloud v2 text', wordCount: 12 },
+      ] as any);
+
+      await SyncService.reconcileLinkedDocuments(userId);
+
+      expect(seen).toEqual([localDocId]);
+    });
+
+    it('заметка и была скрыта, и осталась скрытой → второго события нет', async () => {
+      const db = await seedVisible();
+      await db.put('documents', { ...(await db.get('documents', localDocId))!, excludedFromAI: true } as never);
+      const seen: string[] = [];
+      onDomainEvent(e => { if (e.type === 'note.excludedFromAI') seen.push(e.documentId); });
+
+      vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([{
+        id: cloudDocId,
+        title: 'Note',
+        currentVersion: 2,
+        excludedFromAI: true,
+        updatedAt: new Date('2026-09-19T12:00:00.000Z'),
+      } as any]);
+      vi.spyOn(VersionService, 'getVersions').mockResolvedValue([
+        { version: 1, content: 'Local version 1 text', wordCount: 10 },
+        { version: 2, content: 'Cloud v2 text', wordCount: 12 },
+      ] as any);
+
+      await SyncService.reconcileLinkedDocuments(userId);
+
+      // Положительный контроль: сверка прошла (версия поднялась), просто событие
+      // не повторное — пустой проверки «события не было» здесь нет.
+      expect((await db.get('documents', localDocId))?.currentVersion).toBe(2);
+      expect(seen).toEqual([]);
+    });
   });
 });

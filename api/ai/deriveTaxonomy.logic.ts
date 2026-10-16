@@ -124,7 +124,8 @@ export async function deriveTaxonomyLogic(ctx: AiContext, uid: string, data: unk
             }));
           }
         } catch (transErr) {
-          console.warn('[AI taxonomy] label translation failed, falling back:', transErr);
+          // R7Q-016: msg провайдера может несть эхо запроса — в журнал только форма.
+          console.warn('[AI taxonomy] label translation failed, falling back:', safeErrorShape(transErr));
         }
 
         if (domains.length === 0) {
@@ -146,7 +147,9 @@ export async function deriveTaxonomyLogic(ctx: AiContext, uid: string, data: unk
     // Токены уже потрачены — отдаём settle реальный расход, а не оценку по символам.
     await callRes.settle('failed', settled ? { tokensIn, tokensOut, model: usedModel } : undefined);
     const msg = String((e as { message?: string })?.message ?? e);
-    if (!(e instanceof AiError)) console.error('[AI taxonomy] failed:', msg);
+    // R7Q-016: `msg` остаётся только для решения о типе отказа (квота); в журнале
+    // — форма ошибки, потому что сообщение провайдера несёт эхо запроса.
+    if (!(e instanceof AiError)) console.error('[AI taxonomy] failed:', safeErrorShape(e));
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {
       throw new AiError('resource-exhausted', 'AI service temporarily unavailable.');
     }

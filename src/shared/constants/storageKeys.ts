@@ -34,10 +34,17 @@ export const STORAGE_KEYS = {
   GUEST_STREAK_FREEZES: 'jw_streak_freezes_guest',
   LEGACY_STREAK_FREEZES: 'jw_streak_freezes',
   MIGRATION_DECLINED: (uid: string) => `jw_migration_declined_${uid}`,
+  // R7F-008: отметка «ссылка уже обменена» (ResetPasswordPage). Префикс живёт
+  // здесь, потому что его читают две стороны: страница, которая её ставит, и
+  // выход, который её стирает.
+  LINK_EXCHANGED_PREFIX: 'jw_link_exchanged_',
   DICTATION_NOTICE_SEEN: 'jw_dictation_notice_seen',
   // D-5: текст предупреждения изменился по существу (второй хоп — текст в ИИ-сервис),
   // поэтому показываем его ещё раз тем, кто принял v1.
-  DICTATION_NOTICE_SEEN_V2: 'jw_dictation_notice_seen_v2',
+  // R7F-015: по аккаунту, как DICTATION_NOTICE_DISMISSED. Прежний общий на
+  // устройство ключ значил, что второй человек за тем же браузером не увидит
+  // предупреждение «аудио уходит в Google/Apple, текст — в ИИ-сервис».
+  DICTATION_NOTICE_SEEN_V2: (uid: string) => `jw_dictation_notice_seen_v2_${uid}`,
   /** MF-5: «Больше не показывать» в листе «Голосовой ввод» на телефоне — по человеку. */
   DICTATION_NOTICE_DISMISSED: (uid: string) => `jw_dictation_notice_dismissed_${uid}`,
   PENDING_RECOVERY_CODE: (uid: string) => `pending_recovery_code_${uid}`,

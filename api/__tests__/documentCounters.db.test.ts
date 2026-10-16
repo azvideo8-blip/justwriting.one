@@ -135,4 +135,45 @@ describe.skipIf(!throwawayDb)('document counters on real Postgres (V-5)', () => 
 
     await pool.query('delete from auth.users where id = any($1::uuid[])', [[owner, stranger]]);
   });
+
+  // R7Q-003 (0042): probing UPDATE из отчёта Qoder — писатель со старой копией
+  // одним обычным апдейтом уносил назад и sessions_count, и total_duration.
+  // Триггер 0039 держал только current_version.
+  it('a plain UPDATE cannot move sessions_count or total_duration backwards', async () => {
+    const uid = crypto.randomUUID();
+    const uuid = docUuid();
+    await pool.query('INSERT INTO auth.users (id, email) VALUES ($1, $2)', [uid, `r7q003_${uid.slice(0, 8)}@example.com`]);
+    await pool.query(
+      'INSERT INTO public.documents (uuid, user_id, title, current_version, total_words, total_duration, sessions_count) VALUES ($1, $2, $3, 5, 500, 900, 20)',
+      [uuid, uid, 'row'],
+    );
+
+    const after = await pool.query(
+      `update public.documents
+          set current_version = 1, total_words = 1, total_duration = 1, sessions_count = 1, mood = 'из устаревшей копии'
+        where uuid = $1
+        returning current_version, total_words, total_duration, sessions_count, mood`,
+      [uuid],
+    );
+    const row = after.rows[0]!;
+    // Отметка версии — 0039, счётчики — 0042: устаревший писатель их не уменьшает.
+    expect(row.current_version).toBe(5);
+    expect(row.total_duration).toBe(900);
+    expect(row.sessions_count).toBe(20);
+    // Слова — единственное, что праве откатить: это длина заметки, и после
+    // сокращения текста она честно становится меньше.
+    expect(row.total_words).toBe(1);
+    // Правку метаданных писатель при этом получает — иначе был бы красный отказ
+    // синхронизации на экране у человека.
+    expect(row.mood).toBe('из устаревшей копии');
+
+    // Вперёд и ровно — обычный прогресс, триггер не трогает.
+    const forward = await pool.query(
+      'update public.documents set sessions_count = 21, total_duration = 950 where uuid = $1 returning sessions_count, total_duration',
+      [uuid],
+    );
+    expect(forward.rows[0]).toMatchObject({ sessions_count: 21, total_duration: 950 });
+
+    await pool.query('delete from auth.users where id = $1', [uid]);
+  });
 });

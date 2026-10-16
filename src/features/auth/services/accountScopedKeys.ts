@@ -76,6 +76,12 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
     `word_goal_${uid}`,
     // «Больше не показывать» листа «Голосовой ввод» (MF-5)
     `jw_dictation_notice_dismissed_${uid}`,
+    // R7F-015: сам факт, что предупреждение о диктовке показано, — тоже по
+    // аккаунту: на втором человеке оно обязано появиться заново.
+    `jw_dictation_notice_seen_v2_${uid}`,
+    // R7F-015: сам факт, что предупреждение о диктовке показано, — тоже по
+    // аккаунту: на втором человеке оно обязано появиться заново.
+
     // отметка инкрементального забора данных ИИ с других устройств
     `ai_pull_since_${uid}`,
     // выключатель подсказок и памяти ИИ (EA-18)
@@ -114,6 +120,9 @@ const DEVICE_SETTINGS_KEYS = new Set<string>([
   STORAGE_KEYS.APP_LANGUAGE,
   'layout-mode',
   'layout-mode-v3',
+  // R7Q-026: живое поколение ключа. Выше перечислены мёртвые, а рабочего не
+  // было — подметание сносило выбранный макет при выходе любого аккаунта.
+  'layout-mode-v4',
   'preview_width',
   'ai_sidebar_width',
   'justwriting_sidebar_collapsed',

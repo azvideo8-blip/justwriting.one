@@ -275,6 +275,8 @@ export const commonTranslations: Translations = {
   me_status_vault: { ru: 'Сейф', en: 'Vault' },
   me_status_vault_open: { ru: 'разблокирован', en: 'unlocked' },
   me_status_vault_locked: { ru: 'заперт', en: 'locked' },
+  // R7F-006: строка статуса в профиле — тот же факт, что и плашка в настройках.
+  me_status_vault_stale: { ru: 'на прежнем пароле', en: 'on the old password' },
   me_status_quiet: { ru: 'тихо', en: 'quiet' },
   me_status_sync_off: { ru: 'автоотправка выключена', en: 'auto-upload off' },
   // MR-4: статусные строки в «Профиле» — сюда переехали чипы из нижней панели.

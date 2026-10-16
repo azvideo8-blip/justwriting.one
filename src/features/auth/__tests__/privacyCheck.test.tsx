@@ -120,4 +120,50 @@ describe('usePrivacyCheck waits for the restored session', () => {
     rerender({ suspended: false });
     await waitFor(() => expect(result.current.showPrivacy).toBe(true));
   });
+
+  // R7F-004: единственный источник истины на новом устройстве — этот запрос.
+  // Упавший он читался как «согласия нет»: человек подтверждал политику с
+  // незалогой ИИ, и запись стирала уже данное согласие вместе со серверным
+  // свидетелем ai_consent_server_at.
+  it('сбой чтения профиля не поднимает шаг политики и повторяет попытку', async () => {
+    vi.useFakeTimers();
+    try {
+      mockGetProfile.mockRejectedValue(new TypeError('Failed to fetch'));
+      authStatus = { user: { uid: 'u1' }, authState: 'authenticated' };
+
+      const { result } = renderHook(() => usePrivacyCheck());
+      await vi.advanceTimersByTimeAsync(120_000);
+
+      expect(result.current.showPrivacy).toBe(false);
+      // Положительный контроль: молчание достигается повтором, а не тем, что
+      // проверка вообще не запустилась.
+      expect(mockGetProfile.mock.calls.length).toBeGreaterThan(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('сеть вернулась — вопрос читается заново и доходит до шага', async () => {
+    vi.useFakeTimers();
+    try {
+      let netDown = true;
+      mockGetProfile.mockImplementation(async () => {
+        if (netDown) throw new TypeError('Failed to fetch');
+        return null;                       // профиль прочитался: согласия нет
+      });
+      authStatus = { user: { uid: 'u1' }, authState: 'authenticated' };
+
+      const { result } = renderHook(() => usePrivacyCheck());
+      await vi.advanceTimersByTimeAsync(120_000);   // все повторы упали
+      expect(result.current.showPrivacy).toBe(false);
+
+      netDown = false;
+      await act(async () => { window.dispatchEvent(new Event('online')); });
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(result.current.showPrivacy).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

@@ -2,7 +2,7 @@ import { getCurrentUser } from '../../../core/auth';
 import { getAiConsent } from '../../../core/ai/aiConsent';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { MAX_AI_CONTENT_LENGTH } from '../../../shared/ai/buildChatPrompt';
-import { sameWords } from '../../../shared/ai/sameWords';
+import { sameWords, stripFormatControls } from '../../../shared/ai/sameWords';
 import { transferPunctuation } from '../../../shared/ai/transferPunctuation';
 import { isExcludedFromAI } from '../utils/isExcludedFromAI';
 import { useAiLimitStore } from '../store/useAiLimitStore';
@@ -88,29 +88,42 @@ export async function punctuateDictation(
     return { text: raw, punctuated: false, reason: 'note-hidden' };
   }
 
-  // useRequest переименован: иначе rules-of-hooks принимает его за хук (так же делает AIPanel).
-  const { remaining, useRequest: consumeRequest } = useAiLimitStore.getState();
+  const { remaining } = useAiLimitStore.getState();
   if (remaining <= 0) return { text: raw, punctuated: false, reason: 'limit' };
 
   if (raw.length > MAX_AI_CONTENT_LENGTH) return { text: raw, punctuated: false, reason: 'too-long' };
 
   try {
+    // R7Q-021: сервер в ответе уже принёс пост-инкрементный `X-AI-Quota-Used`,
+    // и `callAi` синхронизирует счётчик по заголовкам. Локальное списание
+    // поверх этого завышало расход на единицу: UI показывал «лимит исчерпан»,
+    // пока сервер ещё брал запросы, и расхождение жило до полуночи — число
+    // лежит в localStorage. Значит `useRequest()` нужен только когда заголовков
+    // подтверждения не было.
+    const syncBefore = useAiLimitStore.getState().headerSyncAt;
+    const settleCount = () => {
+      if (useAiLimitStore.getState().headerSyncAt === syncBefore) useAiLimitStore.getState().useRequest();
+    };
     const res = await AIService.process(raw, 'punctuate');
     if (!res.ok) return { text: raw, punctuated: false, reason: 'error' };
-    if (sameWords(raw, res.text)) {
-      consumeRequest();
-      return { text: res.text, punctuated: true };
+    // R7Q-022: Cf-символы невидимы для проверки слов, поэтому ответ с ними
+    // прошёл бы гейт и вставился в заметку: невидимые байты ломают поиск, diff
+    // и счётчик слов. Слово — то же самое без них.
+    const text = stripFormatControls(res.text);
+    if (sameWords(raw, text)) {
+      settleCount();
+      return { text, punctuated: true };
     }
     // Модель тронула слова. На длинной диктовке это почти всегда одно-два
     // «исправления» распознавания, и выбрасывать из-за них всю пунктуацию нельзя
     // (0.9.34): знаки переносятся на исходные слова. Слова человека при этом не
     // меняются никогда. Если совпало меньше MIN_COVERAGE слов — ответ не про этот
     // текст (обрезан, переписан), вставляется исходник.
-    const moved = transferPunctuation(raw, res.text);
+    const moved = transferPunctuation(raw, text);
     if (!moved || moved.coverage < MIN_COVERAGE || !sameWords(raw, moved.text)) {
       return { text: raw, punctuated: false, reason: 'words-changed' };
     }
-    consumeRequest();
+    settleCount();
     return { text: moved.text, punctuated: true };
   } catch {
     return { text: raw, punctuated: false, reason: 'error' };

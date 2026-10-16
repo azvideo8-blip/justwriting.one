@@ -133,8 +133,15 @@ export async function savePrivacyConsent(uid: string, aiConsent: boolean): Promi
     // Согласие на спецкатегории пишется отдельным полем и отдельной
     // отметкой времени: оно даётся и отзывается независимо от согласия с
     // политикой, и доказывать их придётся по отдельности.
-    aiConsentAt: aiConsent ? new Date() : null,
-    aiConsentVersion: aiConsent ? AI_CONSENT_VERSION_REQUIRED : null,
+    //
+    // R7F-004: незаложенная галка — это «не даю прямо сейчас», а не «отзываю».
+    // Запись null стирала согласие, данное раньше (на другом устройстве или до
+    // сбоя чтения профиля), и вместе с ним серверного свидетеля
+    // ai_consent_server_at. Отзыв — только в настройках, явным действием.
+    ...(aiConsent ? { aiConsentAt: new Date(), aiConsentVersion: AI_CONSENT_VERSION_REQUIRED } : {}),
   } as Record<string, unknown>);
-  localStorage.setItem(`privacy_accepted_${uid}`, String(AI_CONSENT_VERSION_REQUIRED));
+  // R7Q-013: в Safari с «блокировать все файлы cookie» запись бросает.
+  // намеренно: кэш — только ускорение, истина в строке профиля выше; отказ кэша
+  // не имеет права отвергать принятое согласие.
+  try { localStorage.setItem(`privacy_accepted_${uid}`, String(AI_CONSENT_VERSION_REQUIRED)); } catch { /* намеренно: нет хранилища */ }
 }

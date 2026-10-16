@@ -43,7 +43,11 @@ describe('AU-6 audit minor issues regression tests', () => {
     const ciContent = fs.readFileSync(ciPath, 'utf8');
 
     expect(ciContent).toMatch(/permissions:\s*\n\s*contents:\s*read/);
-    expect(ciContent).toMatch(/concurrency:\s*\n\s*group:\s*\${{\s*github\.workflow\s*}}-\${{\s*github\.ref\s*}}\s*\n\s*cancel-in-progress:\s*true/);
+    // R7F-028: отмена в процессе — только у pull request. Push в main не
+    // отменяется: второй пуш убивал прогон первого, и у коммита не оставалось
+    // ни зелёного, ни красного вердикта — только `cancelled`.
+    expect(ciContent).toMatch(/concurrency:\s*\n\s*group:\s*\$\{\{\s*github\.workflow\s*\}\}-\$\{\{\s*github\.ref\s*\}\}/);
+    expect(ciContent).toMatch(/cancel-in-progress:\s*\$\{\{\s*github\.event_name == 'pull_request'\s*\}\}/);
   });
 
   it('ArchiveNoteList.tsx does not use index key={i} in skeleton loader', () => {

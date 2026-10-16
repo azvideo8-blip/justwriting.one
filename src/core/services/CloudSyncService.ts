@@ -22,6 +22,7 @@ import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
 import { computeWordDelta } from './DiffService';
 import { comparableOrUnknown } from '../sync/comparableOrUnknown';
 import { oweSessionDuration, owedSessionDuration, settleSessionDuration } from './pendingDuration';
+import { emitDomainEvent } from '../events/domainEvents';
 
 /**
  * W-6, исход упавшей выгрузки. Таймаут вызова счётчиков — «не дождались», а не
@@ -470,6 +471,15 @@ export const CloudSyncService = {
                 ...sortedCloudVersions.map(cv => cv.version),
               );
 
+              // R7F-010: заметку скрыли или выбросили на другом устройстве — флаг
+              // приехал этим забором, а доменное событие здесь никогда не эмитилось,
+              // поэтому производные (хронология, цитаты тем, линии) жили на этом
+              // устройстве бессрочно. Признак считается локально, без импорта из
+              // features: ядро не знает про ИИ, только про шину событий.
+              const cloudTrashedAtMs = toDate((cloudDoc as { trashedAt?: unknown }).trashedAt)?.getTime() ?? null;
+              const wasExcluded = Boolean(localDoc.excludedFromAI) || Boolean(localDoc.trashedAt);
+              const nowExcluded = Boolean(cloudDoc.excludedFromAI ?? localDoc.excludedFromAI) || Boolean(cloudTrashedAtMs);
+
               await LocalStorageService.updateDocument(localDoc.id, {
                 title: cloudDoc.title ?? localDoc.title,
                 tags: cloudDoc.tags ?? localDoc.tags,
@@ -484,8 +494,12 @@ export const CloudSyncService = {
                 excludedFromAI: cloudDoc.excludedFromAI ?? localDoc.excludedFromAI,
                 // R3-5: корзина на другом устройстве (и восстановление из неё) —
                 // облако новее, значит его состояние корзины и есть последнее.
-                trashedAt: toDate((cloudDoc as { trashedAt?: unknown }).trashedAt)?.getTime() ?? null,
+                trashedAt: cloudTrashedAtMs,
               }, userId);
+
+              if (!wasExcluded && nowExcluded) {
+                emitDomainEvent({ type: 'note.excludedFromAI', documentId: localDoc.id, excluded: true });
+              }
 
               // A-4 (R2-004): версия не читается — в локальную историю её дыра.
               // Воду метку всё равно поднимаем (иначе эта версия не прочитается
@@ -997,7 +1011,11 @@ export const CloudSyncService = {
                 // появляются никогда.
                 durationDelta: uploadedDuration + owed,
                 currentVersion: metaDoc.currentVersion,
-                sessionsCount: metaDoc.sessionsCount,
+                // R7Q-003: приращение за этот прогон — ровно то число версий, которое
+                // в облако уехало сейчас (одна версия = один ход). Абсолют из локальной
+                // копии сюда не кладём: им устаревший писатель откатывал облачный
+                // счётчик, а забор раздавал откат остальным устройствам.
+                sessionsDelta: missing.length,
                 lastSessionAt: metaDoc.lastSessionAt ? new Date(metaDoc.lastSessionAt) : undefined,
                 mood: metaDoc.mood,
               }));
@@ -1130,6 +1148,8 @@ export const CloudSyncService = {
         settleSessionDuration(userId, localDocumentId, owedSessionDuration(userId, localDocumentId));
       }
       let uploadedDuration = 0;
+      // R7Q-003: сколько ходов принесла эта выгрузка (принятому ряду — не нуль).
+      let uploadedSessions = 0;
       let owed = 0;
       let statsInFlight = false;
       try {
@@ -1186,7 +1206,10 @@ export const CloudSyncService = {
             mood,
             _encrypted,
           }));
-          if (alreadyInCloud && !alreadyInCloud.has(ver.version)) uploadedDuration += ver.duration ?? 0;
+          if (alreadyInCloud && !alreadyInCloud.has(ver.version)) {
+            uploadedDuration += ver.duration ?? 0;
+            uploadedSessions++;
+          }
         }
 
         statsInFlight = true;
@@ -1200,7 +1223,11 @@ export const CloudSyncService = {
           // W-6: плюс долг прежних упавших вызовов, списывается только после успеха.
           durationDelta: uploadedDuration + owed,
           currentVersion: localDoc.currentVersion,
-          sessionsCount: localDoc.sessionsCount,
+          // R7Q-003: свеже created ряду createDocument положил счётчики локальной
+          // копии в саму строку — приращение нулевое, иначе первая синхронизация
+          // удвоила бы ходы. Принятому ряду (23505 по uuid) считается столько,
+          // сколько версий в облаке до этого не лежало.
+          sessionsDelta: adoptedCloudRow ? uploadedSessions : 0,
           lastSessionAt: localDoc.lastSessionAt ? new Date(localDoc.lastSessionAt) : undefined,
           mood: localDoc.mood,
         }));

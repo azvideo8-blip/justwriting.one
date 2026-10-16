@@ -4,6 +4,7 @@ import { Copy, Download, Check } from 'lucide-react';
 import { updateUserPassword, getCurrentUser } from '../../../core/auth/supabaseAuthProvider';
 import { AuthService } from '../services/AuthService';
 import { PrivacyConsentBody, savePrivacyConsent } from './PrivacyConsentBody';
+import { downloadRecoveryCode } from '../../../shared/components/recoveryCodeActions';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { setCloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
@@ -57,6 +58,7 @@ export function InviteWizard({ email, tokenHash = null }: { email: string | null
   const [error, setError] = useState<string | null>(null);
   const [uid, setUid] = useState<string | null>(restoredUid);
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
+  const [syncChoice, setSyncChoice] = useState<boolean | null>(null);
   const [codeSaved, setCodeSaved] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -90,13 +92,16 @@ export function InviteWizard({ email, tokenHash = null }: { email: string | null
     try { return sessionStorage.getItem(STORAGE_KEYS.PENDING_RECOVERY_CODE(uid)); } catch { return null; }
   };
 
+  /**
+   * Вызывается только из шага кода (после «Код сохранён») либо когда кода нет
+   * вовсе. R7F-005: раньше сюда же вёл и «Не сейчас», который стирал единственный
+   * код, ни разу его не показав.
+   */
   const finish = (syncOn: boolean) => {
     clearWizardSnapshot(tokenHash);
     if (uid) {
       setCloudSyncEnabled(uid, syncOn);
       try {
-        // Код показан здесь (или сознательно не показан) — отдельное окно с ним
-        // после мастера не нужно. Новый код можно выпустить в настройках.
         sessionStorage.removeItem(STORAGE_KEYS.PENDING_RECOVERY_CODE(uid));
         localStorage.removeItem(STORAGE_KEYS.PENDING_RECOVERY_CODE(uid));
       } catch { /* private mode */ }
@@ -104,10 +109,16 @@ export function InviteWizard({ email, tokenHash = null }: { email: string | null
     void navigate('/', { replace: true });
   };
 
-  const enableSync = () => {
+  // Оба ответа про облако ведут через шаг кода: сейф создан уже на шаге пароля
+  // и защищает не только облачные заметки, поэтому код нельзя пропустить (R7F-005).
+  const answerSync = (syncOn: boolean) => {
     const code = takeRecoveryCode();
-    if (code) setRecoveryCode(code);
-    else finish(true);
+    if (!code) {
+      finish(syncOn);
+      return;
+    }
+    setSyncChoice(syncOn);
+    setRecoveryCode(code);
   };
 
   const copyCode = async () => {
@@ -117,13 +128,9 @@ export function InviteWizard({ email, tokenHash = null }: { email: string | null
 
   const downloadCode = () => {
     if (!recoveryCode) return;
-    const blob = new Blob([t('invite_wizard_download_file_content', { recoveryCode })], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'justwriting-recovery-code.txt';
-    a.click();
-    URL.revokeObjectURL(url);
+    // Текст и имя файла — общие для степпера и окна кода (MC-6), отзыв URL —
+    // отложенный (R7Q-011).
+    downloadRecoveryCode(recoveryCode, t);
   };
 
   const stepNo = NUMBERED.indexOf(step);
@@ -192,8 +199,8 @@ export function InviteWizard({ email, tokenHash = null }: { email: string | null
               </p>
               <p className="text-xs text-text-main/50">{t('invite_wizard_sync_hint')}</p>
               <div className="grid grid-cols-2 gap-3">
-                <Secondary onClick={() => finish(false)}>{t('invite_wizard_btn_not_now')}</Secondary>
-                <Primary onClick={enableSync}>{t('invite_wizard_btn_enable_sync')}</Primary>
+                <Secondary onClick={() => answerSync(false)}>{t('invite_wizard_btn_not_now')}</Secondary>
+                <Primary onClick={() => answerSync(true)}>{t('invite_wizard_btn_enable_sync')}</Primary>
               </div>
             </>
           )}
@@ -215,7 +222,7 @@ export function InviteWizard({ email, tokenHash = null }: { email: string | null
                 <input type="checkbox" checked={codeSaved} onChange={e => setCodeSaved(e.target.checked)} className="mt-0.5 accent-brand-soft shrink-0" />
                 <span className="text-xs text-text-main/70">{t('invite_wizard_saved_checkbox')}</span>
               </label>
-              <Primary onClick={() => finish(true)} disabled={!codeSaved}>{t('invite_wizard_btn_start_writing')}</Primary>
+              <Primary onClick={() => finish(syncChoice ?? true)} disabled={!codeSaved}>{t('invite_wizard_btn_start_writing')}</Primary>
             </>
           )}
         </div>
