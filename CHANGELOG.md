@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.9.43 — 2026-10-16
+
+- **[RU]** Заметка, скрытая от ИИ или убранная в корзину, больше не попадает в разговор с ИИ ни через какие сводки — и на другом устройстве тоже.
+- **[EN]** A note hidden from the AI or moved to the trash no longer reaches the AI through any summaries — on other devices too.
+- **[RU]** Плохая связь при первом входе на новом устройстве больше не сбрасывает данное ранее согласие на ИИ.
+- **[EN]** A poor connection on the first sign-in on a new device no longer resets the AI consent you gave earlier.
+- **[RU]** Код восстановления показывается при регистрации по приглашению всегда, даже без облака; файл с кодом сохраняется надёжно.
+- **[EN]** The recovery code is always shown when you sign up by invitation, even without the cloud, and the code file is saved reliably.
+- **[RU]** Если пароль сброшен по почте, а сейф на этом устройстве ещё на старом пароле, приложение предупреждает и предлагает сохранить новый код восстановления.
+- **[EN]** If your password was reset by e-mail while the vault on this device still uses the old one, the app warns you and offers to save a new recovery code.
+- **[RU]** Счётчики сессий и времени у заметки больше не уменьшаются при синхронизации с устаревшего устройства.
+- **[EN]** A note's session and time counters no longer go down when an outdated device syncs.
+- **[RU]** Новые слова в продолженной заметке считаются правильно, даже если заметку раньше сокращали.
+- **[EN]** New words in a continued note are counted correctly even if the note was shortened before.
+- **[RU]** Если ИИ не ответил вовремя, запрос возвращается в дневной лимит.
+- **[EN]** If the AI does not answer in time, the request goes back to your daily limit.
+- **[RU]** Кнопки на страницах приглашения и сброса пароля снова видны.
+- **[EN]** Buttons on the invitation and password-reset pages are visible again.
+- **[RU]** Закрыты неиспользуемые способы входа по почте; технические ответы ИИ-сервиса больше не попадают в журнал сервера.
+- **[EN]** Unused e-mail sign-in routes are closed, and the AI service's technical replies no longer reach the server log.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.9.42 — 2026-10-15
 
 - **[RU]** В режиме «Свободный поток» время идёт вперёд; обратный отсчёт — только если выбрана цель по времени.
