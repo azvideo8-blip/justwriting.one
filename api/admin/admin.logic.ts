@@ -194,6 +194,22 @@ export async function adminDeleteUserLogic(
   const client = await pool.connect();
   try {
     await client.query('begin');
+    // Проверка выше — быстрый отказ без транзакции; решает эта. Два параллельных
+    // запроса одного админа иначе оба видели «4 из 5» и проходили вместе (TOCTOU):
+    // блокировка по админу держится до конца транзакции, пересчёт — под ней.
+    await client.query('select pg_advisory_xact_lock(hashtext($1))', [uid]);
+    const recount = await client.query(
+      `select count(*)::int as used from public.admin_actions
+        where admin_uid = $1 and action = 'delete_user' and at > now() - interval '1 hour'`,
+      [uid],
+    );
+    if (((recount.rows[0] as { used?: number } | undefined)?.used ?? 0) >= ADMIN_DELETES_PER_HOUR) {
+      await client.query('rollback');
+      throw new AiError(
+        'resource-exhausted',
+        `Не больше ${ADMIN_DELETES_PER_HOUR} удалений в час. Повторите позже — или разберите списки по одному.`,
+      );
+    }
     const deleted = await deleteUserRows(client, target);
     if (deleted === 0) {
       await client.query('rollback');

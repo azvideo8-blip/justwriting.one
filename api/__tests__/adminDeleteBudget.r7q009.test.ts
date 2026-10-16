@@ -66,4 +66,19 @@ describe('R7Q-009: почасовой бюджет админских удале
     expect(String(budgetQuery?.[0])).toMatch(/at > now\(\) - interval/i);
     expect(budgetQuery?.[1]).toEqual([ADMIN]);
   });
+
+  // Ревью 0.9.43 (TOCTOU): два параллельных запроса оба видели «4 из 5» в проверке
+  // до транзакции и проходили вместе. Решает пересчёт внутри транзакции под
+  // pg_advisory_xact_lock по админу. Мутация: убрать пересчёт → красный.
+  it('пересчёт под блокировкой внутри транзакции: параллельный запрос уже съел бюджет — откат, ничего не удалено', async () => {
+    deletesThisHour = 4;   // быстрая проверка до транзакции пропускает
+    clientQuery.mockImplementation(async (sql: string) => {
+      if (String(sql).includes('admin_actions') && String(sql).startsWith('select count')) return { rowCount: 1, rows: [{ used: 5 }] };
+      return sql.startsWith('delete from auth.users') ? { rowCount: 1, rows: [] } : { rowCount: 0, rows: [] };
+    });
+    await expect(adminDeleteUserLogic(ctx, ADMIN, { uid: TARGET })).rejects.toThrow(/час/);
+    expect(deleteCalls()).toHaveLength(0);
+    expect(clientQuery).toHaveBeenCalledWith('select pg_advisory_xact_lock(hashtext($1))', [ADMIN]);
+    expect(clientQuery).toHaveBeenCalledWith('rollback');
+  });
 });
