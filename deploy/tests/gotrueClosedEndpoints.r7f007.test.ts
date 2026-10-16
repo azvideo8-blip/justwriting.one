@@ -26,9 +26,19 @@ function sourceFiles(dir: string): string[] {
 describe('R7F-007: неиспользуемые точки GoTrue закрыты', () => {
   const nginx = readFileSync(NGINX, 'utf8');
 
-  it.each(CLOSED)('%s отдаёт 404 до проксирования в Kong', path => {
-    const block = new RegExp(`location\\s+=\\s+${path}\\s*\\{\\s*return 404;\\s*\\}`).test(nginx);
-    expect(block, `в deploy/nginx.conf должен быть «location = ${path} { return 404; }»`).toBe(true);
+  // Ревью 0.9.43: `location =` пропускал вариант со слешем на конце. Проверяем
+  // настоящую регулярку из конфига на путях с слешем и без, и порядок: блок
+  // обязан стоять раньше общего `^/auth/` (регулярные location — по порядку).
+  // Мутация: вернуть `location = /auth/v1/otp` → красный.
+  it.each(CLOSED)('%s (и со слешем) отдаёт 404 до проксирования в Kong', path => {
+    const m = /location\s+~\*?\s+(\^\/auth\/v1\/\S+)\s*\{\s*return 404;\s*\}/.exec(nginx);
+    expect(m, 'в deploy/nginx.conf нет регулярного location с return 404').not.toBeNull();
+    const re = new RegExp(m![1]!, 'i');
+    expect(re.test(path)).toBe(true);
+    expect(re.test(`${path}/`)).toBe(true);
+    expect(re.test('/auth/v1/token')).toBe(false);
+    expect(re.test('/auth/v1/verify')).toBe(false);
+    expect(nginx.indexOf(m![0])).toBeLessThan(nginx.search(/location\s+~\s+\^\/auth\/\s*\{/));
   });
 
   it('остальной /auth/ по-прежнему проксируется (иначе сломали бы вход)', () => {
