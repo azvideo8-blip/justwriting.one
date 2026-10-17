@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Телефон — руководство justwriting</title>
+  <meta name="description" content="Как пользоваться justwriting с телефона: вход, письмо, заметки, ИИ и настройки на узком экране.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../docs.css">
+  <meta name="theme-color" content="#FAF8F5" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0E0A18" media="(prefers-color-scheme: dark)">
+</head>
+<body>
+  <a class="skip" href="#content">К содержанию</a>
+  <header class="topbar">
+    <a class="brand" href="index.html"><b>justwriting</b><span>Руководство для телефона</span></a>
+    <a class="app-link" href="/">Открыть приложение</a>
+  </header>
+
+  <div class="layout">
+    <nav class="sidenav" aria-label="Разделы руководства">
+      <ol class="dnav">
+        <li><a href="index.html" aria-current="page">Телефон: начало</a></li>
+        <li><a href="writing.html">Письмо</a></li>
+        <li><a href="notes.html">Заметки и читалка</a></li>
+        <li><a href="ai.html">ИИ</a></li>
+        <li><a href="profile.html">Профиль и настройки</a></li>
+      </ol>
+      <details class="mnav">
+        <summary>Разделы руководства</summary>
+        <ol>
+          <li><a href="index.html" aria-current="page">Телефон: начало</a></li>
+          <li><a href="writing.html">Письмо</a></li>
+          <li><a href="notes.html">Заметки и читалка</a></li>
+          <li><a href="ai.html">ИИ</a></li>
+          <li><a href="profile.html">Профиль и настройки</a></li>
+        </ol>
+      </details>
+    </nav>
+
+    <main id="content">
+      <article class="doc">
+        <h1>Телефон</h1>
+        <p class="lead">На телефоне те же заметки, тот же ИИ и то же шифрование, но экран собран по-другому: снизу — четыре вкладки, вместо панелей — листы, которые выезжают снизу, и «назад» закрывает лист, а не выбрасывает из приложения.</p>
+
+        <details class="toc" aria-label="На этой странице">
+          <summary>На этой странице</summary>
+          <ul>
+            <li><a href="#what-changes">Что другое на телефоне</a></li>
+            <li><a href="#first-entry">Первый вход</a></li>
+            <li><a href="#guest">Без аккаунта</a></li>
+            <li><a href="#back">Кнопка «назад»</a></li>
+            <li><a href="#sections">Дальше по разделам</a></li>
+          </ul>
+        </details>
+
+        <h2 id="what-changes">Что другое на телефоне</h2>
+        <ul>
+          <li><strong>Нижняя навигация</strong> — четыре вкладки: <span class="ui">Писать</span>, <span class="ui">Заметки</span>, <span class="ui">ИИ</span>, <span class="ui">Профиль</span>. Верхней боковой панели, как на компьютере, нет.</li>
+          <li><strong>Листы вместо окон.</strong> Действия над заметкой, режим сессии, панели тегов и календаря, «Сохранить как…» — всё это лист, который выезжает снизу и закрывается жестом вниз, кнопкой или аппаратной «назад».</li>
+          <li><strong>Текст крупнее, поля на всю ширину.</strong> Поле ввода всегда 16 px — иначе браузер бы приближал экран при каждом касании.</li>
+          <li><strong>Тема по системе.</strong> Пока вы не вошли, приложение следует системной настройке «светлое/тёмное». После входа тема берётся из вашего выбора в настройках.</li>
+          <li><strong>PDF на телефоне нет.</strong> Там, где на компьютере есть печать в PDF, на телефоне — «Сохранить как…» с txt, md и docx.</li>
+        </ul>
+
+        <h2 id="first-entry">Первый вход</h2>
+        <p>Аккаунт создаётся по приглашению: откройте письмо-приглашение на телефоне и перейдите по ссылке. Приложение пройдёт с вами три коротких шага — пароль, согласие на политику и (по желанию) на ИИ, облако — и покажет код восстановления. Код показывается <strong>всегда</strong>, даже если облако вы включили и даже если отказались от него: шифрование работает на устройстве в любом случае.</p>
+        <p>Если ссылка открылась второй раз или страница перезагрузилась посреди настройки, ничего не теряется: мастер продолжается с того же шага. Ссылки на политику и условия открываются в новой вкладке, чтобы настройка не начиналась заново.</p>
+        <figure class="shot phone-pair">
+          <img src="img/login-light.jpg" alt="Экран входа на телефоне: сверху название justwriting, поля Email и Пароль на всю ширину, кнопка «Войти», под ней «Регистрация» и «Забыли пароль?»" loading="lazy" width="390" height="844">
+          <img src="img/login-dark.jpg" alt="Тот же экран входа в тёмной теме" loading="lazy" width="390" height="844">
+          <figcaption>Вход на телефоне: светлая и тёмная темы. Без боковой панели и ничего под сгибом экрана.</figcaption>
+        </figure>
+
+        <h2 id="guest">Без аккаунта</h2>
+        <p>Можно писать и не входя: заметки лежат только в этом браузере на этом телефоне, облачной копии нет, ИИ недоступен. Когда аккаунт появится, приложение предложит перенести гостевые заметки в него; незаконченный черновик переносится тоже, а если в аккаунте уже есть свой черновик, гостевой сохранится отдельной заметкой.</p>
+
+        <h2 id="back">Кнопка «назад»</h2>
+        <p>Аппаратная «назад» и свайп от края экрана закрывают открытый лист — панель настроек, лист действий, читалку, — и только потом уводят из приложения. Листы не копятся в истории: вышли из читалки в редактор по <span class="ui">Продолжить писать</span> — «назад» вернёт туда, где вы были до читалки, а не заставят нажимать её дважды впустую.</p>
+
+        <h2 id="sections">Дальше по разделам</h2>
+        <ul>
+          <li><a href="writing.html">Письмо на телефоне</a> — чип режима, микрофон, «Сохранить», окно <span class="ui">Записано.</span></li>
+          <li><a href="notes.html">Заметки и читалка</a> — список и сетка, значки хранения, лист <span class="ui">⋯</span>, «Сохранить как…», «Инфо».</li>
+          <li><a href="ai.html">ИИ</a> — диалоги, собеседники, счётчик запросов.</li>
+          <li><a href="profile.html">Профиль и настройки</a> — состояние аккаунта, сейф, облако, темы.</li>
+        </ul>
+        <p>Общие вещи — про шифрование, облако, резервные копии и приватность — одинаковы на телефоне и на компьютере: <a href="../index.html">руководство для компьютера</a>.</p>
+
+        <nav class="pager" aria-label="Соседние разделы">
+          <span></span>
+          <a class="next" href="writing.html"><small>Дальше →</small>Письмо на телефоне</a>
+        </nav>
+      </article>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <span>justwriting</span>
+    <ul class="footer-links">
+      <li><a href="/">Открыть приложение</a></li>
+      <li><a href="/privacy">Политика конфиденциальности</a></li>
+      <li><a href="/terms">Условия использования</a></li>
+      <li><a href="mailto:support@justwriting.ru">support@justwriting.ru</a></li>
+    </ul>
+  </footer>
+</body>
+</html>

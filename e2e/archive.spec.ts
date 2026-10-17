@@ -161,4 +161,47 @@ test.describe('Archive Page', () => {
     );
     await expect(search).toBeFocused();
   });
+
+  // R5 (emil-review, хвост MQ-15): затемнение десктопного превью стояло вне
+  // AnimatePresence и появлялось/пропадало рывком. Правка — только это: подложка
+  // гаснет за 200 мс по прозрачности вместе с окном; карточка превью, её содержимое
+  // и слои не изменены. На телефоне этого слоя нет.
+  test('R5: подложка превью появляется и гаснет с переходом', async ({ page }) => {
+    await page.goto('/archive');
+    await seedNotes(page);
+    await page.reload();
+    await page.getByText('Apples harvest report').first().click({ timeout: 15000 });
+
+    const seen = await page.evaluate(() => new Promise<{ inFrames: number[]; outFrames: number[] }>(resolve => {
+      const sel = '[class*="bg-black/20"]';
+      const inFrames: number[] = [];
+      const outFrames: number[] = [];
+      const started = performance.now();
+      const tickIn = () => {
+        const el = document.querySelector(sel) as HTMLElement | null;
+        if (el) inFrames.push(Number(getComputedStyle(el).opacity));
+        if (inFrames.length < 12 && performance.now() - started < 600) requestAnimationFrame(tickIn);
+        else closeAndSample();
+      };
+      const closeAndSample = () => {
+        const el = document.querySelector(sel) as HTMLElement | null;
+        const start2 = performance.now();
+        el?.click();
+        const tickOut = () => {
+          const e2 = document.querySelector(sel) as HTMLElement | null;
+          if (e2) outFrames.push(Number(getComputedStyle(e2).opacity));
+          if (performance.now() - start2 < 500) requestAnimationFrame(tickOut);
+          else resolve({ inFrames, outFrames });
+        };
+        requestAnimationFrame(tickOut);
+      };
+      requestAnimationFrame(tickIn);
+    }));
+
+    const partialIn = seen.inFrames.filter(o => o > 0.01 && o < 0.99);
+    const partialOut = seen.outFrames.filter(o => o > 0.01 && o < 0.99);
+    expect(partialIn.length + partialOut.length,
+      `подложка скачет между 0 и 1 без кадров перехода: in=${JSON.stringify(seen.inFrames.slice(0, 6))} out=${JSON.stringify(seen.outFrames.slice(0, 6))}`)
+      .toBeGreaterThan(0);
+  });
 });

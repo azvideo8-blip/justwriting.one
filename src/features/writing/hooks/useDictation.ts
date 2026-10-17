@@ -241,7 +241,11 @@ export function useDictation(): DictationApi {
     onError: handleRecognitionError,
   });
 
-  const meterActive = session.isListening && !yielded;
+  // Видео владельца 2026-10-17: на iOS (любой браузер — это WebKit) волна через
+  // getUserMedia молча отнимает микрофон у распознавания — ни ошибки, ни слов,
+  // уступка выше не срабатывает. Там волны нет, вместо неё точка (D-4).
+  const meterAllowed = !isIosWebKit();
+  const meterActive = session.isListening && !yielded && meterAllowed;
   const meter = useMicLevel(meterActive);
 
   useEffect(() => {
@@ -283,7 +287,7 @@ export function useDictation(): DictationApi {
       interimText: session.interimText,
       level: meter.level,
       levels: waveLevels,
-      levelFailed: meter.failed || yielded,
+      levelFailed: meter.failed || yielded || (session.isListening && !meterAllowed),
       seconds,
       aiNoticeRemaining: aiNotice.yes ? aiNotice.remaining : null,
       hasSupport: session.hasSupport,
@@ -292,7 +296,7 @@ export function useDictation(): DictationApi {
     notify();
   }, [
     isHost, session.isListening, session.liveText, session.interimText, session.hasSupport,
-    session.isVaultActive, meter.level, meter.failed, processing, seconds, aiNotice, yielded,
+    session.isVaultActive, meter.level, meter.failed, processing, seconds, aiNotice, yielded, meterAllowed,
   ]);
 
   const begin = useCallback((noticeHandled: boolean) => {
@@ -380,7 +384,7 @@ export function useDictation(): DictationApi {
     interimText: session.interimText,
     level: meter.level,
     levels: waveLevels,
-    levelFailed: meter.failed || yielded,
+    levelFailed: meter.failed || yielded || (session.isListening && !meterAllowed),
     seconds,
     aiNoticeRemaining: aiNotice.yes ? aiNotice.remaining : null,
     hasSupport: session.hasSupport,
@@ -400,6 +404,13 @@ export async function previewDictationCost(): Promise<number | null> {
   const docId = useSessionMetaStore.getState().savedDocumentId;
   const hidden = await aiDeps.noteHidden(docId ?? undefined).catch(() => false);
   return hidden ? null : w.remaining;
+}
+
+/** iPhone/iPad, в том числе iPad в режиме «как компьютер» (платформа MacIntel с касанием). */
+function isIosWebKit(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /iPhone|iPad|iPod/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
 
 async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {

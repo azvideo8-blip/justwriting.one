@@ -4,12 +4,13 @@ import { useLocation } from 'react-router-dom';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { useWritingSettings } from '../core/settings/WritingSettingsContext';
 import { useLayoutMode } from '../shared/hooks/useLayoutMode';
+import { useNarrowViewport } from '../shared/hooks/useNarrowViewport';
 import { useLanguage } from '../shared/i18n';
 import { cn } from '../core/utils/utils';
 import { useLoginModal } from '../features/auth/contexts/LoginModalContext';
 import { useSyncStatus } from '../core/sync/useSyncStatus';
 import { useToast } from '../shared/components/Toast';
-import { VAULT_PASSWORD_CONVERGED_EVENT } from '../core/services/EncryptionService';
+import { VAULT_PASSWORD_CONVERGED_EVENT } from '../core/crypto/vaultEvents';
 import { takeAccountChangeNotice } from '../core/auth/accountReload';
 import { offerLostSessionWipe } from '../features/auth/services/lostSessionWipe';
 
@@ -36,9 +37,15 @@ import { useEmptyDeviceDetection } from '../core/sync/useEmptyDeviceDetection';
 const RestoreFromCloudModal = React.lazy(() =>
   import('./modals/RestoreFromCloudModal').then(m => ({ default: m.RestoreFromCloudModal })),
 );
+import { ErrorBoundary } from '../shared/components/ErrorBoundary';
 import { useOtherUserDetection } from '../features/auth/hooks/useOtherUserDetection';
 import { OtherUserDataModal } from '../features/auth/components/OtherUserDataModal';
-import { GuestMigrationGate } from '../features/auth/components/GuestMigrationGate';
+// BS (N-2): мост миграции гостя — окно для немногих, а его статический импорт
+// через MigrationPrompt тянул за собой SyncService и LocalDocumentService в
+// стартовый кусок.
+const GuestMigrationGate = React.lazy(() =>
+  import('../features/auth/components/GuestMigrationGate').then(m => ({ default: m.GuestMigrationGate })),
+);
 
 export function AppShell() {
   const location = useLocation();
@@ -50,6 +57,7 @@ export function AppShell() {
   const { isAdmin } = useAdminStatus();
   const { isZenActive, zenModeEnabled, silenceMode } = useWritingSettings();
   const { layoutMode } = useLayoutMode();
+  const narrow = useNarrowViewport();
   const { loginModalOpen } = useLoginModal();
   const { openSettings } = useSettings();
   const { mode: encryptionMode, check: recheckEncryption, dismiss: dismissEncryption } = useEncryptionSetup();
@@ -87,6 +95,11 @@ export function AppShell() {
   }, [showToast, t, confirmDialog]);
 
   const currentPath = location.pathname;
+  // SA-20 (N-1): экраны входа гостя на телефоне — без навигации и без отступов
+  // под неё. Гость ещё не выбирал макет, право `mobile_layout_allowed` к нему не
+  // применяется, а рейка 64 px снимает 18 % ширины 360 и показывает вкладки, до
+  // которых человеку до входа нет дела. На широком экране вход остаётся десктопным.
+  const isGuestAuthScreen = isGuest && narrow && (currentPath === '/login' || isResetPassword);
   const showZen = isZenActive && zenModeEnabled && currentPath === '/';
   // The AI chat manages its own full-height layout; on desktop it must fill the
   // viewport edge-to-edge (only clearing the fixed nav rail) instead of inheriting
@@ -113,7 +126,7 @@ export function AppShell() {
 
       {/* Мастер приглашения и сброс пароля — без навигации: до конца шагов
           приложения для человека ещё нет, а боковая панель сжимала экран. */}
-      {!isResetPassword && (
+      {!isResetPassword && !isGuestAuthScreen && (
         <>
           {layoutMode === 'desktop' ? (
             <Sidebar isAdmin={isAdmin} onOpenSettings={openSettings} />
@@ -136,6 +149,10 @@ export function AppShell() {
           // Две обёртки ErrorBoundary (div) между main и экраном тоже тянутся
           // на всю высоту, иначе h-full экрана ИИ = высоте содержимого.
           ? "flex-1 min-h-0 overflow-hidden pb-safe-nav [&>div]:h-full [&>div>div]:h-full"
+          : isGuestAuthScreen
+          // SA-20: страницы входа считают отступы сами; pt-8 плюс pl-20 сверху
+          // и панель снизу сдвигали «Забыли пароль?» за нижний край 360×640.
+          ? "min-h-screen"
           : cn(
               "min-h-screen pt-8",
               layoutMode === 'desktop' && "pl-20 pr-4",
@@ -155,7 +172,15 @@ export function AppShell() {
       {/* [U-03] спейсер h-28 убран: отступ main компенсирует высоту BottomNav (MB-7 — вместе с чипом) */}
       <LoginModalOverlay open={loginModalOpen} />
       {!isResetPassword && !queued && <RecoveryCodeGate />}
-      {!queued && <GuestMigrationGate />}
+      {!queued && (
+        // Ревью приёмки 0.10.0: ленивый кусок на каждом старте — отказ его загрузки
+        // гасит только мост миграции, а не всё приложение.
+        <ErrorBoundary fallback={null}>
+          <Suspense fallback={null}>
+            <GuestMigrationGate />
+          </Suspense>
+        </ErrorBoundary>
+      )}
       <ConfirmDialogRenderer />
       <ActivityLogBadge />
       {encryptionMode !== 'none' && user && !isResetPassword && !queued && (

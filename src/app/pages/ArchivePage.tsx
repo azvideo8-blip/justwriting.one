@@ -30,6 +30,7 @@ import { useTagEditor } from '../../features/archive/hooks/useTagEditor';
 import { useLabelEditor } from '../../features/archive/hooks/useLabelEditor';
 import { useArchiveGrouping } from '../../features/archive/hooks/useArchiveGrouping';
 import { useLayoutMode } from '../../shared/hooks/useLayoutMode';
+import { closePanelsForNavigation } from '../../shared/hooks/usePanelHistory';
 import { rebuildWordCloud } from '../../features/archive/hooks/useArchiveWordCloud';
 
 import { ArchiveTrashView } from '../../features/archive/components/ArchiveTrashView';
@@ -434,16 +435,31 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
               wordCloud={wordCloud} maxCount={maxCount} onWordClick={setSearchQuery}
             />
           </Suspense>
-          {/* not-a-modal: preview backdrop */}
-          {previewSession && <div className="fixed inset-0 z-40 bg-black/20" onClick={() => setPreviewSession(null)} />}
-
           <AnimatePresence>
+            { /* R5 (emil-review, хвост MQ-15): затемнение десктопного превью
+                стояло вне AnimatePresence и появлялось/пропадало рывком. Теперь
+                оно в том же блоке и гаснет за 200 мс вместе с окном. Что
+                меняется на десктопе: только появление и исчезновение подложки
+                (200 мс по прозрачности); сама карточка превью, её содержимое и
+                слои не тронуты, на телефоне этого слоя нет. */}
+            {previewSession && (
+              /* not-a-modal: preview backdrop */
+              <motion.div
+                key="preview-backdrop"
+                className="fixed inset-0 z-40 bg-black/20"
+                onClick={() => setPreviewSession(null)}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              />
+            )}
             {previewSession && (
               <Suspense fallback={null}>
                 <DocumentPreview
                 session={previewSession} onClose={() => setPreviewSession(null)}
                 context={previewContext}
-                onContinue={s => void navigate('/', { state: { sessionToContinue: s } })}
+                onContinue={s => closePanelsForNavigation(() => void navigate('/', { state: { sessionToContinue: s } }))}
                 onTagsChange={(s, tags) => void handleTagsChange(s, tags)} onLabelChange={(s, label) => void handleLabelChange(s, label)}
                 onAddLabel={(label) => void addLabel(label)} labels={profileLabels} allTags={allTags}
                 onTitleChange={(s, title) => void handleTitleChange(s, title)}

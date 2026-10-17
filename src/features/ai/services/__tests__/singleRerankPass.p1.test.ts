@@ -11,7 +11,6 @@
 // maxResults: 8», и «успешный и провалившийся реранк дают один и тот же контекст»,
 // и «нет записи chat_rerank».
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { readFileSync } from 'node:fs';
 import { renderHook } from '@testing-library/react';
 import 'fake-indexeddb/auto';
 import { useAIChatContext } from '../aiChatContext';
@@ -93,10 +92,23 @@ describe('П-1: один проход переранжирования на хо
     expect(vi.mocked(reportAIDegradation).mock.calls.filter(c => c[0].feature === 'chat_rerank')).toEqual([]);
   });
 
-  it('проверка не холостая: в исходнике чата нет ни второго прохода, ни его признака', async () => {
-    const src = readFileSync('src/features/ai/services/aiChatContext.ts', 'utf8');
-    expect(src).not.toContain('maxResults: 8');
-    expect(src).not.toContain("feature: 'chat_rerank'");
-    expect(src).toContain('П-1');
+  // Прежний кейс «проверка не холостая» читал исходник: `not.toContain('maxResults: 8')`
+  // обходилась записью `maxResults:8`, а `toContain('П-1')` — маркер в комментарии
+  // (R7Q-036). Здесь считает сами вызовы: за ход SECOND проход добавить не может,
+  // и формат кода на это не влияет.
+  it('за ход не больше одного вызова реранка', async () => {
+    const ok = await runTurn({ ok: true, documentIds: IDS.slice(0, 4) });
+    expect(ok.spy.mock.calls.length, `вызовов реранка: ${ok.spy.mock.calls.length}`).toBeLessThanOrEqual(1);
+    const bad = await runTurn({ ok: false, error: 'UPSTREAM' });
+    expect(bad.spy.mock.calls.length, `вызовов реранка: ${bad.spy.mock.calls.length}`).toBeLessThanOrEqual(1);
+  });
+
+  // Контроль над самим счётчиком: без него «не больше одного» на стенде, где
+  // реранк вообще не случился, — пустая фраза.Spy обязан видеть вызов, когда он
+  // есть, и ровно этот вызов он и не должен видеть дважды за ход.
+  it('контроль: spy видит вызов реранка, когда он происходит', async () => {
+    const spy = vi.spyOn(AIService, 'rerank').mockResolvedValue({ ok: true, documentIds: ['a'] } as never);
+    await AIService.rerank({ query: 'Альфа', candidates: [{ documentId: 'a', card: 'Заметка a' }], maxResults: 4 });
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 });

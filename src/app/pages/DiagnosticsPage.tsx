@@ -9,6 +9,7 @@ import { cn } from '../../core/utils/utils';
 import { APP_VERSION } from '../../version';
 import { SyncDiagnostics } from '../../features/ai/components/SyncDiagnostics';
 import { AdminUsersTable } from '../../features/admin/components/AdminUsersTable';
+import { AdminActionsTable } from '../../features/admin/components/AdminActionsTable';
 import { LoadingSpinner } from '../../shared/components/LoadingSpinner';
 import { useAuthStatus } from '../useAuthStatus';
 import { useDiagnosticsData, type Tab } from '../../features/ai/hooks/useDiagnosticsData';
@@ -155,6 +156,7 @@ export function DiagnosticsPage() {
     handleResetUserLimit,
     handleClearMemory,
     handleCollapseVersions,
+    adminActions,
   } = useDiagnosticsData(profile, authLoading, activeTab);
 
   const [inviteEmail, setInviteEmail] = useState('');
@@ -449,6 +451,16 @@ export function DiagnosticsPage() {
                   />
                 </div>
               )}
+            </div>
+
+            {/* R7Q-014: след админских удалений. Только чтение — стирать или
+                править исторический след — значит терять его вместе с обвинением. */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-text-main">{t('admin_actions_title')}</h3>
+              <p className="text-xs text-text-muted">{t('admin_actions_hint')}</p>
+              <div className="overflow-x-auto rounded-2xl border border-border-subtle">
+                <AdminActionsTable actions={adminActions} />
+              </div>
             </div>
           </div>
         )}

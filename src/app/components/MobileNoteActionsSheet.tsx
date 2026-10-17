@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useExitLinger } from '../../shared/hooks/useExitLinger';
 import { Download, Pencil, X } from 'lucide-react';
 import { useLanguage } from '../../shared/i18n';
@@ -11,6 +12,8 @@ import { buildNoteActions, type NoteActionId, type NoteActionItem, type NoteLabe
 import { splitNoteTitle } from '../../features/archive/components/noteTitle';
 import type { ArchiveSession } from '../../features/archive/types';
 import { exportAsDocx, exportAsMd, exportAsTxt, isExportable, type ExportStrings } from '../../core/services/ArchiveExportService';
+import { loadSessionContent } from '../../core/services/UnifiedSessionLoader';
+import { reportError } from '../../shared/errors/reportError';
 import { useToast } from '../../shared/components/Toast';
 import { useNoteStorageActions } from '../../features/archive/components/useNoteStorageActions';
 
@@ -56,6 +59,15 @@ function MobileNoteActionsSheetBody({
   const { t } = useLanguage();
   const { showToast } = useToast();
   const [saveAsOpen, setSaveAsOpen] = useState(false);
+  // N-8: пол высоты для вложенного вида. Меряется в момент нажатия, а не эффектом:
+  // обработчик имеет право на setState, а эффект с синхронным setState — нет.
+  const listRef = useRef<HTMLDivElement>(null);
+  const [actionsHeight, setActionsHeight] = useState(0);
+  const openSaveAs = () => {
+    const el = listRef.current;
+    if (el) setActionsHeight(el.scrollHeight);
+    setSaveAsOpen(true);
+  };
 
   const doc = {
     localId: session._isLocal ? session.id : undefined,
@@ -92,22 +104,47 @@ function MobileNoteActionsSheetBody({
     date: t('export_header_date'), words: t('export_header_words'), time: t('export_header_time'),
     tags: t('export_header_tags'), untitled: t('export_untitled'), untitledFilename: t('export_filename_default'),
   };
-  // Тот же отказ, что в десктопном превью: нечитаемую заметку не сохраняем пустым файлом.
-  const runExport = (fn: () => void | Promise<void>) => {
-    if (!isExportable(session)) {
-      showToast(session._contentNotLoaded ? t('archive_export_not_loaded')
-        : session._locked ? t('archive_export_locked') : t('archive_export_encrypted_unavailable'), 'error');
+  // Тот же отказ, что в десктопном превью: нечитаемую заметку не сохраняем пустым
+  // файлом. R7F-023: причина обязана быть настоящей — запертую заметку лист
+  // показывает как запертую (прежний порядок проверял `_contentNotLoaded`, а
+  // useArchiveSessions ставит его и запертым тоже); незагруженный облачный текст
+  // докачивается, как это делает десктоп; и провал экспорта виден человеком, а не
+  // только в консоли — `void fn()` выбрасывал промис вместе с неудачей.
+  const runExport = async (fn: (target: ArchiveSession) => Promise<void> | void) => {
+    let target = session;
+    if (target._locked) {
+      showToast(t('archive_export_locked'), 'error');
       return;
     }
-    void fn();
+    if (target._contentNotLoaded && !target._isLocal) {
+      try {
+        target = { ...target, ...(await loadSessionContent(userId, target.id)) };
+      } catch (e) {
+        reportError(e, { action: 'noteActionsSheet_loadForExport', id: target.id });
+      }
+      if (target._locked) {
+        showToast(t('archive_export_locked'), 'error');
+        return;
+      }
+    }
+    if (!isExportable(target)) {
+      showToast(target._contentNotLoaded ? t('archive_export_not_loaded') : t('archive_export_encrypted_unavailable'), 'error');
+      return;
+    }
+    try {
+      await fn(target);
+    } catch (e) {
+      reportError(e, { action: 'noteActionsSheet_export', id: target.id });
+      showToast(t('archive_export_failed'), 'error');
+    }
     onClose();
   };
   // PDF на телефоне не предлагается: мобильная ветка exportAsPdf отдаёт .html
   // через «Поделиться», окна печати там нет (MF-12, отчёт).
   const formats = [
-    { key: 'txt', label: t('export_txt'), run: () => runExport(() => exportAsTxt(session, exportStrings)) },
-    { key: 'md', label: t('export_md'), run: () => runExport(() => exportAsMd(session, exportStrings)) },
-    { key: 'docx', label: t('export_docx'), run: () => runExport(() => exportAsDocx(session, exportStrings)) },
+    { key: 'txt', label: t('export_txt'), run: () => runExport(s => exportAsTxt(s, exportStrings)) },
+    { key: 'md', label: t('export_md'), run: () => runExport(s => exportAsMd(s, exportStrings)) },
+    { key: 'docx', label: t('export_docx'), run: () => runExport(s => exportAsDocx(s, exportStrings)) },
   ];
 
   // SA-17: строки меню на всю ширину — значок и текст слева, без рамок; пять
@@ -139,22 +176,30 @@ function MobileNoteActionsSheetBody({
         <IconButton onClick={onClose} className="w-11 h-11 rounded-full text-text-main/60" label={t('close')} icon={<X size={18} />} />
       </div>
 
-      <div data-testid="note-actions-list" className="px-4 py-3 overflow-y-auto no-scrollbar pb-[calc(env(safe-area-inset-bottom,0px)+88px)]">
+      <div data-testid="note-actions-list" ref={listRef} className="px-4 py-3 overflow-y-auto no-scrollbar pb-[calc(env(safe-area-inset-bottom,0px)+88px)]">
+        {/* N-8 (emil-review, хвост MQ-15): «Сохранить как…» подменяла содержимое
+            листа в один кадр, и высота рывком падала с десяти строк до четырёх.
+            Кроссфейд по прозрачности в одной ячейке grid: обе ветки лежат друг на
+            друге на 150 мс, поэтому высота не прыгает, а режим sync (не `wait`)
+            не зависит от того, доиграет ли уход — `wait` без WAAPI вообще не
+            монтирует следующую ветку. */}
+        <div className="grid">
+        <AnimatePresence initial={false}>
         {saveAsOpen ? (
-          <div className="space-y-2" data-testid="note-save-as">
+          <motion.div key="save-as" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="col-start-1 row-start-1 space-y-2" data-testid="note-save-as" style={{ minHeight: actionsHeight || undefined }}>
             <div className="flex items-center justify-between">
               <span className="text-[13px] font-semibold text-text-muted">{t('archive_save_as')}</span>
               <Button onClick={() => setSaveAsOpen(false)} className="min-h-11 px-2 text-xs text-brand-soft">{t('writing_back')}</Button>
             </div>
             {formats.map(f => (
-              <Button key={f.key} data-format={f.key} onClick={f.run} className={rowClass()}>
+              <Button key={f.key} data-format={f.key} onClick={() => { void f.run(); }} className={rowClass()}>
                 <Download size={18} className="text-text-main/60" aria-hidden="true" />
                 <span>{f.label}</span>
               </Button>
             ))}
-          </div>
+          </motion.div>
         ) : (
-          <>
+          <motion.div key="actions" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="col-start-1 row-start-1" data-testid="note-actions-main">
             {ORDER.map(id => {
               const item = byId(id);
               const out = item ? [row(item)] : [];
@@ -183,15 +228,17 @@ function MobileNoteActionsSheetBody({
               }
               return out;
             })}
-            <Button data-action="saveAs" onClick={() => setSaveAsOpen(true)} className={rowClass()}>
+            <Button data-action="saveAs" onClick={openSaveAs} className={rowClass()}>
               <Download size={18} className="text-text-main/60" aria-hidden="true" />
               <span>{t('archive_save_as')}</span>
             </Button>
             {deleteItem && (
               <div data-testid="note-actions-danger" className="mt-3 border-t border-border-subtle pt-3">{row(deleteItem)}</div>
             )}
-          </>
+          </motion.div>
         )}
+        </AnimatePresence>
+        </div>
       </div>
 
       {storage.dialogs}

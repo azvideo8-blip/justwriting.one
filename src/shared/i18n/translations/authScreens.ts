@@ -450,9 +450,12 @@ export const authScreensTranslations: Translations = {
     ru: 'Что возвращается:',
     en: 'What is returned:',
   },
+  // R7F-018 (0.10.0): прежний текст обещал шифрование на устройстве — локальная база
+  // открытая, шифруется только облачная копия. Новый текст = новая версия согласия
+  // (INDEXING_CONSENT_VERSION 2): данное по старому тексту согласие спрашивается заново.
   indexing_consent_what_returned_desc: {
-    ru: 'Числовой вектор, который сохраняется в локальной базе устройства в зашифрованном виде.',
-    en: 'A numerical vector that is stored in the device’s local database in encrypted form.',
+    ru: 'Числовой вектор. На этом устройстве он хранится в локальной базе без шифрования; в облако, если включена синхронизация, уходит зашифрованным.',
+    en: 'A numerical vector. On this device it is stored in the local database without encryption; if sync is on, it goes to the cloud encrypted.',
   },
   indexing_consent_disabled_title: {
     ru: 'При отказе отключается:',
@@ -589,10 +592,10 @@ export const authScreensTranslations: Translations = {
     en: 'Save your recovery code',
   },
   invite_wizard_recovery_desc: {
-    // R7F-005: сейф защищает и локальные заметки — «открыть заметки из облака»
-    // было неверным обоснованием, по которому код можно было не показывать.
-    ru: 'Если забудете пароль, без этого кода не открыть сейф — ни заметки в облаке, ни на этом устройстве. Мы его не храним и показываем один раз.',
-    en: 'If you forget your password, this code is the only way to open the vault — both your notes in the cloud and on this device. We do not store it and show it only once.',
+    // R7F-005: код показывается при любом ответе про облако. Сейф шифрует облачную
+    // копию (локальная база открытая, R7F-018) — текст не обещает защиты на устройстве.
+    ru: 'Если забудешь пароль, без этого кода не открыть зашифрованную копию заметок в облаке — например, на новом устройстве. Мы его не храним и показываем один раз.',
+    en: 'If you forget your password, this code is the only way to open the encrypted copy of your notes in the cloud — on a new device, for example. We do not store it and show it only once.',
   },
   invite_wizard_copied: {
     ru: 'Скопировано',

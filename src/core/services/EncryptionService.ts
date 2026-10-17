@@ -1,4 +1,5 @@
 import { takePendingLoginPassword, clearPendingLoginPassword } from '../crypto/pendingLoginPassword';
+import { VAULT_PASSWORD_CONVERGED_EVENT } from '../crypto/vaultEvents';
 import {
   deriveMasterKey,
   generateDataKey,
@@ -284,7 +285,7 @@ export async function rewrapLegacyVaultIterations(
   }
 }
 
-export const VAULT_PASSWORD_CONVERGED_EVENT = 'vault-password-converged';
+export { VAULT_PASSWORD_CONVERGED_EVENT };
 
 export async function recoverVaultWithCode(
   userId: string,

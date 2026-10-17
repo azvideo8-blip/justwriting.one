@@ -194,6 +194,16 @@ Add the skill to project knowledge or paste SKILL.md contents into the conversat
 
 If the skill requires network access, instruct users to add required domains at `claude.ai/settings/capabilities`.
 
+## CI, деплой и миграции — только с отмашки владельца
+
+Защитить `main` по путям на GitHub нельзя: push-rulesets с ограничением файлов
+даются только репозиториям организаций (`422: only org-owned repos can have push
+rules`, проверено 2026-10-17), а branch-ruleset на весь `main` сломал бы прямые
+коммиты. Поэтому роль «человек обязателен» для `.github/workflows/**`, `deploy/**`
+и `supabase/migrations/**` держится правилом, а не замком: агент не пушит правки
+этих путей без явной отмашки владельца в той же сессии. Выкатка и так только
+руками через `workflow_dispatch` (`deploy.yml`). Правила ревью — в `CLAUDE.md`.
+
 ## Внутренние документы — в `justwriting-docs`
 
 Тикеты, отчёты аудитов, промпты аудиторов, ops-документы (runbook, rollback) и

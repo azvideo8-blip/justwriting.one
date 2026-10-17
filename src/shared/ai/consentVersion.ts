@@ -19,4 +19,6 @@ export const AI_CONSENT_VERSION_REQUIRED = 3;
  * `indexing_consent_version` (R4-056): прежде у сервера была собственная
  * константа, и расхождение означало бы «согласие есть, ИИ отказывает».
  */
-export const INDEXING_CONSENT_VERSION = 1;
+// 2 (0.10.0): текст согласия исправлен (R7F-018) — согласие по прежнему тексту
+// спрашивается заново.
+export const INDEXING_CONSENT_VERSION = 2;

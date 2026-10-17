@@ -233,3 +233,58 @@ export async function adminDeleteUserLogic(
     client.release();
   }
 }
+
+/**
+ * R7Q-014: чтение следа админских действий. Миграция 0038 обещала, что «кто и
+ * кого удалил» будет читаться из админки, а не только из psql; механизм был,
+ * чтения не было. Только последние строки, только админ, только чтение:
+ * никаких фильтров, вставляемых в текст запроса — лимит идёт bound-параметром.
+ */
+export const ADMIN_ACTIONS_DEFAULT_LIMIT = 50;
+export const ADMIN_ACTIONS_MAX_LIMIT = 200;
+
+export interface AdminActionItem {
+  id: number;
+  at: string;
+  adminUid: string;
+  action: string;
+  targetUid: string;
+}
+
+export async function listAdminActionsLogic(
+  ctx: typeof postgresAiContext,
+  uid: string,
+  data: unknown,
+): Promise<AdminActionItem[]> {
+  if (!(await ctx.isAdmin(uid))) {
+    throw new AiError('permission-denied', 'Admin access required');
+  }
+
+  const raw = (data as { limit?: unknown } | null | undefined)?.limit;
+  const requested = typeof raw === 'number' && Number.isFinite(raw) ? Math.trunc(raw) : NaN;
+  const limit = Number.isFinite(requested) && requested > 0
+    ? Math.min(requested, ADMIN_ACTIONS_MAX_LIMIT)
+    : ADMIN_ACTIONS_DEFAULT_LIMIT;
+
+  const { rows } = await pool.query<{
+    id: string | number;
+    at: Date | string;
+    admin_uid: string;
+    action: string;
+    target_uid: string;
+  }>(
+    `select id, at, admin_uid, action, target_uid
+       from public.admin_actions
+      order by at desc
+      limit $1`,
+    [limit],
+  );
+
+  return rows.map((r) => ({
+    id: Number(r.id),
+    at: r.at instanceof Date ? r.at.toISOString() : String(r.at),
+    adminUid: r.admin_uid,
+    action: r.action,
+    targetUid: r.target_uid,
+  }));
+}

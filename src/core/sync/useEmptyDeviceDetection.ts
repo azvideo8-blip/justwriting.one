@@ -2,8 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuthStatus } from '../../app/useAuthStatus';
 import { isVaultUnlocked } from '../crypto/encrypt';
 import { getEncryptionEnabled } from '../crypto/cryptoHelpers';
-import { LocalStorageService } from '../services/LocalStorageService';
-import { DocumentService } from '../services/DocumentService';
+// BS (N-2): LocalStorageService и DocumentService приходят по требованию внутри
+// проверки — статически они вытягивали из ленивого куска в стартовый весь слой
+// документов вместе с движком синхронизации.
 
 export function getRestoreDismissedKey(userId: string): string {
   return `jw_restore_prompt_dismissed_${userId}`;
@@ -62,6 +63,10 @@ export function useEmptyDeviceDetection(): EmptyDeviceDetectionState {
     }
 
     try {
+      const [{ LocalStorageService }, { DocumentService }] = await Promise.all([
+        import('../services/LocalStorageService'),
+        import('../services/DocumentService'),
+      ]);
       const localDocs = await LocalStorageService.getDocumentsByOwner(uid);
       const cloudDocs = await DocumentService.getUserDocuments(uid);
 

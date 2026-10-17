@@ -22,6 +22,8 @@ export interface CloudRow {
   key: string;
   payload: Record<string, unknown>;
   checksum?: string | undefined;
+  /** Серверная отметка строки, мс (0037). Нужна спору копий скалярных сторов (T-8). */
+  stamped_at?: number | undefined;
 }
 
 export interface ParsedKey {

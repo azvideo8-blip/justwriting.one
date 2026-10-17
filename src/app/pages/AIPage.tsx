@@ -22,6 +22,7 @@ import { createNoteActions } from '../../features/ai/components/chat/noteActions
 import { NoteAnalysisService } from '../../features/ai/services/NoteAnalysisService';
 import { AISummaryService } from '../../features/ai/services/AISummaryService';
 import { findRelatedNotes } from '../../features/ai/utils/relatedNotes';
+import { closePanelsForNavigation } from '../../shared/hooks/usePanelHistory';
 
 export function AIPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -246,7 +247,7 @@ export function AIPage() {
           <DocumentPreview
             session={previewSession}
             onClose={() => setPreviewSession(null)}
-            onContinue={s => { void navigate('/', { state: { sessionToContinue: s } }); }}
+            onContinue={s => closePanelsForNavigation(() => void navigate('/', { state: { sessionToContinue: s } }))}
             onAttach={id => { void handleDocSelect(id); setPreviewSession(null); }}
             onAnalyzeNote={id => NoteAnalysisService.analyze(id)}
             fetchSummary={async id => (await AISummaryService.get(id)) ?? null}

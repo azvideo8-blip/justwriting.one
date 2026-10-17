@@ -431,8 +431,8 @@ export const settingsTranslations: Translations = {
     en: 'Not selected',
   },
   settings_ai_semantic_desc_1: {
-    ru: 'Для поиска по смыслу (семантического поиска), связывания мыслей и подбора заметок в диалогах фрагменты текста отправляются поставщику ИИ для построения числового вектора (эмбеддинга). Векторы хранятся на устройстве в зашифрованном виде.',
-    en: 'For semantic search, idea linking, and note matching in chats, text fragments are sent to the AI provider to generate a numerical vector (embedding). Vectors are stored encrypted on the device.',
+    ru: 'Для поиска по смыслу (семантического поиска), связывания мыслей и подбора заметок в диалогах фрагменты текста отправляются поставщику ИИ для построения числового вектора (эмбеддинга). Векторы хранятся на этом устройстве без шифрования; в облако, если включена синхронизация, уходят зашифрованными.',
+    en: 'For semantic search, idea linking, and note matching in chats, text fragments are sent to the AI provider to generate a numerical vector (embedding). Vectors are stored on this device without encryption; if sync is on, they go to the cloud encrypted.',
   },
   settings_ai_semantic_desc_2: {
     ru: 'При отключении поиск работает по точным совпадениям слов (BM25), а разбор заметок, хронология и журнал тем продолжают работать без ограничений. Существующие индексы сохраняются на устройстве.',

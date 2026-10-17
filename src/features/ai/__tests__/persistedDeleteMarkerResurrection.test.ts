@@ -34,6 +34,8 @@ describe('A-1 (R2-003): a record that exists again drops its persisted delete ma
     await db.clear('aiPortrait');
     await db.put('aiPortrait' as never, { id: 'p1', portrait: '# восстановленный разбор', updatedAt: 1000, generatedAtDelta: 0 } as never);
     vi.spyOn(DataProvider, 'saveLocalStoreRecord').mockReset().mockResolvedValue(undefined as never);
+    // T-8: «Отправить всё» читает серверные отметки — облака здесь нет.
+    vi.spyOn(DataProvider, 'getLocalStoreStamps').mockResolvedValue([]);
     if (DataProvider.deleteLocalStorePagedRecords) {
       vi.spyOn(DataProvider, 'deleteLocalStorePagedRecords').mockReset().mockResolvedValue(undefined as never);
     }

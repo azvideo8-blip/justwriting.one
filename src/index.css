@@ -35,6 +35,11 @@
   /* Brand tokens */
   --color-brand-primary: var(--brand-primary);
   --color-brand-soft: var(--brand-soft);
+  /* N-8 (R7 T-16): `hover:bg-brand-soft-hover` стоял на пяти кнопках, а токена не
+     было — hover не делал ничего. Значение собрано из тех же переменных, что и
+     вся палитра: мягкий бренд, чуть тронутый основным цветом текста, — в светлой
+     «Тёплой» теме это затемнение, в тёмных — высветление. */
+  --color-brand-soft-hover: color-mix(in srgb, var(--brand-soft) 82%, var(--text-main));
   --color-brand-deep: var(--brand-deep);
 
   /* Surface tokens */
@@ -574,12 +579,20 @@ textarea {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    /* S13 (emil-review, хвост MQ-15): «уменьшить движение» про движение. Раньше
+       здесь глохло всё, включая прозрачность, и интерфейсу не оставалось ни
+       одного перехода — смена состояния становилась склейкой. Глушим сдвиг,
+       масштаб и высоту; прозрачность и цвет доигрывают коротко. */
+    transition-property: opacity, color, background-color, border-color, box-shadow, fill, stroke, outline-color, caret-color !important;
+    transition-duration: 120ms !important;
     scroll-behavior: auto !important;
   }
-  /* MQ-15 (N-10): заливка удержания для выхода из потока — индикатор хода, а не украшение: 3 с ему нужны. */
+  /* MQ-15 (N-10): заливка удержания для выхода из потока — индикатор хода, а не украшение: 3 с ему нужны.
+     S13: тому же правилу нужен и свой transition-property — общий список выше
+     оставил бы только прозрачность, и ход перестал бы быть видимым. */
   [data-testid="stream-hold-fill"][data-holding="true"] {
     transition-duration: 3000ms !important;
+    transition-property: transform !important;
   }
 }
 

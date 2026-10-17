@@ -52,29 +52,45 @@ begin
 end $$;
 
 -- 3. Между ТРАНЗАКЦИЯМИ метка строго растёт — на этом держится CAS: ровно эта
--- функция и возвращает new.stamped_at победителю. Каждый do $$ … $$ — своя
--- транзакция, поэтому между ними ставим паузу отдельным запросом.
+-- функция и возвращает new.stamped_at победителю.
+--
+-- R7Q-036: прежняя форма сравнивала t1 и t2 ВНУТРИ одного `do $$`, а там now()
+-- одинаков по определению — проверка была неопровержимой (замер раунда 7:
+-- t1 = t2 = …461149, «t2 < t1» = false при любом триггере). Теперь значения
+-- снимаются в разных транзакциях через временную таблицу, и сравнение
+-- «послеupdate <= послеinsert» краснеет, если перестать поднимать метку.
+create temp table if not exists stamp_probe (k text primary key, t timestamptz not null);
+
 do $$
 declare uid constant uuid := '00000000-0000-0000-0000-000000000d05';
 begin
   insert into public.local_store_records (user_id, store, key, payload)
     values (uid, 'aiDialogues', 'stamp-test-2', '{"updatedAt": 1}'::jsonb);
+  insert into stamp_probe (k, t)
+    select 'after_insert', stamped_at from public.local_store_records where key = 'stamp-test-2';
 end $$;
 
 select pg_sleep(0.05) as пауза_между_транзакциями;
 
 do $$
-declare
-  t1 timestamptz;
-  t2 timestamptz;
 begin
-  select stamped_at into t1 from public.local_store_records where key = 'stamp-test-2';
   update public.local_store_records set payload = '{"updatedAt": 2}'::jsonb where key = 'stamp-test-2';
-  select stamped_at into t2 from public.local_store_records where key = 'stamp-test-2';
-  -- В одной транзакции now() одинаково, поэтому сравниваем с отдельной:
-  -- ниже читаем значение, оставленное ПРЕДЫДУЩИМ запросом.
-  if t2 < t1 then
-    raise exception 'метка пошла назад: % → %', t1, t2;
+  insert into stamp_probe (k, t)
+    select 'after_update', stamped_at from public.local_store_records where key = 'stamp-test-2';
+end $$;
+
+do $$
+declare
+  before_ts timestamptz;
+  after_ts timestamptz;
+begin
+  select t into before_ts from stamp_probe where k = 'after_insert';
+  select t into after_ts from stamp_probe where k = 'after_update';
+  if before_ts is null or after_ts is null then
+    raise exception 'замер между транзакциями не снят: before=% after=%', before_ts, after_ts;
+  end if;
+  if after_ts <= before_ts then
+    raise exception 'метка не выросла между транзакциями: % → %', before_ts, after_ts;
   end if;
 end $$;
 

@@ -58,7 +58,7 @@ export function MemoryAssemblerDiagnostics() {
       <div className="p-4 bg-surface-card/60 border border-border-subtle rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-accent-main" />
+            <Sparkles className="w-5 h-5 text-accent" />
             <h3 className="text-sm font-bold text-text-main">{t('admin_memory_diag_title')}</h3>
           </div>
           <p className="text-xs text-text-main/60 mt-1">
@@ -136,7 +136,7 @@ export function MemoryAssemblerDiagnostics() {
       <div className="p-4 bg-surface-card/40 border border-border-subtle rounded-2xl space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Layers className="w-4 h-4 text-accent-main" />
+            <Layers className="w-4 h-4 text-accent" />
             <h4 className="text-xs font-bold text-text-main uppercase tracking-wider">{t('admin_memory_flags_title')}</h4>
           </div>
           <Button
@@ -170,7 +170,7 @@ export function MemoryAssemblerDiagnostics() {
                 className={cn(
                   "px-3 py-1 rounded-lg text-xs font-bold transition-all duration-200",
                   flags[flagKey]
-                    ? "bg-accent-main text-white shadow-sm"
+                    ? "bg-accent text-white shadow-sm"
                     : "bg-surface-card border border-border-subtle text-text-main/60"
                 )}
               >
@@ -191,7 +191,7 @@ export function MemoryAssemblerDiagnostics() {
             {Object.entries(stats.wouldHaveDroppedByCategory).map(([cat, count]) => (
               <div key={cat} className="p-2.5 bg-surface-base/30 rounded-xl border border-border-subtle flex items-center justify-between">
                 <span className="text-xs font-medium text-text-main font-mono">{cat}</span>
-                <span className="text-xs font-bold text-accent-main">{count}</span>
+                <span className="text-xs font-bold text-accent">{count}</span>
               </div>
             ))}
           </div>
@@ -217,7 +217,7 @@ export function MemoryAssemblerDiagnostics() {
                     {t('admin_memory_candidates_in', { count: entry.candidates.length })}
                   </span>
                   {entry.shadowComparison && (
-                    <span className="font-mono text-accent-main font-bold">
+                    <span className="font-mono text-accent font-bold">
                       Overlap: {(entry.shadowComparison.overlapRatio * 100).toFixed(0)}%
                     </span>
                   )}

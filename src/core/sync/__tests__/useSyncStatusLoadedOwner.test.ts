@@ -11,6 +11,10 @@ vi.mock('../../auth', () => ({
 }));
 
 const { useSyncStatus } = await import('../useSyncStatus');
+// BS (N-2): движок синка приходит в pollSyncStatus по динамическому импорту — без
+// прогрева первый замер в файле тратит на него весь бюджет waitFor.
+await import('../../services/SyncService');
+await import('../../services/LocalStoreSyncService');
 
 // M-13: флаг «замер есть» общий на модуль. Первый рендер другой учётки брал его
 // как есть и выдавал чужой замер за свой — «synced» на нулях.

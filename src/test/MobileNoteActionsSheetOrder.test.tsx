@@ -75,7 +75,11 @@ describe('MF-12 / MC-9: one note-actions sheet', () => {
     expect(addTag.nextElementSibling?.getAttribute('data-testid')).toBe('note-actions-labels');
     const danger = within(dialog).getByTestId('note-actions-danger');
     expect(danger.className.split(' ').some(c => c.startsWith('mt-')), 'нет отступа перед удалением').toBe(true);
-    expect(list.lastElementChild).toBe(danger);
+    // N-8: виды листа лежат в одной ячейке grid, поэтому «последний» ищется
+    // внутри активного вида, а не непосредственно в списке.
+    const view = danger.closest('[data-testid="note-actions-main"]') as HTMLElement;
+    expect(view, 'удаление уехало из вида действий').not.toBeNull();
+    expect(view.lastElementChild).toBe(danger);
     expect(within(list).queryByRole('button', { name: /Изменить название/ })).toBeNull();
     expect(within(list).queryByRole('button', { name: /Скопировать как/ })).toBeNull();
   });

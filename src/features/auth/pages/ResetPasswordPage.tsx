@@ -320,11 +320,11 @@ export function ResetPasswordPage() {
           </p>
           <div className="grid grid-cols-2 gap-3">
             <button ref={stayBtnRef} type="button" autoFocus onClick={() => { void navigate('/', { replace: true }); }}
-              className="w-full py-3 rounded-xl text-sm font-medium border border-border-subtle text-text-main/80 hover:text-text-main hover:bg-text-main/5 transition-colors">
+              className="w-full py-3 rounded-xl text-sm font-medium border border-border-subtle text-text-main/80 hover:text-text-main hover:bg-text-main/5 transition-colors max-md:min-h-11">
               {t('reset_pw_switch_btn_stay')}
             </button>
             <button ref={continueBtnRef} type="button" onClick={confirmSwitch}
-              className="w-full py-3 rounded-xl font-bold text-sm text-surface-base bg-brand-soft hover:brightness-110 transition-colors">
+              className="w-full py-3 rounded-xl font-bold text-sm text-surface-base bg-brand-soft hover:brightness-110 transition-colors max-md:min-h-11">
               {t('reset_pw_switch_btn_continue')}
             </button>
           </div>
@@ -352,7 +352,7 @@ export function ResetPasswordPage() {
             <button
               type="button"
               onClick={() => { void navigate('/login'); }}
-              className="rounded-lg px-3 py-2 bg-accent text-white text-sm"
+              className="rounded-lg px-3 py-2 bg-accent text-white text-sm max-md:min-h-11"
             >
               {t('reset_pw_btn_go_to_login')}
             </button>
@@ -370,7 +370,7 @@ export function ResetPasswordPage() {
             <button
               type="button"
               onClick={() => { void navigate('/login'); }}
-              className="rounded-lg px-3 py-2 bg-accent text-white text-sm"
+              className="rounded-lg px-3 py-2 bg-accent text-white text-sm max-md:min-h-11"
             >
               {isInvite ? t('reset_pw_btn_go_to_login') : t('reset_pw_btn_request_new_link')}
             </button>
@@ -398,7 +398,7 @@ export function ResetPasswordPage() {
               autoComplete="new-password"
               minLength={MIN_PASSWORD_LENGTH}
               required
-              className="w-full rounded-lg border px-3 py-2 bg-transparent"
+              className="w-full rounded-lg border px-3 py-2 bg-transparent max-md:text-[16px] max-md:min-h-11"
             />
             <input
               type="password"
@@ -408,13 +408,13 @@ export function ResetPasswordPage() {
               aria-label={t('reset_pw_confirm_placeholder')}
               autoComplete="new-password"
               required
-              className="w-full rounded-lg border px-3 py-2 bg-transparent"
+              className="w-full rounded-lg border px-3 py-2 bg-transparent max-md:text-[16px] max-md:min-h-11"
             />
             {error && <p role="alert" className="text-sm text-accent-danger">{error}</p>}
             <button
               type="submit"
               disabled={busy || password.length < MIN_PASSWORD_LENGTH}
-              className="w-full rounded-lg px-3 py-2 bg-accent text-white disabled:opacity-50"
+              className="w-full rounded-lg px-3 py-2 bg-accent text-white disabled:opacity-50 max-md:min-h-11"
             >
               {busy ? t('reset_pw_saving') : t('reset_pw_submit')}
             </button>
@@ -427,7 +427,7 @@ export function ResetPasswordPage() {
             <button
               type="button"
               onClick={() => { void navigate('/login', email ? { state: { email } } : undefined); }}
-              className="rounded-lg px-3 py-2 bg-accent text-white"
+              className="rounded-lg px-3 py-2 bg-accent text-white max-md:min-h-11"
             >
               {t('reset_pw_btn_go_to_login')}
             </button>

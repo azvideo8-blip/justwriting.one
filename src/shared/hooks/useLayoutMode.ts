@@ -1,15 +1,10 @@
 import { useLocalStorage } from './useLocalStorage';
 import { useMobileLayoutAccess } from './useMobileLayoutAccess';
 import { z } from 'zod';
+import { MOBILE_LAYOUT_ENABLED } from './mobileLayoutFlag';
 
 type LayoutMode = 'desktop' | 'mobile';
 
-// Мобильный макет открыт по аккаунту, а не всем сразу (MB-1, решение владельца
-// 2026-10-12): его получают админ и служебные аккаунты — право отдаёт база
-// (`public.mobile_layout_allowed()`, миграция 0041), клиент читает его одним
-// RPC на вошедшего пользователя. `true` здесь открыл бы макет всем, включая
-// гостей; до готовности так делать нельзя (D-15: «mobile layout isn't beta-ready»).
-export const MOBILE_LAYOUT_ENABLED = false;
 
 function getDefaultLayoutMode(): LayoutMode {
   if (typeof window === 'undefined') return 'desktop';

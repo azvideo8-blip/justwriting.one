@@ -101,6 +101,8 @@ export interface IDataProvider {
   saveLocalStoreRecordIfUnchanged(userId: string, store: string, key: string, payload: ProviderRecord, expectedUpdatedAt: number | null): Promise<boolean>;
   getLocalStoreRecord(userId: string, store: string, key: string): Promise<LocalStoreRecordRow | null>;
   getLocalStoreRecords(userId: string, store?: string, sinceMs?: number): Promise<LocalStoreRecordRow[]>;
+  /** T-8: ключи и серверные отметки без нагрузки («Отправить всё»). Необязателен ради тестовых заглушек. */
+  getLocalStoreStamps?(userId: string): Promise<Array<{ store: string; key: string; stamped_at?: number }>>;
   /** S-49: страницы записи `key#…` (оба формата). Необязателен только ради тестовых заглушек: у провайдера он есть всегда. */
   getLocalStoreRecordPages?(userId: string, store: string, key: string): Promise<LocalStoreRecordRow[]>;
   /** M-5: дочерние строки записи по префиксу ключа — сегменты диалога `key@seg…`. */

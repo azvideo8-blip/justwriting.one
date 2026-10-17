@@ -53,7 +53,13 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
+export function ThemeProvider({ children, guestFollowsSystem = false }: {
+  children: React.ReactNode;
+  // SA-20 (N-1): человек без аккаунта на телефоне тему ещё не выбирал, а тёмный
+  // «Аметистовый» по умолчанию спорит с его системной светлой схемой. Флаг ставит
+  // оболочка, когда видит гостя на узком экране; выбранная вручную тема сильнее.
+  guestFollowsSystem?: boolean;
+}) {
   const [themeId, setThemeId] = useLocalStorage<ThemeId>(
     STORAGE_KEYS.APP_THEME,
     'amethyst',
@@ -71,8 +77,23 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return () => mq.removeEventListener('change', handler);
   }, []);
 
+  // Записи в хранилище нет — значит тему никто не выбирал, и дефолт «amethyst»
+  // в useLocalStorage это только значение по умолчанию, а не решение человека.
+  const [themeStored, setThemeStored] = useState(() =>
+    typeof window !== 'undefined' && localStorage.getItem(STORAGE_KEYS.APP_THEME) !== null
+  );
+  useEffect(() => {
+    const recheck = () => setThemeStored(localStorage.getItem(STORAGE_KEYS.APP_THEME) !== null);
+    window.addEventListener('storage', recheck);
+    window.addEventListener('local-storage', recheck);
+    return () => {
+      window.removeEventListener('storage', recheck);
+      window.removeEventListener('local-storage', recheck);
+    };
+  }, []);
+
   const resolvedThemeId: ConcreteThemeId =
-    themeId === 'system'
+    (themeId === 'system' || (guestFollowsSystem && !themeStored))
       ? (systemPrefersDark ? DARK_THEME : LIGHT_THEME)
       : themeId;
 
@@ -86,6 +107,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [resolvedThemeId]);
 
   const setThemeIdWithTransition = useCallback((id: ThemeId) => {
+    // Выбор в настройках — он: с этого момента системная схема гостя больше не
+    // решает ничего (SA-20).
+    setThemeStored(true);
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (typeof document.startViewTransition !== 'function' || reducedMotion) {
       setThemeId(id);

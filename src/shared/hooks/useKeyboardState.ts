@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 
 export interface KeyboardState {
-  /** Насколько клавиатура налегает на layout-вьюпорт (0, если её нет). */
+  /** Насколько клавиатура налегает на layout-вьюпорт (0, если её нет): от его
+   *  низа до верха клавиатуры — столько отступа нужно `fixed`-панели снизу. */
   overlay: number;
   /** Клавиатура есть — и как оверлей поверх вьюпорта, и как сжатие самого
    *  вьюпорта (так её эмулируют тесты и так же ведёт себя прячущийся адресный
@@ -33,19 +34,27 @@ export function useKeyboardState(): KeyboardState {
       baseline = Math.max(baseline, window.innerHeight);
       const vv = window.visualViewport;
       const vvHeight = vv ? vv.height : window.innerHeight;
-      const overlay = window.innerHeight - vvHeight;
+      // iOS при открытой клавиатуре прокручивает видимую область к каретке
+      // (offsetTop > 0): верх клавиатуры в координатах layout-вьюпорта — на
+      // offsetTop ниже. Без этого панель висела над клавиатурой с пустой полосой
+      // (снимок владельца, 0.10.0). Размер самой клавиатуры от прокрутки не зависит.
+      const keyboard = window.innerHeight - vvHeight;
+      const overlay = Math.max(0, keyboard - (vv ? vv.offsetTop : 0));
       const shrink = baseline - window.innerHeight;
       setState(prev => {
-        const next: KeyboardState = { overlay, up: overlay > KEYBOARD_MIN || shrink > KEYBOARD_MIN };
+        const next: KeyboardState = { overlay, up: keyboard > KEYBOARD_MIN || shrink > KEYBOARD_MIN };
         return prev.up === next.up && prev.overlay === next.overlay ? prev : next;
       });
     };
     measure();
     window.addEventListener('resize', measure);
     window.visualViewport?.addEventListener('resize', measure);
+    // Прокрутка видимой области не шлёт resize.
+    window.visualViewport?.addEventListener('scroll', measure);
     return () => {
       window.removeEventListener('resize', measure);
       window.visualViewport?.removeEventListener('resize', measure);
+      window.visualViewport?.removeEventListener('scroll', measure);
     };
   }, []);
 

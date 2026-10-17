@@ -138,11 +138,14 @@ export function MobileNoteReader({
       data-testid="note-reader"
     >
       <header className="flex shrink-0 items-center justify-between gap-2 px-2 pt-[env(safe-area-inset-top,0px)]">
+        {/* R2 (emil-review, хвост MQ-15): шеврон «‹» обещал «назад вправо», а
+            экран приезжал снизу и туда же уходил. Знак теперь показывает,
+            куда на самом деле едет экран. */}
         <Button
           onClick={onClose}
           className="min-h-11 rounded-xl px-3 text-[15px] text-text-main/70 hover:text-text-main"
         >
-          ‹ {t('nav_notes_short')}
+          ▾ {t('nav_notes_short')}
         </Button>
         <div className="flex items-center gap-1">
           <IconButton

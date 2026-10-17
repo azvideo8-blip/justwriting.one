@@ -1,5 +1,32 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import type { AiContext } from '../../src/shared/ai/context.js';
 import { completionContent, noteSummaryJson, noteFromBody } from '../stand/ai-stub-rules.mjs';
+
+// R7Q-036: прежде этот файл проверял только двойку (заглушку) — на поломке
+// продукта тест оставался зелёным. Ниже добавлен прогон через настоящий
+// `summarizeDocumentLogic`: ответ заглушки проходит через sanitization,
+// isUsable, validateVerbatimQuote и разделение фактов/намерений продукта.
+const { generateMock } = vi.hoisted(() => ({ generateMock: vi.fn() }));
+vi.mock('../../api/ai/provider', async (importOriginal) => {
+  const orig = await importOriginal<typeof import('../../api/ai/provider')>();
+  return { ...orig, generate: (...a: unknown[]) => generateMock(...(a as [])) };
+});
+
+function makeCtx(): AiContext {
+  return {
+    checkAndIncrementLimit: vi.fn().mockResolvedValue({ ok: true, day: '2026-10-17' }),
+    checkDailyLimit: vi.fn().mockResolvedValue({ ok: true, day: '2026-10-17' }),
+    checkAndIncrementBulkLimit: vi.fn().mockResolvedValue({ ok: true, day: '2026-10-17' }),
+    refundDailyLimit: vi.fn().mockResolvedValue(undefined),
+    refundBulkLimit: vi.fn().mockResolvedValue(undefined),
+    refundGlobalRequest: vi.fn().mockResolvedValue(undefined),
+    tryReserveGlobalRequest: vi.fn().mockResolvedValue({ date: '2026-10-17', shardId: '0', allowance: 8192 }),
+    recordUsage: vi.fn().mockResolvedValue(undefined),
+    getDailyLimitCount: vi.fn(),
+    getUserDailyLimit: vi.fn().mockResolvedValue(20),
+    isAdmin: vi.fn().mockResolvedValue(false),
+  } as unknown as AiContext;
+}
 
 // X-7: заглушка стенда обязана отвечать на промпт разбора заметки текстом,
 // который проходит схему summarizeDocument. До правки она отдавала эхо-строку,
@@ -39,6 +66,25 @@ describe('X-7: разбор заметки от стендовой заглуш�
   it('текст заметки берётся из маркеров, а не из служебной шапки', () => {
     expect(noteFromBody(`Инструкция для модели:\n${NOTE_PROMPT}\nВерни JSON.`)).toBe(NOTE);
     expect(JSON.parse(noteSummaryJson(NOTE)).summary).toContain('бежал шесть километров');
+  });
+
+  // Продукт, а не двойка: если `summarizeDocumentLogic` станет строже (isUsable,
+  // валидатор цитаты, разделение модальностей) и ответ стендовой заглушки
+  // перестанет проходить — красный здесь, а не молчаливый 503 на стенде.
+  it('продукт: summarizeDocumentLogic принимает ответ заглушки без потерь', async () => {
+    const raw = await completionContent(messages);
+    generateMock.mockResolvedValue({ text: raw, tokensIn: 40, tokensOut: 60, model: 'stand-stub' });
+
+    const { summarizeDocumentLogic } = await import('../../api/ai/summarizeDocument.logic');
+    const out = await summarizeDocumentLogic(makeCtx(), 'u_x7_product', { content: NOTE }) as Record<string, unknown>;
+
+    expect(typeof out.summary, 'суть съедена isUsable продукта').toBe('string');
+    expect(String(out.summary)).toContain('бежал шесть километров');
+    expect(typeof out.quotableSentence, 'цитата не пережила validateVerbatimQuote продукта').toBe('string');
+    expect(NOTE).toContain(String(out.quotableSentence));
+    expect(Array.isArray(out.themes) && (out.themes as unknown[]).length).toBeGreaterThan(0);
+    expect(Array.isArray(out.extractedFacts) && (out.extractedFacts as unknown[]).length).toBeGreaterThan(0);
+    expect(out.tone).toBe('задумчивый');
   });
 
   it('прочие промпты отвечают как раньше (память не пуста)', async () => {

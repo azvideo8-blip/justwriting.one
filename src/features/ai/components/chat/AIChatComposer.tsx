@@ -1,4 +1,5 @@
 import { useEffect, type RefObject, type ChangeEvent } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 // File — вернуть вместе с пунктом «Загрузить файл» ниже.
 import { Paperclip, Plus, ArrowRight, Square, X } from 'lucide-react';
 import { Button } from '../../../../shared/components/Button';
@@ -268,8 +269,18 @@ export function AIChatComposer(props: AIChatComposerProps) {
                 className="hidden"
                 onChange={onFileUpload}
               />
-              {attachMenuOpen && (
-                <div className="absolute bottom-full left-0 mb-2 w-48 border border-border-subtle rounded-xl shadow-xl overflow-hidden z-[var(--z-panel)] bg-surface-popup">
+              {/* A3 (emil-review, хвост MQ-15): меню вложения возникало и гасло в
+                  один кадр. Ключ `y` — позиционный: под reduced motion MotionConfig
+                  снимает сдвиг и оставляет прозрачность (MQ-6). */}
+              <AnimatePresence initial={false}>
+                {attachMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 8 }}
+                    transition={{ duration: 0.15, ease: 'easeOut' }}
+                    className="absolute bottom-full left-0 mb-2 w-48 border border-border-subtle rounded-xl shadow-xl overflow-hidden z-[var(--z-panel)] bg-surface-popup"
+                  >
                   <Button
                     onClick={() => { setAttachMenuOpen(false); onOpenDocPicker(); }}
                     className="w-full text-left px-4 py-2.5 text-sm text-text-main/70 hover:text-text-main hover:bg-text-main/5 transition-colors flex items-center gap-2"
@@ -286,8 +297,9 @@ export function AIChatComposer(props: AIChatComposerProps) {
                     {t('ai_upload_file')}
                   </Button>
                   */}
-                </div>
-              )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
             <textarea
               ref={inputRef}

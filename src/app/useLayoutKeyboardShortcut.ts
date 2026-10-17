@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { useLayoutMode, MOBILE_LAYOUT_ENABLED } from '../shared/hooks/useLayoutMode';
+import { useLayoutMode } from '../shared/hooks/useLayoutMode';
+import { MOBILE_LAYOUT_ENABLED } from '../shared/hooks/mobileLayoutFlag';
 import { useMobileLayoutAccess } from '../shared/hooks/useMobileLayoutAccess';
 
 // Cmd+M (Mac) / Ctrl+M (Win/Linux) toggles desktop ↔ mobile layout.

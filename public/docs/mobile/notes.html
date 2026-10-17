@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Заметки и читалка на телефоне — руководство justwriting</title>
+  <meta name="description" content="Список и сетка заметок на телефоне, значки хранения, лист «⋯», «Сохранить как…», читалка и «Инфо».">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../docs.css">
+  <meta name="theme-color" content="#FAF8F5" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0E0A18" media="(prefers-color-scheme: dark)">
+</head>
+<body>
+  <a class="skip" href="#content">К содержанию</a>
+  <header class="topbar">
+    <a class="brand" href="index.html"><b>justwriting</b><span>Руководство для телефона</span></a>
+    <a class="app-link" href="/">Открыть приложение</a>
+  </header>
+
+  <div class="layout">
+    <nav class="sidenav" aria-label="Разделы руководства">
+      <ol class="dnav">
+        <li><a href="index.html">Телефон: начало</a></li>
+        <li><a href="writing.html">Письмо</a></li>
+        <li><a href="notes.html" aria-current="page">Заметки и читалка</a></li>
+        <li><a href="ai.html">ИИ</a></li>
+        <li><a href="profile.html">Профиль и настройки</a></li>
+      </ol>
+      <details class="mnav">
+        <summary>Разделы руководства</summary>
+        <ol>
+          <li><a href="index.html">Телефон: начало</a></li>
+          <li><a href="writing.html">Письмо</a></li>
+          <li><a href="notes.html" aria-current="page">Заметки и читалка</a></li>
+          <li><a href="ai.html">ИИ</a></li>
+          <li><a href="profile.html">Профиль и настройки</a></li>
+        </ol>
+      </details>
+    </nav>
+
+    <main id="content">
+      <article class="doc">
+        <h1>Заметки и читалка</h1>
+        <p class="lead">Вкладка <span class="ui">Заметки</span> — это весь архив: поиск, отборы, список или сетка и читалка, которая открывается по нажатию на заметку.</p>
+
+        <details class="toc" aria-label="На этой странице">
+          <summary>На этой странице</summary>
+          <ul>
+            <li><a href="#list">Список и сетка</a></li>
+            <li><a href="#icons">Значки у заметки</a></li>
+            <li><a href="#panels">Теги и календарь</a></li>
+            <li><a href="#search">Поиск</a></li>
+            <li><a href="#actions">Лист «⋯»</a></li>
+            <li><a href="#saveas">«Сохранить как…»</a></li>
+            <li><a href="#reader">Читалка и «Инфо»</a></li>
+            <li><a href="#trash">Корзина</a></li>
+          </ul>
+        </details>
+
+        <h2 id="list">Список и сетка</h2>
+        <p>Два вида: <strong>список</strong> — строками, где видно дату, название, начало текста, теги и значки; <strong>сетка</strong> — карточками, где влезает больше текста. Вид переключается кнопкой в шапке раздела и запоминается.</p>
+        <p>Заметки сгруппированы по дням; над списком — счётчик записей и статистика за сегодня.</p>
+        <figure class="shot phone-pair">
+          <img src="img/notes-list-light.jpg" alt="Вкладка «Заметки» на телефоне: поиск сверху, группы по дням, строки заметок со значками" loading="lazy" width="390" height="844">
+          <img src="img/notes-list-dark.jpg" alt="Тот же список заметок в тёмной теме" loading="lazy" width="390" height="844">
+          <figcaption>Список заметок.</figcaption>
+        </figure>
+        <figure class="shot phone-pair">
+          <img src="img/notes-grid-light.jpg" alt="Тот же архив в виде сетки: карточки с заголовком и началом текста, без дат и счётчиков" loading="lazy" width="390" height="844">
+          <img src="img/notes-grid-dark.jpg" alt="Сетка заметок в тёмной теме" loading="lazy" width="390" height="844">
+          <figcaption>Сетка — карточками.</figcaption>
+        </figure>
+
+        <h2 id="icons">Значки у заметки</h2>
+        <ul>
+          <li><strong>Диск</strong> — заметка есть на этом устройстве.</li>
+          <li><strong>Облако</strong> — есть облачная копия. Бледное облако с чертой — копии нет; жёлтое облако — есть изменения, которые ещё не отправлены.</li>
+          <li><strong>Искорка</strong> — заметку разбирал ИИ.</li>
+          <li><strong>Перечёркнутый глаз</strong> — заметка скрыта от ИИ; красным — скрыта.</li>
+          <li><strong>Замок</strong> — содержимое заперто вместе с сейфом: пока сейф не открыт, текст такой заметки не читается.</li>
+        </ul>
+        <p>На значок можно нажать — он делает действие сразу: например, отправляет заметку в облако или возвращает ей доступ ИИ. В строке заметки есть и кнопка <span class="ui">⋯</span> — про неё ниже.</p>
+
+        <h2 id="panels">Теги и календарь</h2>
+        <p>Два отбора живут в вызываемых панелях, а не в постоянной боковой колонке, как на компьютере:</p>
+        <ul>
+          <li><span class="ui">Теги</span> — список всех тегов с числом заметок; нажатие оставляет в списке только эти записи, повторное нажатие снимает отбор;</li>
+          <li><span class="ui">Календарь</span> — месячная сетка, где видно дни, в которые вы писали; нажатие на день оставляет только его заметки.</li>
+        </ul>
+        <p>Обе панели закрываются жестом вниз, кнопкой или аппаратной «назад».</p>
+        <figure class="shot phone-pair">
+          <img src="img/tags-panel-light.jpg" alt="Панель «Теги и метки» над списком: тег с числом заметок" loading="lazy" width="390" height="844">
+          <img src="img/tags-panel-dark.jpg" alt="Панель тегов в тёмной теме" loading="lazy" width="390" height="844">
+          <figcaption>Панель тегов.</figcaption>
+        </figure>
+        <figure class="shot phone-pair">
+          <img src="img/calendar-panel-light.jpg" alt="Панель «Календарь и статистика» над списком: месячная сетка дней" loading="lazy" width="390" height="844">
+          <img src="img/calendar-panel-dark.jpg" alt="Панель календаря в тёмной теме" loading="lazy" width="390" height="844">
+          <figcaption>Панель календаря.</figcaption>
+        </figure>
+
+        <h2 id="search">Поиск</h2>
+        <p>Поле поиска — вверху, оно ищет по названию, тексту и тегам и прощает опечатки. Имя человека можно писать в любом падеже: «Оля», «с Олей», «Олю» дают одни и те же заметки. Найденное подсвечивается прямо в списке.</p>
+
+        <h2 id="actions">Лист «⋯»</h2>
+        <p>Кнопка <span class="ui">⋯</span> в строке заметки и в шапке читалки открывает лист действий — тот же набор, что меню на компьютере:</p>
+        <ul>
+          <li><span class="ui">Продолжить писать</span> — открыть заметку в редакторе и дописать;</li>
+          <li><span class="ui">Добавить тег</span> и выбор метки;</li>
+          <li>облако и устройство: <span class="ui">Отправить в облако</span>, <span class="ui">Убрать копию с устройства</span>, <span class="ui">Удалить из облака</span>;</li>
+          <li><span class="ui">Не показывать ИИ</span> и <span class="ui">Разобрать ИИ</span>;</li>
+          <li><span class="ui">Сохранить как…</span>;</li>
+          <li><span class="ui">Удалить</span> — в корзине заметка лежит 30 дней.</li>
+        </ul>
+        <p>Лист открывается поверх читалки, а «назад» закрывает по одному: сначала лист, потом читалку.</p>
+        <figure class="shot phone-pair">
+          <img src="img/note-actions-light.jpg" alt="Лист действий над заметкой, выехавший снизу: открыть, облако, ИИ, «Сохранить как…», удалить" loading="lazy" width="390" height="844">
+          <img src="img/note-actions-dark.jpg" alt="Тот же лист действий в тёмной теме" loading="lazy" width="390" height="844">
+          <figcaption>Лист <span class="ui">⋯</span>.</figcaption>
+        </figure>
+
+        <h2 id="saveas">«Сохранить как…»</h2>
+        <p>На телефоне заметку сохраняют через «Поделиться»: файл уходит в файлы, в мессенджер или в другое приложение. Доступны txt, md и docx; <strong>PDF на телефоне не предлагается</strong> — окна печати там нет.</p>
+        <p>Если текст заметки ещё не загружен из облака (например, вы зашли с нового телефона), приложение докачает его и только потом сохранит — пустого файла не будет. Если качать нечего, оно скажет настоящую причину: «заметка заперта — открой сейф» или «текст ещё не загружен из облака». Отменённое окно «Поделиться» — это отмена, а не скачивание: файл туда не улетит. А если docx не собрался, на экране появится сообщение, а не молчание.</p>
+        <figure class="shot phone-pair">
+          <img src="img/save-as-light.jpg" alt="Лист «Сохранить как…» с тремя форматами: «Текстовый (.txt)», «Markdown (.md)» и «Word (.docx)» — без PDF" loading="lazy" width="390" height="844">
+          <img src="img/save-as-dark.jpg" alt="Тот же лист «Сохранить как…» в тёмной теме" loading="lazy" width="390" height="844">
+          <figcaption>Три формата — и ни одного PDF.</figcaption>
+        </figure>
+
+        <h2 id="reader">Читалка и «Инфо»</h2>
+        <p>Нажатие на заметку открывает читалку — полноэкранный режим чтения: название, дата, теги, метка и текст целиком, без полей редактирования. Внизу — <span class="ui">Инфо</span> и <span class="ui">⋯</span>.</p>
+        <p><span class="ui">Инфо</span> — это то, что известно о заметке, без редактирования: когда написана, сколько слов и времени, теги, метка, состояние облака и ИИ, версии. Оттуда же можно переименовать заметку и добавить тег.</p>
+        <p><span class="ui">Продолжить писать</span> из читалки ведёт в редактор. Аппаратная «назад» после этого вернёт вас туда, где вы были до читалки, — а не заставит нажимать её дважды.</p>
+        <figure class="shot phone-pair">
+          <img src="img/reader-light.jpg" alt="Читалка заметки: название, дата, число слов и времени, теги и текст целиком" loading="lazy" width="390" height="844">
+          <img src="img/reader-dark.jpg" alt="Читалка в тёмной теме" loading="lazy" width="390" height="844">
+          <figcaption>Читалка.</figcaption>
+        </figure>
+        <figure class="shot phone-pair">
+          <img src="img/reader-info-light.jpg" alt="Вкладка «Инфо» в читалке: что известно о заметке — дата, счётчики, теги, состояние облака и ИИ" loading="lazy" width="390" height="844">
+          <img src="img/reader-info-dark.jpg" alt="«Инфо» в тёмной теме" loading="lazy" width="390" height="844">
+          <figcaption>«Инфо» — про заметку, без редактирования.</figcaption>
+        </figure>
+
+        <h2 id="trash">Корзина</h2>
+        <p>Удалённые заметки лежат в корзине 30 дней и восстанавливаются оттуда кнопкой. «Очистить корзину» удаляет их безвозвратно — вместе с облачной копией.</p>
+
+        <p>Про архив на компьютере подробнее — <a href="../notes.html">«Заметки»</a>.</p>
+
+        <nav class="pager" aria-label="Соседние разделы">
+          <a class="prev" href="writing.html"><small>← Назад</small>Письмо</a>
+          <a class="next" href="ai.html"><small>Дальше →</small>ИИ</a>
+        </nav>
+      </article>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <span>justwriting</span>
+    <ul class="footer-links">
+      <li><a href="/">Открыть приложение</a></li>
+      <li><a href="/privacy">Политика конфиденциальности</a></li>
+      <li><a href="/terms">Условия использования</a></li>
+      <li><a href="mailto:support@justwriting.ru">support@justwriting.ru</a></li>
+    </ul>
+  </footer>
+</body>
+</html>

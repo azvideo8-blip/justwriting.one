@@ -17,6 +17,15 @@ export interface UserStatusItem {
   service?: boolean;
 }
 
+/** R7Q-014: строка следа админских действий (public.admin_actions). */
+export interface AdminActionItem {
+  id: number;
+  at: string;
+  adminUid: string;
+  action: string;
+  targetUid: string;
+}
+
 export const AdminUserService = {
   async getUsers(limitCount: number = 50): Promise<AdminUserItem[]> {
     try {
@@ -89,6 +98,11 @@ export const AdminUserService = {
 
   async listUsersWithStatus(): Promise<UserStatusItem[]> {
     return callAi<UserStatusItem[]>('listUsersWithStatus', {});
+  },
+
+  /** R7Q-014: последние строки admin_actions. Только чтение, сервер проверяет админа. */
+  async listAdminActions(limit = 50): Promise<AdminActionItem[]> {
+    return callAi<AdminActionItem[]>('listAdminActions', { limit });
   },
 
   getProfile: (uid: string) => ProfileService.getProfile(uid).then(r => r.data),

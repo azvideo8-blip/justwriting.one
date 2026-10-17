@@ -9,8 +9,13 @@ import { ModalShell } from '../ModalShell';
 const sheet = (id: string) => (
   <ModalShell open labelId={id} onClose={() => {}} variant="sheet"><h2 id={id}>{id}</h2></ModalShell>
 );
-const backdropOpacity = (id: string) =>
-  (document.getElementById(id)!.closest('[role="dialog"]')!.parentElement as HTMLElement).style.opacity;
+// N-4: затемнение переехало с родителя листа на соседний слой — берём его, а не
+// контейнер. Смысл проверки (с чего стартует прозрачность затемнения) тот же.
+const backdropOpacity = (id: string) => {
+  const parent = document.getElementById(id)!.closest('[role="dialog"]')!.parentElement as HTMLElement;
+  const scrim = parent.querySelector('[class*="bg-black"]') as HTMLElement | null;
+  return (scrim ?? parent).style.opacity;
+};
 const settle = () => act(() => new Promise<void>(r => setTimeout(r, 300)));
 
 describe('MQ-5: затемнение листа при смене листа', () => {

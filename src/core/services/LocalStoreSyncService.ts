@@ -9,7 +9,7 @@ import { cloudSyncEnabled } from '../sync/cloudSyncEnabled';
 import { reportError } from '../../shared/errors/reportError';
 import { logger } from '../../shared/errors/logger';
 import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
-import { pageTextOf, selectCloudVersion, PAGE_TEXT_FIELDS, type CloudRow } from './localStorePages';
+import { pageTextOf, parseLocalStoreKey, selectCloudVersion, PAGE_TEXT_FIELDS, type CloudRow } from './localStorePages';
 import {
   HEAD_TEXT_FIELDS,
   SEGMENT_TEXT_FIELDS,
@@ -66,6 +66,11 @@ export const MAX_LOCAL_RECORD_BYTES = PAGES_PER_REQUEST * PAGE_SPLIT_THRESHOLD_B
  * чтобы параллельный писатель успел связать его своим head'ом.
  */
 export const ORPHAN_GRACE_PERIOD_MS = 10 * 60 * 1000;
+/**
+ * R7Q-007: grace — это отсрочка, а не отказ. Через сам grace повтор делать
+ * нельзя (часы могут разойтись на границу), поэтому + 60 с запаса.
+ */
+export const ORPHAN_RETRY_DELAY_MS = ORPHAN_GRACE_PERIOD_MS + 60_000;
 /** Восстановление принимает и то, что прежние версии выгрузили с пределом 10 МБ. */
 export const MAX_RESTORE_RECORD_BYTES = 10 * 1024 * 1024;
 
@@ -373,6 +378,31 @@ function applyUpsertMarkerChanges(
 }
 
 /** Записи, ждущие облачного upsert и ещё не уехавшие (с пережитой перезагрузкой). */
+/**
+ * T-8 (0.10.0): ключи `store:key` с невыгруженной локальной правкой этого аккаунта —
+ * для спора копий при заборе. `null` — журнал не читается: «нет правок» и «не знаю»
+ * — разные ответы, и на `null` забор обязан оставить локальную копию.
+ */
+export function getPendingUpsertKeySet(uid: string): Set<string> | null {
+  let raw: string | null;
+  try { raw = localStorage.getItem(PENDING_UPSERTS_LS_KEY); } catch { return null; }
+  try {
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return null;
+    return new Set((parsed as PersistedUpsert[]).filter(u => u.uid === uid).map(u => upsertKey(u.store, u.key)));
+  } catch { return null; }
+}
+
+/** T-8: серверная отметка облачной версии, от которой получена локальная копия. */
+export const CLOUD_STAMP_FIELD = '_cloudStampedAt';
+
+export function stripCloudStamp(record: unknown): unknown {
+  if (!record || typeof record !== 'object' || !(CLOUD_STAMP_FIELD in record)) return record;
+  const copy = { ...(record as Record<string, unknown>) };
+  delete copy[CLOUD_STAMP_FIELD];
+  return copy;
+}
+
 export function getPendingStoreUpserts(uid: string): PersistedUpsert[] {
   return readPersistedUpserts().filter(u => u.uid === uid);
 }
@@ -751,6 +781,8 @@ export class LocalStoreSyncManager {
   // M-10: поколение удалений по ключу. Растёт только в scheduleStoreDelete —
   // flush, чистящий очередь, или подтянутое с диска удаление его не меняют.
   private deleteGen = new Map<string, number>();
+  // R7Q-007: отложенные повторы уборки сирот, одна запись на пару uid:диалог.
+  private orphanRetryTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   /**
    * SYNC-2: Retry records previously marked as oversized if their recorded size is now <= MAX_LOCAL_RECORD_BYTES.
@@ -911,6 +943,10 @@ export class LocalStoreSyncManager {
     }
 
     const toDelete: string[] = [];
+    // R7Q-007: окна, оставленные именно из-за grace. Без повтора они не уйдут
+    // никогда: следующий проход случается только если тронуть диалог, а
+    // надгробие к этому больше не вернётся.
+    const deferredByGrace: string[] = [];
     // V-4.4: «оставили, потому что не знаем возраста» — это протекающие строки,
     // и молчать они не имеют права. Без отметки неясно, окно ещё живо или ему
     // год; решение то же (не удалять), но след уходит в warn, чтобы утечка
@@ -938,6 +974,7 @@ export class LocalStoreSyncManager {
         continue;
       }
       if (serverNow - segStamp < ORPHAN_GRACE_PERIOD_MS) {
+        deferredByGrace.push(candKey);
         continue;
       }
       toDelete.push(candKey);
@@ -954,6 +991,31 @@ export class LocalStoreSyncManager {
         logger.warn('LocalStoreSyncService', `Failed to delete orphan segments: ${String(e)}`);
       }
     }
+
+    if (deferredByGrace.length > 0) {
+      this.scheduleOrphanRetry(uid, key);
+    }
+  }
+
+  /**
+   * R7Q-007: одно отложенное возвращение в очередь на диалог. Защита от двойного
+   * планирования обязательна: надгробие перечитывается на каждом проходе, и без
+   * неё каждое касание диалога добавляло бы по таймеру. Ключ очереди, `deleteGen`
+   * и маркеры уже устроены как `store:key` (очередь всегда одного текущего
+   * пользователя), поэтому и здесь та же форма; аккаунт проверяется в момент
+   * срабатывания.
+   */
+  private scheduleOrphanRetry(uid: string, key: string): void {
+    const token = `aiDialogues:${key}`;
+    if (this.orphanRetryTimers.has(token)) return;
+    const timer = setTimeout(() => {
+      this.orphanRetryTimers.delete(token);
+      // Очередь принадлежит текущему пользователю; за 11 минут аккаунт мог
+      // смениться, и чужой диалог в неё класть нельзя.
+      if (getCurrentUser()?.uid !== uid) return;
+      this.scheduleStoreSync('aiDialogues', key);
+    }, ORPHAN_RETRY_DELAY_MS);
+    this.orphanRetryTimers.set(token, timer);
   }
 
   /**
@@ -1017,7 +1079,12 @@ export class LocalStoreSyncManager {
         && !(cloud.incomplete && cloud.incomplete.length > 0)
         && (cloud.head !== undefined || merged.deletedAt === undefined)
         // Осиротевшие окна убирает только запись head'а — с ними не пропускаем.
-        && (cloud.head === undefined || staleSegmentKeys(cloud.head, (cloud.segments ?? []).map(r => r.key)).length === 0)
+        // R7Q-007: окна без head'а (одиночная строка + остатки оборванной
+        // попытки) убирает одиночная ветка, и если бы они считались «ровным
+        // облаком», повтор после grace выходил бы здесь и до уборки не доходил.
+        && (cloud.head === undefined
+          ? (cloud.segments ?? []).length === 0
+          : staleSegmentKeys(cloud.head, (cloud.segments ?? []).map(r => r.key)).length === 0)
         && dialogueFingerprint(merged) === dialogueFingerprint(cloud.dialogue!);
       if (cloudIsExact) return 'ok';
 
@@ -1306,7 +1373,8 @@ export class LocalStoreSyncManager {
             continue;
           }
 
-          const record: unknown = rawRecord;
+          // T-8: отметка облачной версии — служебное поле устройства, в облако не едет.
+          const record: unknown = stripCloudStamp(rawRecord);
           const jsonString = JSON.stringify(record);
           const recordBytes = new TextEncoder().encode(jsonString).length;
 
@@ -1441,6 +1509,24 @@ export class LocalStoreSyncManager {
 
     const db = await getLocalDb(userId);
 
+    // T-8 (R7F-001): «Отправить всё» не перетирает облачную версию, которой это
+    // устройство ещё не видело (её серверная отметка новее той, от которой получена
+    // локальная копия). Отметки не читаются — не знаем, что новее: проход не идёт.
+    const cloudStamps = new Map<string, number>();
+    if (DataProvider.getLocalStoreStamps) {
+      try {
+        for (const r of await DataProvider.getLocalStoreStamps(userId)) {
+          if (typeof r.stamped_at !== 'number') continue;
+          const id = `${r.store}:${parseLocalStoreKey(r.key).baseKey}`;
+          cloudStamps.set(id, Math.max(cloudStamps.get(id) ?? 0, r.stamped_at));
+        }
+      } catch (err) {
+        reportError(err, { action: 'LocalStoreSyncService_syncAll_stamps' });
+        result.failed++;
+        return result;
+      }
+    }
+
     // SA-1: бэкфилл касается всех записей всех сторов — маркеры пишутся одним
     // блоком, иначе по перезаписи списка на каждую запись.
     const batch: Array<{ store: SupportedLocalStoreName; key: string }> = [];
@@ -1448,8 +1534,14 @@ export class LocalStoreSyncManager {
     for (const store of SUPPORTED_LOCAL_STORES) {
       if (!db.objectStoreNames.contains(store)) continue;
       try {
-        const allKeys = await (db as unknown as { getAllKeys(s: string): Promise<IDBValidKey[]> }).getAllKeys(store);
-        for (const key of allKeys) {
+        const idb = db as unknown as { getAllKeys(s: string): Promise<IDBValidKey[]>; getAll(s: string): Promise<unknown[]> };
+        const allKeys = await idb.getAllKeys(store);
+        // Ключи и значения одного стора IndexedDB отдаёт в одном порядке — по ключу.
+        const allValues = store === 'aiDialogues' ? [] : await idb.getAll(store);
+        for (const [i, key] of allKeys.entries()) {
+          const base = (allValues[i] as Record<string, unknown> | undefined)?.[CLOUD_STAMP_FIELD];
+          const cloud = cloudStamps.get(`${store}:${String(key)}`);
+          if (typeof base === 'number' && cloud !== undefined && cloud > base) continue;
           batch.push({ store, key: String(key) });
         }
       } catch (err) {

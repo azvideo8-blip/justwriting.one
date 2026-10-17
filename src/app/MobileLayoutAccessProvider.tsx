@@ -3,6 +3,7 @@ import { getSupabase } from '../core/supabase/client';
 import { useAuth } from '../features/auth/contexts/AuthContext';
 import { MobileLayoutAccessContext, MobileLayoutAccessAnsweredContext } from '../shared/hooks/useMobileLayoutAccess';
 import { reportError } from '../shared/errors/reportError';
+import { MOBILE_LAYOUT_ENABLED } from '../shared/hooks/mobileLayoutFlag';
 
 /**
  * MB-1: читает право на мобильный макет один раз на вошедшего пользователя.
@@ -20,7 +21,8 @@ export function MobileLayoutAccessProvider({ children }: { children: ReactNode }
   const [answer, setAnswer] = useState<{ uid: string; allowed: boolean } | null>(null);
 
   useEffect(() => {
-    if (uid === null) return;
+    // 0.10.0: макет открыт всем — право не спрашиваем.
+    if (uid === null || MOBILE_LAYOUT_ENABLED) return;
     let discarded = false;
 
     const read = async (): Promise<void> => {
@@ -47,7 +49,7 @@ export function MobileLayoutAccessProvider({ children }: { children: ReactNode }
   const allowed = uid !== null && answer !== null && answer.uid === uid && answer.allowed;
   // MC-6: «ответа ещё нет» и «ответа нет, потому что отказано» — разные
   // состояния. Окно первого входа держит паузу ровно до первого из них.
-  const answered = uid === null || (answer !== null && answer.uid === uid);
+  const answered = MOBILE_LAYOUT_ENABLED || uid === null || (answer !== null && answer.uid === uid);
 
   return (
     <MobileLayoutAccessAnsweredContext.Provider value={answered}>

@@ -132,7 +132,7 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
   const isReasoningMode = reasoning === true;
   // Same headers the streaming path writes, so the client parser is unchanged.
   const raw = isReasoningMode && gen.reasoning ? `ХОД МЫСЛИ:\n${gen.reasoning}\n\nОТВЕТ:\n${gen.text}` : gen.text;
-  const text = sanitizeAiResponse(raw, isReasoningMode);
+  const text = sanitizeAiResponse(raw, { keepReasoning: isReasoningMode });
 
   callRes.markProduced(gen.text.length);
   await callRes.settle('done');

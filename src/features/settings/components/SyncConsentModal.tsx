@@ -47,7 +47,7 @@ export function SyncConsentModal({ onClose, userId }: SyncConsentModalProps) {
           <div className="w-9 h-9 rounded-xl bg-brand-soft/10 flex items-center justify-center text-brand-soft">
             <Cloud size={20} />
           </div>
-          <h3 id="sync-consent-title" className="text-lg font-semibold text-text-primary">
+          <h3 id="sync-consent-title" className="text-lg font-semibold text-text-main">
             {t('sync_consent_title')}
           </h3>
         </div>
@@ -65,7 +65,7 @@ export function SyncConsentModal({ onClose, userId }: SyncConsentModalProps) {
           <Button
             variant="ghost"
             onClick={handleKeepOff}
-            className={cn("w-full justify-center py-2.5 text-sm font-medium text-text-muted hover:text-text-primary", isMobile && "min-h-11")}
+            className={cn("w-full justify-center py-2.5 text-sm font-medium text-text-muted hover:text-text-main", isMobile && "min-h-11")}
           >
             {t('sync_consent_keep_off')}
           </Button>

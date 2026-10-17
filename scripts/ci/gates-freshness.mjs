@@ -6,8 +6,7 @@
 // ponytail: только ::warning::, выкатку не валит — ручной `gh workflow run
 // gates.yml` снимает предупреждение. Нужна жёсткость — exit 1 вместо warning.
 
-import { realpathSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { isMainRun } from '../gate-paths.mjs';
 
 /** Имя джоба в gates.yml → сколько суток без успешного прогона терпим.
  *  Сутки + запас на опоздание расписания; неделя + сутки. */
@@ -56,8 +55,11 @@ async function main() {
   if (warnings.length === 0) console.log('gates.yml: все ворота прошли в срок');
 }
 
-// S-16 (R6Q-015): realpathSync comparison so invocation via symlink executes main().
-if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
+// S-16 (R6Q-015): врата входа берутся из общего helper'а, а не сравниваются
+// на месте: `argv[1]` на Windows — это `C:\…`, а `import.meta.url` —
+// `file:///C:/…`, и локальное сравнение молча превращало скрипт в тихий no-op
+// на этой машине (R7 T-0). Тот же путь, что у остальных гейт-скриптов.
+if (isMainRun(process.argv[1], import.meta.url)) {
   // Неудачное чтение — «не измерено», а не «всё хорошо» и не упавшая выкатка.
   main().catch((err) => console.log(`::warning::свежесть gates.yml не измерена: ${err.message}`));
 }

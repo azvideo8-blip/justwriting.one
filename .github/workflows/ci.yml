@@ -211,7 +211,16 @@ jobs:
         # (приватность, согласие, счётчики) и MQ, факт 131693 локально. Временно:
         # задача BS (justwriting-docs/tickets-2026-10-16-BS-start-chunk-split.md)
         # выносит синхронизацию из стартового чанка и возвращает порог вниз.
-        MAX_INDEX_GZ=133000
+        # 2026-10-16 (BS/N-2): 133000 → 100000. Движок синка (SyncService,
+        # CloudSyncService, LocalStoreSyncService с сегментным форматом диалогов,
+        # StorageService, ConflictResolver, EncryptionService, AIEmbeddingService,
+        # панель настроек и мост миграции гостя) больше не достижим статическим
+        # импортом из main.tsx — храповик в src/test/bootChunkGraph.n2.test.ts.
+        # Факт: 95958 gzip (320271 байт) против 131535 на 0.9.43, то есть −35,6 КБ.
+        # Запас ~4 %, а не привычные 2 %: в этом же пакете ещё семь тикетов, и
+        # каждый добавляет в старт сотни байт (N-1 дал +201). Сузить до факта +2 %
+        # можно после приёмки пакета.
+        MAX_INDEX_GZ=100000
         biggest_gz=0
         for f in dist/assets/index-*.js; do
           gz=$(gzip -c "$f" | wc -c)

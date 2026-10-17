@@ -26,12 +26,11 @@ const CLASS_RE = /\b(?:bg|text|border|ring|fill|stroke|outline|shadow|decoration
  * Список имеет право только сохнуть: новый токен — красный тест, ставшийся — тоже
  * (его надо вычеркнуть).
  */
-const DEAD_TOKEN_BASELINE = new Set([
-  'brand-soft-hover',
-  'accent-main',
-  'border-light',
-  'text-primary',
-]);
+// N-8 (R7 T-16): долг закрыт — четыре мёртвых токена либо объявлены там, где
+// должны работать (brand-soft-hover), либо заменены живым токеном (accent-main →
+// accent, border-light → border-subtle, text-primary → text-main). Пустой набор
+// — это и есть проверка: любой новый фирменный класс без токена краснеет сразу.
+const DEAD_TOKEN_BASELINE = new Set<string>([]);
 
 function tsxFiles(dir: string): string[] {
   const out: string[] = [];

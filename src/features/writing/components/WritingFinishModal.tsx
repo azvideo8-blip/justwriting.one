@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
+import { useReducedMotion } from 'motion/react';
 import { Sparkles, Check, X } from 'lucide-react';
 
 import { useShallow } from 'zustand/react/shallow';
@@ -587,7 +587,6 @@ function WritingFinishModalBody({
   }, [isMobile, content, userTags, title, popularWords]);
 
   const reducedMotion = useReducedMotion();
-  const slideTransition = { duration: 0.22, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] };
 
   // MQ-5: тело не возвращает null при !isOpen — им владеет обёртка, которая держит его
   // ещё 250 мс, пока ModalShell проигрывает уход (ранний return убивал этот уход, MF-20).
@@ -695,14 +694,14 @@ function WritingFinishModalBody({
           : "shadow-[0_0_60px_rgba(0,0,0,0.8)] rounded-3xl p-8 max-h-[90vh] overflow-y-auto no-scrollbar border border-border-subtle h-auto"
       )}
     >
-        <AnimatePresence mode="wait" initial={false}>
+        {/* F5 (emil-review, хвост MQ-15): здесь лежала мёртвая анимация —
+            AnimatePresence mode="wait" c initial={false} вокруг ребёнка с
+            неизменяемым ключом «form»: вход глушил initial={false}, уходу не
+            откуда было начаться, ключ не менялся никогда (isMobile не переключается
+            при открытом окне). Вход и уход окна принадлежат ModalShell (N-1/MQ-5),
+            поэтому от обёртки и motion-свойств ниже ничего не менялось — убрано. */}
         {isMobile ? (
-          <motion.div
-            key="form"
-            initial={reducedMotion ? {} : { opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={reducedMotion ? {} : { opacity: 0, y: 40 }}
-            transition={slideTransition}
+          <div
             className="flex-1 flex flex-col overflow-hidden"
           >
             {/* MC-3: одна строка сверху — «×» (= «Вернуться к тексту»), и всё. */}
@@ -793,14 +792,9 @@ function WritingFinishModalBody({
                 {t('common_save')}
               </Button>
             </div>
-          </motion.div>
+          </div>
         ) : (
-          <motion.div
-            key="form"
-            initial={reducedMotion ? {} : { opacity: 0, x: -40 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={reducedMotion ? {} : { opacity: 0, x: 40 }}
-            transition={slideTransition}
+          <div
             className="space-y-5"
           >
           <div className="text-center">
@@ -866,9 +860,8 @@ function WritingFinishModalBody({
             onLater={onSkipSave}
             t={t}
           />
-        </motion.div>
+        </div>
         )}
-        </AnimatePresence>
     </ModalShell>
   );
 }

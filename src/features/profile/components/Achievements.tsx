@@ -309,7 +309,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
             </div>
 
             <div
-              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-[1px] bg-border-light/40 border border-border-light/40 rounded-xl overflow-hidden"
+              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-[1px] bg-border-subtle/40 border border-border-subtle/40 rounded-xl overflow-hidden"
             >
               {group.achievements.map((ach, i) => {
                 const unlocked = unlockedIds.has(ach.id);
@@ -341,7 +341,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
                     </div>
 
                     {activeAchId === ach.id && (
-                      <div className="absolute inset-0 bg-surface-card border border-border-light flex flex-col items-center justify-center p-2 z-20 text-xs rounded-xl shadow-lg animate-in fade-in zoom-in-95 duration-100">
+                      <div className="absolute inset-0 bg-surface-card border border-border-subtle flex flex-col items-center justify-center p-2 z-20 text-xs rounded-xl shadow-lg animate-in fade-in zoom-in-95 duration-100">
                         <div className="font-semibold text-text-main text-label-sm leading-tight mb-1">
                           {t(ach.title)}
                         </div>

@@ -6,6 +6,9 @@ import { STORAGE_KEYS } from '../constants/storageKeys';
 
 interface Props {
   children: ReactNode;
+  /** Своя заглушка вместо экрана ошибки: для ленивых кусков, которые монтируются
+   *  на каждом старте, — их отказ не должен закрывать всё приложение. */
+  fallback?: ReactNode;
 }
 
 interface State {
@@ -81,6 +84,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public render() {
+    if (this.state.hasError && this.props.fallback !== undefined) return this.props.fallback;
     if (this.state.hasError) {
       const isChunk = isChunkLoadError(this.state.errorMessage);
       const lang = (() => { try { return (localStorage.getItem(STORAGE_KEYS.APP_LANGUAGE) as 'ru' | 'en') || 'ru'; } catch { return 'ru'; } })();

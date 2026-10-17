@@ -21,15 +21,30 @@ export function useChatFollow(
   const lastDialogue = useRef(dialogueId);
 
   useEffect(() => {
+    let lastScrollTop = endRef.current?.closest<HTMLElement>('[data-chat-scroll]')?.scrollTop ?? 0;
     const recheck = (e: Event) => {
       const box = endRef.current?.closest<HTMLElement>('[data-chat-scroll]');
       if (!box || !(e.target instanceof Node) || !box.contains(e.target)) return;
+      // N-14 (emil-review, хвост MQ-15): при быстром смахивании последний
+      // touchmove приходит ещё в 80 px от низа, `following` оставался `true`, и
+      // следующий кусок потока уводил читателя вниз, обрывая инерцию iOS. По
+      // событию `scroll` уход видно по настоящему движению: сбрасываем только
+      // когда человек поехал ВВЕРХ и оказался от низа дальше порога. Своё
+      // прокручивание вниз (`scrollIntoView`) при этом ничего не снимает.
+      if (e.type === 'scroll') {
+        const top = box.scrollTop;
+        const upward = top < lastScrollTop - 1;
+        lastScrollTop = top;
+        if (upward && box.scrollHeight - top - box.clientHeight > NEAR_BOTTOM_PX) following.current = false;
+        return;
+      }
+      lastScrollTop = box.scrollTop;
       // После события позиция уже обновлена браузером.
       requestAnimationFrame(() => {
         following.current = box.scrollHeight - box.scrollTop - box.clientHeight <= NEAR_BOTTOM_PX;
       });
     };
-    const events = ['wheel', 'touchmove', 'keydown'] as const;
+    const events = ['wheel', 'touchmove', 'keydown', 'scroll'] as const;
     events.forEach(ev => document.addEventListener(ev, recheck, { passive: true, capture: true }));
     return () => events.forEach(ev => document.removeEventListener(ev, recheck, { capture: true }));
   }, [endRef]);

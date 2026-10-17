@@ -111,10 +111,20 @@ a:hover { text-decoration-thickness: 2px; }
 .doc li::marker { color: var(--muted); }
 .lead { font-size: 19px; color: var(--muted); margin-bottom: 24px !important; }
 
-.toc {
-  background: var(--bg-soft); border-radius: 12px; padding: 16px 20px; margin: 0 0 8px; font-size: 15px;
+/* UG-4 (SA-21): оглавление — свёрнутый <details>. Прежняя плашка с
+   «НА ЭТОЙ СТРАНИЦЕ» капсом и списком из 16 строк вытесняя первый абзац за
+   экран на 390 px; здесь на телефоне остаётся одна строка-заголовок, а список
+   раскрывается по тапу. Строчные буквы вместо капса — то же требование. */
+details.toc {
+  background: var(--bg-soft); border-radius: 12px; padding: 6px 20px 10px; margin: 0 0 8px; font-size: 15px;
 }
-.toc::before { content: 'На этой странице'; display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 6px; }
+details.toc > summary {
+  display: flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer;
+  font-size: 13px; font-weight: 600; letter-spacing: 0.02em; color: var(--muted); list-style: none;
+}
+details.toc > summary::-webkit-details-marker { display: none; }
+details.toc > summary::after { content: '▾'; color: var(--muted); }
+details.toc[open] > summary::after { content: '▴'; }
 .toc ul { list-style: none; padding: 0; margin: 0; columns: 2; column-gap: 24px; }
 .toc li { break-inside: avoid; margin: 3px 0; }
 .toc a { text-decoration: none; }
@@ -218,8 +228,29 @@ tr:last-child td { border-bottom: 0; }
   .doc h2 { font-size: 23px; margin-top: 44px; }
   .toc ul { columns: 1; }
   .cards { grid-template-columns: minmax(0, 1fr); }
+  /* UG-4 (SA-21): все ссылочные ряды на телефоне — не меньше 44 px по высоте. */
+  .toc li { margin: 0; }
+  .toc a { display: flex; align-items: center; min-height: 44px; }
+  /* Список разделов в <details class="mnav">: 37 px padding'ом — дотягиваем до 44. */
+  .sidenav a { min-height: 44px; }
+  /* Подвал: MQ-16 сделал 44 px у строки списка, но сама ссылка внутри неё
+     оставалась 23 px — нажатие попадало в пустоту вокруг текста. */
+  .footer-links a { display: flex; align-items: center; min-height: 44px; width: 100%; }
+  .footer a { display: inline-flex; align-items: center; min-height: 44px; }
   .pager { flex-direction: column; }
   .pager a { max-width: none; }
+  .pager a { display: flex; flex-direction: column; justify-content: center; min-height: 44px; }
+  .topbar .app-link { display: flex; align-items: center; min-height: 44px; }
+  .doc a { scroll-margin-top: 16px; }
+  /* UG-4: десктопный снимок 1280 px на 390 px нечитаем. Масштаб «в 100 %» —
+     это 3,3× уменьшения; вместо него кадр остаётся крупным и листается по
+     горизонтали, а подпись приклеена к левому краю и не уезжает. */
+  figure.shot { overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+  figure.shot img { width: 900px; min-width: 900px; max-width: none; }
+  figure.shot figcaption { position: sticky; left: 0; max-width: 100%; }
+  /* Мелкие кадры (иконки, окна) и так читаемы — их не растягиваем. */
+  figure.shot.fit { overflow-x: visible; }
+  figure.shot.fit img { width: auto; min-width: 0; max-width: 100%; }
   /* MQ-16: margin-left:auto в колонке сжимал «Дальше» до ширины текста. */
   .pager .next { margin-left: 0; }
   .footer { display: flex; flex-direction: column; gap: 4px; }
@@ -237,3 +268,17 @@ tr:last-child td { border-bottom: 0; }
 
 /* Мелкие кадры (иконки, небольшие окна) — в натуральную величину, без растяжения. */
 figure.shot.fit img { width: auto; max-width: 100%; margin: 0 auto; }
+
+/* UG-3: пара «светлая и тёмная тема» в одном кадре. На широком экране — две
+   колонки, на телефоне — стопкой; телефонный кадр (390 px) не растянется и не
+   поедет в листалку, потому что его ширина меньше 400 px. */
+figure.shot.phone-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+figure.shot.phone-pair img { width: 100%; max-width: 390px; height: auto; margin: 0 auto; }
+figure.shot.phone-pair figcaption { grid-column: 1 / -1; }
+@media (max-width: 860px) {
+  figure.shot.phone-pair { grid-template-columns: minmax(0, 1fr); }
+  /* Правило «десктопный кадр листается» к телефонным снимкам не применяется:
+     им и так 390 px. */
+  figure.shot.phone-pair { overflow-x: visible; }
+  figure.shot.phone-pair img { width: 100%; min-width: 0; max-width: 390px; }
+}

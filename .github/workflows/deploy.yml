@@ -191,6 +191,36 @@ jobs:
           echo "DEPLOY_SSH=ssh -i $RUNNER_TEMP/deploy_key -o UserKnownHostsFile=$RUNNER_TEMP/known_hosts -o IdentitiesOnly=yes" >> "$GITHUB_ENV"
           echo "DEPLOY_SCP=scp -i $RUNNER_TEMP/deploy_key -o UserKnownHostsFile=$RUNNER_TEMP/known_hosts -o IdentitiesOnly=yes" >> "$GITHUB_ENV"
 
+      # R7Q-031: выкатка обязана останавливаться, если на сервере остались
+      # неприменённые миграции: новый клиент и новый API говорят по схеме, которой
+      # в базе ещё нет, и молча пишут в неё не то.
+      #
+      # Шаг ВЫКЛЮЧЕН (`if: false`) до тех пор, пока владелец не сверит журнал
+      # миграций прода (R7F-029: часть файлов когда-то применялась руками и в
+      # applied_migrations их нет) и не прогонит migrate.sh с 0042. До этого
+      # `[PENDING]` — не дефект, а известное расхождение, и включённый шаг валил
+      # бы каждую выкатку. Включает ревьюер после бэк-филла.
+      #
+      # Порядок: «после загрузки клиента и до переключения трафика». Шаг выкатки
+      # клиента грузит бандл и подменяет /var/www в одном run, поэтому отдельного
+      # окна между ними нет — ворота стоят перед этим шагом, то есть всё равно до
+      # переключения трафика.
+      - name: Ворота журнала миграций (R7Q-031)
+        id: migrations_gate
+        if: false && inputs.what != 'api'
+        run: |
+          # Ошибка не глушится: отказ SSH или psql — тоже стоп. Требуется положительный
+          # ответ «Pending: 0»; пустой STATUS раньше проходил как «всё применено».
+          # ВНИМАНИЕ до включения: выкатка не кладёт supabase/migrations на сервер,
+          # и --status сверяет базу с теми файлами, что уже там лежат, — миграции
+          # этого релиза ворота не увидят, пока файлы не доставлены (ревью 0.10.0).
+          STATUS=$($DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} 'cd /opt/justwriting && bash supabase/scripts/migrate.sh --status')
+          echo "$STATUS"
+          if echo "$STATUS" | grep -q '\[PENDING\]' || ! echo "$STATUS" | grep -q 'Pending: 0$'; then
+            echo "::error::на сервере есть неприменённые миграции (или статус не получен) — выкатка остановлена до переключения трафика"
+            exit 1
+          fi
+
       - name: Выкатка клиента
         id: deploy_client
         if: inputs.what != 'api'

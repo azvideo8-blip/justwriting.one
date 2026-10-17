@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Письмо на телефоне — руководство justwriting</title>
+  <meta name="description" content="Экран письма на телефоне: чип режима сессии, микрофон и диктовка, «Сохранить» и окно «Записано.»">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../docs.css">
+  <meta name="theme-color" content="#FAF8F5" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0E0A18" media="(prefers-color-scheme: dark)">
+</head>
+<body>
+  <a class="skip" href="#content">К содержанию</a>
+  <header class="topbar">
+    <a class="brand" href="index.html"><b>justwriting</b><span>Руководство для телефона</span></a>
+    <a class="app-link" href="/">Открыть приложение</a>
+  </header>
+
+  <div class="layout">
+    <nav class="sidenav" aria-label="Разделы руководства">
+      <ol class="dnav">
+        <li><a href="index.html">Телефон: начало</a></li>
+        <li><a href="writing.html" aria-current="page">Письмо</a></li>
+        <li><a href="notes.html">Заметки и читалка</a></li>
+        <li><a href="ai.html">ИИ</a></li>
+        <li><a href="profile.html">Профиль и настройки</a></li>
+      </ol>
+      <details class="mnav">
+        <summary>Разделы руководства</summary>
+        <ol>
+          <li><a href="index.html">Телефон: начало</a></li>
+          <li><a href="writing.html" aria-current="page">Письмо</a></li>
+          <li><a href="notes.html">Заметки и читалка</a></li>
+          <li><a href="ai.html">ИИ</a></li>
+          <li><a href="profile.html">Профиль и настройки</a></li>
+        </ol>
+      </details>
+    </nav>
+
+    <main id="content">
+      <article class="doc">
+        <h1>Письмо на телефоне</h1>
+        <p class="lead">Экран <span class="ui">Писать</span> открывается первым. В нём текст заметки, нижняя панель с кнопками и чипом режима — всё остальное вызывается из этой панели.</p>
+
+        <details class="toc" aria-label="На этой странице">
+          <summary>На этой странице</summary>
+          <ul>
+            <li><a href="#start">Как начать</a></li>
+            <li><a href="#chip">Чип режима и его лист</a></li>
+            <li><a href="#voice">Микрофон и диктовка</a></li>
+            <li><a href="#punctuate">Знаки после «Остановить»</a></li>
+            <li><a href="#save">«Сохранить»</a></li>
+            <li><a href="#saved">Окно «Записано.»</a></li>
+            <li><a href="#keys">Горячие клавиши и пауза</a></li>
+          </ul>
+        </details>
+
+        <h2 id="start">Как начать</h2>
+        <p>Наберите первую букву — сессия начнётся сама: пойдёт время, включится автосохранение черновика. Отдельной кнопки «начать» нет. Пока текст не начат, нижняя панель показывает только вход в настройку сессии и микрофон.</p>
+        <figure class="shot phone-pair">
+          <img src="img/write-idle-light.jpg" alt="Экран письма на телефоне до начала сессии: пустое поле и нижняя панель с кнопками" loading="lazy" width="390" height="844">
+          <img src="img/write-idle-dark.jpg" alt="Тот же экран в тёмной теме" loading="lazy" width="390" height="844">
+          <figcaption>Экран письма до начала сессии: светлая и тёмная темы.</figcaption>
+        </figure>
+
+        <h2 id="chip">Чип режима и его лист</h2>
+        <p>В нижней панели слева — чип <span class="ui">Режим сессии</span>: на нём видно, какой режим сейчас выбран (например, <span class="ui">Свободный поток</span> или <span class="ui">Поток сознания</span>) и сколько идёт сессия. Нажмите чип — снизу выедет лист, где можно:</p>
+        <ul>
+          <li>поставить сессию на паузу и снять с неё;</li>
+          <li>начать новую заметку;</li>
+          <li>позвать <span class="ui">ИИ-помощник</span>;</li>
+          <li>выбрать режим письма и цель — по словам или по времени.</li>
+        </ul>
+        <p>Чип держит своё место и при паузе: подпись меняется на <span class="ui">На паузе</span>, а панель не прыгает.</p>
+        <figure class="shot phone-pair">
+          <img src="img/session-sheet-light.jpg" alt="Лист «Режим сессии», выехавший снизу: режим, цель и действия над сессией" loading="lazy" width="390" height="844">
+          <img src="img/session-sheet-dark.jpg" alt="Тот же лист в тёмной теме" loading="lazy" width="390" height="844">
+          <figcaption>Лист режима сессии.</figcaption>
+        </figure>
+
+        <h2 id="voice">Микрофон и диктовка</h2>
+        <p>Кнопка микрофона ставит диктовку: пока говорите, в тексте видно распознаваемые слова и волну голоса. Кнопка <span class="ui">Остановить диктовку</span> вставляет сказанное в заметку, <span class="ui">Отменить</span> выбрасывает запись, и в тексте ничего не появляется.</p>
+        <p>Речь распознаёт сам браузер, поэтому нужен интернет и разрешение на микрофон — браузер спросит его при первом включении. Уходя с экрана письма посреди диктовки, микрофон выключите сами или это сделает приложение: надиктованное в другую заметку не попадёт.</p>
+        <figure class="shot phone-pair">
+          <img src="img/dictation-light.jpg" alt="Идёт диктовка: в нижней панели волна голоса, кнопки «Остановить диктовку» и «Отменить»" loading="lazy" width="390" height="844">
+          <img src="img/dictation-dark.jpg" alt="Тот же экран диктовки в тёмной теме" loading="lazy" width="390" height="844">
+          <figcaption>Диктовка в работе.</figcaption>
+        </figure>
+
+        <h2 id="punctuate">Знаки после «Остановить»</h2>
+        <p>Голосом точки не ставят, поэтому после остановки ИИ расставляет в надиктованном знаки препинания, заглавные буквы и абзацы. Кнопка микрофона помечена значком ИИ, и перед первой такой обработкой приложение предупреждает: уйдёт один запрос дневного лимита.</p>
+        <p>Слова при этом не меняются — только знаки между ними. Если ИИ всё-таки тронет слово, результат отбрасывается и текст остаётся как есть. Без входа в аккаунт и без согласия на ИИ расстановки нет: текст вставляется точно как сказан, и запрос никуда не идёт.</p>
+
+        <h2 id="save">«Сохранить»</h2>
+        <p>Кнопка <span class="ui">Сохранить</span> в нижней панели заканчивает сессию и превращает её в заметку. Пока вы не нажали её, текст живёт как черновик: он переживёт закрытие вкладки и случайную перезагрузку, и при следующем заходе приложение предложит его вернуть.</p>
+        <p>Написание сохраняется каждые 30 секунд автоматически — то есть даже без нажатия <span class="ui">Сохранить</span> текст не теряется.</p>
+
+        <h2 id="saved">Окно «Записано.»</h2>
+        <p>После «Сохранить» в панели письма появляется окно <span class="ui">Записано.</span>: вверху — сколько слов и времени заняла сессия и сколько примерно минут читается, ниже — название (можно поправить), теги и настроение по желанию, внизу — «Сохраню позже», «Обсудить с ИИ» и «Сохранить». Пока вы не нажали «Сохранить», заметка не записана: «Сохраню позже» оставляет её черновиком.</p>
+        <figure class="shot phone-pair">
+          <img src="img/saved-light.jpg" alt="Окно «Записано.» на телефоне: счётчики слов и времени, поля «Название» и «Добавить тег…», выбор настроения и кнопки «Сохраню позже», «Обсудить с ИИ» и «Сохранить»" loading="lazy" width="390" height="844">
+          <img src="img/saved-dark.jpg" alt="То же окно в тёмной теме" loading="lazy" width="390" height="844">
+          <figcaption>Окно «Записано.» — здесь заметке дают название и тег.</figcaption>
+        </figure>
+
+        <h2 id="keys">Горячие клавиши и пауза</h2>
+        <p>На телефоне нет клавиатурных сокращений, которые есть на компьютере, — вместо них панель и листы. Сессия встаёт на паузу, когда вы сворачиваете браузер или уходите в другую вкладку; время паузы считается отдельно и в окне завершения показывается как <span class="ui">Отвлечения</span>.</p>
+        <figure class="shot phone-pair">
+          <img src="img/write-running-light.jpg" alt="Идёт сессия: текст в поле, в нижней панели счётчики слов и времени" loading="lazy" width="390" height="844">
+          <img src="img/write-running-dark.jpg" alt="Тот же экран идущей сессии в тёмной теме" loading="lazy" width="390" height="844">
+          <figcaption>Идущая сессия: текст и счётчики.</figcaption>
+        </figure>
+
+        <p>Про цели, режимы и статистику письма подробнее — в «взрослом» разделе <a href="../writing.html">«Как писать»</a>.</p>
+
+        <nav class="pager" aria-label="Соседние разделы">
+          <a class="prev" href="index.html"><small>← Назад</small>Телефон: начало</a>
+          <a class="next" href="notes.html"><small>Дальше →</small>Заметки и читалка</a>
+        </nav>
+      </article>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <span>justwriting</span>
+    <ul class="footer-links">
+      <li><a href="/">Открыть приложение</a></li>
+      <li><a href="/privacy">Политика конфиденциальности</a></li>
+      <li><a href="/terms">Условия использования</a></li>
+      <li><a href="mailto:support@justwriting.ru">support@justwriting.ru</a></li>
+    </ul>
+  </footer>
+</body>
+</html>

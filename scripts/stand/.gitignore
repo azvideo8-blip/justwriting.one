@@ -2,3 +2,4 @@
 .pids
 *.log
 dist/
+ug2-shots/

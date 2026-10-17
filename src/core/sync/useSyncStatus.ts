@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useOnlineStatus } from '../../shared/hooks/useOnlineStatus';
 
-import { SyncService } from '../services/SyncService';
-import { getLocalStoreSyncSummary } from '../services/LocalStoreSyncService';
+// BS (N-2): движок синка сюда грузится по требованию, а не статически — иначе
+// CloudSyncService/LocalStoreSyncService с диалоговым сегментным форматом едут в
+// стартовом куске только ради бейджа. Отказ куска попадает в catch ниже: это
+// «cloud_unavailable», а не «нечего синхронизировать», и следующий опрос пробует снова.
 import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
 import { cloudSyncEnabled, CLOUD_SYNC_CHANGED } from './cloudSyncEnabled';
 import { isAccountReloadPending } from '../auth/accountReload';
@@ -90,6 +92,10 @@ const statusListeners = new Set<(counts: SharedCounts) => void>();
 
 async function pollSyncStatus(userId: string | null) {
   try {
+    const [{ SyncService }, { getLocalStoreSyncSummary }] = await Promise.all([
+      import('../services/SyncService'),
+      import('../services/LocalStoreSyncService'),
+    ]);
     // SA-1: состояние ИИ-сторов читается здесь же — бейдж раньше знал только
     // про заметки, и потерянная облачная копия разбора для него отсутствовала.
     const storeSummary = userId ? getLocalStoreSyncSummary(userId) : null;

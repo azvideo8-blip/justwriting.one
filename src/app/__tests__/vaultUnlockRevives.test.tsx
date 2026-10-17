@@ -35,10 +35,12 @@ describe('открытие сейфа оживляет карантинные з
 
     window.dispatchEvent(new CustomEvent(VAULT_UNLOCKED_EVENT));
 
-    expect(reviveLockedTasks, 'слушатель обязан позвать оживление').toHaveBeenCalledWith('u1');
-    // Allow promise chain to resolve
-    await new Promise((r) => setTimeout(r, 0));
-    expect(syncPending, 'оживление обязано запустить синк для пользователя').toHaveBeenCalledWith('u1');
+    // N-2: SyncService приходит динамическим импортом, поэтому вызов появляется
+    // не в этом кадре, а когда долетит кусок. Ждём — смысл проверки тот же.
+    await vi.waitFor(() =>
+      expect(reviveLockedTasks, 'слушатель обязан позвать оживление').toHaveBeenCalledWith('u1'));
+    await vi.waitFor(() =>
+      expect(syncPending, 'оживление обязано запустить синк для пользователя').toHaveBeenCalledWith('u1'));
   });
 
   it('после размонтирования слушатель снят', async () => {

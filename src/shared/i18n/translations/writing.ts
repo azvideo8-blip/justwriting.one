@@ -153,6 +153,7 @@ export const writingTranslations: Translations = {
   voice_start: { ru: 'Включить диктовку', en: 'Start dictation' },
   voice_stop: { ru: 'Остановить диктовку', en: 'Stop dictation' },
   voice_error: { ru: 'Ошибка диктовки', en: 'Dictation error' },
+  voice_nothing_heard: { ru: 'Не расслышали ни слова — попробуй ещё раз.', en: 'No words were caught — try again.' },
   voice_confirm_title: { ru: 'Голосовой ввод', en: 'Voice dictation' },
   voice_confirm_desc: { ru: 'Голосовой ввод отправляет аудиозапись в службу распознавания речи браузера (Google, Apple) для преобразования в текст. После остановки распознанный текст уходит в ИИ-сервис только затем, чтобы расставить знаки препинания: слова не меняются. Включить?', en: 'Voice dictation sends audio to the browser speech recognition service (Google, Apple) for transcription. After you stop, the recognised text goes to the AI service only to add punctuation: the words are not changed. Enable?' },
   voice_confirm_vault_desc: { ru: 'Сейф включён: диктовка передаёт аудиозапись в службу распознавания речи браузера (Google, Apple) в открытом виде, вне зашифрованного сейфа. Распознанный текст тоже уходит в ИИ-сервис вне сейфа — только ради знаков препинания, слова не меняются, и это стоит один ИИ-запрос. Продолжить?', en: 'Vault is active: voice dictation transmits audio to the browser speech recognition service (Google, Apple) in the clear, outside the encrypted vault. The recognised text also leaves the vault — only for punctuation, the words are not changed, and it costs one AI request. Continue?' },

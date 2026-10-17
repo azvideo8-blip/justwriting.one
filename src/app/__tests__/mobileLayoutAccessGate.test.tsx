@@ -17,6 +17,8 @@ vi.mock('../../core/supabase/client', () => ({
   getSupabase: () => ({ rpc }),
 }));
 vi.mock('../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
+// 0.10.0: макет открыт всем; здесь проверяется аварийный режим «по праву из базы».
+vi.mock('../../shared/hooks/mobileLayoutFlag', () => ({ MOBILE_LAYOUT_ENABLED: false }));
 
 const { MobileLayoutAccessProvider } = await import('../MobileLayoutAccessProvider');
 const { useLayoutMode } = await import('../../shared/hooks/useLayoutMode');

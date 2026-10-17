@@ -2,7 +2,7 @@
 // «Начать», ни окна режима. Проверка «/» на отсутствие бокового скролла вернулась
 // сюда: экран-заглушка, который его давал, удалён.
 import { expect, test } from '@playwright/test';
-import { fullyInViewport, openVaultFromBanner, shot, signInMobile, waitForQuietDialogs } from './harness';
+import { assertMobileScreenRendered, fullyInViewport, openVaultFromBanner, shot, signInMobile, waitForQuietDialogs } from './harness';
 
 const SIZES = [{ w: 360, h: 640 }, { w: 390, h: 844 }];
 
@@ -106,6 +106,9 @@ for (const { w, h } of SIZES) {
       // открыто «Синхронизация с облаком»). Сначала тишина окон, потом замер,
       // и сами окна в замер не идут: проверяется страница, а не оверлей.
       await waitForQuietDialogs(page);
+      // N-7: замер прокрутки на экране аварии даёт «ok» — сначала контроль, что
+      // экран собрался.
+      await assertMobileScreenRendered(page, '/');
       // Проверяется сама прокрутка: декоративные пятна фона медленно плавают и
       // заходят за край (x=-94..140, x=-3..395 на чистом экране, CI 38604785289),
       // но обрезаны и прокрутки не дают — по рамкам элементов тест был случайным.

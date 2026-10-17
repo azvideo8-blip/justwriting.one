@@ -62,8 +62,29 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
-## 5. Release Checklist
-- **Security review before the bump:** `/security-review` over the diff since the previous release commit (`git diff <prev-release>..HEAD`). Every finding is either fixed or recorded as «ложное, потому что …» in the release note/memory.
+## 5. Code Review
+
+Rules for `/code-review`, `/security-review`, and any reviewer agent. (`REVIEW.md` is only read by the hosted GitHub service, which this repo doesn't use — keep review rules here.)
+
+**Important means:** user text lost or silently rolled back; plaintext of notes/mood/tags reaching logs, the AI provider without opt-in, or the cloud unencrypted; RLS/auth/admin gate bypass; a migration or crypto/format change that locks existing data out; a change to `deploy.yml`/`ci.yml` that lets a red check deploy. Style, naming, refactors, and missing-test suggestions are Nit at most.
+
+**Known bug classes to hunt for first (each has bitten this repo):**
+- A failed read treated as "nothing there" — "no" vs "no answer" must stay distinct; same on writes.
+- A fix in one of two entry points while prod goes through the other — grep callers before accepting a fix.
+- A new test that was never red — ask what mutation would make it fail.
+- A mock whose insertion order hides a real `order by` dependency.
+- Background/infra AI calls spending the user's chat quota; new error codes without consumers.
+- Client code reading a `VITE_` var that the build doesn't set.
+- A gate tightened without checking the real account state (it once removed the owner's admin tab).
+
+**Evidence:** every finding cites `file:line` from the source, not an inference from a name. A "missing handling" claim names the caller path that reaches it. A "pre-existing" bug is marked as such, not blamed on the diff.
+
+**Do not report:** what CI already enforces (lint, typecheck, i18n audit, ratchets, bundle budget, gitleaks); `dist/`, `coverage/`, `playwright-report/`, `test-results/`, `*.lock`, `.postulates-results-*.json`; in `scripts/` only near-certain and severe.
+
+**Cap:** at most five Nits. **Summary:** starts with the count; says plainly when there is nothing to fix.
+
+## 6. Release Checklist
+- **Review before the bump:** `/code-review` and `/security-review` over the diff since the previous release commit (`git diff <prev-release>..HEAD`). Every finding is either fixed or recorded as «ложное, потому что …» in the release note/memory.
 - **Version bump — FOUR places, all must match:**
   1. `package.json` `"version"`.
   2. `package-lock.json` — run `npm install --package-lock-only` after bumping `package.json`.

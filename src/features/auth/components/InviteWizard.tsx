@@ -76,7 +76,16 @@ export function InviteWizard({ email, tokenHash = null }: { email: string | null
     try {
       await updateUserPassword(password);
       const { user } = await AuthService.signInWithEmail(email, password);
-      await savePrivacyConsent(user.uid, aiConsent);
+      // R7F-009: сбой согласия после доказанного входа не возвращает на шаг
+      // пароля. Сейф и сессия уже созданы: повтор тем же паролем отвечает
+      // same_password 422 (тупик), а другой пароль оставляет сейф вокруг
+      // прежнего — при следующем входе он не откроется. Вопрос политики
+      // доживает до гейта на «/».
+      try {
+        await savePrivacyConsent(user.uid, aiConsent);
+      } catch (consentErr) {
+        reportError(consentErr, { action: 'inviteWizard_consent_after_signin' });
+      }
       setUid(user.uid);
       setStep('sync');
     } catch (err) {

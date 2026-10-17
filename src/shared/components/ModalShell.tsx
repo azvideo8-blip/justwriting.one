@@ -32,8 +32,12 @@ const MODAL_BACKDROP = (z: keyof typeof BACKDROP_Z) =>
   `fixed inset-0 ${BACKDROP_Z[z]} flex items-center justify-center p-4 bg-surface-base/90 backdrop-blur-sm md:bg-surface-base/80 md:backdrop-blur-2xl`;
 // MQ-11: слой листа задаётся пропом — окно сейфа (critical) поверх всего и листом на телефоне.
 const SHEET_BACKDROP = (z: keyof typeof BACKDROP_Z) =>
-  // color-ok: затемнение под листом одинаково тёмное в любой теме.
-  `fixed inset-0 ${BACKDROP_Z[z]} flex items-end justify-center bg-black/60 backdrop-blur-sm touch-none`;
+  `fixed inset-0 ${BACKDROP_Z[z]} flex items-end justify-center touch-none`;
+// N-4 (emil): сам слой затемнения — сосед листа, а не его родитель. У прозрачности
+// родителя есть свойство, из-за которого MF-20 держался только в покое: 200 мс на
+// входе и на уходе полупрозрачным оказывался и лист, и сквозь него была видна лента.
+// color-ok: затемнение под листом одинаково тёмное в любой теме.
+const SHEET_SCRIM = 'absolute inset-0 bg-black/60 backdrop-blur-sm';
 
 // MF-20 (SA-6): уход вниз быстрее входа, по кривой читалки; затемнение плавно.
 const SHEET_EASE = [0.32, 0.72, 0, 1] as const;
@@ -123,9 +127,18 @@ export function ModalShell({
       className={variant === 'sheet' ? SHEET_BACKDROP(z) : MODAL_BACKDROP(z)}
       onClick={onClose}
       onTouchMove={variant === 'sheet' ? e => e.preventDefault() : undefined}
-      {...(variant === 'sheet' ? { ...SHEET_BACKDROP_MOTION, ...(handoff ? { initial: { opacity: 1 } } : {}) } : {})}
     >
-      <div className="absolute inset-0" onClick={onClose} />
+      {variant === 'sheet' ? (
+        // MQ-5: при переходе лист-в-лист затемнение не стартует с нуля, если
+        // другой лист ещё в DOM, — иначе на кадр проступает страница.
+        <motion.div
+          className={SHEET_SCRIM}
+          onClick={onClose}
+          {...(handoff ? { ...SHEET_BACKDROP_MOTION, initial: { opacity: 1 } } : SHEET_BACKDROP_MOTION)}
+        />
+      ) : (
+        <div className="absolute inset-0" onClick={onClose} />
+      )}
       <motion.div
         ref={ref}
         role="dialog"

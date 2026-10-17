@@ -4,7 +4,7 @@
 // переименования; в списке поле теряло фокус и закрывалось без изменений.
 // Проверка: новое название в списке ПОСЛЕ перезагрузки.
 import { expect, test, type Page } from '@playwright/test';
-import { openVaultFromBanner, shot, signInMobile, zenOff, type Account } from './harness';
+import { openVaultFromBanner, waitForNavigationSettled, shot, signInMobile, zenOff, type Account } from './harness';
 
 test.use({ viewport: { width: 390, height: 844 } });
 
@@ -18,6 +18,9 @@ async function saveNote(page: Page, text: string): Promise<void> {
   await expect(finish).toBeVisible({ timeout: 15_000 });
   await finish.getByRole('button', { name: /^Сохранить$/ }).click();
   await expect(finish, 'окно завершения не закрылось — сохранение не дошло').toBeHidden({ timeout: 20_000 });
+  // Приёмка 0.10.0: после сохранения приложение само уходит по адресу; `goto`
+  // спека в этом окне на WebKit ловит «interrupted by another navigation».
+  await waitForNavigationSettled(page);
 }
 
 async function toArchive(page: Page, account: Account): Promise<void> {

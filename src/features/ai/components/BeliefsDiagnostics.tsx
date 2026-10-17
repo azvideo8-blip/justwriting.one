@@ -62,7 +62,7 @@ export function BeliefsDiagnostics() {
       <div className="p-4 bg-surface-card/60 border border-border-subtle rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <Brain className="w-5 h-5 text-accent-main" />
+            <Brain className="w-5 h-5 text-accent" />
             <h3 className="text-sm font-bold text-text-main">{t('admin_beliefs_diag_title')}</h3>
           </div>
           <p className="text-xs text-text-main/60 mt-1">
@@ -225,7 +225,7 @@ export function BeliefsDiagnostics() {
                       "px-2 py-0.5 rounded-full text-[10px] font-bold border",
                       b.judgeVerdict === 'PASSED'
                         ? "bg-status-success/10 text-status-success border-status-success/20"
-                        : "bg-accent-main/10 text-accent-main border-accent-main/20"
+                        : "bg-accent/10 text-accent border-accent/20"
                     )}>
                       {b.judgeVerdict}
                     </span>

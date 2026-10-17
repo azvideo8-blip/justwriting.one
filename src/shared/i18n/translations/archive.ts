@@ -232,6 +232,10 @@ export const archiveTranslations: Translations = {
     ru: 'Заметка зашифрована или недоступна — экспортировать нечего.',
     en: 'Note is encrypted or unavailable — nothing to export.',
   },
+  archive_export_failed: {
+    ru: 'Не удалось сохранить файл',
+    en: 'Could not save the file',
+  },
   archive_related_notes: {
     ru: 'Связанные записи',
     en: 'Related notes',

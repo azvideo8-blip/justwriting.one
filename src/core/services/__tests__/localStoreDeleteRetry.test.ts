@@ -21,6 +21,8 @@ describe('Area 1: LocalStoreSyncService delete queue must retry on network failu
 
   it('FAILING TEST: when delete fails with network error, it must remain queued for retry', async () => {
     let callCount = 0;
+    // T-8: «Отправить всё» читает серверные отметки — облака здесь нет.
+    vi.spyOn(DataProvider, 'getLocalStoreStamps').mockResolvedValue([]);
     vi.spyOn(DataProvider, 'deleteLocalStoreRecord').mockImplementation(async () => {
       callCount++;
       if (callCount === 1) {

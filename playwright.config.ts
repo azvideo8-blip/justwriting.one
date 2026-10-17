@@ -12,7 +12,9 @@ export default defineConfig({
   // стенд, потому что мобильный макет открывается по праву аккаунта из базы (MB-1).
   // Без этой строки обычный `--project=chromium` тащит мобильные спеки на dev-сервер
   // и падает на входе.
-  testIgnore: [/accountSwitch\.spec\.ts/, /\.stand\.spec\.ts$/, /mobile[\\/]/],
+  // docs-shots.ug2 — станок съёмки кадров (нужен стенд, а не dev-сервер): в
+  // обычном наборе он только висел бы пропущенным тестом.
+  testIgnore: [/accountSwitch\.spec\.ts/, /\.stand\.spec\.ts$/, /mobile[\\/]/, /docs-shots\.ug2\.spec\.ts/],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

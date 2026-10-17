@@ -333,6 +333,9 @@ export async function login(page: Page, u: Account): Promise<void> {
   // раскрывается на 220 px и закрывает центр «Войти» на 360 px (CI 38333345442).
   await page.locator('input[type="password"]').press('Enter');
   await page.waitForURL(url => !url.pathname.startsWith('/login'), { timeout: 90_000 });
+  // N-5: дождаться собственной навигации приложения, иначе первый же goto спека
+  // на WebKit прерывается и снимает весь проект.
+  await waitForNavigationSettled(page);
   await dismissFirstLoginDialogs(page, true);
   if (!(await waitForQuietDialogs(page))) console.warn('[login] окно не закрылось за 25 с:', page.url());
   await unlockVaultIfAsked(page, u.password);
@@ -348,6 +351,33 @@ export async function login(page: Page, u: Account): Promise<void> {
  * therefore вход считается законченным, только когда мобильная оболочка
  * простояла без баннера и без окна разблокировки два цикла подряд.
  */
+/**
+ * N-5: сразу после входа приложение идёт само — на '/' (мастер приглашения,
+ * «Писать»), а при смене аккаунта и вовсе перезагружает страницу. Спек, который
+ * в этом окне делает свой `goto`, на WebKit ловит «page.goto: Navigation …
+ * interrupted by another navigation to "/"» — на Chromium гонка успевает
+ * разрешиться, поэтому набор падал только проектом Safari (~75 тестов).
+ * Ждём, пока адрес перестанет меняться и загрузка закончится.
+ */
+export async function waitForNavigationSettled(page: Page, budgetMs = 20_000, quietMs = 800): Promise<boolean> {
+  const deadline = Date.now() + budgetMs;
+  let last = page.url();
+  let stableSince = Date.now();
+  while (Date.now() < deadline) {
+    await page.waitForLoadState('load').catch(() => {});
+    const now = page.url();
+    if (now !== last) {
+      last = now;
+      stableSince = Date.now();
+    } else if (Date.now() - stableSince >= quietMs) {
+      return true;
+    }
+    await page.waitForTimeout(120);
+  }
+  console.warn('[login] навигация после входа не устоялась за', budgetMs, 'мс — конец на', page.url());
+  return false;
+}
+
 export async function waitForMobileSettled(page: Page, password: string, budgetMs = 25_000): Promise<boolean> {
   const deadline = Date.now() + budgetMs;
   const nav = page.locator('[data-testid="mobile-bottom-nav"]');
@@ -520,6 +550,30 @@ export async function openVaultFromBanner(page: Page, password: string, settleMs
  * Вход без разблокировки сейфа: аккаунт с включённым шифрованием остаётся с
  * запертым сейфом, и баннер «Сейф заперт…» виден (так нужно проверке MB-8).
  */
+/**
+ * Запертый сейф = ключ устройства не сохранён. Галочка «Это моё устройство»
+ * снимается в окне кода, но кэш ключей (`jw-keycache`, IndexedDB) чистим явно:
+ * иначе прогон зависит от того, успел ли он сохраниться до этого шага.
+ */
+export async function clearDeviceKeyCache(page: Page, uid: string): Promise<void> {
+  await page.evaluate(async (key: string) => {
+    const db = await new Promise<IDBDatabase>((res, rej) => {
+      const req = indexedDB.open('jw-keycache', 1);
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => rej(req.error);
+    });
+    try {
+      await new Promise<void>((res, rej) => {
+        const tx = db.transaction('keys', 'readwrite');
+        tx.objectStore('keys').delete(key);
+        tx.oncomplete = () => res();
+        tx.onerror = () => rej(tx.error);
+        tx.onabort = () => rej(tx.error);
+      });
+    } finally { db.close(); }
+  }, uid).catch(() => {});
+}
+
 export async function signInMobileLockedVault(page: Page, tag: string): Promise<Account> {
   const account = await createMobileAccount(tag);
   await autoHandlers(page, account.password, { autoUnlock: false });
@@ -529,26 +583,9 @@ export async function signInMobileLockedVault(page: Page, tag: string): Promise<
   // Enter, а не клик — см. login(): раскрытая рейка перекрывает «Войти».
   await page.locator('input[type="password"]').press('Enter');
   await page.waitForURL(url => !url.pathname.startsWith('/login'), { timeout: 90_000 });
+  await waitForNavigationSettled(page);
   await dismissFirstLoginDialogs(page, true, 40_000, true);
-  // Запертый сейф = ключ устройства не сохранён. Галочка «Это моё устройство»
-  // снимается в окне кода, но кэш ключей (`jw-keycache`, IndexedDB) чистим явно:
-  // иначе прогон зависит от того, успел ли он сохраниться до этого шага.
-  await page.evaluate(async (uid: string) => {
-    const db = await new Promise<IDBDatabase>((res, rej) => {
-      const req = indexedDB.open('jw-keycache', 1);
-      req.onsuccess = () => res(req.result);
-      req.onerror = () => rej(req.error);
-    });
-    try {
-      await new Promise<void>((res, rej) => {
-        const tx = db.transaction('keys', 'readwrite');
-        tx.objectStore('keys').delete(uid);
-        tx.oncomplete = () => res();
-        tx.onerror = () => rej(tx.error);
-        tx.onabort = () => rej(tx.error);
-      });
-    } finally { db.close(); }
-  }, account.uid).catch(() => {});
+  await clearDeviceKeyCache(page, account.uid);
   // Сейф, который не запоминали на устройстве, снова заперт только с новой
   // загрузки: ключ сессии живёт в памяти вкладки.
   await page.reload();
@@ -568,4 +605,29 @@ export async function signInMobile(page: Page, tag: string): Promise<Account> {
   await autoHandlers(page, account.password);
   await login(page, account);
   return account;
+}
+
+/**
+ * N-7 (R7Q-036): геометрия, измеренная на экране ошибки, зелёная — у error
+ * boundary нет ни кнопок касания, ни прокрутки, и `smallTargets` возвращает пустой
+ * список, а `scrollWidth` равен ширине окна. Каждый замер обязан сначала
+ * убедиться, что экран собрался: характерный контрол виден, текста аварии нет.
+ */
+export async function assertMobileScreenRendered(page: Page, path: string): Promise<void> {
+  const text = await page.locator('body').innerText().catch(() => '');
+  expect(
+    /Что-то пошло не так|ERR-[0-9A-Za-z]/.test(text),
+    `на ${path} вместо приложения экран аварии: ${text.replace(/\s+/g, ' ').slice(0, 160)}`,
+  ).toBe(false);
+  const markers: Record<string, string> = {
+    '/': 'textarea',
+    '/archive': 'h1, h2, [data-note-row]',
+    '/ai': 'textarea, [data-testid="ai-chat"]',
+    '/me': 'h1, h2',
+  };
+  const selector = markers[path] ?? 'h1, h2, textarea';
+  await expect(
+    page.locator(selector).first(),
+    `на ${path} не появился ни один характерный контрол (${selector}) — экран не собрался`,
+  ).toBeVisible({ timeout: 20_000 });
 }

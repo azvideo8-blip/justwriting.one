@@ -73,8 +73,27 @@ describe('П-7: вектор реплики переиспользуется в 
     expect(calls, `векторизаций реплики: ${JSON.stringify(calls)}`).toEqual([TEXT]);
   });
 
-  it('проверка не холостая: в исходнике осталась ветка переиспользования', async () => {
-    const src = (await import('node:fs')).readFileSync('src/features/ai/services/aiChatContext.ts', 'utf8');
-    expect(src).toContain('reuseTurnVector');
+  // Прежний кейс читал исходник и искал там имя `reuseTurnVector` (R7Q-036):
+  // переименование переменной его краснило, а возврат второго embed — нет.
+  // Здесь контроль над самим стендом: если вектор переиспользовать НЕЧЕМ (явный
+  // поиск не равен тексту реплики), ветка тем профиля обязана векторизовать
+  // запрос отдельно. Тогда «ровно один вызов» в первом кейсе — измерение, а не
+  // молчание счётчика.
+  it('контроль: без переиспользования тот же путь векторизует запрос отдельно', async () => {
+    const embed = vi.spyOn(AIService, 'embed').mockResolvedValue({ ok: true, vectors: [VEC] } as never);
+    const { result } = renderHook(() => useAIChatContext('coach'));
+    const ctx = await result.current.buildContext({
+      text: TEXT,
+      attached: null,
+      mood: undefined,
+      messageHistory: [],
+      isFirstTurn: true,
+      forcedSearchQuery: 'сроки релиза',
+    });
+
+    const calls = embed.mock.calls.map(c => (c[0] as { content: string }).content);
+    expect(ctx.searchContext ?? '').toContain('Работа');
+    expect(calls.length, `векторизаций: ${JSON.stringify(calls)}`).toBeGreaterThanOrEqual(2);
+    expect(calls).toContain('сроки релиза');
   });
 });

@@ -6,7 +6,7 @@ import { loadDeviceKey, clearDeviceKey } from '../../../core/crypto/keyVaultCach
 import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
 import { hasEncryptionMeta, getEncryptionMeta } from '../../../core/services/EncryptionMetaService';
 import { hasLegacyEncryption } from '../../../core/services/LegacyKeyMigration';
-import { SyncService } from '../../../core/services/SyncService';
+// BS (N-2): SyncService грузится по требованию там, где сейф реально открыли (см. ниже).
 import { reportError } from '../../../shared/errors/reportError';
 
 export type EncryptionModalMode = 'none' | 'setup' | 'unlock' | 'migrate';
@@ -93,6 +93,10 @@ export function useEncryptionSetup(): {
             setMode('none');
             void refreshProfile().catch(() => {});
             try {
+              // BS (N-2): движок синка по требованию — сейф открывают не на каждом
+              // входе. Не удалось загрузить кусок — задачи всё равно лежат в
+              // IndexedDB, и их поднимет фоновый проход или следующее открытие.
+              const { SyncService } = await import('../../../core/services/SyncService');
               await SyncService.reviveLockedTasks(user.uid);
               void SyncService.syncPending(user.uid);
             } catch { /* non-critical */ }

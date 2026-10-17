@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { useLanguage } from '../../../shared/i18n';
 import { Button } from '../../../shared/components/Button';
+import { CheckboxRow } from '../../../shared/components/CheckboxRow';
 import { Toggle } from '../../../shared/components/Toggle';
 import { useToast } from '../../../shared/components/Toast';
 import { copyRecoveryCode, downloadRecoveryCode } from '../../../shared/components/recoveryCodeActions';
@@ -236,15 +237,10 @@ export function FirstRunCodeStep({ position, code, onNext }: { position: StepPos
           </Button>
         </div>
 
-        <label className="flex items-start gap-3 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={confirmed}
-            onChange={e => setConfirmed(e.target.checked)}
-            className="h-6 w-6 mt-1 accent-brand-soft shrink-0"
-          />
-          <span className="text-[15px] text-[var(--text-main)]">{t('enc_recovery_code_confirm_checkbox')}</span>
-        </label>
+        {/* MQ-12 (N-3): строка целиком — цель касания 44 px, как у переключателя ниже. */}
+        <CheckboxRow checked={confirmed} onChange={setConfirmed} labelClassName="text-[15px] text-[var(--text-main)]">
+          {t('enc_recovery_code_confirm_checkbox')}
+        </CheckboxRow>
 
         {/* MQ-12: строка целиком — label, подпись нажимается как сам переключатель. */}
         <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 pt-1">

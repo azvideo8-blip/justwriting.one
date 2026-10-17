@@ -14,25 +14,63 @@ import { loadVisibleNoteKeys } from '../utils/retrieval/docSnapshot';
 export const THEME_MATCH_THRESHOLD = 0.82;
 export const MAX_EVIDENCE_COUNT = 3;
 
-const PENDING_THEME_TOUCHES_KEY = 'jw_pending_theme_touches';
+/**
+ * R7F-020: очередь обязательных разборов тем. Записи — id документов, uid в
+ * них нет, поэтому делить один ключ на два аккаунта нечем: он переехал на ключ
+ * по аккаунту и попал в accountScopedLocalStorageKeys — выход одного человека
+ * больше не сносит очередь другого, а своя уходит вместе с его данными.
+ */
+const PENDING_THEME_TOUCHES_KEY_PREFIX = 'jw_pending_theme_touches_';
+/** Прежний общий ключ: разово переезжает в ключ текущего аккаунта. */
+const LEGACY_PENDING_THEME_TOUCHES_KEY = 'jw_pending_theme_touches';
+
+function pendingThemeTouchesKey(): string | null {
+  const uid = getCurrentUser()?.uid;
+  return uid ? `${PENDING_THEME_TOUCHES_KEY_PREFIX}${uid}` : null;
+}
+
+function migrateLegacyPendingTouches(key: string): string[] {
+  const raw = localStorage.getItem(key);
+  let list: string[] = [];
+  try {
+    list = raw ? (JSON.parse(raw) as string[]) : [];
+  } catch {
+    list = [];
+  }
+  const legacyRaw = localStorage.getItem(LEGACY_PENDING_THEME_TOUCHES_KEY);
+  if (legacyRaw === null) return list;
+  let merged = list;
+  try {
+    const legacy = JSON.parse(legacyRaw) as string[];
+    if (Array.isArray(legacy)) merged = [...new Set([...list, ...legacy])];
+  } catch {
+    /* намеренно: битый прежний список — это не данные, а мусор */
+  }
+  // Слитый список записывается ДО удаления прежнего ключа: иначе чтение без
+  // последующей записи (или «уже в очереди») теряло прежние записи (ревью 0.10.0).
+  localStorage.setItem(key, JSON.stringify(merged));
+  localStorage.removeItem(LEGACY_PENDING_THEME_TOUCHES_KEY);
+  return merged;
+}
 
 export function enqueuePendingThemeTouch(documentId: string): void {
+  const key = pendingThemeTouchesKey();
+  if (key === null) return;
   try {
-    const raw = localStorage.getItem(PENDING_THEME_TOUCHES_KEY);
-    const list: string[] = raw ? (JSON.parse(raw) as string[]) : [];
-    if (!list.includes(documentId)) {
-      list.push(documentId);
-      localStorage.setItem(PENDING_THEME_TOUCHES_KEY, JSON.stringify(list));
-    }
+    const list = migrateLegacyPendingTouches(key);
+    if (list.includes(documentId)) return;
+    list.push(documentId);
+    localStorage.setItem(key, JSON.stringify(list));
   } catch (e) {
     reportError(e, { action: 'AIThemeLedgerService/touchDocument' });
   }
 }
 
 export function getPendingThemeTouches(): string[] {
+  const key = pendingThemeTouchesKey();
+  if (key === null) return [];
   try {
-    const raw = localStorage.getItem(PENDING_THEME_TOUCHES_KEY);
-    return raw ? (JSON.parse(raw) as string[]) : [];
+    return migrateLegacyPendingTouches(key);
   } catch (e) {
     reportError(e, { action: 'AIThemeLedgerService/getPendingTouches' });
     return [];
@@ -40,9 +78,11 @@ export function getPendingThemeTouches(): string[] {
 }
 
 export function clearPendingThemeTouches(documentIds: string[]): void {
+  const key = pendingThemeTouchesKey();
+  if (key === null) return;
   try {
-    const remaining = getPendingThemeTouches().filter(id => !documentIds.includes(id));
-    localStorage.setItem(PENDING_THEME_TOUCHES_KEY, JSON.stringify(remaining));
+    const remaining = migrateLegacyPendingTouches(key).filter(id => !documentIds.includes(id));
+    localStorage.setItem(key, JSON.stringify(remaining));
   } catch {
     /* намеренно: заметки просто пройдут разбор тем ещё раз */
   }

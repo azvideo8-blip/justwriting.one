@@ -36,6 +36,15 @@ export const adminTranslations: Translations = {
 
   // Users tab
   admin_users_registered: { ru: 'Зарегистрированные пользователи', en: 'Registered users' },
+  // R7Q-014: след админских действий из public.admin_actions — только чтение.
+  admin_actions_title: { ru: 'След админских действий', en: 'Admin action trail' },
+  admin_actions_hint: { ru: 'Последние записи таблицы admin_actions. Здесь их можно только прочитать.', en: 'Latest admin_actions rows. Read-only.' },
+  admin_actions_col_at: { ru: 'Когда', en: 'When' },
+  admin_actions_col_action: { ru: 'Действие', en: 'Action' },
+  admin_actions_col_admin: { ru: 'Кто сделал', en: 'Who' },
+  admin_actions_col_target: { ru: 'В отношении кого', en: 'About whom' },
+  admin_actions_empty: { ru: 'Записей нет', en: 'No entries' },
+  admin_action_delete_user: { ru: 'Удаление пользователя', en: 'User deleted' },
   admin_col_status: { ru: 'Статус', en: 'Status' },
   admin_col_activity: { ru: 'Активность', en: 'Activity' },
   admin_status_invited: { ru: 'Приглашён', en: 'Invited' },

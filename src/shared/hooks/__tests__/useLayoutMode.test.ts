@@ -1,5 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
+// 0.10.0: макет открыт всем; D-15 проверяет аварийный режим (флажок false).
+vi.mock('../mobileLayoutFlag', () => ({ MOBILE_LAYOUT_ENABLED: false }));
 import { useLayoutMode } from '../useLayoutMode';
 import { useLayoutKeyboardShortcut } from '../../../app/useLayoutKeyboardShortcut';
 

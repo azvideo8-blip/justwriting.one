@@ -142,6 +142,23 @@ export async function deleteLocalStoreRecordsByKeys(userId: string, store: strin
   if (error != null) throw error;
 }
 
+/** T-8: только ключи и серверные отметки строк — без нагрузки. Для «Отправить всё». */
+export async function getLocalStoreStamps(userId: string): Promise<Array<{ store: string; key: string; stamped_at?: number }>> {
+  const rows = await pageAll((from, to) => getSupabase()
+    .from('local_store_records')
+    .select('store,key,stamped_at,user_id')
+    .eq('user_id', userId)
+    .order('store', { ascending: true })
+    .order('key', { ascending: true })
+    .range(from, to));
+  return ownRows(rows as Record<string, unknown>[], userId).map(r => {
+    const out: { store: string; key: string; stamped_at?: number } = { store: r.store as string, key: r.key as string };
+    const stamp = parseStampedAt(r.stamped_at);
+    if (stamp !== undefined) out.stamped_at = stamp;
+    return out;
+  });
+}
+
 export async function getLocalStoreRecords(userId: string, store?: string, sinceMs?: number): Promise<LocalStoreRecordRow[]> {
   const allRows = await pageAll((from, to) => {
     let q = getSupabase()

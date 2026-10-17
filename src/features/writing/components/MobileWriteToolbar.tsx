@@ -1,4 +1,5 @@
 import React, { Suspense, lazy } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -17,6 +18,18 @@ import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import type { VoiceNotice } from './MobileVoiceNoticeSheet';
 import { useExitLinger } from '../../../shared/hooks/useExitLinger';
+
+// N-6 (emil-review, хвост MQ-15): строка панели менялась между «обычная» и
+// «диктуем» в один кадр — это выглядело поломкой. Обе ветки перелистываются
+// кроссфейдом 150 мс с размытием на время подмены (тот же приём, что призрак
+// сохранения). Прозрачность и фильтр — не позиционные ключи, reduced motion их
+// гасит через CSS-глушитель, и это правильно: подмена остаётся читаемой.
+const ROW_SWAP = {
+  initial: { opacity: 0, filter: 'blur(2px)' },
+  animate: { opacity: 1, filter: 'blur(0px)' },
+  exit: { opacity: 0, filter: 'blur(2px)' },
+  transition: { duration: 0.15 },
+};
 
 // MF-5: лист «Голосовой ввод» — ленивый кусок (запас бюджета index ~200 байт).
 const MobileVoiceNoticeSheet = lazy(() => import('./MobileVoiceNoticeSheet').then(m => ({ default: m.MobileVoiceNoticeSheet })));
@@ -150,11 +163,12 @@ export function MobileWriteToolbar({
           <span className="relative">{t('stream_mode_label')}</span>
         </div>
       )}
+      <AnimatePresence initial={false} mode="popLayout">
       {hasSupport && (dictation.phase === 'recording' || dictation.phase === 'processing') ? (
         /* MF-4: запись идёт в самой панели, без карточки над ней: × отменяет,
            ■ останавливает, посередине волна (или последние слова распознавания) и
-           время. Высота панели та же, что без записи. */
-        <div className="flex min-w-0 flex-1 items-center gap-2" data-dictation-row data-phase={dictation.phase}>
+           время. Высота панели та же, без записи. */
+        <motion.div key="dictation-row" {...ROW_SWAP} className="flex min-w-0 flex-1 items-center gap-2" data-dictation-row data-phase={dictation.phase}>
           <button
             type="button"
             onClick={dictation.cancel}
@@ -181,19 +195,24 @@ export function MobileWriteToolbar({
               <span className="shrink-0 font-mono text-[13px] tabular-nums text-[var(--text-muted)]" data-dictation-timer>{formatTime(dictation.seconds)}</span>
             )}
           </div>
-          {dictation.phase === 'recording' && (
-            <button
-              type="button"
-              onClick={dictation.stop}
-              aria-label={t('voice_stop_dictation')}
-              className="press w-11 h-11 shrink-0 rounded-full flex items-center justify-center bg-accent-danger text-[var(--bg-base)]"
-            >
-              <Square size={16} fill="currentColor" aria-hidden="true" />
-            </button>
-          )}
-        </div>
+          {/* N-6: на «processing» ■ не убирается, а держит место (visibility, а не
+              удаление) — иначе волна рывком расширяется на освободившиеся 44 px. */}
+          <button
+            type="button"
+            onClick={dictation.stop}
+            disabled={dictation.phase === 'processing'}
+            tabIndex={dictation.phase === 'processing' ? -1 : undefined}
+            aria-label={t('voice_stop_dictation')}
+            className={cn(
+              "press w-11 h-11 shrink-0 rounded-full flex items-center justify-center bg-accent-danger text-[var(--bg-base)]",
+              dictation.phase === 'processing' && "invisible",
+            )}
+          >
+            <Square size={16} fill="currentColor" aria-hidden="true" />
+          </button>
+        </motion.div>
       ) : (
-        <>
+        <motion.div key="idle-row" {...ROW_SWAP} className="flex min-w-0 flex-1 items-center gap-0" data-idle-row>
         <button
           type="button"
           onClick={() => onOpenSetup?.()}
@@ -252,8 +271,9 @@ export function MobileWriteToolbar({
             <Save size={18} aria-hidden="true" />
           </button>
         </div>
-        </>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {voiceMounted && voiceNotice && (
         <Suspense fallback={null}>

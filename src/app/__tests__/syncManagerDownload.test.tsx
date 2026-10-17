@@ -30,23 +30,31 @@ describe('SyncManager triggers downloadAllFromCloud', () => {
     mockOnline = false;
   });
 
-  it('triggers downloadAllFromCloud on mount when user is authenticated and autoSync is enabled', () => {
+  it('triggers downloadAllFromCloud on mount when user is authenticated and autoSync is enabled', async () => {
     render(<SyncManager />);
-    expect(downloadAllFromCloud).toHaveBeenCalledWith('u_sync_test');
+    // N-2: движок синка приходит динамическим импортом — ждём вызова, а не кадра.
+    await vi.waitFor(() => expect(downloadAllFromCloud).toHaveBeenCalledWith('u_sync_test'));
   });
 
-  it('triggers downloadAllFromCloud on online recovery', () => {
+  it('triggers downloadAllFromCloud on online recovery', async () => {
     mockOnline = false;
     const { rerender } = render(<SyncManager />);
+    // N-2: смонтированный проход уже ждёт динамический импорт движка; даём ему
+    // дойти, иначе он разрешится внутри следующего замера и собьёт порядок.
+    await new Promise(r => setTimeout(r, 50));
     vi.clearAllMocks();
 
     mockOnline = true;
     rerender(<SyncManager />);
 
-    expect(downloadAllFromCloud).toHaveBeenCalledWith('u_sync_test');
+    // N-2: оба вызова теперь идут из одного `.then` после динамического импорта
+    // движка, поэтому ждём их вместе — порядок внутри прохода не проверяется.
     // D-22: автоматический проход не форсирует отправку — при выключенной
     // синхронизации в облако не уходит ничего; решает сам syncPending.
-    expect(syncPending).toHaveBeenCalledWith('u_sync_test');
+    await vi.waitFor(() => {
+      expect(syncPending).toHaveBeenCalledWith('u_sync_test');
+      expect(downloadAllFromCloud).toHaveBeenCalledWith('u_sync_test');
+    });
   });
 
   it('triggers downloadAllFromCloud on vault unlocked event', async () => {

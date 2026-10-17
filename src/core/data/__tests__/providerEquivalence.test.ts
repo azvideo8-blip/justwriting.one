@@ -228,16 +228,30 @@ describe('SupabaseDataProvider transcript vs golden (AUDIT-part3 5)', () => {
       };
     }
 
-    if (updateGolden || !existsSync(GOLDEN_PATH)) {
+    // R7Q-036: раньше отсутствующий фикстуры прогон молча ПИСАЛ золотой файл и
+    // выходил без единой проверки — удалить фикстуру значило «позеленеть».
+    // Перезапись теперь только по явному UPDATE_GOLDEN=1, и после неё всё равно
+    // идёт сверка; без файла тест красный и говорит, что сделать.
+    if (updateGolden) {
       writeFileSync(GOLDEN_PATH, JSON.stringify(transcript, null, 2));
-      console.warn('[equivalence] golden updated');
-      return;
+      console.warn('[equivalence] golden перезаписан по UPDATE_GOLDEN=1');
+    }
+    if (!existsSync(GOLDEN_PATH)) {
+      throw new Error(
+        `нет золотой фикстуры ${GOLDEN_PATH} — сверять не с чем. Если изменение намеренно: UPDATE_GOLDEN=1 npx vitest run src/core/data/__tests__/providerEquivalence.test.ts`,
+      );
     }
     const golden = JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
     expect(transcript).toEqual(golden);
   });
 
-  it('transcript covers every scenario (no silent skips)', () => {
-    expect(SCENARIOS.length).toBeGreaterThanOrEqual(47);
+  // R7Q-036: сверялось число сценариев у самих себя — тест не мог покраснеть от
+  // того, что золотой файл отстал. Теперь имена сравниваются с содержимым
+  // фикстуры: пропущенный сценарий красен, и лишняя запись в фикстуре тоже.
+  it('золотой фикстуры хватает на каждый сценарий, и наоборот', () => {
+    const golden = JSON.parse(readFileSync(GOLDEN_PATH, 'utf8')) as Record<string, unknown>;
+    const declared = SCENARIOS.map(s => s.name);
+    expect(Object.keys(golden).sort()).toEqual([...declared].sort());
+    expect(declared.length).toBeGreaterThanOrEqual(47);
   });
 });

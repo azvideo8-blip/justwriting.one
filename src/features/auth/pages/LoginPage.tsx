@@ -206,7 +206,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
   };
 
   return (
-    <div className={isModal ? "flex flex-col items-center justify-center px-6 py-8" : "min-h-screen w-full flex flex-col items-center justify-center px-6 overflow-y-auto py-10 bg-surface-base"}>
+    <div className={isModal ? "flex flex-col items-center justify-center px-6 py-8" : "min-h-screen w-full flex flex-col items-center justify-center px-6 overflow-y-auto py-10 bg-surface-base max-md:min-h-[100dvh] max-md:justify-start max-md:px-4 max-md:py-6"}>
       {!isModal && <SeoHead
         path="/login"
         titleRu="Вход — justwriting"
@@ -220,17 +220,20 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
       <motion.div 
         initial={{ opacity: 0, transform: "translateY(20px)" }}
         animate={{ opacity: 1, transform: "translateY(0px)" }}
-        className="max-w-md w-full text-center space-y-8"
+        className="max-w-md w-full text-center space-y-8 max-md:space-y-5"
       >
-        <div className="space-y-4">
+        <div className="space-y-4 max-md:space-y-2">
           {!isModal && (
             <JustWritingLogo size={64} variant="dark" className="mx-auto rounded-2xl" />
           )}
-          <h1 className={isModal ? "text-2xl font-bold tracking-tight text-text-main" : "text-5xl font-bold tracking-tight text-text-main"}>
-            {isModal ? t('auth_sign_in') : 'justwriting.ru'}
+          {/* SA-20: на телефоне 48 px «justwriting.ru» резался до «justwriting.r».
+              Слово и домен разведены: домен на 360 px становится маленькой
+              подписью, а не частью заголовка. Текст заголовка тот же. */}
+          <h1 className={isModal ? "text-2xl font-bold tracking-tight text-text-main" : "text-5xl font-bold tracking-tight text-text-main max-md:text-[32px] max-md:leading-none"}>
+            {isModal ? t('auth_sign_in') : <>justwriting<span className="max-md:text-xs max-md:font-medium max-md:align-top">.ru</span></>}
           </h1>
           {!isModal && (
-            <p className="text-lg leading-relaxed text-text-main/60">
+            <p className="text-lg leading-relaxed text-text-main/60 max-md:text-[15px]">
               {t('auth_subtitle')}
             </p>
           )}
@@ -249,10 +252,10 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
           </motion.div>
         )}
 
-        <div className="p-8 rounded-3xl shadow-xl space-y-6 border bg-surface-card border-border-subtle backdrop-blur-2xl">
-          <form onSubmit={(e) => { e.preventDefault(); void handleEmailAuth(e); }} className="space-y-4">
+        <div className="p-8 rounded-3xl shadow-xl space-y-6 border bg-surface-card border-border-subtle backdrop-blur-2xl max-md:p-4 max-md:space-y-4 max-md:rounded-2xl">
+          <form onSubmit={(e) => { e.preventDefault(); void handleEmailAuth(e); }} className="space-y-4 max-md:space-y-3">
             <div className="space-y-2 text-left">
-              <label className="text-xs font-bold uppercase tracking-widest ml-1 text-text-main/60">{t('auth_email')}</label>
+              <label className="text-xs font-bold uppercase tracking-widest ml-1 text-text-main/60 max-md:normal-case max-md:tracking-normal max-md:font-medium max-md:ml-0 max-md:text-[13px]">{t('auth_email')}</label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-text-main/60" size={18} />
                 <Input 
@@ -262,13 +265,13 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={t('auth_email_placeholder')}
-                  className="pl-12 pr-4 py-3 outline-none transition-colors bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-muted"
+                  className="pl-12 pr-4 py-3 outline-none transition-colors bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-muted max-md:text-[16px] max-md:min-h-11"
                 />
               </div>
             </div>
 
             <div className="space-y-2 text-left">
-              <label className="text-xs font-bold uppercase tracking-widest ml-1 text-text-main/60">{t('auth_password')}</label>
+              <label className="text-xs font-bold uppercase tracking-widest ml-1 text-text-main/60 max-md:normal-case max-md:tracking-normal max-md:font-medium max-md:ml-0 max-md:text-[13px]">{t('auth_password')}</label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-text-main/60" size={18} />
                 <Input 
@@ -279,7 +282,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="pl-12 pr-4 py-3 outline-none transition-colors bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-muted"
+                  className="pl-12 pr-4 py-3 outline-none transition-colors bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-muted max-md:text-[16px] max-md:min-h-11"
                 />
               </div>
             </div>
@@ -314,7 +317,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
           {SIGNUP_ENABLED && (
             <Button
               onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-              className="text-sm font-medium transition-colors text-text-main/60 hover:text-text-main"
+              className="text-sm font-medium transition-colors text-text-main/60 hover:text-text-main max-md:min-h-11 max-md:px-3"
             >
               {mode === 'login' ? t('auth_no_account') : t('auth_has_account')}
             </Button>
@@ -324,7 +327,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
             <Button
               type="button"
               onClick={() => setShowSignupInfo(true)}
-              className="text-sm font-medium transition-colors text-text-main/60 hover:text-text-main"
+              className="text-sm font-medium transition-colors text-text-main/60 hover:text-text-main max-md:min-h-11 max-md:px-3"
             >
               {t('auth_signup_closed_btn')}
             </Button>
@@ -334,7 +337,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
             <Button
               type="button"
               onClick={() => { setForgotEmail(email); setShowForgotPassword(true); setForgotSent(false); setForgotError(null); }}
-              className="text-xs transition-colors text-text-main/60 hover:text-text-main"
+              className="text-xs transition-colors text-text-main/60 hover:text-text-main max-md:min-h-11 max-md:px-3"
             >
               {t('auth_forgot_password')}
             </Button>

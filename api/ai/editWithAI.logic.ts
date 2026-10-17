@@ -113,7 +113,9 @@ export async function editWithAILogic(ctx: AiContext, uid: string, data: unknown
     await callRes.settle('failed');
     throw e;
   }
-  const sanitizedOutput = sanitizeAiResponse(result.text);
+  // R7F-014: пунктуация возвращает переписанный текст человека, а не речь
+  // ассистента — разметка рассуждений к нему неприменима.
+  const sanitizedOutput = sanitizeAiResponse(result.text, action === 'punctuate' ? { personText: true } : {});
 
   callRes.markProduced(result.text.length);
   await callRes.settle('done');

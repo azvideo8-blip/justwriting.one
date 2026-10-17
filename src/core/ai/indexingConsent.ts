@@ -5,7 +5,9 @@ export { INDEXING_CONSENT_VERSION };
 
 export type IndexingConsentState = 'granted' | 'refused' | 'unanswered';
 
-const INDEXING_CONSENT_KEY = 'ai_indexing_consent';
+// _v2: согласие по тексту версии 1 (обещал шифрование на устройстве) не переносится —
+// человек увидит исправленный текст и ответит заново (R7F-018).
+const INDEXING_CONSENT_KEY = 'ai_indexing_consent_v2';
 
 interface IndexingConsentStore {
   consents: Record<string, IndexingConsentState>;

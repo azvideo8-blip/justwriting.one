@@ -77,19 +77,19 @@ describe('Reasoning and Answer Extraction (Ticket 2)', () => {
   describe('sanitizeAiResponse', () => {
     it('strips reasoning blocks when keepReasoning is false', () => {
       const input = 'ХОД МЫСЛИ:\nСкрытые мысли...\n\nОТВЕТ:\nЧистый ответ пользователю.';
-      const output = sanitizeAiResponse(input, false);
+      const output = sanitizeAiResponse(input);
       expect(output).toBe('Чистый ответ пользователю.');
     });
 
     it('strips <think> tags when keepReasoning is false', () => {
       const input = '<think>Скрытые мысли</think>Ответ пользователю.';
-      const output = sanitizeAiResponse(input, false);
+      const output = sanitizeAiResponse(input);
       expect(output).toBe('Ответ пользователю.');
     });
 
     it('does not alter normal sentences when keepReasoning is false', () => {
       const input = 'Мой ответ: давай попробуем этот вариант.';
-      const output = sanitizeAiResponse(input, false);
+      const output = sanitizeAiResponse(input);
       expect(output).toBe('Мой ответ: давай попробуем этот вариант.');
     });
   });

@@ -1,15 +1,14 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { getCurrentUser } from '../../../core/auth';
 import { reportError } from '../../../shared/errors/reportError';
-import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
-import { CloudSyncService } from '../../../core/services/CloudSyncService';
 import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
-import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 // Курсор — общая формула с сетевым фуззом; чистая функция, чтобы тест hook'а
 // не подменял её своим mock'ом.
 import { nextPullCursor, pullSince } from '../services/pullCursor';
-import { SyncService } from '../../../core/services/SyncService';
+// BS (N-2): SyncService, CloudSyncService, LocalStoreSyncService и AIEmbeddingService
+// грузятся по требованию в начале прохода (см. runPass) — статическое ребро отсюда
+// утаскивало весь движок синка, включая сегментный формат диалогов, в стартовый кусок.
 
 /**
  * Фоновый проход, который **не обращается к ИИ**.
@@ -46,6 +45,12 @@ export function useBackgroundSync(): void {
 
     runningRef.current = true;
     try {
+      // BS (N-2): граница «первый проход после входа» уже асинхронная — здесь и
+      // подгружаем движок, по одному сервису и только тот, что нужен этому проходу.
+      // Отказ куска попадает в общий catch прохода: очередь живёт в IndexedDB и в
+      // журнале localStorage, так что «кусок не пришёл» не читается как
+      // «синхронизировать нечего» — следующий проход повторит.
+      const { SyncService } = await import('../../../core/services/SyncService');
       // D-22: Автоматический дренаж очереди синхронизации уважает переключатель
       // автосинхронизации (без force: true). При выключенной синхронизации в облако
       // ничего не уходит.
@@ -56,6 +61,7 @@ export function useBackgroundSync(): void {
       }
 
       if (!cloudSyncEnabled(uid)) return;
+      const { CloudSyncService } = await import('../../../core/services/CloudSyncService');
       // Лениво: сервис восстановления нужен только при включённой синхронизации,
       // а не на старте (бюджет стартового куска).
       const { restoreAIDataFromCloud, reattachOrphanedAnalysis, continueEmbeddingDownload } = await import('../services/AIRestoreService');
@@ -137,9 +143,11 @@ export function useBackgroundSync(): void {
 
       // Дописать в облако векторы, посчитанные при запертом хранилище.
       // Обращений к ИИ здесь нет — только выгрузка уже посчитанного.
+      const { AIEmbeddingService } = await import('../services/AIEmbeddingService');
       await AIEmbeddingService.syncPendingToCloud();
 
       // Выгрузить накопившиеся в очереди записи 13 хранилищ ИИ (если сейф был заперт)
+      const { LocalStoreSyncService } = await import('../../../core/services/LocalStoreSyncService');
       LocalStoreSyncService.retryOversizedRecords();
       await LocalStoreSyncService.flushPending();
 

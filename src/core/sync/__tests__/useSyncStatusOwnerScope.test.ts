@@ -15,6 +15,11 @@ vi.mock('../../auth', () => ({
 
 const { useSyncStatus } = await import('../useSyncStatus');
 const { getLocalDb } = await import('../../storage/localDb');
+// BS (N-2): pollSyncStatus берёт движок синка динамическим импортом. Первый замер
+// в файле платил ~2,5 с за загрузку графа модулей и не успевал в waitFor — тест
+// про владельца очереди, а не про скорость куска. Прогрев до тестов.
+await import('../../services/SyncService');
+await import('../../services/LocalStoreSyncService');
 
 // R2-028: соседи по тому же Promise.all в pollSyncStatus передают userId, а
 // getPendingCount — нет. В базе одного пользователя лежат задачи, приехавшие из

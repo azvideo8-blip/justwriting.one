@@ -1,12 +1,14 @@
 import { ThemeProvider } from '../core/theme/ThemeProvider';
 import { WritingSettingsProvider } from '../core/settings/WritingSettingsContext';
 import { SettingsProvider } from '../core/settings/SettingsProvider';
-import { SettingsPanel } from '../features/settings/components/SettingsPanel';
+// BS (N-2): панель настроек грузится по требованию — статическое ребро отсюда
+// держало в стартовом куске и её саму, и всё, что она тянет.
+const SettingsPanel = lazy(() => import('../features/settings/components/SettingsPanel').then(m => ({ default: m.SettingsPanel })));
 import { LanguageProvider } from '../shared/i18n';
 import { ToastProvider } from '../shared/components/Toast';
 import { ErrorBoundary } from '../shared/components/ErrorBoundary';
 import { LoginModalProvider } from '../features/auth/contexts/LoginModalContext';
-import { AuthProvider } from '../features/auth/contexts/AuthContext';
+import { AuthProvider, useAuth } from '../features/auth/contexts/AuthContext';
 import { ProfileProvider } from '../features/auth/contexts/ProfileContext';
 import { MobileLayoutAccessProvider } from './MobileLayoutAccessProvider';
 import { AnalyticsProvider } from '../features/auth/contexts/AnalyticsContext';
@@ -15,6 +17,7 @@ import { ReactNode, lazy, Suspense, useEffect, useMemo, useRef, useState } from 
 import { useLocation } from 'react-router-dom';
 import { usePrivacyCheck } from '../features/auth/components/usePrivacyCheck';
 import { useLayoutMode } from '../shared/hooks/useLayoutMode';
+import { useNarrowViewport } from '../shared/hooks/useNarrowViewport';
 import { useMobileLayoutAccessAnswered } from '../shared/hooks/useMobileLayoutAccess';
 import { decideFirstRunShell, FIRST_RUN_ACCESS_WAIT_MS } from './firstRunShell';
 // Окно политики нужно редко — грузится лениво, проверка выше остаётся в стартовом куске.
@@ -29,15 +32,15 @@ const SyncConsentModal = lazy(() => import('../features/settings/components/Sync
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { getOrCreateGuestId } from '../core/storage/localDb';
 
-import { LocalDocumentService } from '../core/services/LocalDocumentService';
 import { useBackgroundSync } from '../features/ai/hooks/useBackgroundSync';
 import { useOnlineStatus } from '../shared/hooks/useOnlineStatus';
-
-import { SyncService } from '../core/services/SyncService';
 import { VAULT_UNLOCKED_EVENT } from '../core/crypto/useEncryptionStore';
 import { STORAGE_KEYS } from '../shared/constants/storageKeys';
+// BS (N-2): движок синхронизации грузится по требованию в эффектах ниже — ни один
+// из этих вызовов не нужен до первого рендера, а статическое ребро утаскивало за
+// собой CloudSyncService, LocalStoreSyncService и сегментный формат диалогов в
+// стартовый кусок.
 import { reportError } from '../shared/errors/reportError';
-import { checkAndSyncCursor } from '../core/sync/changeCursor';
 
 import { initAiDomainEvents } from '../features/ai/subscribeDomainEvents';
 import { EarlierQuestionOpenContext } from './onboardingQueue';
@@ -51,7 +54,16 @@ function AuthAwareSettingsProvider({ children }: { children: ReactNode }) {
   const guestId = useMemo(() => getOrCreateGuestId(), []);
   const userId = user?.uid ?? guestId;
   return (
-    <SettingsProvider userId={userId} renderSettingsPanel={(props) => <SettingsPanel {...props} />}>
+    <SettingsProvider userId={userId} renderSettingsPanel={(props) => (
+      // Ревью приёмки 0.10.0: панель смонтирована всегда, её кусок грузится на
+      // старте — отказ загрузки не должен закрывать всё приложение.
+      // ponytail: после отказа панель не откроется до перезагрузки страницы.
+      <ErrorBoundary fallback={null}>
+        <Suspense fallback={null}>
+          <SettingsPanel {...props} />
+        </Suspense>
+      </ErrorBoundary>
+    )}>
       {children}
     </SettingsProvider>
   );
@@ -98,9 +110,11 @@ function PrivacyGuard({ children }: { children: ReactNode }) {
     const userId = user?.uid ?? getOrCreateGuestId();
     if (backfillRanForRef.current === userId) return;
     backfillRanForRef.current = userId;
-    LocalDocumentService.backfillDocumentUuids(userId).catch(e =>
-      reportError(e, { action: 'backfillDocumentUuids' })
-    );
+    void import('../core/services/LocalDocumentService').then(({ LocalDocumentService }) =>
+      LocalDocumentService.backfillDocumentUuids(userId).catch(e =>
+        reportError(e, { action: 'backfillDocumentUuids' }),
+      ),
+    ).catch(e => reportError(e, { action: 'backfillDocumentUuids_load' }));
   }, [user]);
 
   // Очередь за `PrivacyGuard` (код восстановления, загрузка из облака) обязана
@@ -141,6 +155,13 @@ function PrivacyGuard({ children }: { children: ReactNode }) {
   );
 }
 
+/** BS (N-2): движок синка приходит по динамическому импорту. Отказ куска — это
+ *  ошибка синхронизации с тем же отчётом, что и отказ запроса, а не «всё чисто»:
+ *  очередь остаётся в IndexedDB и повторится на следующем событии. */
+function syncEngine(): Promise<typeof import('../core/services/SyncService').SyncService> {
+  return import('../core/services/SyncService').then(m => m.SyncService);
+}
+
 /** Global sync queue drain — fires on connection recovery from any screen. */
 export function SyncManager() {
   const { user } = useAuthStatus();
@@ -153,20 +174,24 @@ export function SyncManager() {
   // импорт SyncService из него замыкает цикл модулей.
   useEffect(() => {
     const onVaultUnlocked = () => {
-      void SyncService.reviveLockedTasks(user?.uid)
-        .then(() => {
-          if (user?.uid) {
-            void SyncService.syncPending(user.uid).catch(e =>
-              reportError(e, { action: 'sync_pending_on_vault_unlock' }),
-            );
-            if (localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid)) === 'true') {
-              void SyncService.downloadAllFromCloud(user.uid).catch(e =>
-                reportError(e, { action: 'download_all_on_vault_unlock' }),
+      void syncEngine()
+        .then(SyncService => SyncService.reviveLockedTasks(user?.uid)
+          .then(() => {
+            if (user?.uid) {
+              void SyncService.syncPending(user.uid).catch(e =>
+                reportError(e, { action: 'sync_pending_on_vault_unlock' }),
               );
+              if (localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid)) === 'true') {
+                void SyncService.downloadAllFromCloud(user.uid).catch(e =>
+                  reportError(e, { action: 'download_all_on_vault_unlock' }),
+                );
+              }
             }
-          }
-        })
-        .catch(e => reportError(e, { action: 'revive_locked_tasks_on_vault_unlock' }));
+          })
+          .catch(e => reportError(e, { action: 'revive_locked_tasks_on_vault_unlock' })))
+        // Кусок не загрузился — задачи остались в очереди, повтор на следующем
+        // открытии сейфа или проходе фона.
+        .catch(e => reportError(e, { action: 'sync_engine_load_vault_unlock' }));
     };
     window.addEventListener(VAULT_UNLOCKED_EVENT, onVaultUnlocked);
     return () => window.removeEventListener(VAULT_UNLOCKED_EVENT, onVaultUnlocked);
@@ -175,10 +200,12 @@ export function SyncManager() {
   // Browser online recovery
   useEffect(() => {
     if (isBrowserOnline && !prevBrowserOnline.current && user) {
-      SyncService.syncPending(user.uid).catch(e => reportError(e, { action: 'sync_manager_online_recovery' }));
-      if (localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid)) === 'true') {
-        SyncService.downloadAllFromCloud(user.uid).catch(e => reportError(e, { action: 'download_all_online_recovery' }));
-      }
+      void syncEngine().then(SyncService => {
+        SyncService.syncPending(user.uid).catch(e => reportError(e, { action: 'sync_manager_online_recovery' }));
+        if (localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid)) === 'true') {
+          SyncService.downloadAllFromCloud(user.uid).catch(e => reportError(e, { action: 'download_all_online_recovery' }));
+        }
+      }).catch(e => reportError(e, { action: 'sync_engine_load_online_recovery' }));
     }
     prevBrowserOnline.current = isBrowserOnline;
   }, [isBrowserOnline, user]);
@@ -189,9 +216,11 @@ export function SyncManager() {
     if (!user || initialSyncRanRef.current === user.uid) return;
     if (localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid)) !== 'true') return;
     initialSyncRanRef.current = user.uid;
-    SyncService.downloadAllFromCloud(user.uid).catch(e =>
-      reportError(e, { action: 'download_all_on_auth' }),
-    );
+    void syncEngine().then(SyncService =>
+      SyncService.downloadAllFromCloud(user.uid).catch(e =>
+        reportError(e, { action: 'download_all_on_auth' }),
+      ),
+    ).catch(e => reportError(e, { action: 'sync_engine_load_on_auth' }));
   }, [user]);
 
   // SYNC-CURSOR-2: check change cursor on visibilitychange (tab regains focus)
@@ -200,15 +229,26 @@ export function SyncManager() {
       if (document.hidden) return;
       if (!user?.uid) return;
       if (localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid)) !== 'true') return;
-      void checkAndSyncCursor(user.uid).catch(e =>
-        reportError(e, { action: 'check_and_sync_cursor_visibility' }),
-      );
+      void import('../core/sync/changeCursor').then(({ checkAndSyncCursor }) =>
+        checkAndSyncCursor(user.uid).catch(e =>
+          reportError(e, { action: 'check_and_sync_cursor_visibility' }),
+        ),
+      ).catch(e => reportError(e, { action: 'sync_engine_load_cursor' }));
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => document.removeEventListener('visibilitychange', onVisibilityChange);
   }, [user]);
 
   return null;
+}
+
+/** SA-20 (N-1): тема гостя на телефоне следует prefers-color-scheme. Право на
+ *  мобильный макет здесь ни при чём — это экран до входа. Внутри AuthProvider,
+ *  потому что «гость» приходит из состояния авторизации. */
+function VisitorThemeProvider({ children }: { children: ReactNode }) {
+  const { isGuest } = useAuth();
+  const narrow = useNarrowViewport();
+  return <ThemeProvider guestFollowsSystem={isGuest && narrow}>{children}</ThemeProvider>;
 }
 
 export function AppProviders({ children }: { children: ReactNode }) {
@@ -221,7 +261,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
           <ProfileProvider>
             <AnalyticsProvider>
               <LanguageProvider>
-                <ThemeProvider>
+                <VisitorThemeProvider>
                   <WritingSettingsProvider>
                     <ToastProvider>
                       <LoginModalProvider>
@@ -236,7 +276,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
                       </LoginModalProvider>
                     </ToastProvider>
                   </WritingSettingsProvider>
-                </ThemeProvider>
+                </VisitorThemeProvider>
               </LanguageProvider>
             </AnalyticsProvider>
           </ProfileProvider>

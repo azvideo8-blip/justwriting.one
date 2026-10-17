@@ -31,7 +31,7 @@ export function KPIStrip({ stats }: { stats: KPIStats }) {
   ];
 
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-6 gap-px bg-border-light border-b border-border-light">
+    <div className="grid grid-cols-3 sm:grid-cols-6 gap-px bg-border-subtle border-b border-border-subtle">
       {items.map((item, i) => (
         <motion.div
           key={i}

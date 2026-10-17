@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { type ReactNode } from 'react';
 import { DataProvider } from '../../../core/data';
 import { AI_CONSENT_VERSION_REQUIRED } from '../../../core/constants/privacyVersion';
 import { useLanguage } from '../../../shared/i18n';
 import { cn } from '../../../core/utils/utils';
+import { CheckboxRow } from '../../../shared/components/CheckboxRow';
 
 /**
  * Текст согласия и две галочки — одни и те же в окне при первом входе
@@ -31,7 +32,7 @@ export function PrivacyConsentText() {
         <p>{t('privacy_consent_third_party_p4')}</p>
       </div>
 
-      <p className="text-xs pt-1">{t('privacy_consent_links_prefix')}<a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline">{t('privacy_consent_privacy_policy')}</a>{t('privacy_consent_and')}<a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline">{t('privacy_consent_terms')}</a>.</p>
+      <p className="text-xs pt-1">{t('privacy_consent_links_prefix')}<a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline inline-block leading-tight py-[13px] -my-[13px]">{t('privacy_consent_privacy_policy')}</a>{t('privacy_consent_and')}<a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline inline-block leading-tight py-[13px] -my-[13px]">{t('privacy_consent_terms')}</a>.</p>
     </div>
   );
 }
@@ -56,9 +57,31 @@ export function PrivacyConsentCheckboxes({ checked, onChecked, aiConsent, onAiCo
   const box = large ? 'h-6 w-6 mt-1' : 'mt-0.5';
   const caption = large ? 'text-[15px]' : 'text-xs';
 
+  // MQ-12 (N-3): на телефоне строка согласия — цель касания 44 px (CheckboxRow),
+  // на десктопе разметка прежняя. Текст один и тот же объект: два его copies
+  // в одном файле — это расхождение согласий, за которое ругался уже не один раунд.
+  const requiredText = (
+    <>
+      <span className="font-semibold text-text-main">{t('privacy_consent_required_label')}</span>
+      {t('privacy_consent_accept_before')}<a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline inline-block leading-tight py-[13px] -my-[13px]">{t('privacy_consent_data_policy')}</a>{t('privacy_consent_and')}<a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline inline-block leading-tight py-[13px] -my-[13px]">{t('privacy_consent_terms')}</a>
+    </>
+  );
+  const aiText = (
+    <>
+      <span className="font-semibold text-text-main">{t('privacy_consent_ai_label')}</span>
+      {t('privacy_consent_ai_text_before')}<a href="/consent" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline inline-block leading-tight py-[13px] -my-[13px]">{t('privacy_consent_ai_link')}</a>{t('privacy_consent_ai_text_after')}
+    </>
+  );
+
+  const row = (isChecked: boolean, setChecked: (v: boolean) => void, text: ReactNode) => (
+    <CheckboxRow checked={isChecked} onChange={setChecked} labelClassName={cn('text-text-main/70', caption)}>
+      {text}
+    </CheckboxRow>
+  );
+
   return (
     <div className={cn('border-t border-border-subtle/50', large ? 'pt-5 space-y-4 mt-5' : 'pt-4 space-y-3 mt-4', className)}>
-      {show !== 'ai' && (
+      {show !== 'ai' && (large ? row(checked, onChecked, requiredText) : (
       <label className="flex items-start gap-3 cursor-pointer">
         <input
           type="checkbox"
@@ -66,19 +89,16 @@ export function PrivacyConsentCheckboxes({ checked, onChecked, aiConsent, onAiCo
           onChange={e => onChecked(e.target.checked)}
           className={cn('accent-brand-soft shrink-0', box)}
         />
-        <span className={cn('text-text-main/70', caption)}>
-          <span className="font-semibold text-text-main">{t('privacy_consent_required_label')}</span>
-          {t('privacy_consent_accept_before')}<a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline">{t('privacy_consent_data_policy')}</a>{t('privacy_consent_and')}<a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline">{t('privacy_consent_terms')}</a>
-        </span>
+        <span className={cn('text-text-main/70', caption)}>{requiredText}</span>
       </label>
-      )}
+      ))}
 
       {/* Отдельная галочка, и это принципиально. Тексты дневника по своей
           природе относятся к специальным категориям (ст. 10 152-ФЗ), а
           согласие на них, спрятанное в общее «согласен с политикой», не
           считается данным. Галочка не обязательна: отказ оставляет письмо и
           хранение записей, забирая только функции ИИ. */}
-      {show !== 'required' && (
+      {show !== 'required' && (large ? row(aiConsent, onAiConsent, aiText) : (
       <label className="flex items-start gap-3 cursor-pointer">
         <input
           type="checkbox"
@@ -86,12 +106,9 @@ export function PrivacyConsentCheckboxes({ checked, onChecked, aiConsent, onAiCo
           onChange={e => onAiConsent(e.target.checked)}
           className={cn('accent-brand-soft shrink-0', box)}
         />
-        <span className={cn('text-text-main/70', caption)}>
-          <span className="font-semibold text-text-main">{t('privacy_consent_ai_label')}</span>
-          {t('privacy_consent_ai_text_before')}<a href="/consent" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline">{t('privacy_consent_ai_link')}</a>{t('privacy_consent_ai_text_after')}
-        </span>
+        <span className={cn('text-text-main/70', caption)}>{aiText}</span>
       </label>
-      )}
+      ))}
     </div>
   );
 }

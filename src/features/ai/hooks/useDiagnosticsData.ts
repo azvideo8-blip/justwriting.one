@@ -4,7 +4,7 @@ import { LocalDocumentService } from '../../../core/services/LocalDocumentServic
 import { DocumentService } from '../../../core/services/DocumentService';
 import { SyncService } from '../../../core/services/SyncService';
 import { StorageService } from '../../../core/services/StorageService';
-import { AdminUserService } from '../../../core/services/AdminUserService';
+import { AdminUserService, type AdminActionItem } from '../../../core/services/AdminUserService';
 import { useAiLimitStore } from '../store/useAiLimitStore';
 import { AIChatMemoryService } from '../services/AIChatMemoryService';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
@@ -65,6 +65,8 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
 
   const [loadingData, setLoadingData] = useState(true);
   const [users, setUsers] = useState<AdminUserItem[]>([]);
+  // R7Q-014: след админских действий — последние строки admin_actions, только чтение.
+  const [adminActions, setAdminActions] = useState<AdminActionItem[]>([]);
 
   const [bulkImporting, setBulkImporting] = useState(false);
   const [bulkSyncing, setBulkSyncing] = useState(false);
@@ -213,6 +215,15 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     try {
       const usersData = await AdminUserService.getUsers(ADMIN_PAGE_LIMIT);
       setUsers(usersData);
+
+      // Отдельно от списка пользователей: без следа админских действий список
+      // обязан остаться, а без него — след.
+      try {
+        setAdminActions(await AdminUserService.listAdminActions());
+      } catch (actionsErr) {
+        reportError(actionsErr, { action: 'listAdminActions in useDiagnosticsData' });
+        setAdminActions([]);
+      }
     } catch (err) {
       reportError(err);
       if (isStaleToken && adminError) {
@@ -541,6 +552,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
   return {
     loadingData,
     users,
+    adminActions,
     invitingUser,
     sendingResetEmail,
     pendingDeleteUid,

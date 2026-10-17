@@ -26,7 +26,18 @@ export function sanitizeAiInput(content: string): string {
 // Also strips reasoning artifacts (//<reasoning>, <reasoning>, thinking text)
 // that reasoning models like DeepSeek may leak into responses.
 // RSN-3: In reasoning mode, keep <reasoning>/<answer> text content.
-export function sanitizeAiResponse(response: string, keepReasoning = false): string {
+export interface SanitizeAiResponseOptions {
+  keepReasoning?: boolean;
+  /**
+   * Ответ — переписанный текст самого человека («Расставить знаки»), а не речь
+   * ассистента. R7F-014: «ход мысли» — обычные слова диктовки, и правило про
+   * артефакт рассуждений обнуляло весь ответ уже после списания запроса.
+   */
+  personText?: boolean;
+}
+
+export function sanitizeAiResponse(response: string, options: SanitizeAiResponseOptions = {}): string {
+  const { keepReasoning = false, personText = false } = options;
   let cleaned = response;
   if (!keepReasoning) {
     // 1. <think>...</think> tags and closing </think>
@@ -42,15 +53,21 @@ export function sanitizeAiResponse(response: string, keepReasoning = false): str
     if (answerMatch) {
       cleaned = answerMatch[1]!;
     }
-    // 3. Markdown: ХОД МЫСЛИ: ... ОТВЕТ: ...
-    if (/(?:^|\n)ХОД МЫСЛИ:/i.test(cleaned)) {
-      const mdAnswerMatch = cleaned.match(/(?:^|\n)ОТВЕТ:\s*([\s\S]*?)$/i);
-      cleaned = mdAnswerMatch ? mdAnswerMatch[1]! : '';
-    } else {
-      // 4. Standalone ОТВЕТ: line
-      const standaloneAnswerMatch = cleaned.match(/(?:^|\n)ОТВЕТ:\s*([\s\S]*?)$/);
-      if (standaloneAnswerMatch && standaloneAnswerMatch.index !== undefined && standaloneAnswerMatch.index > 0) {
-        cleaned = standaloneAnswerMatch[1]!;
+    // Правила 3–4 — про артефакт рассуждений ассистента. Для переписанного текста
+    // самого человека (пунктуация диктовки) они выключены: «ход мысли, сначала я
+    // подумал…» — это его слова, а не разметка модели, и прежде они обнуляли весь
+    // ответ уже после списания запроса (R7F-014).
+    if (!personText) {
+      // 3. Markdown: ХОД МЫСЛИ: ... ОТВЕТ: ...
+      if (/(?:^|\n)ХОД МЫСЛИ:/i.test(cleaned)) {
+        const mdAnswerMatch = cleaned.match(/(?:^|\n)ОТВЕТ:\s*([\s\S]*?)$/i);
+        cleaned = mdAnswerMatch ? mdAnswerMatch[1]! : '';
+      } else {
+        // 4. Standalone ОТВЕТ: line
+        const standaloneAnswerMatch = cleaned.match(/(?:^|\n)ОТВЕТ:\s*([\s\S]*?)$/);
+        if (standaloneAnswerMatch && standaloneAnswerMatch.index !== undefined && standaloneAnswerMatch.index > 0) {
+          cleaned = standaloneAnswerMatch[1]!;
+        }
       }
     }
     // OPT-8: Strip reasoning blocks that reasoning models leak into output

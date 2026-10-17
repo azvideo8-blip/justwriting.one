@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.10.0 — 2026-10-17
+
+- **[RU]** Мобильная версия открыта всем: на телефоне justwriting — отдельное приложение с четырьмя вкладками: «Писать», «Заметки», «ИИ», «Профиль».
+- **[EN]** The mobile version is open to everyone: on a phone justwriting is its own app with four tabs — «Write», «Notes», «AI», «Profile».
+- **[RU]** Письмо на телефоне: редактор открывается сразу, запись начинается с первой буквы. Спокойная панель — режим, время и слова, микрофон и «Сохранить»; голос записывается прямо в панели.
+- **[EN]** Writing on a phone: the editor opens right away and the entry starts with the first letter. A calm toolbar shows mode, time and words, with the mic and «Save»; voice is recorded right in the toolbar.
+- **[RU]** После сохранения — тихий экран «Записано.» вместо всплывающих сообщений.
+- **[EN]** After saving, a quiet «Saved.» screen instead of pop-up messages.
+- **[RU]** Заметки: поиск, количество, «⋯» с видом, сортировкой, тегами, календарём и корзиной; одно касание открывает заметку, долгое — действия; значки «в облаке», «на устройстве», «разобрано».
+- **[EN]** Notes: search, a count, and «⋯» with view, sorting, tags, calendar and trash; one tap opens a note, a long press shows actions; icons for «in the cloud», «on this device», «analysed».
+- **[RU]** Заметка открывается на весь экран. В «Инфо» — дата, слова, метка, теги и разбор ИИ, внизу — связанные записи. «Сохранить как…» — txt, md или docx.
+- **[EN]** A note opens full screen. «Info» shows the date, words, label, tags and the AI analysis, with related entries at the end. «Save as…» — txt, md or docx.
+- **[RU]** ИИ на телефоне: прошлые диалоги, поле ввода всегда над клавиатурой, ответ — текстом, собеседник выбирается в отдельном листе.
+- **[EN]** AI on a phone: past dialogues, the input always above the keyboard, answers as plain text, and the companion picked in a separate sheet.
+- **[RU]** «Профиль»: синхронизация, журнал событий и сейф — строками состояния с точкой, если что-то требует внимания; настройки — одной кнопкой.
+- **[EN]** «Profile»: sync, the activity log and the vault are status rows with a dot when something needs attention; settings are one button away.
+- **[RU]** Первый вход на телефоне — три спокойных шага на весь экран вместо стопки окон; про облако спрашиваем двумя равными кнопками.
+- **[EN]** The first sign-in on a phone is three calm full-screen steps instead of a stack of dialogs; we ask about the cloud with two equal buttons.
+- **[RU]** Экран входа на телефоне: без боковой панели, крупные поля, светлая или тёмная тема — как в системе.
+- **[EN]** The sign-in screen on a phone: no side panel, large fields, and a light or dark theme that follows the system.
+- **[RU]** Руководство для телефона: «Профиль → Настройки → О приложении → Руководство пользователя». Само руководство дополнено всем новым с версии 0.9.24 и читается на телефоне.
+- **[EN]** A phone guide: «Profile → Settings → About → User guide». The guide now covers everything new since 0.9.24 and reads well on a phone.
+- **[RU]** Текст согласия на индексацию заметок уточнён: на этом устройстве векторы хранятся без шифрования, в облако уходят зашифрованными. Тех, кто соглашался по прежнему тексту, приложение спросит ещё раз.
+- **[EN]** The note-indexing consent text is corrected: on this device the vectors are stored unencrypted, and they go to the cloud encrypted. If you agreed to the old text, the app will ask again.
+- **[RU]** Портрет и профиль ИИ больше не перезаписываются старой копией с устройства, у которого спешат часы.
+- **[EN]** The AI portrait and profile are no longer overwritten by an old copy from a device whose clock runs fast.
+- **[RU]** Пунктуация диктовки: аббревиатуры остаются заглавными, а знаки на границе предложений не теряются и не удваиваются.
+- **[EN]** Dictation punctuation: abbreviations stay in capitals, and marks at sentence boundaries are neither lost nor doubled.
+- **[RU]** «Сохранить как…»: отменённое «Поделиться» больше не скачивает файл, а сбой при создании docx показывается.
+- **[EN]** «Save as…»: a cancelled «Share» no longer downloads the file, and a failure to create a docx is shown.
+- **[RU]** «Стереть всё» в одном аккаунте больше не трогает очередь синхронизации другого аккаунта на этом же устройстве.
+- **[EN]** «Erase everything» in one account no longer touches the sync queue of another account on the same device.
+- **[RU]** Сбой при сохранении согласия после входа по приглашению больше не возвращает к шагу пароля.
+- **[EN]** A failure to save consent after an invitation sign-in no longer sends you back to the password step.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.9.43 — 2026-10-16
 
 - **[RU]** Заметка, скрытая от ИИ или убранная в корзину, больше не попадает в разговор с ИИ ни через какие сводки — и на другом устройстве тоже.

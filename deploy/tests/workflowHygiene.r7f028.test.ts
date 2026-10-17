@@ -135,3 +135,52 @@ describe('R7Q-035: стендовый набор двух устройств с�
       .toMatch(/echo "== старые клиенты не заданы/);
   });
 });
+
+// R7Q-031: выкатка не должна переключать трафик, если на сервере остались
+// неприменённые миграции. Шаг написан ВЫКЛЮЧЕННЫМ: журнал миграций прода ещё не
+// сверен (R7F-029), и включённые ворота валили бы каждую выкатку, а не ловили бы
+// дефект. Проверка держит и это — если кто-то включит шаг раньше бэк-филла, тест
+// красный.
+describe('R7Q-031: ворота журнала миграций в выкатке', () => {
+  const stepLine = /^\s*- name: Ворота журнала миграций \(R7Q-031\)/m;
+
+  it('шаг есть и вызывает migrate.sh --status на сервере', () => {
+    expect(deploy, 'в deploy.yml нет ворот журнала миграций').toMatch(stepLine);
+    const at = deploy.search(stepLine);
+    const body = deploy.slice(at, at + 1600);
+    expect(body, 'шаг не спрашивает статус миграций').toMatch(/migrate\.sh --status/);
+    expect(body, 'статус берётся на сервере, а не на раннере').toMatch(/\$DEPLOY_SSH/);
+  });
+
+  it('находка [PENDING] валит выкатку', () => {
+    const at = deploy.search(stepLine);
+    const body = deploy.slice(at, at + 1600);
+    expect(body, 'нет проверки на [PENDING]').toMatch(/grep -q '.{0,2}PENDING/);
+    expect(body).toMatch(/exit 1/);
+  });
+
+  // Ревью приёмки 0.10.0: `|| true` превращал отказ SSH или psql в пустой
+  // STATUS — без строки [PENDING], то есть в «зелёные ворота». Ворота обязаны
+  // требовать положительный ответ «Pending: 0», а не отсутствие плохого.
+  it('ворота закрыты при отсутствии ответа (fail-closed)', () => {
+    const at = deploy.search(stepLine);
+    const next = deploy.indexOf('- name:', at + 10);
+    const body = deploy.slice(at, next);
+    expect(body, 'ошибка SSH/psql проглатывается').not.toMatch(/\|\|\s*true/);
+    expect(body, 'нет требования «Pending: 0»').toMatch(/Pending: 0/);
+  });
+
+  it('шаг выключён до бэк-филла журнала и говорит почему', () => {
+    const at = deploy.search(stepLine);
+    const body = deploy.slice(at, at + 1600);
+    expect(body, 'ворота включены раньше сверки журнала прода').toMatch(/if: false/);
+    expect(deploy.slice(Math.max(0, at - 1500), at), 'нет объяснения, почему шаг выключен').toMatch(/R7F-029|бэк-филл/);
+  });
+
+  it('ворота стоят до переключения трафика клиента', () => {
+    const gate = deploy.search(stepLine);
+    const publish = deploy.search(/- name: Выкатка клиента/);
+    expect(gate).toBeGreaterThan(-1);
+    expect(publish).toBeGreaterThan(gate);
+  });
+});

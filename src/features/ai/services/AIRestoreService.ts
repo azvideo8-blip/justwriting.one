@@ -21,6 +21,9 @@ import {
   SupportedLocalStoreName,
   MAX_RESTORE_RECORD_BYTES,
   getPendingStoreDeleteKeys,
+  getPendingUpsertKeySet,
+  stripCloudStamp,
+  CLOUD_STAMP_FIELD,
 } from '../../../core/services/LocalStoreSyncService';
 
 import { reportError } from '../../../shared/errors/reportError';
@@ -480,7 +483,7 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
         grp = { store: rec.store, baseKey, rows: [] };
         grouped.set(groupKey, grp);
       }
-      grp.rows.push({ key: rec.key, payload: rec.payload as Record<string, unknown>, checksum: (rec as { checksum?: string }).checksum });
+      grp.rows.push({ key: rec.key, payload: rec.payload as Record<string, unknown>, checksum: (rec as { checksum?: string }).checksum, stamped_at: rec.stamped_at });
     }
 
     // EA-5: запись, облачное удаление которой ещё не дошло, не воскрешаем.
@@ -664,26 +667,41 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
 
         const putRecord = (value: unknown = parsedData) => (db as unknown as { put(s: string, v: unknown): Promise<unknown> }).put(store, value);
 
+        // T-8: серверная отметка этой облачной версии (наибольшая по строкам группы —
+        // у постраничной записи базовой строки нет, есть страницы `key#N`).
+        const stamps = rows.map(r => r.stamped_at).filter((n): n is number => typeof n === 'number');
+        const cloudStamp = stamps.length > 0 ? Math.max(...stamps) : undefined;
+        const withStamp = (value: unknown): unknown => (cloudStamp !== undefined && value && typeof value === 'object'
+          ? { ...(value as Record<string, unknown>), [CLOUD_STAMP_FIELD]: cloudStamp }
+          : value);
+        const writeLocal = async (value: unknown) => {
+          if (store === 'aiProfileFacets') await writeFacetStore(s => s.put(value as AIProfileFacet));
+          else await putRecord(value);
+        };
+
         if (localRecord !== undefined) {
-          const localTs = extractRecordTimestamp(localRecord);
-          // Conflict rule:
-          // If both timestamps exist and cloudTs > localTs: cloud wins.
-          // Otherwise: LOCAL WINS, never overwrite!
-          if (localTs !== null && cloudTs !== null && cloudTs > localTs) {
-            if (store === 'aiProfileFacets') {
-              await writeFacetStore(s => s.put(parsedData as AIProfileFacet));
-            } else {
-              await putRecord();
-            }
+          // T-8: невыгруженная локальная правка спор не проигрывает; `null` — журнал не
+          // читается, и тогда облако локальную копию не перезаписывает. Читается здесь,
+          // а не до сетевого запроса: правка, вставшая в очередь, пока забор ждал
+          // сеть, иначе считалась бы «нет правки» (ревью приёмки 0.10.0).
+          const pendingUpserts = getPendingUpsertKeySet(userId);
+          const decision = decideScalarCopy({
+            pending: pendingUpserts === null ? null : pendingUpserts.has(`${store}:${baseKey}`),
+            base: (localRecord as Record<string, unknown>)[CLOUD_STAMP_FIELD] as number | undefined,
+            cloudStamp,
+            sameContent: JSON.stringify(stripCloudStamp(localRecord)) === fullJson,
+            localTs: extractRecordTimestamp(localRecord),
+            cloudTs,
+          });
+          if (decision === 'cloud') {
+            await writeLocal(withStamp(parsedData));
             result.localStoreRecords++;
+          } else if (decision === 'adopt') {
+            await writeLocal(withStamp(localRecord));
           }
         } else {
           // No local record -> put cloud record
-          if (store === 'aiProfileFacets') {
-            await writeFacetStore(s => s.put(parsedData as AIProfileFacet));
-          } else {
-            await putRecord();
-          }
+          await writeLocal(withStamp(parsedData));
           result.localStoreRecords++;
         }
       } catch (err) {
@@ -949,4 +967,30 @@ export async function restoreAndReattachAIData(userId: string): Promise<AIRestor
   const res = await restoreAIDataFromCloud(userId);
   await reattachOrphanedAnalysis();
   return res;
+}
+
+/**
+ * T-8 (R7Q-004 = R7F-001): спор копий скалярного ИИ-стора решается СЕРВЕРНОЙ
+ * отметкой (`stamped_at`, миграция 0037), а не часами устройства. Локальная копия
+ * помнит отметку облачной версии, от которой получена (`_cloudStampedAt`).
+ * - невыгруженная правка (или журнал не читается) — локальная копия остаётся:
+ *   выгрузка получит более позднюю серверную отметку;
+ * - отметка известна — облако побеждает, только если его версия новее;
+ * - отметки ещё нет (записи до 0.10.0): одинаковое содержимое — запомнить отметку,
+ *   иначе прежнее правило по времени внутри записи (одноразовый переход).
+ */
+export function decideScalarCopy(o: {
+  pending: boolean | null;
+  base: number | undefined;
+  cloudStamp: number | undefined;
+  sameContent: boolean;
+  localTs: number | null;
+  cloudTs: number | null;
+}): 'cloud' | 'local' | 'adopt' {
+  if (o.pending !== false) return 'local';
+  const legacy = o.localTs !== null && o.cloudTs !== null && o.cloudTs > o.localTs ? 'cloud' : 'local';
+  if (o.cloudStamp === undefined) return legacy;
+  if (typeof o.base === 'number') return o.cloudStamp > o.base ? 'cloud' : 'local';
+  if (o.sameContent) return 'adopt';
+  return legacy;
 }

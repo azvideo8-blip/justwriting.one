@@ -17,7 +17,7 @@ import { summarizeFacetLogic } from './ai/summarizeFacet.logic';
 import { validateCustomPromptLogic } from './ai/validateCustomPrompt.logic';
 import { deriveTaxonomyLogic } from './ai/deriveTaxonomy.logic';
 import { deleteAccountLogic } from './account';
-import { adminDeleteUserLogic, inviteUserLogic, listUsersWithStatusLogic } from './admin/admin.logic';
+import { adminDeleteUserLogic, inviteUserLogic, listAdminActionsLogic, listUsersWithStatusLogic } from './admin/admin.logic';
 
 type LogicFn = (
   ctx: typeof postgresAiContext,
@@ -45,6 +45,7 @@ const LOGIC_MAP: Record<string, LogicFn> = {
   deleteAccount: deleteAccountLogic,
   inviteUser: inviteUserLogic,
   listUsersWithStatus: listUsersWithStatusLogic,
+  listAdminActions: listAdminActionsLogic,
   adminDeleteUser: adminDeleteUserLogic,
 };
 
@@ -87,7 +88,7 @@ export async function handleAiEndpoint(
   // AUD-2: серверный гейт согласия. Клиентский (callAi) остаётся как
   // вежливость, но гарантией быть не может. Исключения — те же, что и там:
   // удаление аккаунта и администрирование пользователей не про обработку записей.
-  if (endpoint !== 'deleteAccount' && endpoint !== 'inviteUser' && endpoint !== 'listUsersWithStatus' && endpoint !== 'adminDeleteUser') {
+  if (endpoint !== 'deleteAccount' && endpoint !== 'inviteUser' && endpoint !== 'listUsersWithStatus' && endpoint !== 'adminDeleteUser' && endpoint !== 'listAdminActions') {
     if (endpoint === 'embedDocument') {
       // Индексация гоняет фрагменты заметок через модель эмбеддингов —
       // отдельное согласие, отдельная колонка.

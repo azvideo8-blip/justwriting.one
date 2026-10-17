@@ -19,6 +19,7 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
     // согласия и версии (PrivacyModal, core/ai/indexingConsent)
     `privacy_accepted_${uid}`,
     `ai_indexing_consent_${uid}`,
+    `ai_indexing_consent_v2_${uid}`,
     // достижения (Achievements, ProfilePage)
     `unlocked_achievements_${uid}`,
     `achievement_earned_at_${uid}`,
@@ -90,6 +91,10 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
     `ai_sync_oversized_records:${uid}`,
     // отметка сознательного выхода — гасит ложное «сессия оборвалась» (N-60)
     `jw_voluntary_signout_at_${uid}`,
+    // R7F-020: очередь theme-касалок. Прежний общий ключ подметание сносило
+    // выходом любого аккаунта, а делить его записи по uid нечем; ключ переехал на
+    // ключ по аккаунту.
+    `jw_pending_theme_touches_${uid}`,
   ];
 }
 
@@ -166,6 +171,41 @@ function belongsToAnotherAccount(key: string, uid: string): boolean {
   return false;
 }
 
+/**
+ * R7F-020: журналы ожидающей синхронизации лежат под ОДНИМ ключом на весь
+ * браузер, а каждая запись в них подписана uid. Снести такой ключ выходом A —
+ * значит стереть обязательства B: у него пропадали отложенные облачные удаления
+ * (следующее восстановление возвращало в облако удалённый разбор) и долг секунд
+ * за уже выгруженные ряды. Поэтому из журнала вырезается только uid уходящего
+ * аккаунта.
+ */
+const UID_JOURNAL_KEYS = [
+  'sync_pending_duration',
+  'ai_sync_pending_deletes',
+  'ai_sync_pending_upserts',
+  'ai_sync_dead_upserts',
+] as const;
+
+function dropOwnJournalEntries(uid: string, key: string): void {
+  const raw = localStorage.getItem(key);
+  if (raw === null) return;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    // Нечитаемый журнал — это не чужие данные, а битые байты: сносим целиком.
+    localStorage.removeItem(key);
+    return;
+  }
+  if (!Array.isArray(parsed)) {
+    localStorage.removeItem(key);
+    return;
+  }
+  const kept = parsed.filter(entry => (entry as { uid?: unknown } | null)?.uid !== uid);
+  if (kept.length === 0) localStorage.removeItem(key);
+  else localStorage.setItem(key, JSON.stringify(kept));
+}
+
 /** Удаляет все ключи текущего аккаунта из localStorage/sessionStorage. */
 export function clearAccountScopedStorage(uid: string | null | undefined): void {
   if (!uid) return;
@@ -182,6 +222,10 @@ export function clearAccountScopedStorage(uid: string | null | undefined): void 
     if (DEVICE_SETTINGS_KEYS.has(key)) continue;
     if (belongsToAnotherAccount(key, uid)) continue;
     if (key.startsWith('jw_pending_purge_')) continue;
+    if ((UID_JOURNAL_KEYS as readonly string[]).includes(key)) {
+      dropOwnJournalEntries(uid, key);
+      continue;
+    }
     localStorage.removeItem(key);
   }
 }

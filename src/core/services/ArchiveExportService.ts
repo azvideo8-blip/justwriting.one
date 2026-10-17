@@ -85,7 +85,10 @@ async function downloadBlob(content: string | Blob, type: string, filename: stri
         return;
       }
     } catch (e) {
-      // Отказ шторки — ожидаемый исход, ниже сработает загрузка файла.
+      // R7Q-028: человек сам закрыл шторку — это не «шторки нет». Прежний белый
+      // список проглатывал AbortError и файл улетал в загрузки после отмены.
+      if ((e as { name?: unknown } | null)?.name === 'AbortError') return;
+      // Прочие ожидаемые отказы — ниже сработает загрузка файла.
       if (!isExpectedShareRefusal(e)) {
         reportError(e, { action: 'archive_export_share' });
       }

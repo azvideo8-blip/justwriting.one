@@ -131,7 +131,10 @@ export function useSpeechInput({ onSessionEnd, onError }: UseSpeechInputProps) {
     // Пустая сессия (человек молчал, движок умер) не должна рождать ни
     // вставку, ни запрос пунктуации.
     if (full) onSessionEnd(full);
-  }, [joinSession, onSessionEnd]);
+    // Человек нажал «■», а слов нет: сказать, что не расслышали, а не молчать —
+    // иначе это выглядит как сломанная кнопка (видео владельца 2026-10-17).
+    else if (wantStopRef.current) showToast(t('voice_nothing_heard'), 'info');
+  }, [joinSession, onSessionEnd, showToast, t]);
 
   const stopListening = useCallback(() => {
     wantStopRef.current = true;

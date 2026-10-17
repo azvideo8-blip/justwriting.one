@@ -1,7 +1,7 @@
 // MR-11: все цели касания на четырёх мобильных экранах — не меньше 44 px.
 // Проверка идёт на 390 и 320: на 320 часть целей сжимается первой.
 import { expect, test } from '@playwright/test';
-import { dismissFirstLoginDialogs, openVaultFromBanner, shot, signInMobile, smallTargets, zenOff } from './harness';
+import { assertMobileScreenRendered, dismissFirstLoginDialogs, openVaultFromBanner, shot, signInMobile, smallTargets, zenOff } from './harness';
 
 const SIZES = [{ w: 390, h: 844 }, { w: 320, h: 568 }];
 
@@ -24,6 +24,9 @@ for (const { w, h } of SIZES) {
         await dismissFirstLoginDialogs(page, true, 8_000);
         await openVaultFromBanner(page, account.password);
         await page.waitForTimeout(700);
+        // N-7: без этого контроля пустой список нарушителей мог означать и
+        // «экран не собрался».
+        await assertMobileScreenRendered(page, path);
         const small = await smallTargets(page);
         if (small.length) offenders[path] = small;
         await shot(page, `mr11-${path.replace(/\//g, '') || 'home'}-${w}`);

@@ -109,7 +109,11 @@ describe('MQ-15: по исходникам', () => {
     expect(s).not.toContain('lighthouseActive');
   });
   it('N-5: ключевые кнопки откликаются на касание', () => {
-    expect(src('src/features/writing/components/MobileWriteToolbar.tsx')).toMatch(/className="press w-11 h-11 shrink-0 rounded-full/);
+    // Класс у части кнопок собирается в cn(), поэтому литерала с префиксом
+    // `className="` в файле нет — смотрим на сами классы: три кнопки панели
+    // письма обязаны нести `press`.
+    const tb = src('src/features/writing/components/MobileWriteToolbar.tsx');
+    expect((tb.match(/press w-11 h-11 shrink-0/g) ?? []).length).toBeGreaterThanOrEqual(3);
     expect(src('src/features/writing/components/MobileVoiceNoticeSheet.tsx').match(/className="press /g)).toHaveLength(2);
     expect(src('src/features/archive/components/MobileArchiveMenuSheet.tsx')).toContain('active:bg-text-main/[0.06]');
     expect(src('src/features/archive/components/MobileInlinePanel.tsx')).toContain('press flex h-11 w-11');

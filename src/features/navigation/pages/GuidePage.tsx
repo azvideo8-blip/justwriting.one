@@ -4,6 +4,7 @@ import { BookOpen } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { SeoHead } from '../../../shared/i18n/SeoHead';
 import { cn } from '../../../core/utils/utils';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import './guide.css';
 
 // Разделы руководства — те же статические страницы из public/docs. Внутри
@@ -21,6 +22,17 @@ export const GUIDE_PAGES = [
   { slug: 'faq', titleKey: 'guide_nav_faq' },
 ] as const;
 
+// 0.10.0 (UG-3): в мобильном макете — телефонное руководство из public/docs/mobile.
+// Разделов, которых там нет (облако, безопасность…), на телефоне открывает
+// статическая страница по ссылке `../x.html` из самой статьи.
+export const MOBILE_GUIDE_PAGES = [
+  { slug: 'index', titleKey: 'guide_nav_start' },
+  { slug: 'writing', titleKey: 'guide_nav_writing' },
+  { slug: 'notes', titleKey: 'guide_nav_notes' },
+  { slug: 'ai', titleKey: 'guide_nav_ai' },
+  { slug: 'profile', titleKey: 'guide_nav_profile' },
+] as const;
+
 const guidePath = (slug: string) => (slug === 'index' ? '/guide' : `/guide/${slug}`);
 
 /**
@@ -29,7 +41,7 @@ const guidePath = (slug: string) => (slug === 'index' ? '/guide' : `/guide/${slu
  * Разметка своя, с нашего же домена; скрипты и обработчики в ней не исполнятся —
  * innerHTML не запускает <script>, а CSP не пускает инлайн-обработчики.
  */
-export function extractGuideArticle(html: string): string | null {
+export function extractGuideArticle(html: string, base = '/docs/'): string | null {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const article = doc.querySelector('article.doc');
   if (!article) return null;
@@ -38,12 +50,16 @@ export function extractGuideArticle(html: string): string | null {
     for (const attr of Array.from(el.attributes)) if (/^on/i.test(attr.name)) el.removeAttribute(attr.name);
   });
   article.querySelectorAll('a[href]').forEach(a => {
-    const m = /^([a-z]+)\.html(#.*)?$/.exec(a.getAttribute('href') ?? '');
+    const href = a.getAttribute('href') ?? '';
+    const m = /^([a-z]+)\.html(#.*)?$/.exec(href);
     if (m) a.setAttribute('href', guidePath(m[1]!) + (m[2] ?? ''));
+    // Телефонная страница ссылается на десктопный раздел — статическая страница.
+    const up = /^\.\.\/([a-z]+\.html(#.*)?)$/.exec(href);
+    if (up) a.setAttribute('href', `/docs/${up[1]!}`);
   });
   article.querySelectorAll('img[src]').forEach(img => {
     const src = img.getAttribute('src') ?? '';
-    if (!/^(\/|https?:)/.test(src)) img.setAttribute('src', `/docs/${src}`);
+    if (!/^(\/|https?:)/.test(src)) img.setAttribute('src', `${base}${src}`);
   });
   return article.innerHTML;
 }
@@ -51,21 +67,25 @@ export function extractGuideArticle(html: string): string | null {
 export function GuidePage() {
   const { t } = useLanguage();
   const { page = 'index' } = useParams();
-  const slug = GUIDE_PAGES.some(p => p.slug === page) ? page : 'index';
+  const mobile = useLayoutMode().layoutMode === 'mobile';
+  const pages = mobile ? MOBILE_GUIDE_PAGES : GUIDE_PAGES;
+  const base = mobile ? '/docs/mobile/' : '/docs/';
+  const slug = pages.some(p => p.slug === page) ? page : 'index';
   const navigate = useNavigate();
   const location = useLocation();
-  const [state, setState] = useState<{ slug: string; html: string | null; failed: boolean }>({ slug: '', html: null, failed: false });
+  const [state, setState] = useState<{ key: string; html: string | null; failed: boolean }>({ key: '', html: null, failed: false });
+  const key = base + slug;
 
   useEffect(() => {
     let alive = true;
-    fetch(`/docs/${slug}.html`)
+    fetch(`${base}${slug}.html`)
       .then(r => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))))
-      .then(text => { if (alive) setState({ slug, html: extractGuideArticle(text), failed: false }); })
-      .catch(() => { if (alive) setState({ slug, html: null, failed: true }); });
+      .then(text => { if (alive) setState({ key: base + slug, html: extractGuideArticle(text, base), failed: false }); })
+      .catch(() => { if (alive) setState({ key: base + slug, html: null, failed: true }); });
     return () => { alive = false; };
-  }, [slug]);
+  }, [base, slug]);
 
-  const ready = state.slug === slug && state.html !== null;
+  const ready = state.key === key && state.html !== null;
 
   // Якорь из адреса — после того как статья легла в DOM.
   useEffect(() => {
@@ -91,7 +111,7 @@ export function GuidePage() {
     }
   };
 
-  const current = GUIDE_PAGES.find(p => p.slug === slug)!;
+  const current = pages.find(p => p.slug === slug)!;
   const currentTitle = t(current.titleKey);
 
   return (
@@ -113,7 +133,7 @@ export function GuidePage() {
       <div className="grid gap-6 lg:grid-cols-[210px_minmax(0,1fr)]">
         <nav aria-label={t('guide_sections_nav')} className="lg:sticky lg:top-6 lg:self-start">
           <ol className="flex flex-wrap gap-1.5 lg:flex-col lg:gap-0.5">
-            {GUIDE_PAGES.map(p => (
+            {pages.map(p => (
               <li key={p.slug}>
                 <Link
                   to={guidePath(p.slug)}
@@ -133,7 +153,7 @@ export function GuidePage() {
         </nav>
 
         <div className="min-w-0 max-w-3xl">
-          {state.slug === slug && state.failed ? (
+          {state.key === key && state.failed ? (
             <p className="text-sm text-text-main/60">
               {t('guide_load_error')}
             </p>

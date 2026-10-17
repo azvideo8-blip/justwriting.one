@@ -2,7 +2,7 @@
 // статистика») — по правилам телефона: строчные подписи, цели 44 px, без вложенных
 // карточек и внутренней прокрутки.
 import { expect, test, type Page } from '@playwright/test';
-import { openVaultFromBanner, shot, signInMobile, smallTargets, zenOff } from './harness';
+import { openVaultFromBanner, waitForNavigationSettled, shot, signInMobile, smallTargets, zenOff } from './harness';
 
 async function saveNoteWithTag(page: Page, text: string, tag: string): Promise<void> {
   await page.goto('/');
@@ -17,6 +17,9 @@ async function saveNoteWithTag(page: Page, text: string, tag: string): Promise<v
   await input.press('Enter');
   await finish.getByRole('button', { name: /^Сохранить$/ }).click();
   await expect(finish).toBeHidden({ timeout: 20_000 });
+  // Приёмка 0.10.0: после сохранения приложение само уходит по адресу; `goto`
+  // спека в этом окне на WebKit ловит «interrupted by another navigation».
+  await waitForNavigationSettled(page);
 }
 
 for (const [w, h] of [[360, 740], [390, 844]] as const) {
