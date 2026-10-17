@@ -460,6 +460,11 @@ export function smallTargets(page: Page, min = 44): Promise<SmallTarget[]> {
       const st = getComputedStyle(el);
       if (st.clipPath !== 'none' || /^rect\((0px|1px)/.test(st.clip)) continue;
       if (r.width >= limit && r.height >= limit) continue;
+      // WCAG 2.5.8, исключение «inline»: ссылка внутри предложения размером не
+      // обязана — её размер задаёт строка текста. Раздувать её полями нельзя:
+      // поля соседних строк перекрывались и перехватывали касание (ревью 0.10.0).
+      if (el.tagName === 'A' && st.display === 'inline'
+        && (el.parentElement?.textContent ?? '').trim().length > (el.textContent ?? '').trim().length) continue;
       const label = (el.getAttribute('aria-label') || el.textContent || el.getAttribute('title') || '')
         .trim().replace(/\s+/g, ' ').slice(0, 60);
       // Класс нужен, чтобы найти нарушителя в исходниках: метка-подпись часто

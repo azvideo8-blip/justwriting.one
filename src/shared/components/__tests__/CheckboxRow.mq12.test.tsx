@@ -7,13 +7,17 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { CheckboxRow } from '../CheckboxRow';
 
 describe('MQ-12: CheckboxRow', () => {
-  it('весь ряд — зона нажатия, квадрат 24 px остаётся', () => {
+  // Ревью 0.10.0: зона нажатия — 44×44 вокруг квадрата, а не вся строка: input
+  // на всю строку лежал поверх ссылок в тексте согласия. Строка нажимается
+  // поведением <label>.
+  it('зона нажатия 44×44 вокруг квадрата, квадрат 24 px остаётся', () => {
     const onChange = vi.fn();
     render(<CheckboxRow checked={false} onChange={onChange}>read-and-accept</CheckboxRow>);
     const box = screen.getByRole('checkbox', { name: 'read-and-accept' });
     const label = box.closest('label')!;
     expect(label.className, 'ряд без высоты 44 px').toContain('min-h-11');
-    expect(box.className, 'input не растянут на ряд').toContain('inset-0');
+    expect(box.className, 'input не 44×44').toMatch(/\bh-11\b.*\bw-11\b|\bw-11\b.*\bh-11\b/);
+    expect(box.className, 'input снова растянут на всю строку — накроет ссылки').not.toMatch(/(^|\s)inset-0(\s|$)/);
     expect(box.className, 'input не прозрачен — рисунок сдвоится').toContain('opacity-0');
     const drawn = label.querySelector('span[aria-hidden="true"]');
     expect(drawn, 'нет нарисованного квадрата').not.toBeNull();

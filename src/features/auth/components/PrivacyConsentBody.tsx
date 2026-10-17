@@ -32,7 +32,7 @@ export function PrivacyConsentText() {
         <p>{t('privacy_consent_third_party_p4')}</p>
       </div>
 
-      <p className="text-xs pt-1">{t('privacy_consent_links_prefix')}<a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline inline-block leading-tight py-[13px] -my-[13px]">{t('privacy_consent_privacy_policy')}</a>{t('privacy_consent_and')}<a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline inline-block leading-tight py-[13px] -my-[13px]">{t('privacy_consent_terms')}</a>.</p>
+      <p className="text-xs pt-1">{t('privacy_consent_links_prefix')}<a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline">{t('privacy_consent_privacy_policy')}</a>{t('privacy_consent_and')}<a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline">{t('privacy_consent_terms')}</a>.</p>
     </div>
   );
 }
@@ -63,13 +63,13 @@ export function PrivacyConsentCheckboxes({ checked, onChecked, aiConsent, onAiCo
   const requiredText = (
     <>
       <span className="font-semibold text-text-main">{t('privacy_consent_required_label')}</span>
-      {t('privacy_consent_accept_before')}<a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline inline-block leading-tight py-[13px] -my-[13px]">{t('privacy_consent_data_policy')}</a>{t('privacy_consent_and')}<a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline inline-block leading-tight py-[13px] -my-[13px]">{t('privacy_consent_terms')}</a>
+      {t('privacy_consent_accept_before')}<a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline">{t('privacy_consent_data_policy')}</a>{t('privacy_consent_and')}<a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline">{t('privacy_consent_terms')}</a>
     </>
   );
   const aiText = (
     <>
       <span className="font-semibold text-text-main">{t('privacy_consent_ai_label')}</span>
-      {t('privacy_consent_ai_text_before')}<a href="/consent" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline inline-block leading-tight py-[13px] -my-[13px]">{t('privacy_consent_ai_link')}</a>{t('privacy_consent_ai_text_after')}
+      {t('privacy_consent_ai_text_before')}<a href="/consent" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline">{t('privacy_consent_ai_link')}</a>{t('privacy_consent_ai_text_after')}
     </>
   );
 
