@@ -1,9 +1,6 @@
 import { ThemeProvider } from '../core/theme/ThemeProvider';
 import { WritingSettingsProvider } from '../core/settings/WritingSettingsContext';
 import { SettingsProvider } from '../core/settings/SettingsProvider';
-// BS (N-2): панель настроек грузится по требованию — статическое ребро отсюда
-// держало в стартовом куске и её саму, и всё, что она тянет.
-const SettingsPanel = lazy(() => import('../features/settings/components/SettingsPanel').then(m => ({ default: m.SettingsPanel })));
 import { LanguageProvider } from '../shared/i18n';
 import { ToastProvider } from '../shared/components/Toast';
 import { ErrorBoundary } from '../shared/components/ErrorBoundary';
@@ -15,6 +12,12 @@ import { AnalyticsProvider } from '../features/auth/contexts/AnalyticsContext';
 import { HelmetProvider } from 'react-helmet-async';
 import { ReactNode, lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+// BS (N-2): панель настроек грузится по требованию — статическое ребро отсюда
+// держало в стартовом куске и её саму, и всё, что она тянет.
+// Ниже импорта React, а не выше: в dev-сервере vite именованный импорт из CJS
+// становится `const lazy = …` на месте строки импорта, и вызов выше неё падал
+// «Cannot access 'lazy' before initialization» — пустая страница (CI 0.10.0).
+const SettingsPanel = lazy(() => import('../features/settings/components/SettingsPanel').then(m => ({ default: m.SettingsPanel })));
 import { usePrivacyCheck } from '../features/auth/components/usePrivacyCheck';
 import { useLayoutMode } from '../shared/hooks/useLayoutMode';
 import { useNarrowViewport } from '../shared/hooks/useNarrowViewport';
