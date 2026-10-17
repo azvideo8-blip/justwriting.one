@@ -24,20 +24,34 @@ test.beforeEach(async ({ page }) => {
  *    хранилища страницы.
  */
 async function seedNotes(page: import('@playwright/test').Page): Promise<void> {
-  // Ждём, пока приложение само создаст базу со всеми хранилищами.
+  // Ждём, пока приложение само создаст базу со всеми хранилищами. Одного имени
+  // мало (0.10.0): Chrome перечисляет базу, пока её создание ещё не началось, и
+  // открытие без версии отсюда само становилось создателем — пустая база без
+  // хранилищ. С выносом синхронизации (N-2) приложение открывает базу позже, и
+  // гонка стала постоянной. Ждём версию приложения (> 1).
   await page.waitForFunction(async () => {
     const dbs = await indexedDB.databases?.();
-    return Boolean(dbs?.some(d => d.name === 'justwriting-local'));
+    return Boolean(dbs?.some(d => d.name === 'justwriting-local' && (d.version ?? 0) > 1));
   }, undefined, { timeout: 15000 });
 
   const missing = await page.evaluate(async () => {
     const guestId = localStorage.getItem('jw_guest_id') ?? 'guest';
-    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+    // Открытие без версии в окне, когда база ещё не создана приложением, само
+    // становится создателем пустой базы. Такое открытие отменяем (abort в
+    // upgradeneeded) и повторяем, пока не откроется база приложения со схемой.
+    const tryOpen = () => new Promise<IDBDatabase | null>((resolve, reject) => {
       const req = indexedDB.open('justwriting-local');
+      req.onupgradeneeded = () => { req.transaction?.abort(); };
       req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-      req.onblocked = () => reject(new Error('open blocked'));
+      req.onerror = () => (req.error?.name === 'AbortError' ? resolve(null) : reject(req.error));
+      req.onblocked = () => resolve(null);
     });
+    let db: IDBDatabase | null = null;
+    for (let i = 0; i < 50 && db === null; i++) {
+      db = await tryOpen();
+      if (db === null) await new Promise(r => setTimeout(r, 200));
+    }
+    if (db === null) return 'база приложения не появилась за 10 с';
     for (const store of ['documents', 'versions']) {
       if (!db.objectStoreNames.contains(store)) return `нет хранилища ${store}`;
     }
@@ -170,7 +184,13 @@ test.describe('Archive Page', () => {
     await page.goto('/archive');
     await seedNotes(page);
     await page.reload();
-    await page.getByText('Apples harvest report').first().click({ timeout: 15000 });
+    // На десктопе название — переименование по двойному нажатию; превью
+    // открывает строка с текстом заметки.
+    await page.getByText('Apples were harvested in great quantities today.').first().click({ timeout: 15000 });
+    // Превью открывается после загрузки текста заметки (асинхронно) — дольше
+    // окна замера появления; без ожидания замер шёл по пустому месту. Кадры
+    // перехода достаточно поймать на исчезновении.
+    await page.locator('[class*="bg-black/20"]').first().waitFor({ state: 'attached', timeout: 10_000 });
 
     const seen = await page.evaluate(() => new Promise<{ inFrames: number[]; outFrames: number[] }>(resolve => {
       const sel = '[class*="bg-black/20"]';
