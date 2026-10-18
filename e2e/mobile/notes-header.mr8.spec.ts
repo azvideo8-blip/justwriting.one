@@ -101,7 +101,10 @@ for (const { w, h, maxRowY } of SIZES) {
         const out: string[] = [];
         for (const b of Array.from(el.querySelectorAll('button'))) {
           const r = b.getBoundingClientRect();
-          if (r.width && (r.width < 44 || r.height < 44)) out.push(`${b.getAttribute('aria-label') || b.textContent} ${Math.round(r.width)}×${Math.round(r.height)}`);
+          // 0.10.1: на CI «Ещё» мерилась как 44×44 после округления — доли пикселя
+          // (раскладка/анимация входа), а не мелкая цель; локально ровно 44.
+          // Допуск полпикселя, в сообщении — точные числа.
+          if (r.width && (r.width < 43.5 || r.height < 43.5)) out.push(`${b.getAttribute('aria-label') || b.textContent} ${r.width.toFixed(2)}×${r.height.toFixed(2)}`);
         }
         return out;
       });

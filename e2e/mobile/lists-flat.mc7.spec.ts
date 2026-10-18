@@ -50,9 +50,11 @@ for (const { w, h } of [{ w: 390, h: 844 }, { w: 360, h: 640 }]) {
         document.querySelectorAll<HTMLElement>('*').forEach(el => {
           const cs = getComputedStyle(el);
           const width = parseFloat(cs.borderLeftWidth);
-          // Буквально по тикету: на телефоне левого акцентного края нет вовсе,
-          // поэтому проверяем ширину, а не цвет — прозрачная полоса это тоже
-          // акцент, который кто-то вернул.
+          // U-34 (решение владельца 2026-10-18, Q-5): строка заметки — как на
+          // десктопе, с прозрачной полосой border-l-2, которая окрашивается
+          // цветом метки. У заметки без метки видимого края быть не должно:
+          // ловим только непрозрачный цвет.
+          if (cs.borderLeftColor === 'rgba(0, 0, 0, 0)' || cs.borderLeftColor === 'transparent') return;
           if (width > 1) bad.push(`${el.tagName}.${el.className.toString().slice(0, 60)}=${width}px ${cs.borderLeftColor}`);
         });
         return bad;
