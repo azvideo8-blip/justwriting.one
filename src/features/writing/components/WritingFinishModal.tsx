@@ -336,7 +336,7 @@ function FinishActions({
 }) {
   const ghost = isMobile
     ? 'flex-1 px-3 py-3.5 rounded-2xl border border-border-subtle text-text-main hover:bg-text-main/5 min-h-[44px] text-sm font-bold'
-    : 'flex-1 px-3 py-3.5 rounded-2xl border border-border-subtle text-text-main hover:bg-white/5 text-sm font-bold';
+    : 'flex-1 px-3 py-3.5 rounded-2xl border border-border-subtle text-text-main hover:bg-text-main/5 text-sm font-bold';
   return (
     <div className="flex flex-wrap gap-2">
       <Button variant="ghost" size="md" onClick={onBack} className={ghost}>
@@ -691,7 +691,7 @@ function WritingFinishModalBody({
         "bg-surface-card text-text-main",
         isMobile
           ? "finish-sheet-full flex flex-col overflow-hidden"
-          : "shadow-[0_0_60px_rgba(0,0,0,0.8)] rounded-3xl p-8 max-h-[90vh] overflow-y-auto no-scrollbar border border-border-subtle h-auto"
+          : "shadow-[0_0_60px_rgba(0,0,0,0.8)] rounded-3xl p-8 max-h-[90vh] flex flex-col overflow-hidden no-scrollbar border border-border-subtle h-auto"
       )}
     >
         {/* F5 (emil-review, хвост MQ-15): здесь лежала мёртвая анимация —
@@ -709,18 +709,18 @@ function WritingFinishModalBody({
               {showCelebration && <CelebrationBadge reduced={!!reducedMotion} />}
               <IconButton
                 onClick={onCancel}
-                className="h-11 w-11 rounded-full text-text-main/60"
+                className="h-11 w-11 rounded-xl"
                 label={t('close')}
-                icon={<X size={22} aria-hidden="true" />}
+                icon={<X size={18} aria-hidden="true" />}
               />
             </div>
 
             <div className="custom-scrollbar flex-1 overflow-y-auto px-5">
-              <h3 id="finish-modal-title" className="font-serif text-[32px] font-medium leading-[1.15] text-text-main">
+              <h3 id="finish-modal-title" className="text-[28px] font-bold leading-[1.15] tracking-tight text-text-main">
                 {t('finish_written_bare')}
               </h3>
               {finishSubline && (
-                <p className="mt-1 text-[15px] leading-[1.4] text-text-muted">{finishSubline}</p>
+                <p className="mt-1 text-[15px] leading-[1.4] text-text-main/60">{finishSubline}</p>
               )}
               {/* MF-6: курсивной первой фразы нет — она уже в подсказке поля названия. */}
 
@@ -766,7 +766,7 @@ function WritingFinishModalBody({
                   size="md"
                   onClick={onSkipSave}
                   title={t('finish_save_later_hint')}
-                  className="min-h-11 px-2 text-[14px] text-text-muted"
+                  className="min-h-11 px-2 text-[14px] text-text-main/60"
                 >
                   {t('finish_save_later')}
                 </Button>
@@ -794,13 +794,15 @@ function WritingFinishModalBody({
             </div>
           </div>
         ) : (
-          <div
-            className="space-y-5"
-          >
-          <div className="text-center">
+          <div className="flex min-h-0 flex-1 flex-col">
+          {/* D-12 (ревью): шапка вне прокрутки — вспышка значка (×2.2) выходит
+              за его рамку и обрезалась бы краем прокручиваемой области; в p-8
+              карточки она помещается. */}
+          <div className="mb-5 shrink-0 text-center">
             {showCelebration && <CelebrationBadge reduced={!!reducedMotion} />}
             <h3 id="finish-modal-title" className="text-2xl font-bold text-text-main">{heading}</h3>
           </div>
+          <div className="no-scrollbar min-h-0 flex-1 space-y-5 overflow-y-auto">
 
           {!quietStats && (
           <FinishModalStats
@@ -849,7 +851,11 @@ function WritingFinishModalBody({
             echoText={echoText}
             t={t}
           />
+          </div>
 
+          {/* D-12: строка действий вне прокрутки тела — на низком окне «Сохранить»
+              не уезжает за край, прокручивается только содержимое. */}
+          <div className="shrink-0 pt-5">
           <FinishActions
             isSaving={isSaving}
             canSave={wordCount > 0}
@@ -860,6 +866,7 @@ function WritingFinishModalBody({
             onLater={onSkipSave}
             t={t}
           />
+          </div>
         </div>
         )}
     </ModalShell>

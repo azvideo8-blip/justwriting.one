@@ -40,7 +40,7 @@ export function ArchiveLabelBar({
   newLabelColor, setNewLabelColor, onAddLabel,
   editingLabelId, setEditingLabelId,
   editLabelName, setEditLabelName,
-  editLabelColor: _editLabelColor, setEditLabelColor,
+  editLabelColor, setEditLabelColor,
   onUpdateLabel, onDeleteLabel,
   showControls, t: propT, variant = 'default',
 }: ArchiveLabelBarProps) {
@@ -75,7 +75,7 @@ export function ArchiveLabelBar({
                 <Button
                   key={c}
                   style={{ background: c }}
-                  className={cn("w-6 h-6 md:w-4 md:h-4 rounded-full transition-colors cursor-pointer p-0 min-w-0")}
+                  className={cn("w-6 h-6 md:w-4 md:h-4 rounded-full transition-colors cursor-pointer p-0 min-w-0", editLabelColor === c && "ring-2 ring-offset-1 ring-offset-surface-card ring-text-main/40")}
                   onClick={() => setEditLabelColor(c)}
                   aria-label={`Select color ${c}`}
                 />
@@ -165,7 +165,7 @@ export function ArchiveLabelBar({
               <Button
                 key={c}
                 style={{ background: c }}
-                className={cn("w-4 h-4 rounded-full transition-colors p-0 min-w-0", newLabelColor === c && "ring-2 ring-offset-1 ring-offset-surface-card ring-white/40")}
+                className={cn("w-4 h-4 rounded-full transition-colors p-0 min-w-0", newLabelColor === c && "ring-2 ring-offset-1 ring-offset-surface-card ring-text-main/40")}
                 onClick={() => setNewLabelColor(c)}
                 aria-label={`Select color ${c}`}
               />

@@ -52,7 +52,8 @@ describe('MC-5: читалка на телефоне', () => {
   beforeEach(() => { cleanup(); layoutMode = 'mobile'; });
   afterEach(() => { cleanup(); });
 
-  it('тело использует токены, заголовок — serif 26', () => {
+  // U-1 (2026-10-18): заголовок — Inter 24, как на десктопе (был serif 26).
+  it('тело использует токены, заголовок — Inter 24', () => {
     render(
       <MobileNoteReader session={session} onClose={vi.fn()} onContinue={vi.fn()} />,
     );
@@ -61,7 +62,7 @@ describe('MC-5: читалка на телефоне', () => {
     expect(body.className).toContain('var(--reading-lh)');
     expect(body.className).toContain('var(--ink)');
     expect(body.parentElement!.className, 'боковой отступ не из токена').toContain('var(--reading-gutter)');
-    expect(screen.getByText(TITLE).className).toContain('text-[26px]');
+    expect(screen.getByText(TITLE).className).toContain('text-[24px]');
   });
 });
 

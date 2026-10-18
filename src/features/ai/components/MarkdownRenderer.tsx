@@ -2,6 +2,7 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 
 // SECURITY: rehype-sanitize strips all raw HTML from AI output.
 // NEVER add rehype-raw to this component — it would re-enable XSS
@@ -27,6 +28,9 @@ interface MarkdownRendererProps {
 
 export const MarkdownRenderer = React.memo(
   function MarkdownRenderer({ content, className, onCitationClick }: MarkdownRendererProps) {
+    // U-32: ссылка на заметку — маленькая плашка (~20 px); на телефоне цель
+    // касания расширяется до 44 px без изменения раскладки.
+    const mobile = useLayoutMode().layoutMode === 'mobile';
     return (
       <div className={className}>
         <ReactMarkdown
@@ -69,7 +73,7 @@ export const MarkdownRenderer = React.memo(
                   <button
                     type="button"
                     onClick={() => onCitationClick?.(id)}
-                    className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded bg-brand-soft/20 text-brand-soft hover:bg-brand-soft/30 transition-colors text-xs font-medium cursor-pointer align-baseline select-none"
+                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded bg-brand-soft/20 text-brand-soft hover:bg-brand-soft/30 transition-colors text-xs font-medium cursor-pointer align-baseline select-none${mobile ? ' clickable-target-expansion' : ''}`}
                   >
                     {children}
                   </button>

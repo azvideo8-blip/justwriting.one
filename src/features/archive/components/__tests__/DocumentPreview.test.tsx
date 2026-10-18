@@ -158,6 +158,21 @@ describe('DocumentPreview — AI Analysis button states', () => {
     expect(exportTxtSpy).not.toHaveBeenCalled();
   });
 
+  it('D-9: короткая сессия — в метаданных нет «0 мин»', async () => {
+    renderPreview({ ...mockSession, duration: 20 });
+
+    const line = await screen.findByText(/10 слов/);
+    expect(line.textContent).toContain('10 слов');
+    expect(line.textContent).not.toMatch(/0 мин/);
+  });
+
+  it('D-9: сессия в пять минут — минуты на месте', async () => {
+    renderPreview({ ...mockSession, duration: 300 });
+
+    const line = await screen.findByText(/10 слов/);
+    expect(line.textContent).toContain('5 мин');
+  });
+
   it('renders breadcrumb with context and calls onClose when clicking breadcrumb root (UI-04)', async () => {
     const mockClose = vi.fn();
     renderWithProviders(

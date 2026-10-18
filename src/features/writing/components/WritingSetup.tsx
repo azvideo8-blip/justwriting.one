@@ -321,7 +321,7 @@ export function WritingSetup({
                           variant="ghost"
                           size="sm"
                           onClick={() => continueSession(session)}
-                          className="group flex flex-col gap-2 p-3 md:p-4 border rounded-2xl transition-all duration-300 text-left bg-white/5 border-border-subtle hover:bg-white/10 hover:border-white/20"
+                          className="group flex flex-col gap-2 p-3 md:p-4 border rounded-2xl transition-all duration-300 text-left bg-white/5 border-border-subtle hover:bg-text-main/10 hover:border-text-main/20"
                         >
                           <div className="flex items-center justify-between w-full">
                             <div className="flex items-center gap-3">

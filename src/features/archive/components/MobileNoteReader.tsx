@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { format } from 'date-fns';
-import { Info, MoreHorizontal } from 'lucide-react';
+import { Info, MoreHorizontal, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import { ArchiveSession } from '../types';
 import { Label } from '../../../types';
@@ -13,7 +13,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
-import { ModalShell, SECTION_LABEL } from '../../../shared/components/ModalShell';
+import { ModalShell, SECTION_LABEL, SheetTitle } from '../../../shared/components/ModalShell';
 import { InlineTags } from './InlineTags';
 import { MobileNoteActionsSheet } from '../../../app/components/MobileNoteActionsSheet';
 import { usePanelHistory } from '../../../shared/hooks/usePanelHistory';
@@ -164,7 +164,7 @@ export function MobileNoteReader({
       </header>
 
       <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-[var(--reading-gutter)] pb-8 pt-2">
-        <h1 className="font-serif text-[26px] leading-[1.2] text-text-main">{title}</h1>
+        <h1 className="text-[24px] font-medium leading-[1.2] tracking-tight text-text-main">{title}</h1>
         {/* SA-17: когда это было — читателю дневника нужно сразу, а не после «Инфо». */}
         <time data-testid="reader-date" dateTime={date.toISOString()} className="mt-1.5 block text-[13px] text-text-subtle">
           {format(date, date.getFullYear() === new Date().getFullYear() ? 'd MMMM, HH:mm' : 'd MMMM yyyy, HH:mm', { locale: getDateLocale(language) })}
@@ -193,7 +193,7 @@ export function MobileNoteReader({
         )}
         {readable && (relatedNotes?.length ?? 0) > 0 && onSelectRelated && (
           <section data-testid="reader-related" className="mt-10 border-t border-border-subtle/60 pt-5">
-            <h2 className="text-[13px] font-semibold text-[var(--text-muted)]">{t('archive_related_notes')}</h2>
+            <h2 className={SECTION_LABEL}>{t('archive_related_notes')}</h2>
             <ul className="mt-2">
               {relatedNotes!.map(note => (
                 <li key={note.documentId}>
@@ -217,14 +217,12 @@ export function MobileNoteReader({
           <ModalShell open={infoOpen} onClose={() => setInfoOpen(false)} labelId="note-reader-info-title" variant="sheet">
             <div className="custom-scrollbar max-h-[80dvh] overflow-y-auto px-5 pb-[calc(env(safe-area-inset-bottom,0px)+16px)]">
               <div className="flex items-center justify-between py-3">
-                <h2 id="note-reader-info-title" className="text-[17px] font-semibold text-text-main">
-                  {t('reader_info')}
-                </h2>
+                <SheetTitle id="note-reader-info-title">{t('reader_info')}</SheetTitle>
                 <IconButton
                   onClick={() => setInfoOpen(false)}
                   className="h-11 w-11 rounded-xl"
                   label={t('close')}
-                  icon={<span aria-hidden="true">✕</span>}
+                  icon={<X size={18} aria-hidden="true" />}
                 />
               </div>
 
@@ -345,16 +343,16 @@ export function MobileNoteReader({
                   <div className="mt-2 space-y-3 text-[15px] leading-[1.5] text-text-main/80">
                     {summary.summary && <p className="italic">{summary.summary}</p>}
                     {(summary.themes?.length ?? 0) > 0 && <p className="text-text-main/70">{summary.themes!.join(' · ')}</p>}
-                    {summary.tone && <p><span className="text-text-muted">{t('archive_preview_tone')}</span> {summary.tone}</p>}
+                    {summary.tone && <p><span className="text-text-main/60">{t('archive_preview_tone')}</span> {summary.tone}</p>}
                     {summary.insights.length > 0 && (
                       <div>
-                        <div className="text-text-muted">{t('archive_preview_insights')}</div>
+                        <div className="text-text-main/60">{t('archive_preview_insights')}</div>
                         <ul className="mt-1 ml-4 list-disc space-y-1">{summary.insights.map((x, i) => <li key={i}>{x}</li>)}</ul>
                       </div>
                     )}
                     {summary.extractedFacts.length > 0 && (
                       <div>
-                        <div className="text-text-muted">{t('archive_preview_facts')}</div>
+                        <div className="text-text-main/60">{t('archive_preview_facts')}</div>
                         <ul className="mt-1 ml-4 list-disc space-y-1">{summary.extractedFacts.map((x, i) => <li key={i}>{x}</li>)}</ul>
                       </div>
                     )}

@@ -175,20 +175,16 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
 
   return (
     <div
-      // Полоса метки слева и лёгкая подкраска строки её цветом — вернули по
-      // просьбе владельца: метку видно краем глаза, точка терялась. На телефоне
-      // остаётся только подкраска (MC-7).
-      className={cn("grid items-start gap-3 px-3 py-4 pr-3 rounded-xl hover:bg-text-main/[0.025] transition-colors group border border-transparent hover:border-border-subtle grid-cols-[auto_1fr_auto]", !isMobile && "border-l-2", !isMobile && !label && "border-l-transparent", isMobile && "press min-h-[60px] active:bg-text-main/[0.04]")}
-      style={label ? (isMobile
-        // MC-7: на телефоне метка остаётся только подложкой — цветной левая
-        // полоса и внутренняя подсветка делали из списка полосатую таблицу.
-        // MF-13: 10 % вместо 4 % — подкраску видно; само имя метки — в строке ниже.
-        ? { background: `color-mix(in srgb, ${label.color} 10%, transparent)` }
-        : {
-          borderLeftColor: label.color,
-          background: `color-mix(in srgb, ${label.color} 4%, transparent)`,
-          boxShadow: `inset 3px 0 8px color-mix(in srgb, ${label.color} 15%, transparent)`,
-        }) : undefined}
+      // U-34 (решение владельца 2026-10-18 по Q-5): цвет метки несёт полоса — на
+      // обоих устройствах. 2026-09-30 владелец вернул её на десктопе («точку не
+      // видно краем глаза»), MC-7 оставил на телефоне только подкраску. Имя метки
+      // остаётся: полоса — цвет, слово — смысл.
+      className={cn("grid items-start gap-3 px-3 py-4 pr-3 rounded-xl hover:bg-text-main/[0.025] transition-colors group border border-transparent hover:border-border-subtle grid-cols-[auto_1fr_auto]", "border-l-2", !label && "border-l-transparent", isMobile && "press min-h-[60px] active:bg-text-main/[0.04]")}
+      style={label ? {
+        borderLeftColor: label.color,
+        background: `color-mix(in srgb, ${label.color} 4%, transparent)`,
+        boxShadow: `inset 3px 0 8px color-mix(in srgb, ${label.color} 15%, transparent)`,
+      } : undefined}
       onClick={isMobile ? handleRowTap : undefined}
       onTouchStart={isMobile ? handleTouchStart : undefined}
       onTouchMove={isMobile ? handleTouchMove : undefined}

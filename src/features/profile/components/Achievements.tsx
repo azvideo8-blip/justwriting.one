@@ -272,7 +272,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
       <div className="flex gap-4 mb-6 font-mono text-label-sm text-text-muted uppercase tracking-widest">
         <span>{unlockedCount} / {totalAchievements} {t('profile_ach_opened')}</span>
         {legendaryCount > 0 && (
-          <span className="text-[#f5c518]">
+          <span className="text-accent-warning">
             {legendaryCount} {t('profile_ach_legendary')}
           </span>
         )}
@@ -321,7 +321,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
                     title={t(ach.title)}
                     onClick={() => setActiveAchId(activeAchId === ach.id ? null : ach.id)}
                     className={cn(
-                      "p-4 flex flex-col items-center gap-2 text-center relative overflow-hidden transition-colors cursor-pointer min-h-[110px] justify-center select-none active:bg-white/5",
+                      "p-4 flex flex-col items-center gap-2 text-center relative overflow-hidden transition-colors cursor-pointer min-h-[110px] justify-center select-none active:bg-text-main/5",
                       unlocked ? "bg-surface-elevated/40" : "bg-transparent"
                     )}
                   >

@@ -13,9 +13,6 @@ import { isMainRun, toPosixPath } from './gate-paths.mjs';
 
 // Имя → почему его пока не трогаем. Каждое исключение — с причиной.
 const ALLOW = new Map([
-  // Десктопные разделители дней в ArchiveNoteList.tsx: сегодня невидимы, а
-  // починка покажет их на десктопе, который этот пакет не меняет. Решает владелец.
-  ['--border-subtle', 'desktop day dividers, owner decides'],
 ]);
 
 export function stripCssComments(css) {

@@ -1,8 +1,8 @@
+import './zodJitless';
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import {BrowserRouter} from 'react-router-dom';
 import { MotionConfig } from 'motion/react';
-import { z } from 'zod';
 import { reportError } from './shared/errors/reportError';
 import { chunkIsGone } from './shared/errors/chunkReload';
 import { finishPendingPurges } from './features/auth/services/bootPurge';
@@ -11,11 +11,6 @@ import App from './App.tsx';
 import './index.css';
 
 void finishPendingPurges();
-
-// Disable zod's JIT path: it probes `new Function("")`, which our CSP
-// (script-src without unsafe-eval) blocks and reports as a violation.
-// jitless keeps the interpreted parser and avoids the eval entirely.
-z.config({ jitless: true });
 
 document.documentElement.dataset.appVersion = APP_VERSION;
 (window as unknown as { __APP_VERSION__: string }).__APP_VERSION__ = APP_VERSION;

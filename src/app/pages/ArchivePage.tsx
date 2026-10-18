@@ -404,6 +404,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                   onOpenPreview={s => void openPreview(s)}
                   dateLocale={dateLocale}
                   t={t}
+                  tp={tp}
                   isMobile={isMobile}
                 />
               </div>

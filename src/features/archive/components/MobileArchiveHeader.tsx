@@ -1,5 +1,7 @@
 import { MoreHorizontal } from 'lucide-react';
 import type { RefObject } from 'react';
+import { IconButton } from '../../../shared/components/IconButton';
+import { Input } from '../../../shared/components/Input';
 import { useLanguage } from '../../../shared/i18n';
 
 interface MobileArchiveHeaderProps {
@@ -33,25 +35,23 @@ export function MobileArchiveHeader({
   return (
     <div className="shrink-0">
       <div className="flex items-center gap-3">
-        <h1 className="flex-1 min-w-0 font-serif text-[22px] font-bold text-text-main truncate">{title}</h1>
-        <span className="font-mono text-[13px] text-text-main/55 shrink-0">{count} {countLabel}</span>
-        <button
-          type="button"
+        <h1 className="flex-1 min-w-0 text-[24px] font-medium tracking-tight text-text-main truncate">{title}</h1>
+        <span className="text-[13px] font-medium text-text-main/60 tabular-nums shrink-0">{count} {countLabel}</span>
+        <IconButton
           onClick={onOpenMenu}
-          aria-label={t('archive_more')}
-          className="press w-11 h-11 shrink-0 flex items-center justify-center rounded-xl border border-border-subtle text-text-main/70"
-        >
-          <MoreHorizontal size={20} />
-        </button>
+          label={t('archive_more')}
+          className="w-11 h-11 shrink-0"
+          icon={<MoreHorizontal size={16} />}
+        />
       </div>
-      <input
+      <Input
         ref={searchInputRef}
         type="search"
         value={searchQuery}
         onChange={e => onSearchChange(e.target.value)}
         placeholder={t('archive_search_placeholder')}
         aria-label={t('archive_search_placeholder')}
-        className="mt-2 w-full h-11 rounded-xl border border-border-subtle bg-surface-card px-3 text-sm text-text-main placeholder:text-text-main/40"
+        className="mt-2 h-11 bg-surface-card text-[16px]"
       />
       {chips.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2">
@@ -63,7 +63,7 @@ export function MobileArchiveHeader({
                 type="button"
                 onClick={() => onToggleTag(tag)}
                 aria-pressed={active}
-                className={`min-h-11 px-3 rounded-full border text-[13px] font-mono ${active ? 'border-brand-primary/60 bg-brand-primary/15 text-text-main' : 'border-border-subtle text-text-main/70'}`}
+                className={`min-h-11 px-3 rounded-full border text-[13px] font-mono ${active ? 'border-brand-soft/40 bg-brand-soft/15 text-brand-soft' : 'border-border-subtle text-text-main/70'}`}
               >
                 #{tag}
               </button>

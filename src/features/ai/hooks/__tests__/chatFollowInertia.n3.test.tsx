@@ -27,7 +27,7 @@ function setScrollTop(v: number) {
 
 beforeEach(() => {
   scrollIntoView = vi.fn();
-  Element.prototype.scrollIntoView = scrollIntoView as unknown as typeof Element.prototype.scrollIntoView;
+  Element.prototype.scrollTo = scrollIntoView as unknown as typeof Element.prototype.scrollTo;
   scroller = document.createElement('div');
   scroller.setAttribute('data-chat-scroll', '');
   endEl = document.createElement('div');

@@ -58,9 +58,9 @@ function MobileStatusCard({ uid }: { uid: string | null }) {
 
   const syncText = syncStatusText(syncStatus, t, tp);
 
-  const rows: { label: string; value: string; dot?: boolean; onTap: () => void; href?: never }[] = [
+  const rows: { label: string; value: string; dot?: boolean; danger?: boolean; onTap: () => void; href?: never }[] = [
     { label: t('sync_indicator_label'), value: syncText, dot: syncStatus.status !== 'synced' && syncStatus.status !== 'sync_off', onTap: () => void navigate('/settings#sync') },
-    { label: t('activity_log_aria'), value: activityText, dot: errorCount + warnCount > 0, onTap: () => setPanelOpen(true) },
+    { label: t('activity_log_aria'), value: activityText, dot: errorCount + warnCount > 0, danger: errorCount > 0, onTap: () => setPanelOpen(true) },
     { label: t('me_status_vault'), value: t(unlocked ? (vaultStale ? 'me_status_vault_stale' : 'me_status_vault_open') : 'me_status_vault_locked'), dot: !unlocked || vaultStale, onTap: () => void navigate('/settings#security') },
   ];
   if (isAdmin) rows.push({ label: t('admin_tab_diagnostics'), value: '', dot: false, onTap: () => void navigate('/diagnostics') });
@@ -80,12 +80,13 @@ function MobileStatusCard({ uid }: { uid: string | null }) {
           <span className="flex-1 min-w-0 text-sm text-text-main truncate">{r.label}</span>
           <span
             data-testid={r.dot ? 'status-row-warn' : undefined}
-            className={r.dot ? 'max-w-[55%] text-right text-[13px] leading-snug text-text-main/85' : 'text-[11px] text-text-muted truncate max-w-[45%]'}
+            className={r.dot ? 'max-w-[55%] text-right text-[13px] leading-snug text-text-main/85' : 'text-[11px] text-text-main/60 truncate max-w-[45%]'}
           >
             {r.value}
           </span>
-          {r.dot && <span aria-hidden="true" className="w-2 h-2 rounded-full bg-accent-warning shrink-0" />}
-          <ChevronRight size={16} className="shrink-0 text-text-muted" aria-hidden="true" />
+          {/* U-8: цвет по уровню, как бейдж в Sidebar: ошибка — danger. */}
+          {r.dot && <span aria-hidden="true" className={`w-2 h-2 rounded-full shrink-0 ${r.danger ? 'bg-accent-danger' : 'bg-accent-warning'}`} />}
+          <ChevronRight size={16} className="shrink-0 text-text-main/60" aria-hidden="true" />
         </button>
       ))}
     </div>
@@ -97,7 +98,7 @@ function MobileStatusCard({ uid }: { uid: string | null }) {
 function MeGroup({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="space-y-1">
-      <h2 className="text-[13px] font-semibold text-[var(--text-muted)]">{title}</h2>
+      <h2 className="text-[13px] font-semibold text-text-main/60">{title}</h2>
       {children}
     </section>
   );
@@ -124,7 +125,7 @@ export function MobileMeScreen({ user, profile }: MobileMeScreenProps) {
       {/* not-a-modal: fullscreen mobile screen */}
       <div className="fixed inset-0 bg-surface-base z-30 flex flex-col pt-0">
       {/* MF-9: шестерни нет — настройки открывает строка «Настройки» ниже. */}
-      <MobilePageHeader title={t('nav_profile_short')} titleFont="sans" />
+      <MobilePageHeader title={t('nav_profile_short')} />
 
       {/* Section Content */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 pb-20">
@@ -152,7 +153,7 @@ export function MobileMeScreen({ user, profile }: MobileMeScreenProps) {
                   {practiceDays > 0 && createdDate ? (
                     <>
                       <span className="shrink-0 text-text-main/70">{t('profile_member_since')}</span>
-                      <span className="min-w-0 truncate text-right text-[var(--text-muted)]">
+                      <span className="min-w-0 truncate text-right text-text-main/60">
                         {format(createdDate, 'd MMMM', { locale: getDateLocale(language) })} · {practiceDays} {tp('home_streak_days', practiceDays)}
                       </span>
                     </>
@@ -163,7 +164,7 @@ export function MobileMeScreen({ user, profile }: MobileMeScreenProps) {
                 {streakDays > 0 && (
                   <div className="flex items-center justify-between gap-3 px-1 py-2.5 text-sm border-t border-border-subtle">
                     <span className="shrink-0 text-text-main/70">{t('me_streak_row')}</span>
-                    <span className="min-w-0 truncate text-right text-[var(--text-muted)]">
+                    <span className="min-w-0 truncate text-right text-text-main/60">
                       {streakDays} {tp('home_streak_days', streakDays)}
                     </span>
                   </div>

@@ -62,7 +62,7 @@ export function Calendar({ sessions, sessionsByDate, wordsByDate, selectedDate, 
 
       <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
         {['calendar_mon', 'calendar_tue', 'calendar_wed', 'calendar_thu', 'calendar_fri', 'calendar_sat', 'calendar_sun'].map((key, i) => (
-          <div key={`${key}-${i}`} className={cn("text-center", flat ? "text-[12px] text-text-muted" : "text-label text-text-main/60 uppercase tracking-wider")}>{t(key)}</div>
+          <div key={`${key}-${i}`} className={cn("text-center", flat ? "text-[12px] text-text-main/60" : "text-label text-text-main/60 uppercase tracking-wider")}>{t(key)}</div>
         ))}
         {Array.from({ length: offset }).map((_, i) => (
           <div key={`empty-${i}`} />

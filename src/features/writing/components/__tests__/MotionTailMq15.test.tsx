@@ -113,10 +113,19 @@ describe('MQ-15: по исходникам', () => {
     // `className="` в файле нет — смотрим на сами классы: три кнопки панели
     // письма обязаны нести `press`.
     const tb = src('src/features/writing/components/MobileWriteToolbar.tsx');
-    expect((tb.match(/press w-11 h-11 shrink-0/g) ?? []).length).toBeGreaterThanOrEqual(3);
+    // С 2026-10-18 (U-6) главное действие панели — общий Button variant="primary":
+    // `press` в его базовых классах, литерала в файле больше нет. Считаем и
+    // такие кнопки, иначе проверка измеряла бы форму записи, а не отклик.
+    const pressy = (tb.match(/press w-11 h-11 shrink-0/g) ?? []).length
+      + (tb.match(/<Button\b/g) ?? []).length;
+    expect(pressy).toBeGreaterThanOrEqual(3);
     expect(src('src/features/writing/components/MobileVoiceNoticeSheet.tsx').match(/className="press /g)).toHaveLength(2);
-    expect(src('src/features/archive/components/MobileArchiveMenuSheet.tsx')).toContain('active:bg-text-main/[0.06]');
-    expect(src('src/features/archive/components/MobileInlinePanel.tsx')).toContain('press flex h-11 w-11');
+    // С 2026-10-18 (U-22) строка листа — общий `SHEET_ROW`; `active:bg-…` и
+    // переход цвета лежат в нём, в файле листа «Ещё» литерала больше нет.
+    expect(src('src/features/archive/components/MobileArchiveMenuSheet.tsx')).toContain('SHEET_ROW');
+    // С 2026-10-18 (U-12) «×» панели — общий `IconButton`, а не самописная кнопка:
+    // `press` лежит в его базовых классах, литерала в файле больше нет.
+    expect(src('src/features/archive/components/MobileInlinePanel.tsx')).toContain('<IconButton');
   });
   it('N-7: панель архива проступает', () => {
     expect(src('src/features/archive/components/MobileInlinePanel.tsx')).toContain('initial={{ opacity: 0 }}');

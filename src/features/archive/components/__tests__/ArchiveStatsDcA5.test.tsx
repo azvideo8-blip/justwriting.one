@@ -95,4 +95,16 @@ describe('DC-A5 плитки статистики: стрик и множест�
     const withStreak = renderStats([session(3, 60)], 4).container;
     expect(withStreak.querySelectorAll('.grid.grid-cols-2 > div')).toHaveLength(4);
   });
+
+  it('D-9: пустой архив — ни одной нулевой плитки', () => {
+    const { container } = renderStats([], 0);
+    expect(container.querySelectorAll('.grid.grid-cols-2 > div')).toHaveLength(0);
+    expect(screen.queryByText('0')).not.toBeInTheDocument();
+  });
+
+  it('D-9: нулевые минуты при заметках — плитки минут нет', () => {
+    renderStats([session(120, 0), session(80, 0)], 3);
+    expect(screen.getByText('слов')).toBeInTheDocument();
+    expect(screen.queryByText('минут')).not.toBeInTheDocument();
+  });
 });

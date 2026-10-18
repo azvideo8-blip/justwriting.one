@@ -115,8 +115,8 @@ export function FinishModalTags({
                   onClick={() => setLabelId(labelId === label.id ? undefined : label.id)}
                   aria-pressed={labelId === label.id}
                   className={cn(
-                    'min-h-11 gap-2 rounded-full border px-3 text-[14px] font-medium',
-                    labelId === label.id ? 'border-text-main/40 text-text-main' : 'border-border-subtle text-text-main/60',
+                    'min-h-11 gap-2 rounded-full border border-border-subtle px-3 text-[14px] font-medium text-text-main/60',
+                    labelId === label.id && 'ring-2 ring-brand-soft text-text-main',
                   )}
                   style={{ backgroundColor: labelId === label.id ? `${label.color}22` : undefined }}
                 >
@@ -141,7 +141,7 @@ export function FinishModalTags({
                 size="sm"
                 onClick={() => toggleTag(tag)}
                 aria-label={`${t('archive_tag_remove')} #${tag}`}
-                className="min-h-11 gap-1.5 rounded-full border border-text-main/40 bg-text-main/10 px-3 text-[14px] font-medium text-text-main"
+                className="min-h-11 gap-1.5 rounded-full border border-text-main bg-text-main px-3 text-[14px] font-medium text-surface-base"
               >
                 #{tag}
                 <X size={14} aria-hidden="true" />
@@ -211,7 +211,7 @@ export function FinishModalTags({
                         className={cn(
                           "px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 min-h-[40px]",
                           labelId === label.id
-                            ? "border-2 border-white scale-105 opacity-100 shadow-lg"
+                            ? "border-2 border-text-main scale-105 opacity-100 shadow-lg"
                             : labelId !== undefined
                               ? "opacity-55 hover:opacity-85 border border-transparent"
                               : "hover:opacity-100 border border-transparent"
@@ -328,7 +328,7 @@ export function FinishModalTags({
                 className={cn(
                   "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2",
                   labelId === label.id
-                    ? "border-2 border-white scale-105 opacity-100 shadow-lg"
+                    ? "border-2 border-text-main scale-105 opacity-100 shadow-lg"
                     : labelId !== undefined
                       ? "opacity-55 hover:opacity-85 border border-transparent"
                       : "hover:opacity-100 border border-transparent"

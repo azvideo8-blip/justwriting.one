@@ -66,6 +66,8 @@ export interface AIChatMessagesProps {
   previewSession: ArchiveSession | null;
   onClosePreview: () => void;
   setCitationPreviewSession: (session: ArchiveSession) => void;
+  /** Ссылка из ответа указывает на заметку, которой нет на этом устройстве. */
+  onCitationMissing?: () => void;
 }
 
 const ATTACHED_NOTE_MARKER_RE = /\[Прикреплена заметка: "([^"]+)"\]/g;
@@ -244,10 +246,11 @@ export function AIChatMessages(props: AIChatMessagesProps) {
     previewSession,
     onClosePreview,
     setCitationPreviewSession,
+    onCitationMissing,
   } = props;
   const { t } = useLanguage();
 
-  const { processCitations, handleCitationClick } = useCitationMeta(displayMessages, streamingMessage, setCitationPreviewSession);
+  const { processCitations, handleCitationClick } = useCitationMeta(displayMessages, streamingMessage, setCitationPreviewSession, onCitationMissing);
 
   const lastAssistantIdx = (() => {
     for (let i = displayMessages.length - 1; i >= 0; i--) {
@@ -413,7 +416,7 @@ export function AIChatMessages(props: AIChatMessagesProps) {
                         {question}
                       </div>
                     )}
-                    <button type="button" onClick={() => onDeleteMessage(i)} className="text-text-main/30 hover:text-accent-danger transition-colors mr-1" aria-label={t('ai_delete_message')}><Trash2 size={11} /></button>
+                    <button type="button" onClick={() => onDeleteMessage(i)} className={cn("text-text-main/30 hover:text-accent-danger transition-colors mr-1", isMobile && "clickable-target-expansion")} aria-label={t('ai_delete_message')}><Trash2 size={11} /></button>
                   </div>
                 </div>
               );
@@ -426,7 +429,7 @@ export function AIChatMessages(props: AIChatMessagesProps) {
                     {isAttachedSummary
                       ? <AttachedSummaryCard content={msg.content} />
                       : <AttachedFileCard content={msg.content} />}
-                    <button type="button" onClick={() => onDeleteMessage(i)} className="text-text-main/30 hover:text-accent-danger transition-colors mr-1" aria-label={t('ai_delete_message')}><Trash2 size={11} /></button>
+                    <button type="button" onClick={() => onDeleteMessage(i)} className={cn("text-text-main/30 hover:text-accent-danger transition-colors mr-1", isMobile && "clickable-target-expansion")} aria-label={t('ai_delete_message')}><Trash2 size={11} /></button>
                   </div>
                 </div>
               );
@@ -438,7 +441,7 @@ export function AIChatMessages(props: AIChatMessagesProps) {
                   {msg.content}
                 </div>
                 <div className="flex items-center gap-2 mr-1">
-                  <button type="button" onClick={() => onDeleteMessage(i)} className="text-text-main/30 hover:text-accent-danger transition-colors" aria-label={t('ai_delete_message')}><Trash2 size={11} /></button>
+                  <button type="button" onClick={() => onDeleteMessage(i)} className={cn("text-text-main/30 hover:text-accent-danger transition-colors", isMobile && "clickable-target-expansion")} aria-label={t('ai_delete_message')}><Trash2 size={11} /></button>
                   <span className={cn("text-text-main/60", isMobile ? "text-[12px]" : "text-[9px] font-mono uppercase tracking-[0.14em]")}>{t('ai_you')}</span>
                 </div>
               </div>
@@ -500,7 +503,7 @@ export function AIChatMessages(props: AIChatMessagesProps) {
                   type="button"
                   onClick={() => onSuggestion(s)}
                   disabled={dailyLimitRemaining === 0}
-                  className="px-3 py-1.5 rounded-full bg-surface-card border border-border-subtle text-xs text-text-main/70 hover:border-brand-soft/40 hover:text-text-main transition-colors disabled:opacity-40"
+                  className={cn("px-3 py-1.5 rounded-full bg-surface-card border border-border-subtle text-xs text-text-main/70 hover:border-brand-soft/40 hover:text-text-main transition-colors disabled:opacity-40", isMobile && "min-h-11")}
                 >
                   {s}
                 </button>

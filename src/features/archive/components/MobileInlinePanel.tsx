@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { X } from 'lucide-react';
+import { IconButton } from '../../../shared/components/IconButton';
 import { motion } from 'motion/react';
 import { useLanguage } from '../../../shared/i18n';
 import { SECTION_LABEL } from '../../../shared/components/ModalShell';
@@ -21,14 +22,12 @@ export function MobileInlinePanel({ onClose, children, testId, title }: { onClos
     >
       <div className="flex items-center justify-between pl-4">
         <span className={SECTION_LABEL}>{title}</span>
-        <button
-          type="button"
+        <IconButton
           onClick={onClose}
-          aria-label={t('close')}
-          className="press flex h-11 w-11 items-center justify-center text-text-main/60"
-        >
-          <X size={18} aria-hidden="true" />
-        </button>
+          label={t('close')}
+          className="h-11 w-11 rounded-xl"
+          icon={<X size={18} aria-hidden="true" />}
+        />
       </div>
       <div className="px-4 pb-3">{children}</div>
     </motion.div>

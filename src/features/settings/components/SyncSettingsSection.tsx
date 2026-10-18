@@ -273,7 +273,9 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
                 aria-checked={autoSync}
                 aria-label={t('settings_auto_sync')}
                 className={cn(
+                  // U-32: дорожка 40×20 — на телефоне цель касания 44 px.
                   "relative w-10 h-5 rounded-full transition-colors shrink-0",
+                  flatInner && "clickable-target-expansion",
                   autoSync ? "bg-brand-soft" : "bg-text-main/20"
                 )}
               >

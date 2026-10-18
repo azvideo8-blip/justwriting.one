@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'motion/react';
 import { DocumentPickerModal } from '../../features/ai/components/DocumentPickerModal';
@@ -9,6 +9,7 @@ import { IndexingConsentModal } from '../../features/ai/components/IndexingConse
 import { DocumentPreview } from '../../features/archive/components/DocumentPreview';
 import type { ArchiveSession } from '../../shared/types/common';
 import { useToast } from '../../shared/components/Toast';
+import { useLanguage } from '../../shared/i18n';
 import { useProfile } from '../../features/auth/contexts/ProfileContext';
 import { useLayoutMode } from '../../shared/hooks/useLayoutMode';
 import { cn } from '../../core/utils/utils';
@@ -78,7 +79,11 @@ export function AIPage() {
   const { profile } = useProfile();
   const userId = profile?.uid ?? 'guest';
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const { handleCreateNote } = createNoteActions({ userId, showToast });
+  // Ревью 0.10.1: стабильная ссылка — новая стрелка на каждый кусок потока
+  // ломала memo у MarkdownRenderer, и все прошлые ответы разбирались заново.
+  const onCitationMissing = useCallback(() => showToast(t('ai_cite_not_on_device'), 'info'), [showToast, t]);
 
   const [memoryOpen, setMemoryOpen] = useState(false);
   // MR-1: на телефоне список диалогов живёт в листе, который открывает ☰ в шапке.
@@ -177,6 +182,7 @@ export function AIPage() {
           previewSession={previewSession}
           onClosePreview={() => setPreviewSession(null)}
           setCitationPreviewSession={setPreviewSession}
+          onCitationMissing={onCitationMissing}
         />
 
         <AIChatComposer

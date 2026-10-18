@@ -77,7 +77,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact, saveStatus = 'id
 
   const wordPct = wordGoal > 0
     ? Math.min(100, Math.round(sessionWords / wordGoal * 100))
-    : Math.min(100, Math.round(sessionWords / 500 * 100));
+    : 0;
   const timePct = countsDown ? Math.min(100, Math.round(sessionSeconds / timerDuration * 100)) : 0;
   const wordDone = wordGoal > 0 && sessionWords >= wordGoal;
   const timeDone = countsDown && sessionSeconds >= timerDuration;
@@ -181,7 +181,9 @@ export function BottomStats({ onPlay, onPause, onStop, compact, saveStatus = 'id
               </svg>
             )}
           </div>
-          {!compact && countsDown && (
+          {/* D-14: полоса слов меряется целью в словах, поэтому и условие её —
+              `wordGoal`, а не `countsDown` (условие обратного отсчёта времени). */}
+          {!compact && wordGoal > 0 && (
             <div className="w-20 h-[3px] rounded-full bg-border-subtle mt-1.5">
               <motion.div
                 initial={{ width: 0 }}

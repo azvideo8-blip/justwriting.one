@@ -24,6 +24,10 @@ describe('useKeyboardState: поворот не равен клавиатуре'
 
   it('клавиатура (та же ширина, высота меньше) по-прежнему up = true', () => {
     setViewport(390, 844);
+    // Клавиатура бывает только при фокусе в поле (0.10.1).
+    const ta = document.createElement('textarea');
+    document.body.appendChild(ta);
+    ta.focus();
     const { result } = renderHook(() => useKeyboardState());
     setViewport(390, 500);
     expect(result.current.up).toBe(true);

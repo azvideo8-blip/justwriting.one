@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import { ArchiveSession } from '../types';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
-import { ModalShell } from '../../../shared/components/ModalShell';
+import { ModalShell, SheetTitle } from '../../../shared/components/ModalShell';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { cn } from '../../../core/utils/utils';
 
@@ -39,6 +39,8 @@ interface ArchiveTrashViewProps {
   onOpenPreview?: (session: ArchiveSession) => void;
   dateLocale?: Locale;
   t: (key: string, args?: Record<string, string | number>) => string;
+  /** D-8: счётчик в корзине склоняется — `archive_count_one/_few/_many` уже в словарях. */
+  tp: (key: string, count: number) => string;
   /** MR-10: на телефоне строки компактные, а действия — под «⋯». */
   isMobile?: boolean;
 }
@@ -107,7 +109,9 @@ function MobileTrashRow({
       {open && (
         <ModalShell open={open} onClose={() => setOpen(false)} labelId={titleId} variant="sheet">
           <div className="flex flex-col min-h-0 flex-1">
-            <h2 id={titleId} className="px-4 pt-4 pb-2 text-base font-bold text-text-main">{rowTitle(session, t)}</h2>
+            <div className="px-4 pt-4 pb-2">
+              <SheetTitle id={titleId}>{rowTitle(session, t)}</SheetTitle>
+            </div>
             <button
               type="button"
               className="w-full h-12 flex items-center gap-3 px-4 text-left text-sm text-text-main border-b border-border-subtle"
@@ -139,6 +143,7 @@ export const ArchiveTrashView = memo(function ArchiveTrashView({
   onOpenPreview,
   dateLocale,
   t,
+  tp,
   isMobile = false,
 }: ArchiveTrashViewProps) {
   if (trashedSessions.length === 0) {
@@ -157,7 +162,7 @@ export const ArchiveTrashView = memo(function ArchiveTrashView({
     return (
       <div className="flex flex-col py-2">
         <div className="flex items-center px-3 pb-2 text-sm text-text-main/60">
-          {trashedSessions.length} {t('archive_count')}
+          {trashedSessions.length} {tp('archive_count', trashedSessions.length)}
         </div>
         <div className="flex flex-col overflow-y-auto">
           {trashedSessions.map(session => (
@@ -180,7 +185,7 @@ export const ArchiveTrashView = memo(function ArchiveTrashView({
     <div className="flex flex-col gap-4 py-2">
       <div className="flex items-center justify-between pb-2 border-b border-[var(--color-border-subtle)]">
         <span className="text-sm text-text-main/60">
-          {trashedSessions.length} {t('archive_count')}
+          {trashedSessions.length} {tp('archive_count', trashedSessions.length)}
         </span>
         <Button
           onClick={onEmptyTrash}

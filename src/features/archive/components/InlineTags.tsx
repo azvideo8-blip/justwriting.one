@@ -177,7 +177,7 @@ export function InlineTags({
         <Button
           onClick={e => { e.stopPropagation(); openInput(); }}
           aria-label={t('archive_add_tag_aria')}
-          className={sheet ? 'min-h-11 rounded-full px-3 text-[13px] font-medium text-text-muted' : cn(
+          className={sheet ? 'min-h-11 rounded-full px-3 text-[13px] font-medium text-text-main/60' : cn(
             // G-6 (R3-035): сама кнопка 20×20, цель нажатия — 44px. Там, где
             // hover нет (тач), «+» виден сразу: иначе он невидим, но объявляется.
             // p-0: без него отступы Button растягивали кнопку до 32×20.

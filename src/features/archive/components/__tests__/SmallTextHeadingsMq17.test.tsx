@@ -16,7 +16,9 @@ describe('MQ-17', () => {
     const { unmount } = render(<ToggleRow label="Дзен" hint="Скрывает интерфейс" value={false} onChange={vi.fn()} />);
     const mobile = screen.getByText('Скрывает интерфейс');
     expect(mobile.className).toContain('text-[13px]');
-    expect(mobile.className).toContain('text-text-muted');
+    // U-3 (решение владельца 2026-10-18): цвет второстепенного текста на телефоне
+    // приведён к десктопу — text-text-main/60 вместо фиолетового --text-muted.
+    expect(mobile.className).toContain('text-text-main/60');
     expect(mobile.className).not.toContain('text-label');
     unmount();
     layoutMode = 'desktop';
@@ -45,6 +47,6 @@ describe('MQ-17', () => {
 
   it('подписи листа персон и /me — не 11 px при 55 %', () => {
     expect(readFileSync('src/features/ai/components/chat/MobilePersonaSheet.tsx', 'utf8')).not.toContain('text-[11px] text-text-main/55');
-    expect(readFileSync('src/shared/components/MeScreenHelpers.tsx', 'utf8')).toContain('text-[13px] text-text-muted');
+    expect(readFileSync('src/shared/components/MeScreenHelpers.tsx', 'utf8')).toContain('text-[13px] text-text-main/60');
   });
 });

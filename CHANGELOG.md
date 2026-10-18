@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.10.1 — 2026-10-18
+
+- **[RU]** Листы на телефоне закрываются свайпом вниз.
+- **[EN]** Sheets on a phone close with a swipe down.
+- **[RU]** Телефон выглядит как десктоп: те же шрифты без засечек, подписи разделов, заголовок дня в заметках с числом заметок и слов, метка заметки — полосой слева.
+- **[EN]** The phone now looks like the desktop: the same sans-serif fonts, section labels, day headers in notes with note and word counts, and a label stripe on the left of a note.
+- **[RU]** Письмо на телефоне: спокойная шапка, сохранение — значком, время без плашки; строка диктовки — текст, время, «Стоп» и «×».
+- **[EN]** Writing on a phone: a calmer header, saving shown as an icon, the time without a pill; the dictation row shows the text, time, «Stop» and «×».
+- **[RU]** Точка на «Профиле» красная при ошибке и жёлтая при предупреждении.
+- **[EN]** The dot on «Profile» is red for an error and yellow for a warning.
+- **[RU]** ИИ на телефоне: шапка (☰, собеседник, «+») больше не уезжает при прокрутке и не прячется за краем окна; «⋯» — в строке шапки, объём ответа и рассуждения можно выбрать до первого сообщения.
+- **[EN]** AI on a phone: the header (☰, companion, «+») no longer scrolls away or hides past the window edge; «⋯» sits in the header row, and answer length and reasoning can be chosen before the first message.
+- **[RU]** Ссылки «📅» в ответах ИИ снова открывают заметку; если её нет на этом устройстве — приложение так и скажет.
+- **[EN]** «📅» links in AI answers open the note again; if the note is not on this device, the app says so.
+- **[RU]** Телефон больше не принимает прокрутку за открытую клавиатуру: панели не подпрыгивают и не оставляют пустую полосу.
+- **[EN]** The phone no longer mistakes scrolling for an open keyboard: panels don’t jump or leave an empty strip.
+- **[RU]** Десктоп: переименование из карточки сетки подписано «Сохранить», а не «Удалить»; разделители дней в заметках видны; в корзине «1 запись» вместо «1 записей»; выбранный цвет метки отмечен; в боковой панели — «ИИ».
+- **[EN]** Desktop: renaming from a grid card says «Save», not «Delete»; day separators in notes are visible; the trash count uses the right plural form; the selected label colour is marked; the sidebar says «AI» in every language.
+- **[RU]** Десктоп: включённые переключатели видны в тёмных темах, а кнопки «Записано.» не уходят за край на невысоком экране.
+- **[EN]** Desktop: switched-on toggles are visible in dark themes, and the «Saved.» buttons stay on screen on short windows.
+- **[RU]** Светлая тема: второстепенный текст контрастнее и проходит норму AA.
+- **[EN]** Light theme: secondary text has more contrast and meets AA.
+- **[RU]** Журнал ошибок больше не засоряется сбоями сети и базы, которые случаются при закрытии страницы.
+- **[EN]** The error log no longer fills up with network and database errors that happen while the page is closing.
+
 ## 0.10.0 — 2026-10-17
 
 - **[RU]** Мобильная версия открыта всем: на телефоне justwriting — отдельное приложение с четырьмя вкладками: «Писать», «Заметки», «ИИ», «Профиль».

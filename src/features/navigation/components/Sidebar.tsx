@@ -184,7 +184,7 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
   const navItems = [
     { id: 'write',   path: '/',       icon: <PenLine size={20} />,   label: t('nav_write') },
     { id: 'archive', path: '/archive', icon: <History size={20} />,   label: t('nav_notes') },
-    { id: 'ai',      path: '/ai',     icon: <Sparkles size={20} />,  label: 'AI' },
+    { id: 'ai',      path: '/ai',     icon: <Sparkles size={20} />,  label: t('nav_ai_short') },
     { id: 'profile', path: '/profile', icon: <UserIcon size={20} />,  label: t('nav_profile') },
     ...(isAdmin ? [{ id: 'diagnostics', path: '/diagnostics', icon: <Bug size={20} className="text-accent-danger" />, label: t('nav_diagnostics') }] : []),
   ];

@@ -52,6 +52,18 @@ describe('MR-4: BottomNav', () => {
     expect(container.querySelector('[data-testid="tab-dot"]')).toBeTruthy();
   });
 
+  // U-8: цвет по уровню, как бейдж Sidebar — ошибка красная, остальное жёлтое.
+  it('точка красная при ошибке и жёлтая при ожидании синхронизации', () => {
+    activity.entries = [{ level: 'error', time: Date.now() }];
+    const r1 = renderNav();
+    expect(r1.container.querySelector('[data-testid="tab-dot"]')?.className).toContain('bg-accent-danger');
+    r1.unmount();
+    activity.entries = [];
+    sync.status = 'pending'; sync.pendingCount = 2;
+    const r2 = renderNav();
+    expect(r2.container.querySelector('[data-testid="tab-dot"]')?.className).toContain('bg-accent-warning');
+  });
+
   it('при «синхронизировано» и без ошибок точки нет', () => {
     const { container } = renderNav();
     expect(container.querySelector('[data-testid="tab-dot"]')).toBeNull();

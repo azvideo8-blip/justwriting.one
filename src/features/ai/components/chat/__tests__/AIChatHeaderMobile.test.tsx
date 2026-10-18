@@ -1,7 +1,7 @@
 // MR-1: мобильная шапка чата — «Диалоги» (☰) и «Новый диалог» (+) по 44 px,
 // все действия диалога свёрнуты в «⋯». Десктопная ветка не меняется.
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { AIChatHeader, type AIChatHeaderProps } from '../AIChatHeader';
 
 vi.mock('../../../../../shared/i18n', () => ({
@@ -68,5 +68,28 @@ describe('MR-1: мобильная AIChatHeader', () => {
     expect(screen.queryByRole('button', { name: /ai_dialogues_open/ })).toBeNull();
     expect(screen.getByRole('button', { name: /ai_memory_title/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /ai_download_md/ })).toBeTruthy();
+  });
+
+  // Скрин владельца 0.10.1: «⋯» жил отдельной строкой под шапкой и съедал место
+  // на телефоне. Теперь он в одной строке с ☰ и «+». Мутация: вернуть «⋯» в
+  // отдельную строку → красный.
+  it('«⋯» в одной строке с «+», отдельной строки под шапкой нет', () => {
+    render(<AIChatHeader {...base(true)} />);
+    const more = screen.getByRole('button', { name: /ai_more/ });
+    const fresh = screen.getByRole('button', { name: /ai_new_dialogue/ });
+    expect(more.parentElement, '«⋯» не в строке шапки').toBe(fresh.parentElement);
+  });
+
+  // Объём ответа и рассуждения выбираются и до первого сообщения: «⋯» есть
+  // без открытого диалога, а действия диалога в листе — только с ним.
+  it('без открытого диалога «⋯» есть, в листе — настройки ответа без действий диалога', () => {
+    const props = base(true, { hasActiveDialogue: false });
+    delete (props as Partial<AIChatHeaderProps>).activeDialogueId;
+    delete (props as Partial<AIChatHeaderProps>).dialogueTitle;
+    render(<AIChatHeader {...props} />);
+    fireEvent.click(screen.getByRole('button', { name: /ai_more/ }));
+    expect(screen.getByText('ai_volume_response_heading')).toBeTruthy();
+    expect(screen.queryByText(/ai_delete/)).toBeNull();
+    expect(screen.queryByText(/ai_download_md/)).toBeNull();
   });
 });

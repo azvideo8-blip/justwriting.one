@@ -9,10 +9,27 @@ export type ChatMessage = AIDialogue['messages'][number];
 
 type CitationInfo = { date: string; title: string };
 
+type LocalDb = Awaited<ReturnType<typeof getLocalDb>>;
+
+/**
+ * Заметка по номеру из ссылки. В контекст модели идёт локальный id, а у одной
+ * заметки на разных устройствах локальные id разные — диалоги же
+ * синхронизируются. Поэтому после id ищем по uuid и облачному id (общие для
+ * устройств). Ссылку с локальным id другого устройства этим не найти — тогда
+ * вызывающий говорит об этом человеку, а не молчит (0.10.1).
+ */
+async function findCitedDocument(db: LocalDb, id: string) {
+  const direct = await db.get('documents', id);
+  if (direct) return direct;
+  const all = await db.getAll('documents');
+  return all.find(d => d.uuid === id || d.linkedCloudId === id);
+}
+
 export function useCitationMeta(
   displayMessages: readonly ChatMessage[],
   streamingMessage: string | null,
   setPreviewSession: (session: ArchiveSession) => void,
+  onMissing?: () => void,
 ): {
   processCitations: (text: string | null | undefined) => string;
   handleCitationClick: (id: string) => void;
@@ -67,7 +84,7 @@ export function useCitationMeta(
         let updated = false;
         for (const id of ids) {
           if (newMeta[id]) continue;
-          const doc = await db.get('documents', id);
+          const doc = await findCitedDocument(db, id);
           if (doc) {
             const date = doc.lastSessionAt
               ? new Date(doc.lastSessionAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
@@ -110,9 +127,9 @@ export function useCitationMeta(
     void (async () => {
       try {
         const db = await getLocalDb();
-        const doc = await db.get('documents', id);
-        if (!doc) return;
-        const content = await LocalVersionService.getLatestContent(id);
+        const doc = await findCitedDocument(db, id);
+        if (!doc) { onMissing?.(); return; }
+        const content = await LocalVersionService.getLatestContent(doc.id);
         const session: ArchiveSession = {
           id: doc.id,
           userId: doc.guestId,
@@ -134,7 +151,7 @@ export function useCitationMeta(
         console.error('[AIPage] failed to preview cited note:', e);
       }
     })();
-  }, [setPreviewSession]);
+  }, [setPreviewSession, onMissing]);
 
   return { processCitations, handleCitationClick };
 }

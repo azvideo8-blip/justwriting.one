@@ -16,7 +16,15 @@ class FakeVV extends EventTarget {
   constructor(h: number) { super(); this.height = h; }
 }
 
+/** Клавиатура бывает только при фокусе в поле (0.10.1) — тесты ставят фокус. */
+function focusField(): void {
+  const ta = document.createElement('textarea');
+  document.body.appendChild(ta);
+  ta.focus();
+}
+
 function install(innerH: number, vv: FakeVV): void {
+  focusField();
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
   Object.defineProperty(window, 'innerHeight', { configurable: true, value: innerH });
   Object.defineProperty(window, 'visualViewport', { configurable: true, value: vv });
@@ -24,6 +32,8 @@ function install(innerH: number, vv: FakeVV): void {
 
 describe('useKeyboardState: прокрученная видимая область iOS', () => {
   afterEach(() => {
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    document.body.innerHTML = '';
     Object.defineProperty(window, 'visualViewport', { configurable: true, value: undefined });
   });
 
@@ -48,5 +58,19 @@ describe('useKeyboardState: прокрученная видимая област
     act(() => { vv.offsetTop = 200; vv.dispatchEvent(new Event('scroll')); });
     expect(result.current.overlay).toBe(136);
     expect(result.current.up, 'клавиатура не исчезла от прокрутки').toBe(true);
+  });
+
+  // Скрин владельца 0.10.0 (iPhone): при прокрутке видимая область уезжает НИЖЕ
+  // низа layout-вьюпорта (offsetTop + vv.height > innerHeight) — под панелью
+  // появлялась пустота до клавиатуры: overlay обрезался нулём, и панель
+  // прилипала к краю экрана письма, а не к клавиатуре. Отступ обязан стать
+  // отрицательным. Мутация: вернуть Math.max(0, …) → красный.
+  it('видимая область ниже низа layout-вьюпорта — overlay отрицательный', () => {
+    const vv = new FakeVV(508);
+    install(844, vv);
+    const { result } = renderHook(() => useKeyboardState());
+    act(() => { vv.offsetTop = 400; vv.dispatchEvent(new Event('scroll')); });
+    expect(result.current.overlay).toBe(844 - 400 - 508);
+    expect(result.current.up).toBe(true);
   });
 });

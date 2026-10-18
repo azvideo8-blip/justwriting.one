@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ChevronRight, Trash2, X } from 'lucide-react';
-import { ModalShell } from '../../../shared/components/ModalShell';
+import { ModalShell, SHEET_DIVIDER, SHEET_ROW, SheetTitle } from '../../../shared/components/ModalShell';
 import { IconButton } from '../../../shared/components/IconButton';
 import { useLanguage } from '../../../shared/i18n';
 import { cn } from '../../../core/utils/utils';
@@ -37,22 +37,24 @@ export function MobileArchiveMenuSheet(props: MobileArchiveMenuSheetProps) {
   const titleId = 'mobile-archive-menu-title';
   const sorts = Object.keys(sortLabels) as SortMode[];
 
-  const row = 'w-full h-12 flex items-center gap-3 px-4 text-left text-sm text-text-main border-b border-border-subtle last:border-b-0';
+  // U-22 (решение владельца 2026-10-18): строка листа — общая `SHEET_ROW`;
+  // рамка под каждой строкой убрана, группы разделяет черта, как в `Menu`.
+  const row = SHEET_ROW;
   // MQ-15 (N-5): строки-кнопки откликаются на касание, как в листе действий.
-  const btnRow = `${row} active:bg-text-main/[0.06] transition-colors`;
+  const btnRow = row;
 
   return (
     <ModalShell open={open} onClose={onClose} labelId={titleId} variant="sheet">
       <div className="flex flex-col min-h-0 flex-1">
-        <h2 id={titleId} className="px-4 pt-4 pb-2 text-base font-bold text-text-main flex items-center justify-between gap-3">
-          <span>{t('archive_more')}</span>
+        <div className="px-4 pt-4 pb-2 flex items-center justify-between gap-3">
+          <SheetTitle id={titleId}>{t('archive_more')}</SheetTitle>
           <IconButton
             onClick={onClose}
-            className="w-11 h-11 rounded-full border border-border-subtle flex items-center justify-center text-text-main/60"
+            className="w-11 h-11 rounded-xl"
             label={t('close')}
             icon={<X size={18} />}
           />
-        </h2>
+        </div>
         <div className="flex-1 min-h-0 overflow-y-auto">
           <div role="group" aria-label={t('archive_menu_view')} className={row}>
             <span className="flex-1">{t('archive_menu_view')}</span>
@@ -65,7 +67,9 @@ export function MobileArchiveMenuSheet(props: MobileArchiveMenuSheetProps) {
                   aria-pressed={viewMode === v}
                   className={cn(
                     'h-11 px-3 rounded-md text-xs font-medium',
-                    viewMode === v ? 'bg-brand-soft/20 text-brand-soft' : 'text-text-main/60'
+                    // U-6 (решение владельца 2026-10-18): активный режим — монохромная
+                    // инверсия чернил, как переключатель Список/Сетка на десктоп.
+                    viewMode === v ? 'bg-text-main/25 text-text-main' : 'text-text-main/60'
                   )}
                 >
                   {v === 'list' ? t('archive_list') : t('archive_grid')}
@@ -74,6 +78,7 @@ export function MobileArchiveMenuSheet(props: MobileArchiveMenuSheetProps) {
             </span>
           </div>
 
+          <div role="separator" className={SHEET_DIVIDER} />
           <button type="button" onClick={() => setSortsOpen(o => !o)} className={btnRow} aria-expanded={sortsOpen}>
             <span className="flex-1">{t('archive_menu_sort')}</span>
             <span className="text-[11px] text-text-main/55 truncate max-w-[45%]">{sortLabels[sortMode]}</span>
@@ -90,16 +95,19 @@ export function MobileArchiveMenuSheet(props: MobileArchiveMenuSheetProps) {
             </button>
           ))}
 
+          <div role="separator" className={SHEET_DIVIDER} />
           <button type="button" onClick={() => { onOpenTags(); onClose(); }} className={btnRow}>
             <span className="flex-1">{t(tagsOpen ? 'archive_menu_hide_tags' : 'archive_menu_tags')}</span>
             <ChevronRight size={16} className="shrink-0 text-text-main/45" />
           </button>
 
+          <div role="separator" className={SHEET_DIVIDER} />
           <button type="button" onClick={() => { onOpenCalendar(); onClose(); }} className={btnRow}>
             <span className="flex-1">{t(calendarOpen ? 'archive_menu_hide_calendar' : 'archive_menu_calendar')}</span>
             <ChevronRight size={16} className="shrink-0 text-text-main/45" />
           </button>
 
+          <div role="separator" className={SHEET_DIVIDER} />
           {activeTab === 'notes' ? (
             <button type="button" onClick={() => { onTabChange('trash'); onClose(); }} className={btnRow}>
               <span className="flex-1">{t('archive_tab_trash')}</span>

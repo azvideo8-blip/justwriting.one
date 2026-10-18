@@ -107,10 +107,12 @@ export function AppShell() {
   const isChatPageDesktop = currentPath === '/ai' && layoutMode === 'desktop';
   // SA-4: на телефоне экран ИИ = окно минус вкладки; без pt-8/px-4 документ
   // был выше окна на 158 px и прокручивался вместе с шапкой.
+  // 0.10.1: и min-h-0 — иначе min-h-screen (100vh) побеждал h-[100dvh], пока видна
+  // панель браузера, документ снова был выше окна и шапка уезжала вверх.
   const isChatPageMobile = currentPath === '/ai' && layoutMode !== 'desktop';
 
   return (
-    <AppLayout className={cn("min-h-screen bg-surface-base text-text-main font-sans selection:bg-white/10", isChatPageMobile && "h-[100dvh] overflow-hidden")}>
+    <AppLayout className={cn("min-h-screen bg-surface-base text-text-main font-sans selection:bg-white/10", isChatPageMobile && "h-[100dvh] min-h-0 overflow-hidden")}>
       <a
         href="#main-content"
         onClick={(e) => {

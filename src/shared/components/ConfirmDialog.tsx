@@ -185,6 +185,16 @@ export function ConfirmDialogRenderer() {
 
   const isPrompt = mode === 'prompt';
   const isAlert = mode === 'alert';
+  // D-2: подпись и цвет кнопки зависят от режима. Лист ввода читал только
+  // `confirmLabel`, а свой параметр `okLabel` игнорировал, поэтому переименование
+  // предлагалось подтвердить кнопкой «Удалить». Цвет тот же дефект: `destructive`
+  // лист ввода не сбрасывает, и он доставался от прежнего подтверждения.
+  const isDestructive = destructive && !isPrompt;
+  const confirmText = isAlert
+    ? (okLabel || 'OK')
+    : isPrompt
+      ? (okLabel || t('common_save'))
+      : (confirmLabel || t('finish_discard'));
 
   return (
     <div className="fixed inset-0 z-[var(--z-critical)] flex items-center justify-center p-4 bg-surface-base/80 backdrop-blur-md">
@@ -217,7 +227,7 @@ export function ConfirmDialogRenderer() {
             <Button
               type="button"
               onClick={handleCancel}
-              className="flex-1 px-4 py-3 text-sm font-bold rounded-xl border border-border-subtle text-text-main hover:bg-white/5"
+              className="flex-1 px-4 py-3 text-sm font-bold rounded-xl border border-border-subtle text-text-main hover:bg-text-main/5"
             >
               {cancelLabel || t('common_cancel')}
             </Button>
@@ -225,15 +235,11 @@ export function ConfirmDialogRenderer() {
           <Button
             type="button"
             onClick={handleConfirm}
-            className={isAlert
-              ? "flex-1 px-4 py-3 text-sm font-bold rounded-xl bg-brand-soft text-surface-base hover:bg-brand-soft/90"
-              : destructive
-                ? "flex-1 px-4 py-3 text-sm font-bold rounded-xl bg-accent-danger text-white hover:bg-accent-danger/90"
-                : "flex-1 px-4 py-3 text-sm font-bold rounded-xl bg-brand-soft text-surface-base hover:bg-brand-soft/90"}
+            className={isDestructive
+              ? "flex-1 px-4 py-3 text-sm font-bold rounded-xl bg-accent-danger text-white hover:bg-accent-danger/90"
+              : "flex-1 px-4 py-3 text-sm font-bold rounded-xl bg-brand-soft text-surface-base hover:bg-brand-soft/90"}
           >
-            {isAlert
-              ? (okLabel || 'OK')
-              : (confirmLabel || t('finish_discard'))}
+            {confirmText}
           </Button>
         </div>
       </motion.div>

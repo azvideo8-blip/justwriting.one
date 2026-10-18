@@ -70,6 +70,18 @@ describe('Sidebar active navigation item styling (UI-03)', () => {
     expect(inactiveButton?.className).not.toContain('text-surface-base');
   });
 
+  it('подпись вкладки ИИ берётся из словаря, а не из литерала (D-6)', () => {
+    renderWithProviders(
+      <MemoryRouter initialEntries={['/']}>
+        <Sidebar isAdmin={false} />
+      </MemoryRouter>
+    );
+
+    const nav = screen.getByRole('navigation', { name: /навигация|navigation/i });
+    const aiButton = Array.from(nav.querySelectorAll('button')).find(btn => /ИИ/.test(btn.textContent ?? ''));
+    expect(aiButton, 'в подписи вкладки не «ИИ»').toBeTruthy();
+  });
+
   it('illuminates activity log badge with warning style on warning entries (ERR-10)', () => {
     mockEntries = [
       { id: '1', level: 'warning', message: 'Rate limit or degradation warning', time: Date.now() },

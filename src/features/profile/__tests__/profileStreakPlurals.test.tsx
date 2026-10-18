@@ -93,7 +93,10 @@ describe('L-14: Profile streak pluralization and consistent numbers', () => {
         <MeStatsSection profile={freshProfile0} />
       </div>
     );
-    expect(screen.getByText('0 дней')).toBeInTheDocument();
+    // D-9 (решение владельца 2026-10-18): пустой стрик — отсутствие строки, а не
+    // «0 дней» (DESIGN.md:324). Строка «0 дней подряд» ниже — из `MeStatsSection`,
+    // мёртвого компонента; его поведение этой правкой не задето.
+    expect(screen.queryByText('0 дней')).not.toBeInTheDocument();
     expect(screen.getAllByText('0').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('дней подряд')).toBeInTheDocument();
     u0();

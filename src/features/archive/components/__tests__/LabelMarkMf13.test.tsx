@@ -51,6 +51,24 @@ describe('MF-13: label dot and name on the phone', () => {
     expect(screen.queryByText('Аскеза6')).toBeNull();
   });
 
+  // U-34 (решение владельца 2026-10-18 по Q-5): на телефоне цвет метки несёт та же
+  // полоса, что на десктопе, — `border-l-2`, подкраска 4 % и внутреннее свечение.
+  it('полоса метки на телефоне — как на десктопе', () => {
+    const { container } = render(<NoteRow session={{ ...session, labelId: 'l1' } as ArchiveSession} labels={[LABEL]} onOpen={vi.fn()} t={(k: string) => k} language="ru" userId="user_1" onTagsChange={vi.fn()} onDelete={vi.fn()} />);
+    const row = container.querySelector('div.grid') as HTMLElement;
+    expect(row.className).toContain('border-l-2');
+    expect(row.style.borderLeftColor).not.toBe('');
+    expect(row.style.background).toContain('4%');
+    expect(row.style.boxShadow).not.toBe('');
+  });
+
+  it('без метки на телефоне полоса прозрачна', () => {
+    const { container } = render(<NoteRow session={session} labels={[LABEL]} onOpen={vi.fn()} t={(k: string) => k} language="ru" userId="user_1" onTagsChange={vi.fn()} onDelete={vi.fn()} />);
+    const row = container.querySelector('div.grid') as HTMLElement;
+    expect(row.className).toContain('border-l-transparent');
+    expect(row.style.boxShadow).toBe('');
+  });
+
   it('a grid card shows the same dot and name', () => {
     render(<GridNoteCard session={{ ...session, labelId: 'l1' } as ArchiveSession} labels={[LABEL]} onClick={vi.fn()} userId="user_1" searchQuery="" />);
     expect(document.querySelector('[data-label-mark]')).not.toBeNull();

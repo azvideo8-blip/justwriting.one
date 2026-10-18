@@ -63,10 +63,12 @@ describe('N-6: строка панели переключается, а не п�
     expect(document.querySelector('[data-idle-row]'), 'обе ветки в DOM одновременно').toBeNull();
   });
 
-  it('на «processing» ■ остаётся в ряду, но не виден и не доступен', () => {
+  // U-18 (2026-10-18): как на десктопе — на «processing» «Стоп» остаётся в ряду
+  // и гаснет (не исчезает): место держится, волна не прыгает.
+  it('на «processing» «Стоп» остаётся в ряду, погашен и не доступен', () => {
     setPhase('processing');
     const stop = screen.getByRole('button', { name: 'voice_stop_dictation' });
-    expect(stop.className, '■ исчезает — волна прыгает на его место').toContain('invisible');
+    expect(stop.className).toContain('text-text-main/30');
     expect(stop).toBeDisabled();
   });
 

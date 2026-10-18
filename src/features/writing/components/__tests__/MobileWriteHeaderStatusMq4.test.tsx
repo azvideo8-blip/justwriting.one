@@ -86,12 +86,17 @@ describe('MQ-4: статус сохранения в шапке', () => {
     expect(aa.nextElementSibling, 'после «Aa» остался блок статуса').toBeNull();
   });
 
-  it('статус сохранения слева от «Aa» и не шире 40 % строки', () => {
+  // U-16 (2026-10-18): «сохраняю / сохранено» — значком, как на десктопе; ошибка — текстом.
+  it('«сохраняю» — значок слева от настроек; ошибка — текстом не шире 40 % строки', () => {
     renderScreen({ status: 'writing', saveStatus: 'saving' });
-    const status = screen.getByTestId('save-status-text');
+    const icon = screen.getByTestId('save-status');
     const aa = screen.getByRole('button', { name: 'settings_title' });
-    expect(status.textContent).toBe('save_status_saving');
-    expect(status.compareDocumentPosition(aa) & Node.DOCUMENT_POSITION_FOLLOWING, 'статус стоит после «Aa»').toBeTruthy();
+    expect(icon.compareDocumentPosition(aa) & Node.DOCUMENT_POSITION_FOLLOWING, 'статус стоит после настроек').toBeTruthy();
+    expect(screen.queryByTestId('save-status-text'), 'текст вместо значка').toBeNull();
+    cleanup();
+    renderScreen({ status: 'writing', saveStatus: 'error' });
+    const status = screen.getByTestId('save-status-text');
+    expect(status.textContent).toBe('editor_error_save');
     expect(status.className).toContain('max-w-[40%]');
     expect(status.className).toContain('truncate');
   });
@@ -99,5 +104,6 @@ describe('MQ-4: статус сохранения в шапке', () => {
   it('пока статуса нет, пустого блока в строке нет', () => {
     renderScreen({ status: 'writing', saveStatus: 'idle' });
     expect(screen.queryByTestId('save-status-text')).toBeNull();
+    expect(screen.queryByTestId('save-status')).toBeNull();
   });
 });

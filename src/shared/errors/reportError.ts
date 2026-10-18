@@ -13,6 +13,32 @@ export function isNetworkFailure(error: unknown): boolean {
   return error instanceof TypeError && NETWORK_FAILURE_RE.test(error.message);
 }
 
+// Страница уходит (перезагрузка, переход, обновление версии): браузер обрывает
+// запросы в полёте, и Safari называет это тем же «Load failed». Это не сбой сети,
+// а следствие ухода — синхронизация повторит запросы на новой странице. Такие
+// обрывы в журнал не пишем (скрин владельца 2026-10-17: «Нет связи» ×3 ровно в
+// секунду перезагрузки). Возврат из кэша навигации (pageshow) флажок снимает.
+let pageUnloading = false;
+
+// Safari при выгрузке и заморозке страницы рвёт соединение с IndexedDB:
+// операции в полёте падают «без активной транзакции» или отменяются
+// (AbortError). База переоткрывается сама (localDb слушает 'close'), фон
+// повторит проход — это не поломка (журнал владельца 2026-10-17 22:06).
+const CONNECTION_TEARDOWN_RE = /without an in-progress transaction|Connection to Indexed Database server lost|database connection is closing/i;
+
+// Ревью 0.10.1: AbortError бывает и у настоящей неудачной записи (idb отменяет
+// транзакцию без своей ошибки). Спокойно пишем только «ничейный» (unhandledrejection)
+// и только при уходе со страницы — молчим; сбой записи с action остаётся error.
+function isQuietAbort(error: unknown, context: ErrorContext): boolean {
+  if ((error as { name?: unknown } | null)?.name !== 'AbortError') return false;
+  return pageUnloading || context.source === 'unhandledrejection';
+}
+
+export function isConnectionTeardown(error: unknown): boolean {
+  const text = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+  return CONNECTION_TEARDOWN_RE.test(text);
+}
+
 import { isVaultLocked as getIsVaultLocked, registerVaultLockedChecker } from './vaultLockState';
 export { registerVaultLockedChecker };
 
@@ -45,7 +71,13 @@ export function reportError(
   context: ErrorContext = {},
   level: 'error' | 'warning' | 'info' = 'error'
 ): void {
-  if (isNetworkFailure(error)) level = 'warning';
+  if (isNetworkFailure(error)) {
+    if (pageUnloading) return;
+    level = 'warning';
+  } else if (isConnectionTeardown(error) || isQuietAbort(error, context)) {
+    if (pageUnloading) return;
+    level = 'info';
+  }
   if (isVaultLockedFailure(error, context)) level = 'info';
   // Список PII-ключей общий с журналом активности (piiScrub.ts): фильтр,
   // стоящий здесь, не должен обходиться прямыми вызовами addActivity.
@@ -127,6 +159,11 @@ let _globalListenersInstalled = false;
 export function setupGlobalErrorListeners(): void {
   if (_globalListenersInstalled || typeof window === 'undefined') return;
   _globalListenersInstalled = true;
+
+  // Только pagehide: beforeunload бывает отменён («уйти без сохранения?» →
+  // остаться), и флажок застрял бы, пряча настоящие сбои сети дальше.
+  window.addEventListener('pagehide', () => { pageUnloading = true; });
+  window.addEventListener('pageshow', () => { pageUnloading = false; });
 
   window.addEventListener('error', (event: ErrorEvent) => {
     if (!event.message && !event.error) return;

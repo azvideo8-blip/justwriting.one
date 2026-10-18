@@ -12,7 +12,7 @@ production user. A closed beta for 10–20 invited people is being prepared.
 
 | | |
 | :--- | :--- |
-| Version | `0.10.0` (`src/version.ts` is what the UI shows) |
+| Version | `0.10.1` (`src/version.ts` is what the UI shows) |
 | Hosting | single VPS in Russia — nginx, systemd, Docker |
 | Database | self-hosted Supabase (Postgres + GoTrue + PostgREST + Kong) |
 | AI provider | RouterAI, OpenAI-compatible API |

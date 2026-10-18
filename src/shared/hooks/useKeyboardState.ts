@@ -13,6 +13,18 @@ export interface KeyboardState {
 
 const KEYBOARD_MIN = 130;
 
+/** Клавиатура бывает только при фокусе в поле ввода. Без этого признака
+ *  выезжающая панель браузера (Яндекс на iPhone — две строки, >130 px)
+ *  читалась как клавиатура, и вкладки пропадали при входе (0.10.1). */
+function editableFocused(): boolean {
+  const el = typeof document === 'undefined' ? null : document.activeElement as HTMLElement | null;
+  if (!el) return false;
+  const tag = el.tagName;
+  if (tag === 'TEXTAREA') return true;
+  if (tag === 'INPUT') return !['checkbox', 'radio', 'button', 'submit', 'range', 'color', 'file'].includes((el as HTMLInputElement).type);
+  return el.isContentEditable === true;
+}
+
 /** MC-2: нижней панели нужно именно «клавиатура занимает низ экрана». Отдельный
  *  модуль — потому что `BottomNav` живёт в index-куске, а старый модуль
  *  `useKeyboardHeight` тянул бы туда ещё и свою подписку (бюджет CI). */
@@ -39,10 +51,10 @@ export function useKeyboardState(): KeyboardState {
       // offsetTop ниже. Без этого панель висела над клавиатурой с пустой полосой
       // (снимок владельца, 0.10.0). Размер самой клавиатуры от прокрутки не зависит.
       const keyboard = window.innerHeight - vvHeight;
-      const overlay = Math.max(0, keyboard - (vv ? vv.offsetTop : 0));
+      const overlay = keyboard - (vv ? vv.offsetTop : 0);
       const shrink = baseline - window.innerHeight;
       setState(prev => {
-        const next: KeyboardState = { overlay, up: keyboard > KEYBOARD_MIN || shrink > KEYBOARD_MIN };
+        const next: KeyboardState = { overlay, up: editableFocused() && (keyboard > KEYBOARD_MIN || shrink > KEYBOARD_MIN) };
         return prev.up === next.up && prev.overlay === next.overlay ? prev : next;
       });
     };
@@ -51,7 +63,12 @@ export function useKeyboardState(): KeyboardState {
     window.visualViewport?.addEventListener('resize', measure);
     // Прокрутка видимой области не шлёт resize.
     window.visualViewport?.addEventListener('scroll', measure);
+    // Фокус сам по себе высоту не меняет — пересчитываем на смене фокуса.
+    document.addEventListener('focusin', measure);
+    document.addEventListener('focusout', measure);
     return () => {
+      document.removeEventListener('focusin', measure);
+      document.removeEventListener('focusout', measure);
       window.removeEventListener('resize', measure);
       window.visualViewport?.removeEventListener('resize', measure);
       window.visualViewport?.removeEventListener('scroll', measure);

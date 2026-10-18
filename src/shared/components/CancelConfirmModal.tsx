@@ -64,7 +64,7 @@ export function CancelConfirmModal({
           <Button
             type="button"
             onClick={onCancel}
-            className="flex-1 px-4 py-3 rounded-xl font-bold transition-colors border border-border-subtle text-text-main hover:bg-white/5"
+            className="flex-1 px-4 py-3 rounded-xl font-bold transition-colors border border-border-subtle text-text-main hover:bg-text-main/5"
           >
             {cancelLabel || t('writing_back')}
           </Button>

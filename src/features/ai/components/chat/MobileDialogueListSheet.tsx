@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Archive, Pencil, RotateCcw, Trash2, FileText } from 'lucide-react';
 import type { AIDialogue } from '../../../../core/storage/localDb';
-import { ModalShell, SECTION_LABEL } from '../../../../shared/components/ModalShell';
+import { ModalShell, SECTION_LABEL, SheetTitle } from '../../../../shared/components/ModalShell';
 import { useLanguage } from '../../../../shared/i18n';
 import { Button } from '../../../../shared/components/Button';
+import { Input } from '../../../../shared/components/Input';
 import { IconButton } from '../../../../shared/components/IconButton';
 import { cn } from '../../../../core/utils/utils';
 import { personaVisual } from '../../constants/personaVisuals';
@@ -108,9 +109,11 @@ export function MobileDialogueListSheet(props: MobileDialogueListSheetProps) {
       <ModalShell open={open} onClose={closeList} labelId={listTitleId} variant="sheet">
         {/* flex-1 + min-h-0: панель ModalShell ограничена 85vh и обрезает содержимое. */}
         <div className="flex flex-col min-h-0 flex-1">
-          <h2 id={listTitleId} className="px-4 pt-4 pb-2 text-base font-bold text-text-main">{t('ai_dialogues_open')}</h2>
+          <div className="px-4 pt-4 pb-2">
+            <SheetTitle id={listTitleId}>{t('ai_dialogues_open')}</SheetTitle>
+          </div>
           <div className="px-4 pb-2">
-            <input
+            <Input
               type="text"
               value={query}
               onChange={e => setQuery(e.target.value)}
@@ -118,7 +121,7 @@ export function MobileDialogueListSheet(props: MobileDialogueListSheetProps) {
               aria-label={t('ai_dialogues_search_placeholder')}
               // SA-11: на телефоне фокус в поиске поднимал клавиатуру поверх списка.
               data-no-initial-focus={hasOnlyTouchPointer() ? '' : undefined}
-              className="w-full rounded-xl border border-border-subtle bg-surface-base px-3 py-2.5 text-sm text-text-main"
+              className="bg-surface-base min-h-11 text-[16px]"
             />
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2">
@@ -180,19 +183,21 @@ export function MobileDialogueListSheet(props: MobileDialogueListSheetProps) {
       <ModalShell open={!!actionsFor} onClose={() => setActionsFor(null)} labelId={actionsTitleId} variant="sheet">
         {actionsFor && (
           <div className="p-4 space-y-2">
-            <h2 id={actionsTitleId} className="text-sm font-semibold text-text-main truncate">{actionsFor.title}</h2>
+            <SheetTitle id={actionsTitleId} className="truncate">{actionsFor.title}</SheetTitle>
             {renaming ? (
               <div className="space-y-2">
-                <input
+                <Input
                   autoFocus
                   value={renameValue}
                   onChange={e => setRenameValue(e.target.value)}
                   aria-label={t('ai_dialogue_rename')}
-                  className="w-full rounded-xl border border-border-subtle bg-surface-base px-3 py-2.5 text-sm text-text-main"
+                  className="bg-surface-base min-h-11 text-[16px]"
                 />
+                {/* U-6 (решение владельца 2026-10-18): primary-инверсия вместо bg-accent + text-white. */}
                 <Button
+                  variant="primary"
                   onClick={() => { const v = renameValue.trim(); if (v) { onRename(actionsFor.id, v); setActionsFor(null); } }}
-                  className="w-full py-3 rounded-xl bg-accent text-white text-sm font-semibold"
+                  className="w-full py-3 rounded-xl text-sm font-semibold"
                 >
                   {t('ai_dialogue_rename')}
                 </Button>

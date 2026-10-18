@@ -141,8 +141,6 @@ export const commonTranslations: Translations = {
     ru: 'Заметка ещё выгружается в облако — удалить её не получилось. Попробуй через минуту.',
     en: 'The note is still uploading to the cloud, so it was not deleted. Try again in a minute.',
   },
-  save_status_saving: { ru: 'сохраняю…', en: 'saving…' },
-  save_status_saved:  { ru: 'сохранено', en: 'saved' },
 
 
 

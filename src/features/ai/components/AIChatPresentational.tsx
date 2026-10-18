@@ -3,7 +3,7 @@ import { Sparkles, ChevronDown, ChevronUp, File, Paperclip, Copy, Trash2, Refres
 import { Button } from '../../../shared/components/Button';
 import { cn } from '../../../core/utils/utils';
 import { IconButton } from '../../../shared/components/IconButton';
-import { ModalShell } from '../../../shared/components/ModalShell';
+import { ModalShell, SheetTitle } from '../../../shared/components/ModalShell';
 import { useLanguage } from '../../../shared/i18n';
 
 const ATTACHED_NOTE_RE = /^(?:\[#[^\]]*\]\s*)?\[Прикреплена заметка: "([^"]+)"\]/;
@@ -302,7 +302,7 @@ export const AssistantTurn = React.memo(
         {isMobile && moreOpen && (
           <ModalShell open onClose={() => setMoreOpen(false)} labelId="assistant-turn-more-title" variant="sheet">
             <div className="p-4 space-y-2 pb-[calc(env(safe-area-inset-bottom,0px)+16px)]">
-              <h2 id="assistant-turn-more-title" className="text-sm font-semibold text-text-main">{t('ai_action_more')}</h2>
+              <SheetTitle id="assistant-turn-more-title">{t('ai_action_more')}</SheetTitle>
               {onRegenerate && (
                 <Button
                   onClick={() => { onRegenerate(); setMoreOpen(false); }}

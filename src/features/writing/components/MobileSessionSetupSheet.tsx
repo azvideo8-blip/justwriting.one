@@ -126,7 +126,7 @@ export function MobileSessionSetupSheet({
               )}
               <IconButton
                 onClick={() => setSetupMode(null)}
-                className="w-11 h-11 rounded-full bg-text-main/[0.05] border-none flex items-center justify-center text-text-main/60 hover:text-text-main/70 cursor-pointer"
+                className="w-11 h-11 rounded-xl"
                 label={t('close')}
                 icon={<X size={18} />}
               />
@@ -173,7 +173,7 @@ export function MobileSessionSetupSheet({
                           current ? "border-text-main/40" : "border-border-subtle",
                         )}
                       >
-                        <div className="p-2.5 rounded-xl shrink-0 bg-text-main/[0.06] text-text-muted">
+                        <div className="p-2.5 rounded-xl shrink-0 bg-text-main/[0.06] text-text-main/60">
                           <mode.icon size={20} strokeWidth={2.2} />
                         </div>
                         <div className="min-w-0 flex-1">
@@ -234,7 +234,9 @@ export function MobileSessionSetupSheet({
                                 className={cn(
                                   "px-3.5 py-2 rounded-xl text-xs font-semibold border transition-colors cursor-pointer",
                                   timerDuration === mins * 60
-                                    ? "bg-brand-primary/10 border-brand-primary text-brand-primary"
+                                    // U-6 (решение владельца 2026-10-18): выбранный пресет — инверсия чернил,
+                                    // как активный пресет GoalPopup на десктопе.
+                                    ? "bg-text-main border-text-main text-surface-base"
                                     : "bg-text-main/[0.03] border-border-subtle text-text-main/60"
                                 )}
                               >
@@ -274,7 +276,9 @@ export function MobileSessionSetupSheet({
                                 className={cn(
                                   "px-3.5 py-2 rounded-xl text-xs font-semibold border transition-colors cursor-pointer",
                                   wordGoal === words
-                                    ? "bg-brand-primary/10 border-brand-primary text-brand-primary"
+                                    // U-6 (решение владельца 2026-10-18): выбранный пресет — инверсия чернил,
+                                    // как активный пресет GoalPopup на десктопе.
+                                    ? "bg-text-main border-text-main text-surface-base"
                                     : "bg-text-main/[0.03] border-border-subtle text-text-main/60"
                                 )}
                               >

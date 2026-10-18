@@ -67,7 +67,7 @@ export function MobileArchiveSidebarSheet({
           </div>
           <IconButton
             onClick={onClose}
-            className="w-11 h-11 rounded-full bg-text-main/[0.05] border-none flex items-center justify-center text-text-main/60 hover:text-text-main/70 cursor-pointer"
+            className="w-11 h-11 rounded-xl"
             label={t('common_close')}
             icon={<X size={18} />}
           />

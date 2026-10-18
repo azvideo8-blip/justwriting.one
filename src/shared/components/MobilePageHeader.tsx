@@ -5,10 +5,9 @@ interface MobilePageHeaderProps {
   title: string;
   right?: React.ReactNode;
   className?: string;
-  titleFont?: 'serif' | 'sans';
 }
 
-export function MobilePageHeader({ title, right, className, titleFont = 'serif' }: MobilePageHeaderProps) {
+export function MobilePageHeader({ title, right, className }: MobilePageHeaderProps) {
   return (
     <header
       className={cn(
@@ -17,10 +16,8 @@ export function MobilePageHeader({ title, right, className, titleFont = 'serif' 
         className
       )}
     >
-      <h1 className={cn(
-        "text-[18px] font-semibold text-text-main truncate",
-        titleFont === 'serif' ? "font-serif" : "font-sans"
-      )}>
+      {/* U-1: Inter, как заголовки десктопа. */}
+      <h1 className="text-[18px] font-semibold text-text-main truncate">
         {title}
       </h1>
       {right != null && <div className="flex items-center gap-2 shrink-0">{right}</div>}

@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type PointerEvent as ReactPointerEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useDragControls, type PanInfo } from 'motion/react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useModalEscape } from '../hooks/useModalEscape';
 import { useLayoutMode } from '../hooks/useLayoutMode';
@@ -64,12 +64,50 @@ const ANIMATION = {
   },
 };
 
-// SA-15: одна мобильная метка раздела и один заголовок листа — строчные, без
-// разрядки (DESIGN.md: Quiet Label / Sentence-Case). Листы не рисуют свои.
-export const SECTION_LABEL = 'text-[13px] font-semibold text-text-muted';
+// U-9 (решение владельца 2026-10-18): метка раздела — как на десктопе, моноширинный
+// капс с разрядкой; на телефоне тот же вид, но кегль не мельче 12 px. SA-15 держал
+// здесь строчные — отменено, см. DESIGN.md (The Quiet Label Rule).
+export const SECTION_LABEL = 'font-mono text-[12px] uppercase tracking-widest text-text-main/60';
 
-export function SheetTitle({ id, children }: { id: string; children: ReactNode }) {
-  return <h2 id={id} className="text-[17px] font-semibold text-text-main">{children}</h2>;
+/** U-22 (решение владельца 2026-10-18): одна строка листа — 48 px, текст `/80`,
+ *  черта между группами, как в `Menu`, а не рамка под каждой строкой. */
+export const SHEET_ROW = 'w-full min-h-12 flex items-center gap-3 px-4 py-3 text-left text-[15px] font-medium text-text-main/80 transition-colors active:bg-text-main/[0.06]';
+
+/** U-22: разделитель групп внутри листа — тот же, что `role="separator"` в `Menu`. */
+export const SHEET_DIVIDER = 'my-1 h-px bg-border-subtle';
+
+// 0.10.1 (просьба владельца): лист закрывается свайпом вниз. Порог — как у
+// листов iOS: утянули ниже 80 px или смахнули быстро.
+const SHEET_DISMISS_OFFSET = 80;
+const SHEET_DISMISS_VELOCITY = 500;
+/** Ревью 0.10.1: быстрый щелчок на 10–15 px закрывал лист с набранным названием. */
+const SHEET_FLICK_MIN_OFFSET = 24;
+
+export function shouldDismissSheet(offsetY: number, velocityY: number): boolean {
+  return offsetY > SHEET_DISMISS_OFFSET || (offsetY > SHEET_FLICK_MIN_OFFSET && velocityY > SHEET_DISMISS_VELOCITY);
+}
+
+/**
+ * Можно ли начать свайп листа с этой точки. Нельзя из поля ввода (там жест —
+ * выделение текста) и из прокручиваемого блока, который не в самом верху: там
+ * свайп вниз прокручивает содержимое — как в iOS, закрытие только «от верха».
+ */
+export function canStartSheetDrag(target: EventTarget | null, root: HTMLElement | null): boolean {
+  if (!(target instanceof Element) || !root) return false;
+  for (let el: Element | null = target; el && el !== root.parentElement; el = el.parentElement) {
+    const tag = el.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (el as HTMLElement).isContentEditable === true) return false;
+    if (el.scrollHeight > el.clientHeight && el.scrollTop > 0) return false;
+    if (el === root) break;
+  }
+  return true;
+}
+
+/** U-4 (решение владельца 2026-10-18): один заголовок листа на обоих
+ *  устройствах, кегль — как у заголовка десктопной модалки (18 px).
+ *  `className` нужен листам с обрезкой длинного названия. */
+export function SheetTitle({ id, className, children }: { id: string; className?: string; children: ReactNode }) {
+  return <h2 id={id} className={`text-[18px] font-semibold text-text-main${className ? ` ${className}` : ''}`}>{children}</h2>;
 }
 
 export interface ModalShellProps {
@@ -98,6 +136,9 @@ export function ModalShell({
   className,
 }: ModalShellProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const dragControls = useDragControls();
+  // Листы сейфа (z="critical": пароль) свайпом не закрываются — только явно.
+  const swipeable = variant === 'sheet' && !fullHeight && z !== 'critical';
   const { layoutMode } = useLayoutMode();
   useModalEscape(open && variant === 'modal', onClose);
   useFocusTrap(ref, open);
@@ -146,6 +187,18 @@ export function ModalShell({
         aria-labelledby={labelId}
         onClick={e => e.stopPropagation()}
         {...ANIMATION[variant]}
+        data-sheet-swipe={swipeable ? '' : undefined}
+        {...(swipeable ? {
+          drag: 'y' as const,
+          dragControls,
+          dragListener: false,
+          dragConstraints: { top: 0, bottom: 0 },
+          dragElastic: { top: 0, bottom: 0.6 },
+          onPointerDown: (e: ReactPointerEvent) => { if (canStartSheetDrag(e.target, ref.current)) dragControls.start(e); },
+          onDragEnd: (_e: unknown, info: PanInfo) => {
+            if (shouldDismissSheet(info.offset.y, info.velocity.y)) onClose();
+          },
+        } : {})}
         className={
           variant === 'sheet'
             // MF-20 (SA-7): лист — поднятый слой, фон непрозрачный (`--surface-popup`

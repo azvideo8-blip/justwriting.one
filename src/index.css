@@ -168,7 +168,9 @@
     --bg-base: #FAF8F5;
     --bg-surface: #F0EDE6;
     --bg-elevated: #E5E1D7;
-    --text-main: #1A1412;
+    /* Ревью ui-unify: #1A1412 давал второстепенному тексту (`text-main/60`)
+       4,35:1 на листах (`--surface-popup`) — ниже AA. */
+    --text-main: #120E0C;
     --text-muted: #6B625E;
     --text-subtle: rgba(107, 98, 94, 0.85);
     --border-light: rgba(26, 20, 18, 0.07);

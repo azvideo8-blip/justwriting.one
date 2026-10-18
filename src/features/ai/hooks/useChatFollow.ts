@@ -10,6 +10,14 @@ const NEAR_BOTTOM_PX = 80;
  * определяет только он сам — колесо, касание, клавиши; рост содержимого его не
  * сбрасывает.
  */
+/** Вниз — только внутри контейнера чата. scrollIntoView прокручивает всех
+ *  прокручиваемых предков, включая страницу, и на телефоне уводил шапку экрана
+ *  ИИ вверх при выборе длинного диалога (0.10.1). */
+function scrollChatToEnd(end: HTMLElement | null, behavior: ScrollBehavior): void {
+  const box = end?.closest<HTMLElement>('[data-chat-scroll]');
+  box?.scrollTo({ top: box.scrollHeight, behavior });
+}
+
 export function useChatFollow(
   endRef: RefObject<HTMLElement | null>,
   messageCount: number,
@@ -30,7 +38,7 @@ export function useChatFollow(
       // следующий кусок потока уводил читателя вниз, обрывая инерцию iOS. По
       // событию `scroll` уход видно по настоящему движению: сбрасываем только
       // когда человек поехал ВВЕРХ и оказался от низа дальше порога. Своё
-      // прокручивание вниз (`scrollIntoView`) при этом ничего не снимает.
+      // прокручивание вниз (scrollChatToEnd) при этом ничего не снимает.
       if (e.type === 'scroll') {
         const top = box.scrollTop;
         const upward = top < lastScrollTop - 1;
@@ -56,11 +64,11 @@ export function useChatFollow(
     if (lastRole === 'user') following.current = true;
     if (!following.current) return;
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
-    endRef.current?.scrollIntoView({ behavior: lastRole === 'user' && !reduced ? 'smooth' : 'auto' });
+    scrollChatToEnd(endRef.current, lastRole === 'user' && !reduced ? 'smooth' : 'auto');
   }, [endRef, messageCount, lastRole, dialogueId]);
 
   useEffect(() => {
     if (!following.current) return;
-    endRef.current?.scrollIntoView({ behavior: 'auto' });
+    scrollChatToEnd(endRef.current, 'auto');
   }, [endRef, streamingMessage]);
 }

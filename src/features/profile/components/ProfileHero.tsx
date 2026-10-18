@@ -154,9 +154,11 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
           <div className="text-[16px] md:text-[18px] font-medium text-text-main">
             {memberSince.toLocaleDateString(language, { day: 'numeric', month: 'long', year: 'numeric' })}
           </div>
-          <div className="font-mono text-label-sm text-text-main/60 mt-1">
-            {streakDays} {tp('home_streak_days', streakDays)}
-          </div>
+          {streakDays > 0 && (
+            <div className="font-mono text-label-sm text-text-main/60 mt-1">
+              {streakDays} {tp('home_streak_days', streakDays)}
+            </div>
+          )}
         </div>
         )}
       </div>

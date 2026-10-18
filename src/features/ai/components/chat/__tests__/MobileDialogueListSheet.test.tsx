@@ -136,10 +136,16 @@ describe('MR-1: MobileDialogueListSheet', () => {
       expect(screen.getByRole('button', { name: /ai_dialogues_archived_row · 1/ })).toBeTruthy();
     });
 
-    it('заголовки групп не капсом и без разрядки', () => {
+    it('заголовок группы — метка раздела как на десктопе (U-9)', () => {
+      // Решение владельца 2026-10-18 по Q-1: SECTION_LABEL = моноширинный капс с
+      // разрядкой, на телефоне тот же вид и кегль не мельче 12 px. Прежняя
+      // строчная форма была правилом DESIGN.md (Quiet Label), он переписан.
       setup();
       const head = screen.getByText('ai_dialogues_today');
-      expect(head.className).not.toMatch(/uppercase|tracking|font-mono/);
+      expect(head.className).toMatch(/font-mono/);
+      expect(head.className).toMatch(/uppercase/);
+      expect(head.className).toMatch(/tracking-widest/);
+      expect(head.className).not.toMatch(/text-\[9px\]|text-\[10px\]|text-\[11px\]/);
     });
   });
 });

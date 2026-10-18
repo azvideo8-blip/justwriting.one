@@ -17,6 +17,23 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.10.1',
+    date: '2026-10-18',
+    items: [
+      { category: 'new', ru: 'Листы на телефоне закрываются свайпом вниз.', en: 'Sheets on a phone close with a swipe down.' },
+      { category: 'improvement', ru: 'Телефон выглядит как десктоп: те же шрифты без засечек, подписи разделов, заголовок дня в заметках с числом заметок и слов, метка заметки — полосой слева.', en: 'The phone now looks like the desktop: the same sans-serif fonts, section labels, day headers in notes with note and word counts, and a label stripe on the left of a note.' },
+      { category: 'improvement', ru: 'Письмо на телефоне: спокойная шапка, сохранение — значком, время без плашки; строка диктовки — текст, время, «Стоп» и «×».', en: 'Writing on a phone: a calmer header, saving shown as an icon, the time without a pill; the dictation row shows the text, time, «Stop» and «×».' },
+      { category: 'improvement', ru: 'Точка на «Профиле» красная при ошибке и жёлтая при предупреждении.', en: 'The dot on «Profile» is red for an error and yellow for a warning.' },
+      { category: 'fix', ru: 'ИИ на телефоне: шапка (☰, собеседник, «+») больше не уезжает при прокрутке и не прячется за краем окна; «⋯» — в строке шапки, объём ответа и рассуждения можно выбрать до первого сообщения.', en: 'AI on a phone: the header (☰, companion, «+») no longer scrolls away or hides past the window edge; «⋯» sits in the header row, and answer length and reasoning can be chosen before the first message.' },
+      { category: 'fix', ru: 'Ссылки «📅» в ответах ИИ снова открывают заметку; если её нет на этом устройстве — приложение так и скажет.', en: '«📅» links in AI answers open the note again; if the note is not on this device, the app says so.' },
+      { category: 'fix', ru: 'Телефон больше не принимает прокрутку за открытую клавиатуру: панели не подпрыгивают и не оставляют пустую полосу.', en: 'The phone no longer mistakes scrolling for an open keyboard: panels don’t jump or leave an empty strip.' },
+      { category: 'fix', ru: 'Десктоп: переименование из карточки сетки подписано «Сохранить», а не «Удалить»; разделители дней в заметках видны; в корзине «1 запись» вместо «1 записей»; выбранный цвет метки отмечен; в боковой панели — «ИИ».', en: 'Desktop: renaming from a grid card says «Save», not «Delete»; day separators in notes are visible; the trash count uses the right plural form; the selected label colour is marked; the sidebar says «AI» in every language.' },
+      { category: 'fix', ru: 'Десктоп: включённые переключатели видны в тёмных темах, а кнопки «Записано.» не уходят за край на невысоком экране.', en: 'Desktop: switched-on toggles are visible in dark themes, and the «Saved.» buttons stay on screen on short windows.' },
+      { category: 'accessibility', ru: 'Светлая тема: второстепенный текст контрастнее и проходит норму AA.', en: 'Light theme: secondary text has more contrast and meets AA.' },
+      { category: 'fix', ru: 'Журнал ошибок больше не засоряется сбоями сети и базы, которые случаются при закрытии страницы.', en: 'The error log no longer fills up with network and database errors that happen while the page is closing.' },
+    ],
+  },
+  {
     version: '0.10.0',
     date: '2026-10-17',
     items: [

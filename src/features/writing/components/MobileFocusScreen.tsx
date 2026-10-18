@@ -120,7 +120,7 @@ export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.4 }}
-            className="absolute right-5 text-xs text-text-muted tracking-wider pointer-events-none tabular-nums top-[calc(env(safe-area-inset-top,0px)+16px)]"
+            className="absolute right-5 text-xs text-text-main/60 tracking-wider pointer-events-none tabular-nums top-[calc(env(safe-area-inset-top,0px)+16px)]"
           >
             {formatTime(clockSeconds)}
           </motion.div>

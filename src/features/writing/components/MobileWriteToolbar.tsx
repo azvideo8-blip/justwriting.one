@@ -8,7 +8,7 @@ import { formatTime } from '../../../core/utils/formatTime';
 import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
-import { ModalShell } from '../../../shared/components/ModalShell';
+import { ModalShell, SheetTitle } from '../../../shared/components/ModalShell';
 import { Loader2, Mic, MicOff, Save, Square, X } from 'lucide-react';
 import { DictationWave } from './DictationBar';
 import { previewDictationCost, useDictation } from '../hooks/useDictation';
@@ -148,7 +148,7 @@ export function MobileWriteToolbar({
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       onTouchMove={handleTouchEnd}
-      className="w-full bg-[var(--surface-card)] backdrop-blur-md rounded-[20px] py-3 px-4 flex items-center gap-0 transition-[border-color,box-shadow] duration-300"
+      className="w-full bg-surface-card/85 backdrop-blur-xl rounded-2xl py-3 px-4 flex items-center gap-0 transition-[border-color,box-shadow] duration-300"
       style={toolbarStyle}
     >
       {streamMode && (
@@ -168,47 +168,51 @@ export function MobileWriteToolbar({
         /* MF-4: запись идёт в самой панели, без карточки над ней: × отменяет,
            ■ останавливает, посередине волна (или последние слова распознавания) и
            время. Высота панели та же, без записи. */
+        /* U-18 (2026-10-18): как полоса диктовки десктопа — содержимое, время,
+           мягкий «Стоп» с подписью справа, «×» без рамки. Отличие телефона:
+           волна и распознанный текст стоят в одном месте по очереди — на 360 px
+           рядом им места нет. Второе отличие (ревью 0.10.1): «×» — слева, как
+           в 0.10.0. Справа в покое стоит «Сохранить»; отмена на её месте по
+           привычке выбрасывала продиктованное без вопроса. */
         <motion.div key="dictation-row" {...ROW_SWAP} className="flex min-w-0 flex-1 items-center gap-2" data-dictation-row data-phase={dictation.phase}>
-          <button
-            type="button"
+          <IconButton
             onClick={dictation.cancel}
             disabled={dictation.phase === 'processing'}
-            aria-label={t('voice_cancel')}
-            className="press w-11 h-11 shrink-0 rounded-xl flex items-center justify-center border border-[var(--border-light)] text-[var(--text-muted)] disabled:opacity-40"
-          >
-            <X size={18} aria-hidden="true" />
-          </button>
+            label={t('voice_cancel')}
+            icon={<X size={16} aria-hidden="true" />}
+            className="w-11 h-11 shrink-0 disabled:opacity-40"
+          />
           <div className="flex min-w-0 flex-1 items-center gap-2" aria-live="polite">
             {dictation.phase === 'processing' ? (
-              <span className="flex min-w-0 items-center gap-2 text-[13px] text-[var(--text-muted)]">
+              <span className="flex min-w-0 items-center gap-2 text-xs text-text-main/70">
                 <Loader2 size={16} className="shrink-0 animate-spin" aria-hidden="true" />
                 <span className="truncate">{t('voice_processing')}</span>
               </span>
             ) : dictation.interimText || dictation.liveText ? (
-              <span className="min-w-0 flex-1 truncate text-[13px] text-[var(--text-muted)]" data-dictation-live>
+              <span className="min-w-0 flex-1 truncate text-sm text-text-main" data-dictation-live>
                 {dictation.interimText || dictation.liveText.split(' ').slice(-8).join(' ')}
               </span>
             ) : (
               <span className="min-w-0 flex-1 overflow-hidden"><DictationWave level={dictation.level} levels={dictation.levels} levelFailed={dictation.levelFailed} /></span>
             )}
             {dictation.phase === 'recording' && (
-              <span className="shrink-0 font-mono text-[13px] tabular-nums text-[var(--text-muted)]" data-dictation-timer>{formatTime(dictation.seconds)}</span>
+              <span className="shrink-0 text-xs tabular-nums text-text-main/60" data-dictation-timer>{formatTime(dictation.seconds)}</span>
             )}
           </div>
-          {/* N-6: на «processing» ■ не убирается, а держит место (visibility, а не
-              удаление) — иначе волна рывком расширяется на освободившиеся 44 px. */}
+          {/* N-6: на «processing» кнопка держит место — как на десктопе, гаснет, а не исчезает. */}
           <button
             type="button"
             onClick={dictation.stop}
             disabled={dictation.phase === 'processing'}
-            tabIndex={dictation.phase === 'processing' ? -1 : undefined}
             aria-label={t('voice_stop_dictation')}
             className={cn(
-              "press w-11 h-11 shrink-0 rounded-full flex items-center justify-center bg-accent-danger text-[var(--bg-base)]",
-              dictation.phase === 'processing' && "invisible",
+              "press h-11 min-w-11 px-3 shrink-0 flex items-center justify-center gap-1.5 rounded-lg text-sm",
+              dictation.phase === 'processing' ? "text-text-main/30" : "bg-accent-danger/10 text-accent-danger",
             )}
           >
-            <Square size={16} fill="currentColor" aria-hidden="true" />
+            <Square size={14} aria-hidden="true" />
+            {/* Короткая подпись: «Остановить диктовку» десктопа на 360 px не помещается. */}
+            <span>{t('stop')}</span>
           </button>
         </motion.div>
       ) : (
@@ -218,7 +222,7 @@ export function MobileWriteToolbar({
           onClick={() => onOpenSetup?.()}
           aria-label={t('writing_mode_token')}
           data-write-chip
-          className="press flex min-h-11 min-w-0 flex-1 items-center gap-1 rounded-full border border-[var(--border-light)] bg-[var(--surface-card)] px-3 text-[13px] font-medium text-[var(--text-muted)] tabular-nums"
+          className="press flex min-h-11 min-w-0 flex-1 items-center gap-1 rounded-full border border-[var(--border-light)] bg-[var(--surface-card)] px-3 text-[13px] font-medium text-text-main/60 tabular-nums"
         >
           {hideStats && !isIdle
             ? <span aria-hidden="true" className="shrink-0">{isPaused ? '⏸' : '▶'}</span>
@@ -239,9 +243,9 @@ export function MobileWriteToolbar({
                     ? "border-accent-danger bg-accent-danger/10 text-accent-danger"
                     : showVaultWarn
                     ? "border-accent-warning/50 bg-accent-warning/5 text-accent-warning"
-                    : "border-[var(--border-light)] bg-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]"
+                    : "border-[var(--border-light)] bg-transparent text-text-main/60 hover:text-[var(--text-main)]"
                 )}
-                icon={isListening ? <MicOff size={18} /> : <Mic size={18} />}
+                icon={isListening ? <MicOff size={16} /> : <Mic size={16} />}
               />
               {/* SA-23 (W10): запись — статичная точка, а не пульс в краю глаза во время письма. */}
               {isListening && (
@@ -257,19 +261,18 @@ export function MobileWriteToolbar({
           )}
 
           {/* MF-3: «Сохранить» — значок дискеты 44 px вместо слова «Готово» (решение владельца). */}
-          <button
-            type="button"
+          {/* U-6 (решение владельца 2026-10-18): главное действие — тот же
+              primary-инверсия, что на десктопе; inline-фон и opacity-45 убраны. */}
+          <Button
+            variant="primary"
+            size="md"
             onClick={onStop}
             disabled={!canSave}
             aria-label={t('topbar_save')}
-            className={cn(
-              "press w-11 h-11 shrink-0 rounded-xl flex items-center justify-center transition-opacity",
-              canSave ? "cursor-pointer opacity-100" : "cursor-default opacity-45"
-            )}
-            style={{ background: 'var(--text-main)', color: 'var(--bg-base)' }}
+            className="w-11 h-11 shrink-0 p-0 rounded-xl"
           >
-            <Save size={18} aria-hidden="true" />
-          </button>
+            <Save size={16} aria-hidden="true" />
+          </Button>
         </div>
         </motion.div>
       )}
@@ -286,9 +289,7 @@ export function MobileWriteToolbar({
       <ModalShell open={showExitConfirm} onClose={() => setShowExitConfirm(false)} labelId="stream-exit-title" variant="sheet">
         <div className="p-6 space-y-6 pb-[calc(env(safe-area-inset-bottom,16px)+16px)]">
           <div className="text-center space-y-2">
-            <h2 id="stream-exit-title" className="text-lg font-bold text-text-main">
-              {t('stream_mode_exit_confirm')}
-            </h2>
+            <SheetTitle id="stream-exit-title">{t('stream_mode_exit_confirm')}</SheetTitle>
             <p className="text-sm text-text-main/60">
               {t('stream_mode_exit_desc')}
             </p>
@@ -309,7 +310,7 @@ export function MobileWriteToolbar({
                 setShowExitConfirm(false);
                 onToggleStreamMode?.();
               }}
-              className="flex-1 py-3.5 rounded-2xl font-bold text-sm text-white min-h-[44px]"
+              className="flex-1 py-3.5 rounded-2xl font-bold text-sm min-h-[44px]"
             >
               {t('storage_delete_confirm')}
             </Button>

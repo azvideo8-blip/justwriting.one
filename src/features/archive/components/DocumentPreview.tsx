@@ -359,6 +359,11 @@ export function DocumentPreview({
 
   const dateLocale = getDateLocale(language);
   const date = toDate(session.createdAt) ?? new Date();
+  // D-9: нулевой показатель — не показатель (DESIGN.md:324): минуты исчезают из
+  // строки метаданных, когда округляются до нуля, а не печатаются как «0 мин».
+  // Время чтения всегда не меньше минуты (`readingTimeMinutes`), поэтому там
+  // нуля не бывает.
+  const durationMinutes = Math.round((session.duration || 0) / 60);
 
   const exportStrings: ExportStrings = {
     date: t('export_header_date'),
@@ -512,8 +517,12 @@ export function DocumentPreview({
             {tp('archive_word_count', session.wordCount || 0)}
             {' · '}
             {t('reading_time', { n: readingTimeMinutes(session.wordCount || 0) })}
-            {' · '}
-            {Math.round((session.duration || 0) / 60)} {t('goal_time_min')}
+            {durationMinutes > 0 && (
+              <>
+                {' · '}
+                {durationMinutes} {t('goal_time_min')}
+              </>
+            )}
             {versionCount !== null && versionCount > 1 && (
               <>
                 {' · '}
@@ -532,7 +541,7 @@ export function DocumentPreview({
                   className="w-3 h-3 rounded-full border-2 shrink-0 transition-colors"
                   style={{
                     background: currentLabel?.color ?? 'transparent',
-                    borderColor: currentLabel?.color ?? 'rgba(255,255,255,0.2)',
+                    borderColor: currentLabel?.color ?? 'color-mix(in srgb, var(--text-main) 25%, transparent)',
                   }}
                 />
                 <span className="text-text-main/60 hover:text-text-main transition-colors">
@@ -600,7 +609,7 @@ export function DocumentPreview({
                       <Button
                         key={c}
                         style={{ background: c }}
-                        className={cn("w-3 h-3 rounded-full transition-colors p-0 min-w-0", newLabelColor === c && "ring-1 ring-offset-1 ring-offset-surface-card ring-white/40")}
+                        className={cn("w-3 h-3 rounded-full transition-colors p-0 min-w-0", newLabelColor === c && "ring-1 ring-offset-1 ring-offset-surface-card ring-text-main/40")}
                         onClick={() => setNewLabelColor(c)}
                         aria-label={`Select color ${c}`}
                       />
@@ -781,7 +790,7 @@ export function DocumentPreview({
       </div>
 
       {/* Actions */}
-        <div className="p-5 border-t border-border-subtle flex gap-2 pb-[calc(env(safe-area-inset-bottom,0px)+var(--bottom-nav-height,72px)+8px)]">
+        <div className={cn("p-5 border-t border-border-subtle flex gap-2", isMobile && "pb-[calc(env(safe-area-inset-bottom,0px)+var(--bottom-nav-height,72px)+8px)]")}>
         <Button
           onClick={() => {
             if (session._locked) {

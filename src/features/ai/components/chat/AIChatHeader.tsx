@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Brain, Settings, Download, Pencil, Archive, Trash2, Plus, ChevronDown, Info, Menu, MoreHorizontal } from 'lucide-react';
 import { IconButton } from '../../../../shared/components/IconButton';
-import { ModalShell, SECTION_LABEL } from '../../../../shared/components/ModalShell';
+import { Button } from '../../../../shared/components/Button';
+import { ModalShell, SECTION_LABEL, SheetTitle } from '../../../../shared/components/ModalShell';
 import { useLanguage } from '../../../../shared/i18n';
 import { cn } from '../../../../core/utils/utils';
 import { Monogram } from '../AIChatPresentational';
@@ -134,10 +135,10 @@ export function AIChatHeader(props: AIChatHeaderProps) {
         <div className="flex items-center gap-2">
           <IconButton
             onClick={onOpenDialogues}
-            className="w-11 h-11 shrink-0 rounded-xl border border-border-subtle text-text-main/70 flex items-center justify-center"
+            className="w-11 h-11 shrink-0"
             title={t('ai_dialogues_open')}
             label={t('ai_dialogues_open')}
-            icon={<Menu size={20} />}
+            icon={<Menu size={16} />}
           />
           <div className="flex-1 min-w-0 flex justify-center">
             {/* MR-1: имя персоны 22 px → токен по центру; MR-3 делает из него выбор
@@ -155,26 +156,25 @@ export function AIChatHeader(props: AIChatHeaderProps) {
               <span className="truncate">{activePersonaName}</span>
             </button>
           </div>
+          {/* 0.10.1 (скрин владельца): «⋯» — в строке шапки, а не отдельной строкой
+              под ней: на телефоне каждая строка — минус строка ответа. Есть и без
+              открытого диалога: объём ответа и рассуждения выбирают до первого
+              сообщения; действия диалога в листе — только при диалоге. */}
+          <IconButton
+            onClick={() => setMoreOpen(true)}
+            className="w-11 h-11 shrink-0 rounded-xl text-text-main/60 flex items-center justify-center"
+            title={t('ai_more')}
+            label={t('ai_more')}
+            icon={<MoreHorizontal size={16} />}
+          />
           <IconButton
             onClick={onNewDialogue}
-            className="w-11 h-11 shrink-0 rounded-xl border border-border-subtle text-text-main/70 flex items-center justify-center"
+            className="w-11 h-11 shrink-0"
             title={t('ai_new_dialogue')}
             label={t('ai_new_dialogue')}
-            icon={<Plus size={20} />}
+            icon={<Plus size={16} />}
           />
         </div>
-
-        {hasActiveDialogue && (
-          <div className="flex justify-end mt-1">
-            <IconButton
-              onClick={() => setMoreOpen(true)}
-              className="w-11 h-11 rounded-xl text-text-main/60 flex items-center justify-center"
-              title={t('ai_more')}
-              label={t('ai_more')}
-              icon={<MoreHorizontal size={20} />}
-            />
-          </div>
-        )}
 
         <MobilePersonaSheet
           open={personaSheetOpen}
@@ -189,9 +189,7 @@ export function AIChatHeader(props: AIChatHeaderProps) {
         {/* MF-20: смонтирован всегда — open даёт листу уйти с анимацией. */}
           <ModalShell open={moreOpen} onClose={() => setMoreOpen(false)} labelId="ai-header-more-title" variant="sheet">
             <div className="p-4 space-y-2">
-              <h2 id="ai-header-more-title" className="text-sm font-semibold text-text-main truncate">
-                {dialogueTitle ?? activePersonaName}
-              </h2>
+              <SheetTitle id="ai-header-more-title" className="truncate">{dialogueTitle ?? activePersonaName}</SheetTitle>
               <button
                 type="button"
                 onClick={() => { setMoreOpen(false); onOpenMemory(); }}
@@ -228,13 +226,14 @@ export function AIChatHeader(props: AIChatHeaderProps) {
               {quota !== undefined && (
                 <div className="w-full min-h-11 flex items-center justify-between gap-3 px-3 py-2 rounded-xl border border-border-subtle text-xs text-text-main/70">
                   <span>{t('ai_quota_today')}</span>
-                  <span className="font-mono text-right">
+                  <span className="tabular-nums text-right">
                     {t('ai_quota_chat')} {quota.chatRemaining}/{quota.chatTotal}
                     {' · '}
                     {t('ai_quota_reasoning')} {quota.reasoningRemaining}/{quota.reasoningTotal}
                   </span>
                 </div>
               )}
+              {hasActiveDialogue && (<>
               {mobileRename ? (
                 <div className="space-y-2">
                   <input
@@ -242,19 +241,20 @@ export function AIChatHeader(props: AIChatHeaderProps) {
                     value={mobileRenameValue}
                     onChange={e => setMobileRenameValue(e.target.value)}
                     aria-label={t('ai_dialogue_rename')}
-                    className="w-full h-11 rounded-xl border border-border-subtle bg-surface-base px-3 text-sm text-text-main"
+                    className="w-full h-11 rounded-xl border border-border-subtle bg-surface-base px-3 text-[16px] text-text-main"
                   />
-                  <button
-                    type="button"
+                  {/* U-6 (решение владельца 2026-10-18): primary-инверсия вместо bg-accent + text-white. */}
+                  <Button
+                    variant="primary"
                     onClick={() => {
                       const v = mobileRenameValue.trim();
                       if (v && activeDialogueId) { onRename(activeDialogueId, v); setMoreOpen(false); }
                       setMobileRename(false);
                     }}
-                    className="w-full h-11 rounded-xl bg-accent text-white text-sm font-semibold"
+                    className="w-full h-11 rounded-xl text-sm font-semibold"
                   >
                     {t('ai_dialogue_rename')}
-                  </button>
+                  </Button>
                 </div>
               ) : (
                 <button
@@ -286,6 +286,7 @@ export function AIChatHeader(props: AIChatHeaderProps) {
               >
                 <Trash2 size={16} /> {t('ai_delete')}
               </button>
+              </>)}
             </div>
           </ModalShell>
 

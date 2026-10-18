@@ -1,5 +1,5 @@
 import { ChevronRight } from 'lucide-react';
-import { ModalShell } from '../../../../shared/components/ModalShell';
+import { ModalShell, SheetTitle } from '../../../../shared/components/ModalShell';
 import { useLanguage } from '../../../../shared/i18n';
 import { personaVisual } from '../../constants/personaVisuals';
 import type { AIChatHeaderPersona } from './AIChatHeader';
@@ -26,7 +26,9 @@ export function MobilePersonaSheet(props: MobilePersonaSheetProps) {
   return (
     <ModalShell open={open} onClose={onClose} labelId={titleId} variant="sheet">
       <div className="flex flex-col min-h-0 flex-1">
-        <h2 id={titleId} className="px-4 pt-4 pb-2 text-base font-bold text-text-main">{t('ai_persona_sheet_title')}</h2>
+        <div className="px-4 pt-4 pb-2">
+          <SheetTitle id={titleId}>{t('ai_persona_sheet_title')}</SheetTitle>
+        </div>
         <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2">
           {personas.map(p => {
             const v = personaVisual(p.id, p.name);
@@ -44,7 +46,7 @@ export function MobilePersonaSheet(props: MobilePersonaSheetProps) {
                   <span className="w-[9px] h-[9px] rounded-full shrink-0" style={{ background: v.color }} />
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-medium text-text-main truncate">{p.name}</span>
-                    <span className="block text-[13px] text-text-muted truncate">{role}</span>
+                    <span className="block text-[13px] text-text-main/60 truncate">{role}</span>
                   </span>
                 </button>
                 <button
@@ -66,7 +68,7 @@ export function MobilePersonaSheet(props: MobilePersonaSheetProps) {
             {t('ai_persona_create_row')}
           </button>
         </div>
-        <p className="px-4 py-3 text-[13px] text-text-muted border-t border-border-subtle">{t('ai_persona_sheet_footer')}</p>
+        <p className="px-4 py-3 text-[13px] text-text-main/60 border-t border-border-subtle">{t('ai_persona_sheet_footer')}</p>
       </div>
     </ModalShell>
   );

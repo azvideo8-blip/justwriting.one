@@ -42,7 +42,9 @@ const { MobileWriteScreen } = await import('../components/MobileWriteScreen');
 const { DictationChrome } = await import('../components/DictationBar');
 
 describe('MF-4: recording happens inside the toolbar', () => {
-  it('mobile: the toolbar row turns into × · wave/words · timer · ■, with no card above', () => {
+  // U-18 (2026-10-18): вид как у полосы диктовки десктопа, но «×» слева (ревью 0.10.1):
+  // справа в покое — «Сохранить», и отмена на её месте выбрасывала продиктованное.
+  it('mobile: the toolbar row turns into × · wave/words · timer · Stop, with no card above', () => {
     render(<MobileWriteScreen onPlay={vi.fn()} onStop={vi.fn()} />);
     expect(document.querySelector('[data-dictation-bar]'), 'на телефоне осталась карточка записи').toBeNull();
     const toolbar = document.querySelector('[data-write-toolbar]')!;
@@ -52,7 +54,8 @@ describe('MF-4: recording happens inside the toolbar', () => {
     expect(buttons).toEqual(['voice_cancel', 'voice_stop_dictation']);
     expect(row.querySelector('[data-dictation-timer]')?.textContent).toBe('0:12');
     expect(screen.queryByText(/voice_ai_request_notice/), 'в строке записи осталось предупреждение о запросе').toBeNull();
-    expect(screen.getByRole('button', { name: 'voice_stop_dictation' }).className).toContain('rounded-full');
+    // Мягкий «Стоп», как на десктопе: подложка danger/10, а не сплошной красный круг.
+    expect(screen.getByRole('button', { name: 'voice_stop_dictation' }).className).toContain('bg-accent-danger/10');
   });
 
   it('desktop still renders the card', () => {

@@ -33,8 +33,11 @@ export function ArchiveStats({ sessions, streakDays, title, onReset, flat = fals
       : []),
   ];
 
+  // D-9: ноль — не показатель (DESIGN.md:324). На телефоне так уже было (MQ-8),
+  // на десктопе плитка «0 МИНУТ» оставалась; правило теперь одно для обоих.
+  const shown = stats.filter(s => Number(String(s.value).replace(/\D/g, '')) > 0);
+
   if (flat) {
-    const shown = stats.filter(s => Number(String(s.value).replace(/\D/g, '')) > 0);
     return (
       <div>
         {(onReset || title) && (
@@ -55,7 +58,7 @@ export function ArchiveStats({ sessions, streakDays, title, onReset, flat = fals
             {shown.map(stat => (
               <div key={stat.label}>
                 <div className="text-[17px] font-semibold tabular-nums leading-tight" style={stat.isStreak ? { color: 'var(--flow-pulse-color)' } : {}}>{stat.value}</div>
-                <div className="text-[12px] text-text-muted">{stat.label}</div>
+                <div className="text-[12px] text-text-main/60">{stat.label}</div>
               </div>
             ))}
           </div>
@@ -79,8 +82,9 @@ export function ArchiveStats({ sessions, streakDays, title, onReset, flat = fals
           />
         )}
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        {stats.map((stat, i) => (
+      {shown.length > 0 && (
+        <div className="grid grid-cols-2 gap-2">
+          {shown.map((stat, i) => (
           <motion.div
             key={stat.label}
             initial={{ opacity: 0, transform: "translateY(8px)" }}
@@ -107,8 +111,9 @@ export function ArchiveStats({ sessions, streakDays, title, onReset, flat = fals
               {stat.label}
             </div>
           </motion.div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

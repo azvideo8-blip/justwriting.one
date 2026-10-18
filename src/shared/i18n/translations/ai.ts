@@ -180,6 +180,7 @@ export const aiTranslations: Translations = {
   ai_sidebar_expand: { ru: 'Развернуть боковую панель', en: 'Expand sidebar' },
   ai_sidebar_collapse: { ru: 'Свернуть боковую панель', en: 'Collapse sidebar' },
   ai_note_fallback: { ru: 'Заметка', en: 'Note' },
+  ai_cite_not_on_device: { ru: 'Эту заметку не нашли на этом устройстве — ответ писался на другом.', en: 'This note is not on this device — the answer was written on another one.' },
   ai_file_fallback: { ru: 'Файл', en: 'File' },
   ai_attached_summary_title: { ru: 'Саммари: {title}', en: 'Summary: {title}' },
   ai_action_copy: { ru: 'копировать', en: 'copy' },

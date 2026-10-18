@@ -1,7 +1,9 @@
-// MC-7: заголовки дней на телефоне — только слова («Сегодня», «Вчера»,
-// «11 октября», «Сентябрь»), без монополосы со счётчиками: счётчики уходят в
-// лист «Календарь и статистика». «В этот день» — обычная строка-кнопка без
-// цветного левого края. Десктопные заголовки не меняются.
+// MC-7: «В этот день» — обычная строка-кнопка без цветного левого края, счётчики
+// дня в листе «Календарь и статистика». ЗАГОЛОВКИ ДНЕЙ с 2026-10-18 больше не
+// плоские строки словами: решение владельца по Q-2 (пункт U-14) — телефон
+// приводит к десктопу (моноширинный капс, счётчики «N заметок · M слов», видимые
+// линии), кегль подписи на телефоне не мельче 12 px (U-9). Десктопные заголовки
+// не меняются.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
@@ -87,32 +89,45 @@ function renderList() {
       />
     </MemoryRouter>
   );
-  return { days3, days40 };
+  return { days3, days40, keys };
 }
 
 describe('MC-7: заголовки дней на телефоне', () => {
   beforeEach(() => { cleanup(); layoutMode = 'mobile'; });
 
-  it('сегодня/вчера/три дня/сорок дней — словами, без счётчиков', () => {
-    const { days3, days40 } = renderList();
+  it('телефон: заголовок дня — моноширинный капс и счётчики, как на десктопе (U-14)', () => {
+    const { keys } = renderList();
 
-    const headers = screen.getAllByTestId('archive-day-header').map(el => el.textContent);
-    expect(headers).toEqual([
-      'archive_day_today',
-      'archive_day_yesterday',
-      format(days3, 'd MMMM', { locale: ru }),
-      format(days40, 'LLLL', { locale: ru }).replace(/^./, c => c.toUpperCase()),
-    ]);
-    expect(screen.queryByText(/слов/), 'в заголовках остались слова').toBeNull();
-    expect(screen.queryByText(/archive_word_count/), 'счётчик слов уехал в заголовок').toBeNull();
-    expect(screen.queryByText(/archive_note_count/), 'счётчик заметок уехал в заголовок').toBeNull();
+    const headers = screen.getAllByTestId('archive-day-header');
+    expect(headers).toHaveLength(4);
+
+    const today = headers[0]!;
+    expect(today.textContent).toContain(format(new Date(keys[0]!), 'd MMM', { locale: ru }));
+    expect(today.textContent).toContain('archive_note_count:2');
+    expect(today.textContent).toContain('archive_word_count:42');
+    expect(today.querySelector('span')?.className).toContain('font-mono');
+    expect(today.querySelector('span')?.className).toContain('uppercase');
+    // U-9: на телефоне подпись не мельче 12 px.
+    expect(today.querySelector('span')?.className).toContain('text-[12px]');
+    // Д-3: разделительные линии на видимом токене.
+    expect(today.innerHTML).toContain('--color-border-subtle');
   });
 
-  it('десктопные заголовки счётчики показывают', () => {
+  it('вчера — счётчики один и по словам дня', () => {
+    const { keys } = renderList();
+    const yesterday = screen.getAllByTestId('archive-day-header')[1]!;
+    expect(yesterday.textContent).toContain(format(new Date(keys[1]!), 'd MMM', { locale: ru }));
+    expect(yesterday.textContent).toContain('archive_note_count:1');
+    expect(yesterday.textContent).toContain('archive_word_count:8');
+  });
+
+  it('десктоп: тот же заголовок, подпись `text-label-sm`', () => {
     layoutMode = 'desktop';
     renderList();
-    expect(screen.queryAllByTestId('archive-day-header')).toHaveLength(0);
-    expect(screen.getAllByText(/archive_note_count/).length).toBeGreaterThan(0);
+    const headers = screen.getAllByTestId('archive-day-header');
+    expect(headers).toHaveLength(4);
+    expect(headers[0]!.querySelector('span')?.className).toContain('text-label-sm');
+    expect(headers[0]!.textContent).toContain('archive_note_count:2');
   });
 });
 

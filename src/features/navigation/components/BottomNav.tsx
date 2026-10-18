@@ -3,7 +3,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { useLoginModal } from '../../../app/useLoginModal';
-import { Sparkles } from 'lucide-react';
+import { History, Sparkles } from 'lucide-react';
 import { Button } from '../../../shared/components/Button';
 import { useSyncStatus } from '../../../core/sync/useSyncStatus';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
@@ -23,15 +23,6 @@ const MeIcon = () => (
     strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
     <circle cx="12" cy="8" r="4"/>
     <path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>
-  </svg>
-);
-
-const ArchiveIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"
-    strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
-    <rect width="20" height="5" x="2" y="3" rx="1" />
-    <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" />
-    <line x1="10" y1="12" x2="14" y2="12" />
   </svg>
 );
 
@@ -77,7 +68,9 @@ export function BottomNav() {
 
   const tabs = [
     { id: 'write' as const, path: '/',        label: t('nav_write'),          icon: <PenIcon /> },
-    { id: 'archive' as const, path: '/archive', label: t('nav_notes_short'),  icon: <ArchiveIcon /> },
+    // U-29 (решение владельца 2026-10-18): значок вкладки «Заметки» — `History`,
+    // как в боковой панели десктопа; самописный «архивный ящик» убран.
+    { id: 'archive' as const, path: '/archive', label: t('nav_notes_short'),  icon: <History size={22} strokeWidth={1.6} aria-hidden="true" /> },
     { id: 'ai' as const, path: '/ai',          label: t('nav_ai_short'),       icon: <Sparkles size={22} strokeWidth={1.6} aria-hidden="true" /> },
     { id: 'me' as const,   path: '/me',       label: t('nav_profile_short'),  icon: <MeIcon /> },
   ];
@@ -141,7 +134,7 @@ export function BottomNav() {
               <span
                 data-testid="tab-dot"
                 aria-hidden="true"
-                className="absolute top-0.5 right-[22%] w-2 h-2 rounded-full bg-accent-warning"
+                className={cn("absolute top-0.5 right-[22%] w-2 h-2 rounded-full", newestLevel === 'error' ? "bg-accent-danger" : "bg-accent-warning")}
               />
             )}
             <span className="text-label-sm font-sans tracking-[0.02em]">

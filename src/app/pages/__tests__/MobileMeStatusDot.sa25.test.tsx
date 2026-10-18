@@ -16,13 +16,13 @@ vi.mock('../../../features/profile/hooks/useProfileStats', () => ({
 for (const name of ['ProfileHero', 'KPIStrip', 'StreakRibbon', 'Heatmap', 'HourRhythm', 'Achievements', 'MoodTrend']) {
   vi.mock(`../../../features/profile/components/${name}`, () => ({ [name]: () => null }));
 }
-const st = vi.hoisted(() => ({ status: 'pending', unlocked: true }));
+const st = vi.hoisted(() => ({ status: 'pending', unlocked: true, entries: [] as { level: string }[] }));
 vi.mock('../../../core/sync/useSyncStatus', () => ({
   useSyncStatus: () => ({ status: st.status, pendingCount: 2, unsyncedCount: 0, aiStorePendingCount: 0, aiStoreDeadCount: 0 }),
 }));
 vi.mock('../../../shared/activity/useActivityLogStore', () => ({
   useActivityLogStore: (cb: (s: { entries: unknown[]; setPanelOpen: (v: boolean) => void }) => unknown) =>
-    cb({ entries: [], setPanelOpen: vi.fn() }),
+    cb({ entries: st.entries, setPanelOpen: vi.fn() }),
 }));
 vi.mock('../../../core/crypto/useEncryptionStore', () => ({
   useEncryptionStore: (cb: (s: { isVaultUnlocked: boolean }) => unknown) => cb({ isVaultUnlocked: st.unlocked }),
@@ -54,5 +54,14 @@ describe('SA-25: the profile tab dot leads to a row that says what it means', ()
     const first = warn.closest('button')!;
     expect(first.parentElement!.firstElementChild).toBe(first);
     expect(within(first).getByText('sync_indicator_label')).toBeInTheDocument();
+  });
+
+  // U-8: точка строки по уровню, как бейдж в Sidebar — ошибка красная.
+  it('the activity row with an error has a danger dot; the sync row stays warning', () => {
+    st.entries = [{ level: 'error' }];
+    const { container } = render(<MemoryRouter><MobileMeScreen user={{ uid: 'u1', email: 'a@b.c' } as never} profile={null} /></MemoryRouter>);
+    expect(container.querySelectorAll('.bg-accent-danger')).toHaveLength(1);
+    expect(container.querySelectorAll('.bg-accent-warning')).toHaveLength(1);
+    st.entries = [];
   });
 });

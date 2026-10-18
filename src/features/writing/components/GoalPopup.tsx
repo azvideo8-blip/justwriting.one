@@ -148,7 +148,7 @@ export function GoalPopup({
                 "px-2 py-1 rounded-lg text-xs border transition-colors font-bold",
                 isActive
                   ? "border-text-main bg-text-main text-surface-base"
-                  : "border-border-subtle text-text-main/60 hover:text-text-main hover:bg-white/5"
+                  : "border-border-subtle text-text-main/60 hover:text-text-main hover:bg-text-main/5"
               )}
             >{p.label}</Button>
               );

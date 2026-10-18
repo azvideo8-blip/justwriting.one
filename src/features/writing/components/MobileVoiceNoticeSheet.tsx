@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ModalShell } from '../../../shared/components/ModalShell';
+import { ModalShell, SheetTitle } from '../../../shared/components/ModalShell';
 import { useLanguage } from '../../../shared/i18n';
 
 // MF-5: один лист перед записью на телефоне вместо двух предупреждений (окно
@@ -24,7 +24,7 @@ export function MobileVoiceNoticeSheet({ open = true, notice, onCancel, onRecord
   return (
     <ModalShell open={open} onClose={onCancel} labelId="voice-notice-title" variant="sheet">
       <div className="px-6 pt-6 pb-4 space-y-4" data-voice-notice>
-        <h2 id="voice-notice-title" className="text-[17px] font-semibold text-text-main">{t('voice_confirm_title')}</h2>
+        <SheetTitle id="voice-notice-title">{t('voice_confirm_title')}</SheetTitle>
         {notice.vault ? (
           <p className="text-sm text-text-main/80 leading-relaxed">{t('voice_confirm_vault_desc')}</p>
         ) : (

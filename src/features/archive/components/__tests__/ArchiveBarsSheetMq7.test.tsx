@@ -1,5 +1,7 @@
-// MQ-7: панель тегов и меток на телефоне — по правилам телефона (подпись строчная,
-// фишки Inter 14 и 44 px), десктопная панель не меняется.
+// MQ-7: панель тегов и меток на телефоне — фишки Inter 14 и 44 px, десктопная
+// панель не меняется. Подпись раздела с 2026-10-18 КАПСОМ и моноширинная:
+// решение владельца по Q-1 (U-9) — эталон десктоп, DESIGN.md переписан под него.
+// Отсюда «не капс» в этом тесте заменён на «тот же вид, что у SECTION_LABEL».
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ArchiveTagBar } from '../ArchiveTagBar';
@@ -26,10 +28,10 @@ const labelBar = (variant?: 'sheet') => render(
 );
 
 describe('MQ-7: панель тегов и меток на телефоне', () => {
-  it('теги: подпись строчная, без моно, фишки min-h-11', () => {
+  it('теги: подпись — метка раздела как на десктопе (U-9), фишки min-h-11', () => {
     const { container } = tagBar('sheet');
-    expect(container.innerHTML).not.toContain('uppercase');
-    expect(container.innerHTML).not.toContain('font-mono');
+    expect(container.innerHTML).toContain('uppercase');
+    expect(container.innerHTML).toContain('font-mono');
     expect(container.innerHTML).not.toContain('text-[9px]');
     expect(container.innerHTML).not.toContain('text-[10px]');
     for (const name of [/#глина/, /#утро/, /archive_tags_reset/]) {
@@ -37,10 +39,10 @@ describe('MQ-7: панель тегов и меток на телефоне', ()
     }
   });
 
-  it('метки: подпись строчная, без моно, фишки min-h-11', () => {
+  it('метки: подпись — метка раздела как на десктопе (U-9), фишки min-h-11', () => {
     const { container } = labelBar('sheet');
-    expect(container.innerHTML).not.toContain('uppercase');
-    expect(container.innerHTML).not.toContain('font-mono');
+    expect(container.innerHTML).toContain('uppercase');
+    expect(container.innerHTML).toContain('font-mono');
     for (const name of [/Работа/, /archive_tags_reset/]) {
       expect(screen.getByRole('button', { name }).className, String(name)).toContain('min-h-11');
     }

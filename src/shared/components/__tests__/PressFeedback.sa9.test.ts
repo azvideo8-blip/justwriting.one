@@ -15,6 +15,16 @@ describe('SA-9: press feedback', () => {
     }
   });
 
+  // Общий Button и IconButton несут отклик в своих базовых классах. Отдельная
+  // проверка нужна затем, чтобы ниже можно было засчитывать `<Button …>` без
+  // литерала `press` в файле: иначе храповик слепеет ровно в тот момент, когда
+  // кнопку выносят в общий компонент (мутация «убрать press из Button» красна
+  // здесь).
+  it('shared Button and IconButton carry .press themselves', () => {
+    expect(read('shared/components/Button.tsx')).toMatch(/transition-colors press/);
+    expect(read('shared/components/IconButton.tsx')).toMatch(/clickable-target-expansion press/);
+  });
+
   it.each([
     ['features/writing/components/MobileSessionSetupSheet.tsx'],
     ['features/archive/components/MobileArchiveSidebarSheet.tsx'],
@@ -35,8 +45,11 @@ describe('SA-9: press feedback', () => {
     const src = read(file);
     const at = src.indexOf(anchor);
     expect(at, `anchor not found: ${anchor}`).toBeGreaterThan(-1);
-    // className стоит в пределах тега кнопки — в 600 знаках от якоря.
-    expect(src.slice(Math.max(0, at - 300), at + 300)).toMatch(/['"` ]press[ '"`]/);
+    // className стоит в пределах тега кнопки — в 600 знаках от якоря. С
+    // 2026-10-18 (U-6) частью кнопок управляет общий Button: `press` уже в его
+    // базовых классах, поэтому литерала в файле нет — считаем и такую форму.
+    const window = src.slice(Math.max(0, at - 300), at + 300);
+    expect(window.match(/['"` ]press[ '"`]/) || window.match(/<Button\b/), 'ни press, ни общего Button').not.toBeNull();
   });
 
   it.each([

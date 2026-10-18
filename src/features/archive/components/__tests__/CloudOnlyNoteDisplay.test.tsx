@@ -98,6 +98,7 @@ describe('Cloud-only note display (R-5)', () => {
         onDeletePermanently={vi.fn()}
         onEmptyTrash={vi.fn()}
         t={t}
+        tp={(key, count) => `${count} ${key}`}
       />
     );
 

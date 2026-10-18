@@ -17,7 +17,7 @@ const sessions = [
 ] as unknown as ArchiveSession[];
 
 function TrashProbe({ isMobile }: { isMobile: boolean }) {
-  const { t } = useLanguage();
+  const { t, tp } = useLanguage();
   return (
     <ArchiveTrashView
       trashedSessions={sessions}
@@ -26,6 +26,7 @@ function TrashProbe({ isMobile }: { isMobile: boolean }) {
       onEmptyTrash={vi.fn()}
       onOpenPreview={vi.fn()}
       t={t}
+      tp={tp}
       isMobile={isMobile}
     />
   );

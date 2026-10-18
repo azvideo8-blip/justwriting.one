@@ -224,7 +224,7 @@ export function AIChatComposer(props: AIChatComposerProps) {
             </button>
           )}
           {pendingAttachments.length > 0 && (
-            <div className="mb-2 flex flex-wrap gap-1.5">
+            <div className={`mb-2 flex flex-wrap ${isMobile ? 'gap-2' : 'gap-1.5'}`}>
               {pendingAttachments.map((att, idx) => (
                 <div key={idx} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-card border border-brand-soft/30 text-xs text-text-main/80 max-w-full">
                   <Paperclip size={12} className="text-brand-soft shrink-0" />
@@ -232,7 +232,10 @@ export function AIChatComposer(props: AIChatComposerProps) {
                   <button
                     type="button"
                     onClick={() => removePendingAttachment(idx)}
-                    className="shrink-0 text-text-main/50 hover:text-text-main transition-colors"
+                    // U-32 (ревью): на телефоне — настоящая цель 44 px внутри чипа
+                    // (отрицательные поля съедают padding), а не оверлей: тот
+                    // заходил на соседний чип, и тап по нему снимал чужое вложение.
+                    className={`shrink-0 text-text-main/50 hover:text-text-main transition-colors${isMobile ? ' -my-3 -mr-3 flex h-11 w-11 items-center justify-center' : ''}`}
                     aria-label={t('ai_close')}
                   >
                     <X size={13} />

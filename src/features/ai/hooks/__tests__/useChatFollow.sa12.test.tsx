@@ -20,7 +20,7 @@ describe('useChatFollow (SA-12)', () => {
   let scroll: ReturnType<typeof vi.fn>;
   beforeEach(() => {
     scroll = vi.fn();
-    Element.prototype.scrollIntoView = scroll as unknown as typeof Element.prototype.scrollIntoView;
+    Element.prototype.scrollTo = scroll as unknown as typeof Element.prototype.scrollTo;
     vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => { cb(0); return 0; });
   });
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
@@ -35,7 +35,7 @@ describe('useChatFollow (SA-12)', () => {
     const { rerender } = render(<Harness count={2} role="assistant" stream="" />);
     scroll.mockClear();
     rerender(<Harness count={2} role="assistant" stream="кусок" />);
-    expect(scroll).toHaveBeenCalledWith({ behavior: 'auto' });
+    expect(scroll).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'auto' }));
     expect(scroll.mock.calls.some(([o]) => o.behavior === 'smooth')).toBe(false);
   });
 
@@ -57,7 +57,7 @@ describe('useChatFollow (SA-12)', () => {
     act(() => { box.dispatchEvent(new Event('wheel', { bubbles: true })); });
     scroll.mockClear();
     rerender(<Harness count={3} role="user" stream="" />);
-    expect(scroll).toHaveBeenCalledWith({ behavior: 'smooth' });
+    expect(scroll).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'smooth' }));
   });
 
   it('reduced motion: own message scrolls without smooth', () => {

@@ -7,7 +7,7 @@ import { Label } from '../../types';
 import { cn } from '../../core/utils/utils';
 import { Button } from '../../shared/components/Button';
 import { IconButton } from '../../shared/components/IconButton';
-import { ModalShell } from '../../shared/components/ModalShell';
+import { ModalShell, SECTION_LABEL, SHEET_DIVIDER, SHEET_ROW } from '../../shared/components/ModalShell';
 import { buildNoteActions, type NoteActionId, type NoteActionItem, type NoteLabelsSection } from '../../features/archive/components/noteActions';
 import { splitNoteTitle } from '../../features/archive/components/noteTitle';
 import type { ArchiveSession } from '../../features/archive/types';
@@ -149,9 +149,11 @@ function MobileNoteActionsSheetBody({
 
   // SA-17: строки меню на всю ширину — значок и текст слева, без рамок; пять
   // одинаковых карточек подряд читались как форма, а не как меню.
+  // U-22 (решение владельца 2026-10-18): строка листа — общая `SHEET_ROW`; от
+  // неё остаются только скругление и внутренний отступ этой панели.
   const rowClass = (destructive = false) => cn(
-    'w-full min-h-[48px] justify-start flex items-center gap-3 px-2 py-3 rounded-xl text-[15px] text-left font-medium',
-    destructive ? 'text-accent-danger active:bg-accent-danger/10' : 'text-text-main/85 active:bg-text-main/[0.06]',
+    SHEET_ROW, 'justify-start px-2 rounded-xl',
+    destructive && 'text-accent-danger active:bg-accent-danger/10',
   );
   const row = (section: NoteActionItem) => {
     const Icon = section.icon;
@@ -173,7 +175,7 @@ function MobileNoteActionsSheetBody({
         {/* MQ-17: две строки вместо обрезки на 16 знаках. */}
         <div className="min-w-0 flex-1 line-clamp-2 break-words pl-2 text-base font-bold text-text-main">{title}</div>
         <IconButton onClick={() => { onRename(); onClose(); }} className="w-11 h-11 rounded-full text-text-main/70" label={t('archive_rename_title')} icon={<Pencil size={18} />} />
-        <IconButton onClick={onClose} className="w-11 h-11 rounded-full text-text-main/60" label={t('close')} icon={<X size={18} />} />
+        <IconButton onClick={onClose} className="w-11 h-11 rounded-xl" label={t('close')} icon={<X size={18} />} />
       </div>
 
       <div data-testid="note-actions-list" ref={listRef} className="px-4 py-3 overflow-y-auto no-scrollbar pb-[calc(env(safe-area-inset-bottom,0px)+88px)]">
@@ -188,7 +190,7 @@ function MobileNoteActionsSheetBody({
         {saveAsOpen ? (
           <motion.div key="save-as" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="col-start-1 row-start-1 space-y-2" data-testid="note-save-as" style={{ minHeight: actionsHeight || undefined }}>
             <div className="flex items-center justify-between">
-              <span className="text-[13px] font-semibold text-text-muted">{t('archive_save_as')}</span>
+              <span className={SECTION_LABEL}>{t('archive_save_as')}</span>
               <Button onClick={() => setSaveAsOpen(false)} className="min-h-11 px-2 text-xs text-brand-soft">{t('writing_back')}</Button>
             </div>
             {formats.map(f => (
@@ -207,14 +209,14 @@ function MobileNoteActionsSheetBody({
               if (labelsSection && (id === 'addTag' || (id === 'open' && !byId('addTag')))) {
                 out.push(
                   <div key="labels" data-testid="note-actions-labels" className="pt-1">
-                    <div className="px-1 pb-1 text-[13px] font-semibold text-text-muted">{labelsSection.heading}</div>
+                    <div className={`px-1 pb-1 ${SECTION_LABEL}`}>{labelsSection.heading}</div>
                     <div className="flex flex-wrap gap-2">
                       {labelsSection.options.map(o => (
                         <Button
                           key={o.key}
                           onClick={() => { o.onSelect(); onClose(); }}
                           aria-pressed={o.checked}
-                          className={cn('min-h-11 inline-flex items-center gap-2 rounded-full border px-3 text-[13px]', o.checked ? 'border-text-main/30 bg-text-main/10 text-text-main' : 'border-border-subtle text-text-main/70')}
+                          className={cn('min-h-11 inline-flex items-center gap-2 rounded-full border border-border-subtle px-3 text-[13px] text-text-main/70', o.checked && 'ring-2 ring-brand-soft text-text-main')}
                         >
                           {o.dashed
                             ? <span className="w-3 h-3 rounded-full border border-dashed border-text-main/30" />
@@ -233,7 +235,10 @@ function MobileNoteActionsSheetBody({
               <span>{t('archive_save_as')}</span>
             </Button>
             {deleteItem && (
-              <div data-testid="note-actions-danger" className="mt-3 border-t border-border-subtle pt-3">{row(deleteItem)}</div>
+              <div data-testid="note-actions-danger" className="mt-1 flex flex-col">
+                <div role="separator" className={SHEET_DIVIDER} />
+                {row(deleteItem)}
+              </div>
             )}
           </motion.div>
         )}

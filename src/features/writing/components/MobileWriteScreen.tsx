@@ -17,6 +17,9 @@ import { getFontStack } from '../utils/fontStack';
 import { sessionClockSeconds } from '../utils/sessionModeLabels';
 import { KeystrokeTracker } from '../utils/keystrokeTracker';
 import { cn } from '../../../core/utils/utils';
+import { SlidersHorizontal } from 'lucide-react';
+import { IconButton } from '../../../shared/components/IconButton';
+import { SaveStatus } from './SaveStatus';
 import { useAutoHideCursor } from '../hooks/useAutoHideCursor';
 import type { SessionType } from '../store/types';
 
@@ -244,7 +247,7 @@ export function MobileWriteScreen({
   }, [bottomPad, content]);
 
   const toolbarStackStyle: React.CSSProperties = keyboardState.up
-    ? { bottom: `${Math.max(8, keyboardState.overlay + 8)}px` }
+    ? { bottom: `${keyboardState.overlay + 8}px` }
     : { bottom: 'calc(env(safe-area-inset-bottom, 16px) + var(--bottom-nav-height, 72px))' };
 
   return (
@@ -254,7 +257,8 @@ export function MobileWriteScreen({
 
       {/* SA-10: шапка и строка дзена — в одном слоте 44 px, кроссфейд 150 мс:
           раньше шапка уходила 0,3 с, пока в колонке уже стояла строка дзена, и текст дёргался. */}
-      <div className="shrink-0 pt-[env(safe-area-inset-top,0px)]">
+      {/* U-15: фон и граница шапки — как у шапки письма на десктопе. */}
+      <div className="shrink-0 pt-[env(safe-area-inset-top,0px)] bg-surface-card/50 border-b border-border-subtle">
       <div className="relative h-11">
       {/* MQ-15 (N-9): шапка проступает после дзена с нуля — не поверх ещё гаснущей строки дзена. */}
       <AnimatePresence initial={false}>
@@ -263,7 +267,7 @@ export function MobileWriteScreen({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
+            transition={{ duration: 0.3 }}
             className="absolute inset-0 flex items-center justify-between px-5 gap-3"
           >
             {saveMoment !== null ? (
@@ -288,15 +292,11 @@ export function MobileWriteScreen({
                 </div>
               ) : <span className="min-w-11" aria-hidden="true" />
             ) : (
-            <div className={cn(
-              "flex items-center gap-1.5 py-1 px-3 rounded-full border border-[var(--border-light)]",
-              isRunning ? "bg-[var(--surface-elevated)]" : "bg-[var(--surface-card)]"
-            )}>
-              <div className={cn(
-                "w-1.5 h-1.5 rounded-full",
-                isRunning ? "bg-[var(--brand-primary)] shadow-[0_0_6px_oklch(0.72_0.13_155/0.6)]" : isPaused ? "bg-[var(--accent-warning)]" : "bg-[var(--text-subtle)]"
-              )} />
-              <span className="font-mono text-[13px] font-medium text-[var(--text-main)] tracking-wide tabular-nums">
+            /* U-2, U-17: время — Inter tabular-nums без плашки и свечения, как на десктопе;
+               точка остаётся только сигналом паузы. */
+            <div className="flex items-center gap-1.5">
+              {isPaused && <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent-warning)]" />}
+              <span data-testid="session-time" className="text-[15px] font-medium text-text-main tabular-nums">
                 {formatTime(clockSeconds)}
               </span>
             </div>
@@ -304,19 +304,23 @@ export function MobileWriteScreen({
 
             {/* MQ-4: статус сохранения стоит слева, в одном слоте со временем, а не после «Aa»:
                 отдельный блок min-w-60 справа выталкивал «Aa» с края и сам уезжал за экран. */}
-            {saveMoment === null && saveStatus && saveStatus !== 'idle' && (
-              <span data-testid="save-status-text" className="max-w-[40%] shrink-0 truncate text-[12px] text-[var(--text-subtle)] tabular-nums">
-                {saveStatus === 'saving' ? t('save_status_saving') :
-                 saveStatus === 'saved'  ? t('save_status_saved')  :
-                 saveStatus === 'cloud-stale' ? <span className="text-[var(--accent-warning)]">{t('editor_cloud_stale')}</span> :
-                 saveStatus === 'error' ? <span className="text-[var(--accent-danger)]">{saveErrorKind === 'quota' ? t('editor_error_quota') : t('editor_error_save')}</span> : ''}
+            {/* U-16: «сохраняю / сохранено» — значком, как на десктопе (SaveStatus);
+                ошибка и «только на устройстве» — текстом: на телефоне нет наведения. */}
+            {saveMoment === null && (saveStatus === 'saving' || saveStatus === 'saved') && (
+              <SaveStatus saveStatus={saveStatus} saveErrorKind={saveErrorKind} />
+            )}
+            {saveMoment === null && (saveStatus === 'error' || saveStatus === 'cloud-stale') && (
+              <span data-testid="save-status-text" className="max-w-[40%] shrink-0 truncate text-[12px] tabular-nums">
+                {saveStatus === 'cloud-stale'
+                  ? <span className="text-[var(--accent-warning)]">{t('editor_cloud_stale')}</span>
+                  : <span className="text-[var(--accent-danger)]">{saveErrorKind === 'quota' ? t('editor_error_quota') : t('editor_error_save')}</span>}
               </span>
             )}
 
             {saveMoment === null && (isIdleState ? (
               /* MC-1: дата словами («Среда, 14 октября») — сокращённое «ср»
                  читалось как часть интерфейса, а не как день. */
-              <span className="flex-1 text-center text-[13px] font-medium text-[var(--text-muted)]">
+              <span className="flex-1 text-center text-[13px] font-medium text-text-main/60">
                 {(() => {
                   const label = new Date().toLocaleDateString(language === 'en' ? 'en-US' : 'ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
                   return label.charAt(0).toUpperCase() + label.slice(1);
@@ -330,19 +334,18 @@ export function MobileWriteScreen({
               aria-label={t('topbar_title_placeholder')}
               inputMode="text"
               enterKeyHint="done"
-              className="min-w-0 flex-1 bg-transparent border-none outline-none text-base font-medium text-[var(--text-muted)] text-center font-sans"
+              className="min-w-0 flex-1 bg-transparent border-none outline-none text-[15px] font-medium text-text-main/60 focus:text-text-main text-left"
             />
             ))}
 
-            {/* MR-5: настройки редактора живут в редакторе — «Aa» справа. */}
-            <button
-              type="button"
+            {/* MR-5: настройки редактора живут в редакторе — справа. U-15: значок
+                SlidersHorizontal без рамки, как на десктопе; цель 44 px. */}
+            <IconButton
               onClick={() => openSettings()}
-              aria-label={t('settings_title')}
-              className="press w-11 h-11 shrink-0 -mr-2 flex items-center justify-center rounded-xl border border-[var(--border-light)] text-[13px] font-semibold text-[var(--text-muted)]"
-            >
-              Aa
-            </button>
+              label={t('settings_title')}
+              icon={<SlidersHorizontal size={16} />}
+              className="w-11 h-11 shrink-0 -mr-2"
+            />
 
           </motion.div>
         )}
@@ -358,21 +361,23 @@ export function MobileWriteScreen({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.15 }}
+          transition={{ duration: 0.3 }}
           className="absolute inset-0 flex items-center px-5 gap-3"
         >
-          <span className="font-mono text-[12px] tabular-nums text-[var(--text-muted)] truncate">
+          <span className="text-[12px] tabular-nums text-text-main/60 truncate">
             {formatTime(clockSeconds)}
             {' · '}
             {sessionWords} {tp('writing_words', sessionWords)}
           </span>
           <span className="flex-1" />
-          <span className="text-[12px] text-[var(--text-subtle)] tabular-nums shrink-0">
-            {saveStatus === 'saving' ? t('save_status_saving') :
-             saveStatus === 'saved' ? t('save_status_saved') :
-             saveStatus === 'cloud-stale' ? <span className="text-[var(--accent-warning)]">{t('editor_cloud_stale')}</span> :
-             saveStatus === 'error' ? <span className="text-[var(--accent-danger)]">{t('editor_error_save')}</span> : ''}
-          </span>
+          {(saveStatus === 'saving' || saveStatus === 'saved') && <SaveStatus saveStatus={saveStatus} saveErrorKind={saveErrorKind} />}
+          {(saveStatus === 'error' || saveStatus === 'cloud-stale') && (
+            <span className="text-[12px] tabular-nums shrink-0">
+              {saveStatus === 'cloud-stale'
+                ? <span className="text-[var(--accent-warning)]">{t('editor_cloud_stale')}</span>
+                : <span className="text-[var(--accent-danger)]">{t('editor_error_save')}</span>}
+            </span>
+          )}
         </motion.div>
       )}
       </AnimatePresence>
@@ -387,15 +392,15 @@ export function MobileWriteScreen({
             /* MQ-3: текст в две строки без обрезки, кнопки 44 px. Если черновик уже в
                редакторе, «Восстановить» нечего делать — остаётся только «Убрать». */
             <div className="flex items-center gap-2 rounded-xl border border-[var(--border-light)] bg-[var(--surface-card)] px-3 py-1">
-              <span className="flex-1 min-w-0 text-[13px] leading-snug text-[var(--text-muted)]">
+              <span className="flex-1 min-w-0 text-[13px] leading-snug text-text-main/60">
                 {draftInEditor ? t('draft_restored') : t('draft_restore_prompt')}
               </span>
               {!draftInEditor && (
-                <button type="button" onClick={() => restoreDraft?.()} className="press min-h-11 px-3 rounded-lg text-[13px] font-semibold text-[var(--brand-primary)]">
+                <button type="button" onClick={() => restoreDraft?.()} className="press min-h-11 px-3 rounded-lg text-[13px] font-medium text-text-main">
                   {t('draft_restore')}
                 </button>
               )}
-              <button type="button" onClick={() => setDiscardConfirm(true)} className="press min-h-11 px-3 rounded-lg text-[13px] font-medium text-[var(--text-muted)]">
+              <button type="button" onClick={() => setDiscardConfirm(true)} className="press min-h-11 px-3 rounded-lg text-[13px] font-medium text-text-main/60">
                 {draftInEditor ? t('draft_remove') : t('draft_discard')}
               </button>
             </div>
@@ -404,7 +409,7 @@ export function MobileWriteScreen({
             <div role="dialog" aria-modal="true" aria-labelledby="discard-draft-title" className="rounded-xl border border-[var(--border-light)] bg-surface-popup p-3 space-y-2">
               <span id="discard-draft-title" className="block text-[13px] text-[var(--text-main)]">{t('draft_discard_confirm')}</span>
               <div className="flex gap-2 justify-end">
-                <button type="button" onClick={() => setDiscardConfirm(false)} className="min-h-11 px-3 rounded-lg text-[13px] text-[var(--text-muted)]">{t('common_cancel')}</button>
+                <button type="button" onClick={() => setDiscardConfirm(false)} className="min-h-11 px-3 rounded-lg text-[13px] text-text-main/60">{t('common_cancel')}</button>
                 <button type="button" onClick={() => { setDiscardConfirm(false); (draftInEditor ? removeDraft : discardDraft)?.(); }} className="min-h-11 px-3 rounded-lg text-[13px] font-semibold text-[var(--accent-danger)]">{t('draft_discard')}</button>
               </div>
             </div>
@@ -448,6 +453,7 @@ export function MobileWriteScreen({
           onCopy={e => { if (streamMode) e.preventDefault(); }}
           onPaste={e => { if (streamMode) e.preventDefault(); }}
           placeholder={t('writing_placeholder_mobile')}
+          className="placeholder:text-text-main/40"
           inputMode="text"
           style={{
             width: '100%',
@@ -461,7 +467,6 @@ export function MobileWriteScreen({
             fontSize: fontSize || 18,
             lineHeight: 1.7,
             color: 'var(--text-main)',
-            caretColor: 'var(--brand-primary)',
             WebkitOverflowScrolling: 'touch',
           }}
         />
