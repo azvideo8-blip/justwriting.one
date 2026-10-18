@@ -47,7 +47,10 @@ describe('AU-6 audit minor issues regression tests', () => {
     // отменяется: второй пуш убивал прогон первого, и у коммита не оставалось
     // ни зелёного, ни красного вердикта — только `cancelled`.
     expect(ciContent).toMatch(/concurrency:\s*\n\s*group:\s*\$\{\{\s*github\.workflow\s*\}\}-\$\{\{\s*github\.ref\s*\}\}/);
-    expect(ciContent).toMatch(/cancel-in-progress:\s*\$\{\{\s*github\.event_name == 'pull_request'\s*\}\}/);
+    // 2026-10-18: CI идёт и на рабочих ветках, там новый пуш отменяет старый
+    // прогон; main — по-прежнему никогда (условие исключает refs/heads/main).
+    const cancel = ciContent.match(/cancel-in-progress:\s*(.+)/)?.[1] ?? '';
+    expect(cancel).toBe("${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref != 'refs/heads/main') }}");
   });
 
   it('ArchiveNoteList.tsx does not use index key={i} in skeleton loader', () => {

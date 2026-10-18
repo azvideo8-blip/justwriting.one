@@ -53,8 +53,15 @@ describe('R7F-024: доступ к проду начинается вместе 
 });
 
 describe('R7F-028: CI main-пуша не отменяется mid-run', () => {
-  it('отмена в процессе — только для pull request', () => {
-    expect(ci).toMatch(/cancel-in-progress:\s*\$\{\{\s*github\.event_name == 'pull_request'\s*\}\}/);
+  // 2026-10-18 (решение владельца): CI гоняется и на рабочих ветках; там новый
+  // пуш отменяет старый прогон (раннер один). main не отменяется никогда.
+  it('отмена в процессе — pull request и пуш в рабочую ветку, но не main', () => {
+    const cancel = ci.match(/cancel-in-progress:\s*(.+)/)?.[1] ?? '';
+    expect(cancel).toBe("${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref != 'refs/heads/main') }}");
+  });
+
+  it('push гоняет CI на всех ветках, кроме dependabot', () => {
+    expect(ci).toMatch(/push:\s*\n\s*branches:\s*\[\s*'\*\*',\s*'!dependabot\/\*\*'\s*\]/);
   });
 });
 

@@ -11,7 +11,11 @@ concurrency:
   # чаще всего и есть релизный) не оставалось ни зелёного, ни красного verdict —
   # только `cancelled`. Выкатка по такому sha не может ни пройти, ни объяснять
   # отказ, а человек видит, что «CI был и пропал».
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # 2026-10-18 (решение владельца): CI гоняется и на рабочих ветках — ошибки
+  # ловятся до main. Раннер один, поэтому новый пуш в ту же ветку отменяет её
+  # старый прогон; main по-прежнему не отменяется никогда (R7F-028), а выкатка
+  # засчитывает только push в main (deploy.yml, R7Q-030).
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref != 'refs/heads/main') }}
 
 # Минуты GitHub кончаются (2026-09-27): push гоняется на своём раннере на VPS
 # бесплатно. Машины GitHub — только вручную (мажорный релиз: Run workflow →
@@ -19,7 +23,7 @@ concurrency:
 # исполняется.
 on:
   push:
-    branches: [ main ]
+    branches: [ '**', '!dependabot/**' ]
   pull_request:
     branches: [ main, master ]
     # PR от Dependabot не гоняются вовсе (см. `if:` у джобов): на машинах

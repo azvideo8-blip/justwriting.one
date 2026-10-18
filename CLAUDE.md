@@ -85,6 +85,9 @@ Rules for `/code-review`, `/security-review`, and any reviewer agent. (`REVIEW.m
 
 ## 6. Release Checklist
 - **Review before the bump:** `/code-review` and `/security-review` over the diff since the previous release commit (`git diff <prev-release>..HEAD`). Every finding is either fixed or recorded as «ложное, потому что …» in the release note/memory.
+- **Mobile e2e locally before the release push** (owner, 2026-10-18 — standing approval to start Docker for this): `docker ps` first (don't touch foreign or someone else's `jw-stand-*`), `scripts/stand/up.sh` on the alt ports, `scripts/ci/mobile-e2e.sh`, then `scripts/stand/down.sh`. CI is the second check, not the first: one runner, 30 min a round.
+- **CI runs on every branch push** (not only `main`); a new push cancels the branch's old run. Push the working branch, get it green, then put the release on `main`. Deploy still counts only the `main` push run.
+- **A change that alters the look updates its e2e ratchet in the same commit:** `rg` the changed class/text/testid in `e2e/` before committing. Agent reports (Qoder etc.) must include the mobile e2e result, or the batch is not accepted.
 - **Version bump — FOUR places, all must match:**
   1. `package.json` `"version"`.
   2. `package-lock.json` — run `npm install --package-lock-only` after bumping `package.json`.
