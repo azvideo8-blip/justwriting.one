@@ -132,7 +132,9 @@ export function AIChatHeader(props: AIChatHeaderProps) {
   if (isMobile) {
     return (
       <div className="relative z-10 px-3 pt-3 pb-2 border-b border-border-subtle">
-        <div className="flex items-center gap-2">
+        {/* 0.10.1: с «⋯» в строке шапки на 360 px имени собеседника не хватало
+            13 px (e2e MP-3) — промежутки gap-1 и поля токена px-2 возвращают 20. */}
+        <div className="flex items-center gap-1">
           <IconButton
             onClick={onOpenDialogues}
             className="w-11 h-11 shrink-0"
@@ -146,7 +148,7 @@ export function AIChatHeader(props: AIChatHeaderProps) {
             <button
               type="button"
               onClick={() => setPersonaSheetOpen(true)}
-              className="press flex items-center gap-2 min-h-11 max-w-full px-3 rounded-full text-sm font-semibold text-text-main truncate"
+              className="press flex items-center gap-2 min-h-11 max-w-full px-2 rounded-full text-sm font-semibold text-text-main truncate"
               style={{ background: `${headerVisual.color}14`, borderColor: `${headerVisual.color}55`, borderWidth: 1 }}
             >
               <Monogram color={headerVisual.color} mono={headerVisual.mono} size={18} />

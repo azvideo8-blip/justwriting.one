@@ -26,7 +26,7 @@ for (const [w, h] of [[360, 740], [390, 844]] as const) {
   test.describe(`MQ-7/8: панели архива на ${w}×${h}`, () => {
     test.use({ viewport: { width: w, height: h } });
 
-    test('MQ-7: панель тегов — строчная подпись, цели ≥ 44 px, без моно-капса', async ({ page }) => {
+    test('MQ-7: панель тегов — метки моно-капсом ≥ 12 px (U-9), цели ≥ 44 px', async ({ page }) => {
       await zenOff(page);
       const account = await signInMobile(page, `mq7-tags-${w}`);
       await saveNoteWithTag(page, 'Заметка про глину. Вторая фраза.', 'керамика');
@@ -40,20 +40,23 @@ for (const [w, h] of [[360, 740], [390, 844]] as const) {
       await expect(panel).toBeVisible({ timeout: 5_000 });
       await page.waitForTimeout(500);
 
+      // U-9 (решение владельца 2026-10-18): метка раздела — моно-капс, как на
+      // десктопе, но на телефоне не мельче 12 px; моно — только у меток.
       const style = await panel.evaluate(el => {
         const all = Array.from(el.querySelectorAll<HTMLElement>('*'));
+        const texty = (e: HTMLElement) => e.childNodes.length > 0 && (e.textContent ?? '').trim() !== '';
         return {
-          upper: all.filter(e => getComputedStyle(e).textTransform === 'uppercase').length,
-          mono: all.filter(e => e.childNodes.length > 0 && /mono/i.test(getComputedStyle(e).fontFamily) && (e.textContent ?? '').trim() !== '').length,
+          smallUpper: all.filter(e => texty(e) && getComputedStyle(e).textTransform === 'uppercase' && parseFloat(getComputedStyle(e).fontSize) < 12).length,
+          monoNotLabel: all.filter(e => texty(e) && /mono/i.test(getComputedStyle(e).fontFamily) && getComputedStyle(e).textTransform !== 'uppercase').length,
         };
       });
-      expect(style, 'в панели тегов остался моно-капс').toEqual({ upper: 0, mono: 0 });
+      expect(style, 'метки панели тегов не по правилу U-9').toEqual({ smallUpper: 0, monoNotLabel: 0 });
       const small = (await smallTargets(page)).filter(s => /керамика|Закрыть|сброс/i.test(s.label));
       expect(small, `цели меньше 44 px: ${JSON.stringify(small)}`).toEqual([]);
       await shot(page, `mq7-tags-panel-${w}`);
     });
 
-    test('MQ-8: панель календаря плоская — без внутренней прокрутки, капса, вложенных карточек и плитки «0 минут»', async ({ page }) => {
+    test('MQ-8: панель календаря плоская — без внутренней прокрутки, вложенных карточек и плитки «0 минут»; капс — только метки ≥ 12 px', async ({ page }) => {
       await zenOff(page);
       const account = await signInMobile(page, `mq8-cal-${w}`);
       await saveNoteWithTag(page, 'Календарная заметка про глину. Вторая фраза.', 'глина');
@@ -71,12 +74,13 @@ for (const [w, h] of [[360, 740], [390, 844]] as const) {
         const all = Array.from(el.querySelectorAll<HTMLElement>('*')).concat(el as HTMLElement);
         return {
           scrollers: all.filter(e => ['auto', 'scroll'].includes(getComputedStyle(e).overflowY) && e.scrollHeight > e.clientHeight + 1).length,
-          upper: all.filter(e => getComputedStyle(e).textTransform === 'uppercase').length,
+          // U-9/U-14: капс разрешён меткам и заголовкам дня — не мельче 12 px.
+          smallUpper: all.filter(e => getComputedStyle(e).textTransform === 'uppercase' && (e.textContent ?? '').trim() !== '' && parseFloat(getComputedStyle(e).fontSize) < 12).length,
           nestedCards: all.filter(e => e !== el && parseFloat(getComputedStyle(e).borderTopWidth) > 0 && getComputedStyle(e).borderTopStyle === 'solid' && e.tagName === 'DIV').length,
           minutesTile: /\bмин/.test(el.textContent ?? ''),
         };
       });
-      expect(facts, `панель календаря: ${JSON.stringify(facts)}`).toEqual({ scrollers: 0, upper: 0, nestedCards: 0, minutesTile: false });
+      expect(facts, `панель календаря: ${JSON.stringify(facts)}`).toEqual({ scrollers: 0, smallUpper: 0, nestedCards: 0, minutesTile: false });
       const close = panel.getByRole('button', { name: 'Закрыть' });
       expect((await close.boundingBox())!.width, '«×» уже 44 px').toBeGreaterThanOrEqual(44);
       await shot(page, `mq8-calendar-panel-${w}`);

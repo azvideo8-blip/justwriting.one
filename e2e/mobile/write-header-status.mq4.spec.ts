@@ -26,8 +26,12 @@ for (const { w, h } of [{ w: 360, h: 640 }, { w: 390, h: 844 }]) {
         const t0 = performance.now();
         while (performance.now() - t0 < 14_000) {
           const row = Array.from(document.querySelectorAll('button')).find(b => b.getAttribute('aria-label') === 'Настройки')?.parentElement;
-          const status = document.querySelector('[data-testid="save-status-text"]');
-          if (status) seen.push(status.textContent ?? '');
+          // U-16 (решение владельца 2026-10-18): «сохраняю / сохранено» — значок
+          // SaveStatus, как на десктопе; текстом остаются только ошибки.
+          const icon = document.querySelector('[data-testid="save-status"]');
+          if (icon) seen.push(icon.getAttribute('aria-label') ?? '');
+          const text = document.querySelector('[data-testid="save-status-text"]');
+          if (text) seen.push(text.textContent ?? '');
           for (const el of Array.from(row?.children ?? []) as HTMLElement[]) {
             const r = el.getBoundingClientRect();
             if (r.width > 0 && r.right > width + 0.5) bad.push(`${el.tagName}:${el.textContent?.slice(0, 20)} right=${Math.round(r.right)}`);

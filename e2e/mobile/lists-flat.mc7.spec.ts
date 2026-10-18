@@ -29,7 +29,7 @@ for (const { w, h } of [{ w: 390, h: 844 }, { w: 360, h: 640 }]) {
   test.describe(`MC-7: плоские списки на ${w}×${h}`, () => {
     test.use({ viewport: { width: w, height: h } });
 
-    test('в архиве нет левого акцентного края, заголовок дня — словами', async ({ page }) => {
+    test('в архиве нет левого акцентного края у заметки без метки, заголовок дня — как на десктопе', async ({ page }) => {
       await zenOff(page);
       const account = await signInMobile(page, `mc7-flat-${w}`);
       await saveNote(page, 'Глина сохнет быстрее, чем кажется. Поэтому круг крутят медленно.', `Круг ${w}`);
@@ -37,12 +37,13 @@ for (const { w, h } of [{ w: 390, h: 844 }, { w: 360, h: 640 }]) {
       await toArchive(page, account);
       await shot(page, `mc7-archive-before-${w}`);
 
-      await expect(page.getByText('Сегодня').first(), 'заголовка дня нет').toBeVisible({ timeout: 15_000 });
-      // Проверка именно заголовков: счётчики живы в скрытой десктопной рейке и
-      // в листе «Календарь и статистика» — туда они и переехали по MC-7.
-      const headers = await page.locator('[data-testid="archive-day-header"]').allTextContents();
-      expect(headers.length, 'заголовков дня нет').toBeGreaterThan(0);
-      expect(headers.filter(text => /слов|заметк|\d/.test(text)), `в заголовках остались счётчики: ${headers.join(' | ')}`).toEqual([]);
+      // U-14 (решение владельца 2026-10-18, Q-2): заголовок дня — как на десктопе:
+      // дата моно-капсом и счётчики «N заметок · M слов» (MC-7 их убирал).
+      const header = page.locator('[data-testid="archive-day-header"]').first();
+      await expect(header, 'заголовка дня нет').toBeVisible({ timeout: 15_000 });
+      const headerText = (await header.textContent()) ?? '';
+      expect(headerText, `в заголовке дня нет счётчиков: ${headerText}`).toMatch(/заметк/);
+      expect(headerText, `в заголовке дня нет числа слов: ${headerText}`).toMatch(/слов/);
 
       const striped = await page.evaluate(() => {
         const bad: string[] = [];
