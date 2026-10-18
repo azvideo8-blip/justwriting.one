@@ -113,13 +113,13 @@ export function ArchiveLabelBar({
                 <IconButton
                   onClick={e => { e.stopPropagation(); setEditingLabelId(label.id); setEditLabelName(label.name); setEditLabelColor(label.color); }}
                   className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/60 hover:text-text-main"
-                  label="Rename"
+                  label={t('archive_label_rename')}
                   icon={<Pencil className="w-1.5 h-1.5" />}
                 />
                 <IconButton
                   onClick={e => { e.stopPropagation(); onDeleteLabel(label.id); }}
                   className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/60 hover:text-accent-danger"
-                  label="Delete"
+                  label={t('archive_label_delete')}
                   icon={<X className="w-1.5 h-1.5" />}
                 />
               </span>

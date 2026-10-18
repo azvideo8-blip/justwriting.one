@@ -77,4 +77,15 @@ describe('auth secret: the password never reaches the server (EA-15)', () => {
     await updateUserPassword(password);
     expect(auth.updateUser).toHaveBeenCalledWith({ password: secret });
   });
+
+  // 0.10.3: «нет ответа» ≠ «нет». Неверный пароль — REAUTH_FAILED; сбой сети или
+  // лимит — исходная ошибка (иначе экран говорил «неверный пароль» при обрыве).
+  // Мутация: любой error → REAUTH_FAILED — второй кейс красный.
+  it('re-auth: wrong password is REAUTH_FAILED, a network failure is not', async () => {
+    auth.signInWithPassword.mockResolvedValue({ data: { user: null }, error: { code: 'invalid_credentials', message: 'Invalid login credentials' } });
+    await expect(reauthenticate(email, password)).rejects.toThrow('REAUTH_FAILED');
+    const offline = { name: 'AuthRetryableFetchError', message: 'Failed to fetch', status: 0 };
+    auth.signInWithPassword.mockResolvedValue({ data: { user: null }, error: offline });
+    await expect(reauthenticate(email, password)).rejects.toMatchObject({ message: 'Failed to fetch' });
+  });
 });

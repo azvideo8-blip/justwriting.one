@@ -83,7 +83,11 @@ export const MarkdownRenderer = React.memo(
                   <button
                     type="button"
                     onClick={() => onCitationClick?.(id)}
-                    className={`inline-flex items-center align-baseline select-none${mobile ? ' -my-3 -mx-1.5 px-1.5 py-3' : ' mx-0.5'}`}
+                    // T-1 (приёмка 0.10.2): по вертикали запас 2 px — в межстрочье;
+                    // py-3 давал 44 px коробку, и «📅» следующей строки (рисуется
+                    // позже) перекрывал низ пилюли выше. Запас по ширине — 12 px.
+                    // Встроенная в текст ссылка — исключение WCAG 2.5.8.
+                    className={`inline-flex cursor-pointer items-center align-baseline select-none${mobile ? ' -my-0.5 -mx-3 px-3 py-0.5' : ' mx-0.5'}`}
                   >
                     <span className="inline-flex items-center gap-1 rounded bg-brand-soft/20 px-1.5 py-0.5 text-xs font-medium text-brand-soft transition-colors hover:bg-brand-soft/30">
                       {children}

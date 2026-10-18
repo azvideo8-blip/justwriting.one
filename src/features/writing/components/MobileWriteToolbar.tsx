@@ -101,7 +101,8 @@ export function MobileWriteToolbar({
   const onRecord = (dismiss: boolean) => {
     if (dismiss) dismissVoiceNotice(getCurrentUser()?.uid ?? null);
     setVoiceOpen(false);
-    dictation.startAfterNotice();
+    // Лист сам показывает «нет интернета» до «Записать» — тост не дублирует.
+    dictation.startAfterNotice(typeof navigator !== 'undefined' && navigator.onLine === false);
   };
   const isIdle = status === 'idle';
   // MQ-3: восстановленный черновик сохраняется сразу, без начатой сессии.

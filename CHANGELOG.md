@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.10.3 — 2026-10-18
+
+- **[RU]** При обрыве связи подтверждение паролем (удаление аккаунта, сейф) больше не говорит «неверный пароль».
+- **[EN]** When the connection drops, password confirmation (account deletion, vault) no longer says «wrong password».
+- **[RU]** Выход из аккаунта на одном устройстве больше не выкидывает тебя на остальных: телефон или вторая вкладка остаются в аккаунте.
+- **[EN]** Signing out on one device no longer signs you out on the others: your phone or another tab stays signed in.
+- **[RU]** Ссылки «📅» в ответах ИИ: нажатие больше не попадает в ссылку соседней строки, а заметка, которая доехала на устройство позже, получает дату в ссылке.
+- **[EN]** «📅» links in AI answers: a tap no longer lands on the link in the next line, and a note that reaches the device later gets its date in the link.
+- **[RU]** Значок сохранения показывает время настоящего сохранения и не мигает зря.
+- **[EN]** The save icon shows the time of the actual save and no longer blinks for nothing.
+- **[RU]** Предупреждение «нет интернета» перед диктовкой больше не показывается дважды.
+- **[EN]** The «no internet» warning before dictation is no longer shown twice.
+- **[RU]** Пока приложение узнаёт, вошёл ли ты, на телефоне не мелькает вкладка «ИИ».
+- **[EN]** While the app checks whether you are signed in, the «AI» tab no longer flashes on the phone.
+- **[RU]** Подписи значков правки метки переведены.
+- **[EN]** The label edit icons are now translated.
+
 ## 0.10.2 — 2026-10-18
 
 - **[RU]** Диктовка без интернета говорит правду: «Нет интернета — распознавание речи недоступно» вместо записи, которая только делает вид, что идёт. Если сети нет до начала, приложение сразу предупреждает, что текст останется без обработки. Всё распознанное остаётся в заметке.

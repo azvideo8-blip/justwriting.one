@@ -71,6 +71,19 @@ describe('N-1: useDictation без сети', () => {
     expect(guarded.current.toggleListening).toHaveBeenCalledTimes(1);
   });
 
+  // Приёмка 0.10.2: лист «Голосовой ввод» уже сказал «нет интернета» — тост после
+  // его «Записать» не повторяет. Без листа (отмечено «Больше не показывать») —
+  // тост остаётся. Мутация: игнорировать offlineShown — красный.
+  it('после листа с офлайн-строкой тост не дублируется, без листа — есть', () => {
+    setOnline(false);
+    const { result } = renderHook(() => useDictation());
+    act(() => { result.current.startAfterNotice(true); });
+    expect(showToast).not.toHaveBeenCalledWith('voice_offline_before_start', 'info');
+    expect(guarded.current.toggleListening).toHaveBeenCalledTimes(1);
+    act(() => { result.current.startAfterNotice(); });
+    expect(showToast).toHaveBeenCalledWith('voice_offline_before_start', 'info');
+  });
+
   it('с сетью предупреждения нет (регрессия: не пугать зря)', () => {
     const { result } = renderHook(() => useDictation());
     act(() => { result.current.toggle(); });

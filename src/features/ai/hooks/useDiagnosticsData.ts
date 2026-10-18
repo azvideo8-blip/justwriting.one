@@ -521,9 +521,15 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       showToast(t('admin_delete_user_success', { email: label }), 'success');
       setUsers(prev => prev.filter(u => u.uid !== user.uid));
     } catch (e: unknown) {
-      reportError(e, { action: 'adminDeleteUser' });
       const err = (e ?? {}) as { code?: string; message?: string };
-      if (err.code === 'invalid_credentials' || /invalid login credentials/i.test(err.message ?? '')) {
+      // Настоящий reauthenticate бросает Error('REAUTH_FAILED') (supabaseAuthProvider),
+      // а не ошибку GoTrue — прежняя проверка его не узнавала: вместо «неверный
+      // пароль» — технический тост и красная запись (журнал владельца 2026-10-18 18:22).
+      const wrongPassword = err.message === 'REAUTH_FAILED'
+        || err.code === 'invalid_credentials' || /invalid login credentials/i.test(err.message ?? '');
+      // Неверный пароль — ошибка ввода, не поломка: в журнал не пишем.
+      if (!wrongPassword) reportError(e, { action: 'adminDeleteUser' });
+      if (wrongPassword) {
         // Пароль не подошёл — удаляемый аккаунт не тронут, просим ввести заново.
         setDeletePasswordError(t('settings_delete_account_wrong_password'));
       } else {

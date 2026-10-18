@@ -14,7 +14,7 @@ import { readFileSync } from 'node:fs';
 const SITES: Array<[string, RegExp, number, string]> = [
   ['src/features/ai/components/chat/AIChatMessages.tsx', /isMobile && "clickable-target-expansion"/g, 3, 'корзина у сообщения ИИ — три входа'],
   ['src/features/ai/components/chat/AIChatMessages.tsx', /isMobile && "min-h-11"/g, 3, 'чипи подсказок (двое уже были 44 px)'],
-  ['src/features/ai/components/MarkdownRenderer.tsx', /mobile \? ' -my-3 -mx-1\.5 px-1\.5 py-3'/g, 1, 'ссылка «📅» на заметку: padding вместо оверлея'],
+  ['src/features/ai/components/MarkdownRenderer.tsx', /mobile \? ' -my-0\.5 -mx-3 px-3 py-0\.5'/g, 1, 'ссылка «📅»: запас по ширине, по высоте — только межстрочье (T-1)'],
   ['src/features/settings/components/SyncSettingsSection.tsx', /flatInner && "clickable-target-expansion"/g, 1, 'переключатель автосинхронизации'],
   ['src/features/ai/components/chat/AIChatComposer.tsx', /isMobile \? ' -my-3 -mr-3 flex h-11 w-11 items-center justify-center'/g, 1, '«×» у вложения: цель внутри чипа, без оверлея'],
 ];

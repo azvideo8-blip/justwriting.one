@@ -4,10 +4,14 @@ import { getLocalDb } from '../../../../core/storage/localDb';
 import { LocalVersionService } from '../../../../core/services/LocalVersionService';
 import type { ArchiveSession } from '../../../../shared/types/common';
 import { CITATION_RE, isRecognisedCitation } from '../../shared/citationPatterns';
+import { useLanguage } from '../../../../shared/i18n';
 
 export type ChatMessage = AIDialogue['messages'][number];
 
 type CitationInfo = { date: string; title: string };
+
+/** T-2: промах живёт недолго — заметка может доехать синхронизацией позже. */
+const MISS_TTL_MS = 30_000;
 
 type LocalDb = Awaited<ReturnType<typeof getLocalDb>>;
 
@@ -39,6 +43,10 @@ async function buildDocIndex(db: LocalDb) {
  * легли и обычная, и удалённая копия, открывается обычная.
  */
 async function findCitedDocument(db: LocalDb, id: string) {
+  // Локальный id уникален — сначала прямое чтение, полный проход только для
+  // uuid/облачного id или копии из корзины.
+  const direct = await db.get('documents', id);
+  if (direct && !direct.trashedAt) return direct;
   const index = await buildDocIndex(db);
   return index.get(id);
 }
@@ -52,10 +60,12 @@ export function useCitationMeta(
   processCitations: (text: string | null | undefined) => string;
   handleCitationClick: (id: string) => void;
 } {
+  const { t, language } = useLanguage();
   const [citationMeta, setCitationMeta] = useState<Record<string, CitationInfo>>({});
-  // Кеш по id: значение — найденная мета, null — «такой заметки нет на устройстве».
-  // Промах тоже помним, иначе эффект на каждый кусок потока перечитывал бы базу.
-  const metaCacheRef = useRef<Record<string, CitationInfo | null>>({});
+  // Кеш по id: значение — найденная мета или время промаха («такой заметки нет на
+  // устройстве»). Промах помним MISS_TTL_MS, иначе эффект на каждый кусок потока
+  // перечитывал бы базу; навсегда — нельзя (T-2): заметка доезжает синхронизацией.
+  const metaCacheRef = useRef<Record<string, CitationInfo | { missAt: number }>>({});
   // Id уже в полёте: не запускаем второй getAll, пока первый не доехал.
   const inflightRef = useRef<Set<string>>(new Set());
 
@@ -87,7 +97,12 @@ export function useCitationMeta(
 
     // Берём только те id, которых ещё нет ни в кеше, ни в полёте. Один проход —
     // один getAll на все новые id сразу; промахи больше не перечитываются.
-    const pending = [...ids].filter(id => !(id in metaCacheRef.current) && !inflightRef.current.has(id));
+    const now = Date.now();
+    const fresh = (id: string) => {
+      const hit = metaCacheRef.current[id];
+      return hit !== undefined && (!('missAt' in hit) || now - hit.missAt < MISS_TTL_MS);
+    };
+    const pending = [...ids].filter(id => !fresh(id) && !inflightRef.current.has(id));
     if (pending.length === 0) return;
     pending.forEach(id => inflightRef.current.add(id));
 
@@ -101,13 +116,13 @@ export function useCitationMeta(
           const doc = index.get(id);
           if (doc) {
             const date = doc.lastSessionAt
-              ? new Date(doc.lastSessionAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
-              : 'Заметка';
-            const info: CitationInfo = { date, title: doc.title || 'Без названия' };
+              ? new Date(doc.lastSessionAt).toLocaleDateString(language, { day: 'numeric', month: 'short' })
+              : t('ai_note_fallback');
+            const info: CitationInfo = { date, title: doc.title || t('archive_untitled') };
             metaCacheRef.current[id] = info;
             resolved[id] = info;
           } else {
-            metaCacheRef.current[id] = null; // запоминаем промах
+            metaCacheRef.current[id] = { missAt: Date.now() }; // промах — на MISS_TTL_MS
           }
         }
         if (Object.keys(resolved).length > 0) {
@@ -121,7 +136,7 @@ export function useCitationMeta(
     })();
     // citationMeta не в зависимостях: результат держим в ref-кеше, иначе эффект
     // перезапускался бы на каждое setCitationMeta и гонял getAll повторно.
-  }, [displayMessages, streamingMessage]);
+  }, [displayMessages, streamingMessage, t, language]);
 
   const processCitations = (text: string | null | undefined): string => {
     if (!text) return '';
@@ -151,7 +166,7 @@ export function useCitationMeta(
         const session: ArchiveSession = {
           id: doc.id,
           userId: doc.guestId,
-          title: doc.title || 'Без названия',
+          title: doc.title || t('archive_untitled'),
           content: content || '',
           duration: doc.totalDuration || 0,
           wordCount: doc.totalWords || 0,
@@ -169,7 +184,7 @@ export function useCitationMeta(
         console.error('[AIPage] failed to preview cited note:', e);
       }
     })();
-  }, [setPreviewSession, onMissing]);
+  }, [setPreviewSession, onMissing, t]);
 
   return { processCitations, handleCitationClick };
 }

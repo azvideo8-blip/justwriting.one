@@ -191,7 +191,13 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean; isAcc
   setAccountReloadTarget('/login');
   if (opts?.clearLocalData === true) skipFlushOnAccountReload();
   try {
-    await signOutUser();
+    // Выход — только с этого устройства. Без scope supabase-js выходит ГЛОБАЛЬНО:
+    // GoTrue удаляет refresh-токены всех сессий человека, и телефон, уснувший с
+    // истёкшим access-токеном, при пробуждении получает «Refresh Token Not Found»
+    // и вылетает с предложением стереть данные (журнал владельца 2026-10-18 20:10:
+    // выход на ноутбуке в 18:13 выкинул вторую сессию). «Выйти на других
+    // устройствах» — отдельно, signOutOthers.
+    await signOutUser({ scope: 'local' });
   } catch (e) {
     // Выход не состоялся — и «Вы вышли» на следующей странице быть не должно.
     takeAccountChangeNotice();

@@ -53,6 +53,7 @@ export const writingTranslations: Translations = {
   editor_saving: { ru: 'Сохранение...', en: 'Saving...' },
   editor_saved_at: { ru: 'Сохранено в {time}', en: 'Saved at {time}' },
   editor_not_saved_yet: { ru: 'Ещё не сохранялось', en: 'Not saved yet' },
+  editor_saved: { ru: 'Сохранено', en: 'Saved' },
   editor_cloud_stale: { ru: 'Только локально', en: 'Local only' },
   editor_error_quota: { ru: 'Недостаточно места на устройстве', en: 'Not enough device storage' },
   editor_error_save: { ru: 'Ошибка сохранения', en: 'Save error' },

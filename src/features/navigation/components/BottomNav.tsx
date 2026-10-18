@@ -40,7 +40,7 @@ export function BottomNav() {
   // вкладки не пересчитывалась бы при переходах (T-1b это и сломал).
   const location = useLocation();
   const { t } = useLanguage();
-  const { isGuest, user } = useAuthStatus();
+  const { isGuest, user, loading } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
   const syncStatus = useSyncStatus(user?.uid ?? null);
   // Guests have no cloud sync relationship at all, so isCloudConnected
@@ -73,7 +73,9 @@ export function BottomNav() {
     { id: 'archive' as const, path: '/archive', label: t('nav_notes_short'),  icon: <History size={22} strokeWidth={1.6} aria-hidden="true" /> },
     // N-2 (решение владельца 2026-10-18): у гостя вкладки «ИИ» нет — раньше она
     // стояла приглушённой и вела в модалку входа; вместо неё справа «Войти».
-    ...(isGuest ? [] : [{ id: 'ai' as const, path: '/ai', label: t('nav_ai_short'), icon: <Sparkles size={22} strokeWidth={1.6} aria-hidden="true" /> }]),
+    // Пока вход не известен (loading), четвёртой вкладки нет вовсе: иначе гость
+    // на мгновение видел «ИИ», которую сменяла «Войти» (приёмка 0.10.2).
+    ...(isGuest || loading ? [] : [{ id: 'ai' as const, path: '/ai', label: t('nav_ai_short'), icon: <Sparkles size={22} strokeWidth={1.6} aria-hidden="true" /> }]),
     { id: 'me' as const,   path: '/me',       label: t('nav_profile_short'),  icon: <MeIcon /> },
   ];
   const tabs = isGuest

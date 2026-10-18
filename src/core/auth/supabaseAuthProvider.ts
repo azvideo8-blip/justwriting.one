@@ -153,9 +153,12 @@ export async function signIn(email: string, password: string): Promise<AppUser> 
 // архив. Проверка идёт на сервер аутентификации, не в локальное состояние.
 export async function reauthenticate(email: string, password: string): Promise<void> {
   const { error } = await signInWithSecret(email, password);
-  if (error) {
-    throw new Error('REAUTH_FAILED');
-  }
+  if (!error) return;
+  // «Неверный пароль» — только на ответ «неверные данные». Сбой сети или лимит —
+  // не «нет», а «нет ответа»: пробрасываем как есть, иначе человеку говорили бы
+  // «неверный пароль» при обрыве связи.
+  if (isInvalidCredentials(error)) throw new Error('REAUTH_FAILED');
+  throw error;
 }
 
 export async function signUp(email: string, password: string): Promise<AppUser> {

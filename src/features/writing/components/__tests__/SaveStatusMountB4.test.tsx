@@ -16,7 +16,7 @@ import { useTimerStore } from '../../store/useTimerStore';
 import { useContentStore } from '../../store/useContentStore';
 
 vi.mock('../../../../shared/i18n', () => ({
-  useLanguage: () => ({ t: (k: string) => k, tp: (k: string) => k, language: 'ru' }),
+  useLanguage: () => ({ t: (k: string, p?: { time?: string }) => (p?.time ? `${k}:${p.time}` : k), tp: (k: string) => k, language: 'ru' }),
 }));
 vi.mock('../../../../core/settings/WritingSettingsContext', () => ({
   useWritingSettings: () => ({
@@ -84,20 +84,30 @@ describe('B-4: SaveStatus не теряет состояние при перем
     vi.useRealTimers();
   });
 
-  it('свежий монтаж в «saved» говорит про время, а не «Ещё не сохранялось»', () => {
+  // T-3 (приёмка 0.10.2): копия, смонтированная в «saved», не выдумывает время
+  // (раньше — время монтирования) и не вспыхивает; время — последнего настоящего
+  // перехода в «saved». Мутация: вернуть formatSavedAt(now) на монтаже — красный.
+  it('монтаж в «saved» без увиденного сохранения — «Сохранено», без времени и вспышки', () => {
     const tree = renderScreen({ saveStatus: 'saved' });
     const el = screen.getByTestId('save-status');
-    expect(el).toHaveAttribute('aria-label', 'editor_saved_at');
-    expect(el).not.toHaveAttribute('aria-label', 'editor_not_saved_yet');
+    expect(el).toHaveAttribute('aria-label', 'editor_saved');
+    expect(el).not.toHaveAttribute('data-lit');
+    tree.unmount();
+  });
 
-    // Перемонтирование (тот же путь, что смена шапки на строку дзена): новая
-    // копия обязана так же знать, что заметка сохранена.
-    cleanup();
+  it('перемонтированная копия показывает время настоящего сохранения, а не своё', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 9, 18, 10, 0));
+    const tree = renderScreen({ saveStatus: 'saving' });
+    tree.rerender(
+      <MobileWriteScreen onPlay={vi.fn()} onStop={vi.fn()} status="writing" streakDays={0} sessionType="free" onOpenSetup={vi.fn()} saveStatus="saved" />,
+    );
+    tree.unmount();
+    vi.setSystemTime(new Date(2026, 9, 18, 10, 7));
     const tree2 = renderScreen({ saveStatus: 'saved' });
     const el2 = screen.getByTestId('save-status');
-    expect(el2).not.toHaveAttribute('aria-label', 'editor_not_saved_yet');
-    expect(el2).toHaveAttribute('aria-label', 'editor_saved_at');
-    tree.unmount();
+    expect(el2).toHaveAttribute('aria-label', 'editor_saved_at:10:00');
+    expect(el2).not.toHaveAttribute('data-lit');
     tree2.unmount();
   });
 

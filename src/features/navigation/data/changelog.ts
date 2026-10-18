@@ -17,6 +17,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.10.3',
+    date: '2026-10-18',
+    items: [
+      { category: 'fix', ru: 'При обрыве связи подтверждение паролем (удаление аккаунта, сейф) больше не говорит «неверный пароль».', en: 'When the connection drops, password confirmation (account deletion, vault) no longer says «wrong password».' },
+      { category: 'fix', ru: 'Выход из аккаунта на одном устройстве больше не выкидывает тебя на остальных: телефон или вторая вкладка остаются в аккаунте.', en: 'Signing out on one device no longer signs you out on the others: your phone or another tab stays signed in.' },
+      { category: 'fix', ru: 'Ссылки «📅» в ответах ИИ: нажатие больше не попадает в ссылку соседней строки, а заметка, которая доехала на устройство позже, получает дату в ссылке.', en: '«📅» links in AI answers: a tap no longer lands on the link in the next line, and a note that reaches the device later gets its date in the link.' },
+      { category: 'fix', ru: 'Значок сохранения показывает время настоящего сохранения и не мигает зря.', en: 'The save icon shows the time of the actual save and no longer blinks for nothing.' },
+      { category: 'fix', ru: 'Предупреждение «нет интернета» перед диктовкой больше не показывается дважды.', en: 'The «no internet» warning before dictation is no longer shown twice.' },
+      { category: 'fix', ru: 'Пока приложение узнаёт, вошёл ли ты, на телефоне не мелькает вкладка «ИИ».', en: 'While the app checks whether you are signed in, the «AI» tab no longer flashes on the phone.' },
+      { category: 'fix', ru: 'Подписи значков правки метки переведены.', en: 'The label edit icons are now translated.' },
+    ],
+  },
+  {
     version: '0.10.2',
     date: '2026-10-18',
     items: [

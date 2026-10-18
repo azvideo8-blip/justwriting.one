@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Save } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
@@ -16,9 +16,15 @@ const LIT_MS = 900;
 // снимать нельзя — иначе затухание обрывается на середине.
 const FADE_OUT_MS = 700;
 
-function formatSavedAt(language: string) {
-  return new Date().toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' });
+function formatSavedAt(language: string, at?: number) {
+  return (at === undefined ? new Date() : new Date(at)).toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' });
 }
+
+// T-3 (приёмка 0.10.2): время последнего настоящего перехода в «saved». Общее для
+// всех копий: перемонтированная (шапка ↔ строка дзена) показывает это время, а не
+// время своего монтирования, и не вспыхивает. ponytail: модульная переменная — одна
+// вкладка, один редактор; станет мало, если редакторов на экране будет два.
+let lastSavedAtMs: number | null = null;
 
 export function SaveStatus({
   saveStatus,
@@ -36,13 +42,21 @@ export function SaveStatus({
   const reducedMotion = useReducedMotion();
   const tipId = useId();
   const [prevStatus, setPrevStatus] = useState<SaveStatusKind>(saveStatus);
-  // B-4: время и вспышка ставятся и при МОНТИРОВАНИИ, а не только на переходе
-  // статуса. Иначе новая копия (смена шапки на строку дзена) стартует с
-  // savedAt=null и врет «Ещё не сохранялось» про уже сохранённую заметку.
+  // B-4/T-3: копия, смонтированная в «saved», знает, что заметка сохранена, и
+  // показывает время последнего настоящего сохранения (или «Сохранено», если его
+  // не видела) — не «Ещё не сохранялось» и не время своего монтирования.
   const [savedAt, setSavedAt] = useState<string | null>(
-    () => (saveStatus === 'saved' ? formatSavedAt(language) : null),
+    () => (saveStatus === 'saved' && lastSavedAtMs !== null ? formatSavedAt(language, lastSavedAtMs) : null),
   );
-  const [lit, setLit] = useState(saveStatus === 'saving' || saveStatus === 'saved');
+  // Вспышка — только у идущей записи; перемонтирование в «saved» не мигает (T-3).
+  const [lit, setLit] = useState(saveStatus === 'saving');
+  // Запоминаем время настоящего перехода в «saved» (не монтирования) — для копий,
+  // которые смонтируются позже. В эффекте: модульное состояние меняется вне рендера.
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    if (mountedRef.current && saveStatus === 'saved') lastSavedAtMs = Date.now();
+    mountedRef.current = true;
+  }, [saveStatus]);
 
   // Переход статуса ловится во время рендера, а не в эффекте (храповик
   // set-state-in-effect): время записи и вспышка нужны сразу.
@@ -89,7 +103,9 @@ export function SaveStatus({
         ? t('editor_saving')
         : savedAt
           ? t('editor_saved_at', { time: savedAt })
-          : t('editor_not_saved_yet');
+          : saveStatus === 'saved'
+            ? t('editor_saved')
+            : t('editor_not_saved_yet');
 
   return (
     <span className="group relative inline-flex pointer-events-auto">

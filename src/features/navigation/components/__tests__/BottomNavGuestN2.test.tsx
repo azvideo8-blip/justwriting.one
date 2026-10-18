@@ -10,7 +10,7 @@ vi.mock('../../../../shared/i18n', () => ({
   useLanguage: () => ({ t: (k: string) => k, tp: (k: string) => k }),
 }));
 
-let auth: { isGuest: boolean; user: { uid: string } | null } = { isGuest: true, user: null };
+let auth: { isGuest: boolean; user: { uid: string } | null; loading?: boolean } = { isGuest: true, user: null };
 const openLoginModal = vi.hoisted(() => vi.fn());
 const navigate = vi.hoisted(() => vi.fn());
 
@@ -70,5 +70,14 @@ describe('N-2: нижняя панель гостя', () => {
     fireEvent.click(screen.getByRole('button', { name: 'nav_ai_short' }));
     expect(navigate).toHaveBeenCalledWith('/ai');
     expect(openLoginModal).not.toHaveBeenCalled();
+  });
+
+  // Приёмка 0.10.2: пока статус входа грузится, нет ни «ИИ», ни «Войти» —
+  // гость не видит мелькания «ИИ». Мутация: убрать `|| loading` — красный.
+  it('пока вход грузится — ни «ИИ», ни «Войти»', () => {
+    auth = { isGuest: false, user: null, loading: true };
+    renderNav();
+    const names = screen.getAllByRole('button').map(b => b.getAttribute('aria-label'));
+    expect(names).toEqual(['nav_write', 'nav_notes_short', 'nav_profile_short']);
   });
 });

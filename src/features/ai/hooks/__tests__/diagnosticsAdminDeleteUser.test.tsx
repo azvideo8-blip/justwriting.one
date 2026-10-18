@@ -115,7 +115,9 @@ describe('админка: «Удалить» пользователя', () => {
   });
 
   it('неверный пароль — удаления нет, ошибка показана у строки', async () => {
-    reauthenticate.mockRejectedValueOnce(Object.assign(new Error('Invalid login credentials'), { code: 'invalid_credentials' }));
+    // Форма настоящего reauthenticate (supabaseAuthProvider): Error('REAUTH_FAILED').
+    // Прежний мок отдавал ошибку GoTrue — и тест не видел, что прод её не узнаёт.
+    reauthenticate.mockRejectedValueOnce(new Error('REAUTH_FAILED'));
     const { result, unmount } = renderAdmin();
     await waitFor(() => expect(uids(result)).toEqual(['u-1', 'u-2']));
 

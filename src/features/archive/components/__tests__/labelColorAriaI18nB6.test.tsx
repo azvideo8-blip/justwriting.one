@@ -164,4 +164,14 @@ describe('B-6: подпись выбора цвета метки — из сло
     expect(picked.some(btn => (btn.getAttribute('aria-label') ?? '').includes(ENGLISH_LITERAL))).toBe(false);
     expect(picked[0]).toHaveAttribute('aria-label', dictLabel('ru', LABEL_PRESET_COLORS[0] as string));
   });
+
+  // Приёмка 0.10.2 (сосед B-6): «Rename»/«Delete» у значков метки — из словаря.
+  // Мутация: вернуть label="Rename" — красный.
+  it('значки правки метки (RU) подписаны словарём, без «Rename»/«Delete»', () => {
+    labelBarAdding('ru');
+    const labels = screen.getAllByRole('button').map(ariaOf);
+    expect(labels).toContain('Переименовать метку');
+    expect(labels).toContain('Удалить метку');
+    expect(labels.filter(l => /^(Rename|Delete)$/.test(l))).toEqual([]);
+  });
 });

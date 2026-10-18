@@ -92,7 +92,8 @@ export interface DictationSnapshot {
 export interface DictationApi extends DictationSnapshot {
   toggle: () => void;
   /** MF-5: старт после листа «Голосовой ввод» (предупреждение уже показано). */
-  startAfterNotice: () => void;
+  /** `offlineShown` — лист уже сказал «нет интернета»; тост не повторяем. */
+  startAfterNotice: (offlineShown?: boolean) => void;
   stop: () => void;
   cancel: () => void;
 }
@@ -121,7 +122,7 @@ let snapshot: DictationSnapshot = IDLE;
 let waveLevels: number[] = EMPTY_LEVELS;
 let ownerToken: symbol | null = null;
 const listeners = new Set<() => void>();
-let hostCommands: { toggle: () => void; startAfterNotice: () => void; stop: () => void; cancel: () => void } | null = null;
+let hostCommands: { toggle: () => void; startAfterNotice: (offlineShown?: boolean) => void; stop: () => void; cancel: () => void } | null = null;
 
 function notify(): void {
   listeners.forEach(l => l());
@@ -299,7 +300,7 @@ export function useDictation(): DictationApi {
     session.isVaultActive, meter.level, meter.failed, processing, seconds, aiNotice, yielded, meterAllowed,
   ]);
 
-  const begin = useCallback((noticeHandled: boolean) => {
+  const begin = useCallback((noticeHandled: boolean, offlineShown = false) => {
     if (processing) return;
     if (session.isListening) {
       session.stopListening();
@@ -310,7 +311,8 @@ export function useDictation(): DictationApi {
     // поэтому запись не блокируется, но человек сразу слышит, что текст
     // останется без обработки; если движок всё-таки умрёт, об этом скажет
     // `useSpeechInput`, а не бесконечный перезапуск.
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    // Лист «Голосовой ввод» уже показал ту же строку — второй раз тостом не говорим.
+    if (!offlineShown && typeof navigator !== 'undefined' && navigator.onLine === false) {
       showToast(t('voice_offline_before_start'), 'info');
     }
     // documentId снимается на старте, а не на стопе: смена заметки посреди записи
@@ -326,7 +328,7 @@ export function useDictation(): DictationApi {
     void session.toggleListening({ noticeHandled });
   }, [processing, session, showToast, t]);
   const toggle = useCallback(() => begin(false), [begin]);
-  const startAfterNotice = useCallback(() => begin(true), [begin]);
+  const startAfterNotice = useCallback((offlineShown?: boolean) => begin(true, offlineShown), [begin]);
 
   const stop = useCallback(() => {
     session.stopListening();
@@ -379,7 +381,7 @@ export function useDictation(): DictationApi {
     return {
       ...remote,
       toggle: () => { hostCommands?.toggle(); },
-      startAfterNotice: () => { hostCommands?.startAfterNotice(); },
+      startAfterNotice: (offlineShown?: boolean) => { hostCommands?.startAfterNotice(offlineShown); },
       stop: () => { hostCommands?.stop(); },
       cancel: () => { hostCommands?.cancel(); },
     };

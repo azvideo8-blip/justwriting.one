@@ -10,6 +10,8 @@ import { renderHook, waitFor } from '@testing-library/react';
 
 vi.mock('../../../../../core/auth', () => ({ getCurrentUser: () => ({ uid: 'u_cite' }), getCurrentUserId: () => 'u_cite' }));
 vi.mock('../../../../../core/services/LocalVersionService', () => ({ LocalVersionService: { getLatestContent: async () => 'Текст заметки.' } }));
+const i18n = vi.hoisted(() => ({ t: (k: string) => k }));
+vi.mock('../../../../../shared/i18n', () => ({ useLanguage: () => ({ t: i18n.t, language: 'ru' }) }));
 
 const { getLocalDb, resetDbInstance } = await import('../../../../../core/storage/localDb');
 const { useCitationMeta } = await import('../useCitationMeta');
