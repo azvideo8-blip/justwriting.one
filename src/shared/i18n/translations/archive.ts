@@ -257,4 +257,11 @@ export const archiveTranslations: Translations = {
     ru: 'Название метки',
     en: 'Label name',
   },
+  // B-6: выбор цвета метки подписывался английским литералом мимо словаря —
+  // и в RU тоже. Цвет называется в подписи, чтобы кружки различались с
+  // экранного диктора.
+  archive_label_color_aria: {
+    ru: 'Выбрать цвет {color}',
+    en: 'Select color {color}',
+  },
 };

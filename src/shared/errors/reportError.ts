@@ -8,9 +8,25 @@ type ErrorContext = Record<string, string | number | boolean | null | undefined>
 // поломка — фоновые проходы повторяют запрос сами, — поэтому в журнал такое
 // идёт предупреждением, а не красной ошибкой. Тексты Chrome / Safari / Firefox.
 const NETWORK_FAILURE_RE = /^(Failed to fetch|Load failed|NetworkError when attempting to fetch resource)/;
+// B-9 (ревью 0.10.1): `@supabase/postgrest-js` при сбое `fetch` не бросает
+// `TypeError`, а возвращает обычный объект `{ message: 'TypeError: Load failed',
+// code: '', status: 0 }` (node_modules/@supabase/postgrest-js/dist/index.mjs:416-456),
+// и провайдер делает `throw error`. Прежняя проверка `instanceof TypeError` такую
+// форму не видела, и обрыв сети писался в журнал красной ошибкой.
+const WRAPPED_NETWORK_FAILURE_RE = /^(TypeError|FetchError|NetworkError): (Failed to fetch|Load failed|NetworkError when attempting to fetch resource)/;
+
+/** Сообщение ошибки в любой форме: `Error`, строка или plain-объект от провайдера. */
+function errorText(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  const message = (error as { message?: unknown } | null | undefined)?.message;
+  return typeof message === 'string' ? message : '';
+}
 
 export function isNetworkFailure(error: unknown): boolean {
-  return error instanceof TypeError && NETWORK_FAILURE_RE.test(error.message);
+  const text = errorText(error);
+  if (!text) return false;
+  return (error instanceof TypeError && NETWORK_FAILURE_RE.test(text)) || WRAPPED_NETWORK_FAILURE_RE.test(text);
 }
 
 // Страница уходит (перезагрузка, переход, обновление версии): браузер обрывает
@@ -30,13 +46,15 @@ const CONNECTION_TEARDOWN_RE = /without an in-progress transaction|Connection to
 // транзакцию без своей ошибки). Спокойно пишем только «ничейный» (unhandledrejection)
 // и только при уходе со страницы — молчим; сбой записи с action остаётся error.
 function isQuietAbort(error: unknown, context: ErrorContext): boolean {
-  if ((error as { name?: unknown } | null)?.name !== 'AbortError') return false;
+  const name = (error as { name?: unknown } | null)?.name;
+  // B-9: у postgrest отмена приходит не экземпляром `DOMException`, а тем же
+  // plain-объектом с собранным сообщением — «AbortError: …».
+  if (name !== 'AbortError' && !/^AbortError:/.test(errorText(error))) return false;
   return pageUnloading || context.source === 'unhandledrejection';
 }
 
 export function isConnectionTeardown(error: unknown): boolean {
-  const text = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
-  return CONNECTION_TEARDOWN_RE.test(text);
+  return CONNECTION_TEARDOWN_RE.test(errorText(error));
 }
 
 import { isVaultLocked as getIsVaultLocked, registerVaultLockedChecker } from './vaultLockState';
@@ -53,7 +71,7 @@ export function isVaultLockedFailure(
   context: ErrorContext = {},
   isVaultLocked?: () => boolean
 ): boolean {
-  const text = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+  const text = errorText(error);
   const reason = [context.reason, context.error].filter(v => typeof v === 'string').join(' ');
   if (!VAULT_LOCKED_RE.test(`${text} ${reason}`)) {
     return false;

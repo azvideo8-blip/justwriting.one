@@ -109,16 +109,11 @@ describe('MQ-15: по исходникам', () => {
     expect(s).not.toContain('lighthouseActive');
   });
   it('N-5: ключевые кнопки откликаются на касание', () => {
-    // Класс у части кнопок собирается в cn(), поэтому литерала с префиксом
-    // `className="` в файле нет — смотрим на сами классы: три кнопки панели
-    // письма обязаны нести `press`.
-    const tb = src('src/features/writing/components/MobileWriteToolbar.tsx');
-    // С 2026-10-18 (U-6) главное действие панели — общий Button variant="primary":
-    // `press` в его базовых классах, литерала в файле больше нет. Считаем и
-    // такие кнопки, иначе проверка измеряла бы форму записи, а не отклик.
-    const pressy = (tb.match(/press w-11 h-11 shrink-0/g) ?? []).length
-      + (tb.match(/<Button\b/g) ?? []).length;
-    expect(pressy).toBeGreaterThanOrEqual(3);
+    // B-8 (ревью 0.10.1): прежний подсчёт `<Button`-тегов по исходнику не ловил
+    // снятие `press` ни с чипа режима, ни с микрофона — тест оставался зелёным.
+    // Отклик панели письма теперь проверяется на рендере —
+    // `PressTargetsRender.b8.test.tsx` (мутация «убрать press у 44 px кнопки» —
+    // красный). Ниже остаётся то, что по существу проверяет разметку листа.
     expect(src('src/features/writing/components/MobileVoiceNoticeSheet.tsx').match(/className="press /g)).toHaveLength(2);
     // С 2026-10-18 (U-22) строка листа — общий `SHEET_ROW`; `active:bg-…` и
     // переход цвета лежат в нём, в файле листа «Ещё» литерала больше нет.

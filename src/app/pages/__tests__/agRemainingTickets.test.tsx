@@ -67,8 +67,6 @@ describe('LocalDocumentService.getDocumentsByOwner (REFUTED ticket alias)', () =
 describe('AG-I18N-1 & AG-I18N-2: Translations completeness', () => {
   it('defines all required keys with both ru and en locales', () => {
     const requiredKeys = [
-      { dict: profileTranslations, key: 'profile_act_map' },
-      { dict: profileTranslations, key: 'profile_rhythm' },
       { dict: profileTranslations, key: 'me_account_status' },
       { dict: profileTranslations, key: 'me_guest_desc' },
       { dict: commonTranslations, key: 'nav_login' },

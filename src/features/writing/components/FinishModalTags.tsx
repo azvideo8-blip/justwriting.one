@@ -141,7 +141,7 @@ export function FinishModalTags({
                 size="sm"
                 onClick={() => toggleTag(tag)}
                 aria-label={`${t('archive_tag_remove')} #${tag}`}
-                className="min-h-11 gap-1.5 rounded-full border border-text-main bg-text-main px-3 text-[14px] font-medium text-surface-base"
+                className="min-h-11 gap-1.5 rounded-lg border border-text-main bg-text-main px-3 text-[14px] font-medium text-surface-base"
               >
                 #{tag}
                 <X size={14} aria-hidden="true" />

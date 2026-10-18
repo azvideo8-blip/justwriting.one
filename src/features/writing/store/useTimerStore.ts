@@ -4,6 +4,9 @@ import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { getCurrentUser } from '../../../core/auth';
 import { getOrCreateGuestId } from '../../../core/storage/localDb';
 
+/** Цель, с которой стартует режим «Слова», если человек её не менял (Q-11). */
+export const DEFAULT_WORD_GOAL = 1000;
+
 export function getSavedWordGoal(uid?: string | null): number {
   if (typeof localStorage === 'undefined') return 1000;
   try {
@@ -17,7 +20,10 @@ export function getSavedWordGoal(uid?: string | null): number {
   } catch {
     // ignore
   }
-  return 1000;
+  // Q-11 (решение владельца 2026-10-18): цели нет, пока человек её не выбрал.
+  // Прежний запас 1000 давал полосу слов у каждой новой сессии, хотя владелец
+  // полосы не просил; в режим «Слова» человек входит уже со 1000 (WritingSetup).
+  return 0;
 }
 
 export function saveWordGoal(goal: number, uid?: string | null): void {

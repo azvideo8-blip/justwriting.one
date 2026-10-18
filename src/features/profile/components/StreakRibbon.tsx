@@ -72,7 +72,7 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
     : days[0]?.date.toLocaleDateString(language, { month: 'long', year: 'numeric' });
 
   return (
-    <div className="px-6 py-5 border-b border-[var(--border-light)]">
+    <div className="px-0 py-5 md:px-6 border-b border-[var(--border-light)]">
       <div className="flex items-center justify-between mb-1">
         <h2 className="text-[16px] font-medium text-text-main">
           {t('profile_streak_title')}

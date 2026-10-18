@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import type { AIDialogue } from '../../../../core/storage/localDb';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import type { AIDialogue, LocalDocument } from '../../../../core/storage/localDb';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { LocalVersionService } from '../../../../core/services/LocalVersionService';
 import type { ArchiveSession } from '../../../../shared/types/common';
@@ -12,17 +12,35 @@ type CitationInfo = { date: string; title: string };
 type LocalDb = Awaited<ReturnType<typeof getLocalDb>>;
 
 /**
- * Заметка по номеру из ссылки. В контекст модели идёт локальный id, а у одной
- * заметки на разных устройствах локальные id разные — диалоги же
- * синхронизируются. Поэтому после id ищем по uuid и облачному id (общие для
- * устройств). Ссылку с локальным id другого устройства этим не найти — тогда
- * вызывающий говорит об этом человеку, а не молчит (0.10.1).
+ * Индекс заметок за один проход по базе. Заметка ищется по номеру из ссылки,
+ * а в контекст модели идёт локальный id — у одной заметки на разных устройствах
+ * локальные id разные, диалоги же синхронизируются. Поэтому ключей три: локальный
+ * id, uuid и облачный id (последние общие для устройств). Прежний код делал
+ * db.getAll на КАЖДЫЙ ненайденный id; здесь — ровно один getAll на проход.
+ * При нескольких копиях с одним ключом берём живую: у копии из корзины стоит
+ * trashedAt, и она не должна выигрывать у существующей заметки.
+ */
+async function buildDocIndex(db: LocalDb) {
+  const index = new Map<string, LocalDocument>();
+  const all = await db.getAll('documents');
+  for (const doc of all) {
+    for (const key of [doc.id, doc.uuid, doc.linkedCloudId]) {
+      if (!key) continue;
+      const prev = index.get(key);
+      // Живая копия важнее корзины: корзину перетираем живой, живую не трогаем.
+      if (!prev || (prev.trashedAt && !doc.trashedAt)) index.set(key, doc);
+    }
+  }
+  return index;
+}
+
+/**
+ * Заметка по id ссылки. Возвращает живую копию: если под одним uuid/облачным id
+ * легли и обычная, и удалённая копия, открывается обычная.
  */
 async function findCitedDocument(db: LocalDb, id: string) {
-  const direct = await db.get('documents', id);
-  if (direct) return direct;
-  const all = await db.getAll('documents');
-  return all.find(d => d.uuid === id || d.linkedCloudId === id);
+  const index = await buildDocIndex(db);
+  return index.get(id);
 }
 
 export function useCitationMeta(
@@ -35,75 +53,75 @@ export function useCitationMeta(
   handleCitationClick: (id: string) => void;
 } {
   const [citationMeta, setCitationMeta] = useState<Record<string, CitationInfo>>({});
+  // Кеш по id: значение — найденная мета, null — «такой заметки нет на устройстве».
+  // Промах тоже помним, иначе эффект на каждый кусок потока перечитывал бы базу.
+  const metaCacheRef = useRef<Record<string, CitationInfo | null>>({});
+  // Id уже в полёте: не запускаем второй getAll, пока первый не доехал.
+  const inflightRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const ids = new Set<string>();
     const citeRegex = new RegExp(CITATION_RE.source, CITATION_RE.flags);
 
-    displayMessages.forEach(msg => {
+    const collect = (content: string | null | undefined) => {
+      if (!content) return;
       let match;
-      const content = msg.content || '';
       citeRegex.lastIndex = 0;
       while ((match = citeRegex.exec(content)) !== null) {
         const raw = match[0];
-        const id = match[1];
-        if (id && isRecognisedCitation(raw, id)) {
-          ids.add(id);
-        }
+        // id — вторая группа для [#…] и первая для маркера поиска; как в
+        // processCitations. Прежний код брал только match[1] и потому никогда
+        // не собирал ссылки вида [#id] — мета для них не заводилась вовсе.
+        const id = match[2] || match[1];
+        if (id && isRecognisedCitation(raw, id)) ids.add(id);
       }
-      if (msg.reasoning) {
-        citeRegex.lastIndex = 0;
-        while ((match = citeRegex.exec(msg.reasoning)) !== null) {
-          const raw = match[0];
-          const id = match[1];
-          if (id && isRecognisedCitation(raw, id)) {
-            ids.add(id);
-          }
-        }
-      }
-    });
+    };
 
-    if (streamingMessage) {
-      let match;
-      citeRegex.lastIndex = 0;
-      while ((match = citeRegex.exec(streamingMessage)) !== null) {
-        const raw = match[0];
-        const id = match[1];
-        if (id && isRecognisedCitation(raw, id)) {
-          ids.add(id);
-        }
-      }
-    }
+    displayMessages.forEach(msg => {
+      collect(msg.content);
+      collect(msg.reasoning);
+    });
+    collect(streamingMessage);
 
     if (ids.size === 0) return;
+
+    // Берём только те id, которых ещё нет ни в кеше, ни в полёте. Один проход —
+    // один getAll на все новые id сразу; промахи больше не перечитываются.
+    const pending = [...ids].filter(id => !(id in metaCacheRef.current) && !inflightRef.current.has(id));
+    if (pending.length === 0) return;
+    pending.forEach(id => inflightRef.current.add(id));
 
     void (async () => {
       try {
         const db = await getLocalDb();
-        const newMeta = { ...citationMeta };
-        let updated = false;
-        for (const id of ids) {
-          if (newMeta[id]) continue;
-          const doc = await findCitedDocument(db, id);
+        const index = await buildDocIndex(db);
+        const resolved: Record<string, CitationInfo> = {};
+        for (const id of pending) {
+          inflightRef.current.delete(id);
+          const doc = index.get(id);
           if (doc) {
             const date = doc.lastSessionAt
               ? new Date(doc.lastSessionAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
               : 'Заметка';
-            newMeta[id] = {
-              date,
-              title: doc.title || 'Без названия',
-            };
-            updated = true;
+            const info: CitationInfo = { date, title: doc.title || 'Без названия' };
+            metaCacheRef.current[id] = info;
+            resolved[id] = info;
+          } else {
+            metaCacheRef.current[id] = null; // запоминаем промах
           }
         }
-        if (updated) {
-          setCitationMeta(newMeta);
+        if (Object.keys(resolved).length > 0) {
+          setCitationMeta(prev => ({ ...prev, ...resolved }));
         }
       } catch (e) {
         console.warn('[AIPage] failed to fetch citation metadata:', e);
+        // Сбой чтения — не фиксируем промах, в следующий проход попробуем снова.
+        pending.forEach(id => inflightRef.current.delete(id));
       }
     })();
-  }, [displayMessages, streamingMessage, citationMeta]);
+    // citationMeta не в зависимостях: результат держим в ref-кеше, иначе эффект
+    // перезапускался бы на каждое setCitationMeta и гонял getAll повторно.
+  }, [displayMessages, streamingMessage]);
 
   const processCitations = (text: string | null | undefined): string => {
     if (!text) return '';

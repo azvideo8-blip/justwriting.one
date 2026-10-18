@@ -35,22 +35,15 @@ describe('SA-9: press feedback', () => {
     expect(read(file)).not.toMatch(/active:scale-\[/);
   });
 
-  it.each([
-    ['features/writing/components/MobileWriteToolbar.tsx', 'data-write-chip'],
-    ['features/writing/components/MobileWriteToolbar.tsx', "aria-label={t('topbar_save')}"],
-    ['features/archive/components/MobileNoteReader.tsx', 'onSelectRelated(note.documentId)'],
-    ['features/ai/components/chat/AIChatHeader.tsx', 'setPersonaSheetOpen(true)'],
-    ['features/writing/components/WritingFinishModal.tsx', 'aria-pressed={active}'],
-  ])('%s: the control next to «%s» has press', (file, anchor) => {
-    const src = read(file);
-    const at = src.indexOf(anchor);
-    expect(at, `anchor not found: ${anchor}`).toBeGreaterThan(-1);
-    // className стоит в пределах тега кнопки — в 600 знаках от якоря. С
-    // 2026-10-18 (U-6) частью кнопок управляет общий Button: `press` уже в его
-    // базовых классах, поэтому литерала в файле нет — считаем и такую форму.
-    const window = src.slice(Math.max(0, at - 300), at + 300);
-    expect(window.match(/['"` ]press[ '"`]/) || window.match(/<Button\b/), 'ни press, ни общего Button').not.toBeNull();
-  });
+  // B-8 (ревью 0.10.1): прежняя проверка «в окне ±300 символов вокруг якоря есть
+  // `press` или тег `<Button`» не ловила снятие отклика: класс искался в тексте
+  // файла, а не на кнопке. Отклик контролов панели письма и читалки теперь
+  // проверяется на рендере — `src/features/writing/components/__tests__/
+  // PressTargetsRender.b8.test.tsx` (мутация «убрать press» → красный). Кнопка
+  // выбора собеседника в шапке ИИ и чип метки в «Записано.» своей рендер-проверки
+  // не имеют (нужна полная обвязка чата и окна сохранения), но оба собраны на
+  // общих `IconButton`/`Button`: их отклик держится базовым классом общего
+  // компонента — он закреплён кейсом выше и мутацией в `PressTargetsRender.b8`.
 
   it.each([
     ['features/writing/components/MobileSessionSetupSheet.tsx'],

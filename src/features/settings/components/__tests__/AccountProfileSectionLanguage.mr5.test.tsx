@@ -2,6 +2,9 @@
 // мобильному макету (шестерёнка «Профиля» ведёт туда). На десктопе язык живёт в
 // «Редакторе», и второй переключатель на /settings — изменение десктопа.
 // Мутация: убрать условие `layoutMode === 'mobile'` → красный десктопный кейс.
+// U-28 (решение владельца 2026-10-18): контрол стал общим `LanguageSwitch` с
+// полными названиями («🇷🇺 Русский» / «🇺🇸 English») вместо «RU»/«EN» — поиск по имени
+// переписан, деление «десктоп/телефон» осталось прежним.
 import { describe, it, expect, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import { renderWithProviders } from '../../../../test/utils/render';
@@ -18,12 +21,12 @@ describe('AccountProfileSection: язык только в мобильном м�
   it('десктоп — переключателя RU/EN нет', () => {
     mockLayout = 'desktop';
     renderWithProviders(<AccountProfileSection userId="u1" />);
-    expect(screen.queryByRole('button', { name: 'EN' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /English/ })).toBeNull();
   });
 
   it('мобильный макет — переключатель есть', () => {
     mockLayout = 'mobile';
     renderWithProviders(<AccountProfileSection userId="u1" />);
-    expect(screen.getByRole('button', { name: 'EN' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /English/ })).toBeTruthy();
   });
 });

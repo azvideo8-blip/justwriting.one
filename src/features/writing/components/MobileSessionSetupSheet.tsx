@@ -152,15 +152,16 @@ export function MobileSessionSetupSheet({
                       <SessionRow label={`${t('ai_toggle')} ›`} onClick={() => { setSetupMode(null); sessionRows.onOpenAI(); }} />
                     </div>
                   )}
-                  {/* MQ-9: две группы с подписями; иконки режимов одним приглушённым цветом
-                      (статус-цвета читались как предупреждения), текущий режим отмечен. */}
+                  {/* U-19 (решение владельца 2026-10-18): значки режимов тем же статус-цветом
+                      и тем же штрихом, что в десктопном WritingSetup; серая плитка снята.
+                      Прежнее решение MQ-9 («одним приглушённым цветом») отменено владельцем. */}
                   <div className="grid grid-cols-1 gap-2.5" role="group" aria-labelledby="setup-group-how">
                     <div id="setup-group-how" className={SECTION_LABEL}>{t('writing_group_how')}</div>
                     {[
-                      { id: 'stopwatch', icon: Zap, label: 'writing_mode_flow', desc: 'writing_mode_flow_desc', types: ['free', 'stopwatch'] },
-                      { id: 'timer-config', icon: Timer, label: 'writing_mode_timer', desc: 'writing_mode_timer_desc', types: ['timer'] },
-                      { id: 'words-config', icon: Target, label: 'writing_mode_words', desc: 'writing_mode_words_desc', types: ['words'] },
-                      { id: 'finish-by-config', icon: Clock, label: 'writing_mode_deadline', desc: 'writing_mode_deadline_desc', types: ['finish-by'] },
+                      { id: 'stopwatch', icon: Zap, label: 'writing_mode_flow', desc: 'writing_mode_flow_desc', types: ['free', 'stopwatch'], color: 'text-accent-warning' },
+                      { id: 'timer-config', icon: Timer, label: 'writing_mode_timer', desc: 'writing_mode_timer_desc', types: ['timer'], color: 'text-accent-info' },
+                      { id: 'words-config', icon: Target, label: 'writing_mode_words', desc: 'writing_mode_words_desc', types: ['words'], color: 'text-accent-danger' },
+                      { id: 'finish-by-config', icon: Clock, label: 'writing_mode_deadline', desc: 'writing_mode_deadline_desc', types: ['finish-by'], color: 'text-accent-success' },
                     ].map((mode) => {
                       const current = mode.types.includes(sessionType);
                       return (
@@ -173,9 +174,9 @@ export function MobileSessionSetupSheet({
                           current ? "border-text-main/40" : "border-border-subtle",
                         )}
                       >
-                        <div className="p-2.5 rounded-xl shrink-0 bg-text-main/[0.06] text-text-main/60">
-                          <mode.icon size={20} strokeWidth={2.2} />
-                        </div>
+                        <span className={cn("shrink-0 text-xl", mode.color)}>
+                          <mode.icon size={20} strokeWidth={2.5} />
+                        </span>
                         <div className="min-w-0 flex-1">
                           <div className="font-semibold text-sm text-text-main leading-tight">
                             {t(mode.label)}
@@ -232,7 +233,7 @@ export function MobileSessionSetupSheet({
                                 key={mins}
                                 onClick={() => setTimerDuration(mins * 60)}
                                 className={cn(
-                                  "px-3.5 py-2 rounded-xl text-xs font-semibold border transition-colors cursor-pointer",
+                                  "min-h-11 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-colors cursor-pointer",
                                   timerDuration === mins * 60
                                     // U-6 (решение владельца 2026-10-18): выбранный пресет — инверсия чернил,
                                     // как активный пресет GoalPopup на десктопе.
@@ -258,7 +259,7 @@ export function MobileSessionSetupSheet({
                               onChange={(e) => setWordGoal(Number(e.target.value))}
                               className="w-40 text-center text-6xl font-black bg-transparent border-b border-border-subtle py-1 outline-none text-text-main"
                               min="10"
-                              placeholder="500"
+                              placeholder="1000"
                               aria-label={t('writing_words')}
                               autoFocus
                             />
@@ -274,7 +275,7 @@ export function MobileSessionSetupSheet({
                                 key={words}
                                 onClick={() => setWordGoal(words)}
                                 className={cn(
-                                  "px-3.5 py-2 rounded-xl text-xs font-semibold border transition-colors cursor-pointer",
+                                  "min-h-11 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-colors cursor-pointer",
                                   wordGoal === words
                                     // U-6 (решение владельца 2026-10-18): выбранный пресет — инверсия чернил,
                                     // как активный пресет GoalPopup на десктопе.
@@ -316,11 +317,13 @@ export function MobileSessionSetupSheet({
                       )}
                     </div>
 
-                    {/* Launch Action */}
+                    {/* U-19: общая кнопка вместо ручных классов — тот же primary, что «Начать» на десктопе. */}
                     <div className="w-full pt-4">
                       <Button
+                        variant="primary"
+                        size="lg"
                         onClick={handleStartWithValidation}
-                        className="w-full py-4 rounded-2xl font-bold text-sm bg-text-main text-surface-base press cursor-pointer"
+                        className="w-full min-h-11 rounded-2xl font-black press cursor-pointer"
                       >
                         {t('writing_start')}
                       </Button>

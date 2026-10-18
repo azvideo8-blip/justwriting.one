@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { Lock, AlertCircle, MoreHorizontal, MoreVertical } from 'lucide-react';
+import { Lock, AlertCircle, MoreHorizontal } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { toDate, formatDateTimeLabel } from '../../../core/utils/dateUtils';
 import { InlineTags } from './InlineTags';
@@ -203,17 +203,26 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
         >
           {/* DC-A3: обычная Inter, tabular-nums, одна строка — не переносится.
               MR-9: на телефоне день уже назван группой строк, поэтому в колонке
-              остаётся только время — mono, шириной 44 px. */}
+              остаётся только время — шириной 44 px.
+              U-21 (решение владельца 2026-10-18): кегль на телефоне — как на
+              десктопе, 13 px; дату на телефон не переносим. */}
           <div className={cn(
             'leading-tight whitespace-nowrap text-text-main/60 hover:text-text-main/70',
-            isMobile ? 'min-w-11 text-[12px] tabular-nums' : 'text-[13px] tabular-nums'
+            isMobile ? 'min-w-11 text-[13px] tabular-nums' : 'text-[13px] tabular-nums'
           )}>
             {isMobile ? (sessionTime ? format(sessionTime, 'HH:mm') : '—') : dateTimeLabel}
           </div>
-          {/* MF-14: под временем — облако, устройство, разбор (индикаторы, не кнопки). */}
+          {/* MF-14: под временем — значки копий и разбора (индикаторы, не кнопки).
+              U-21: тот же набор, порядок и состояния, что у десктопных `StorageButtons`. */}
           {isMobile && (
             <div className="mt-1.5">
-              <StorageStateIcons cloud={!!session._hasCloudCopy} device={!!session._isLocal} analyzed={!!aiProcessed} />
+              <StorageStateIcons
+                cloud={!!session._hasCloudCopy}
+                device={!!session._isLocal}
+                analyzed={!!aiProcessed}
+                pendingSync={!!session._hasPendingSync}
+                excluded={!!session.excludedFromAI}
+              />
             </div>
           )}
         </div>
@@ -383,7 +392,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
               onClick={e => { e.stopPropagation(); setActionsSheetOpen(true); }}
               className="w-11 h-11 flex items-center justify-center rounded-lg text-text-main/60 hover:bg-text-main/5 active:bg-text-main/10"
               label={t('archive_note_actions')}
-              icon={<MoreVertical size={20} aria-hidden="true" />}
+              icon={<MoreHorizontal size={20} aria-hidden="true" />}
             />
             {/* Лист рендерится порталом в body, но события React всплывают по
                 дереву компонентов — до ряда. Клики гасит колонка выше, а касания

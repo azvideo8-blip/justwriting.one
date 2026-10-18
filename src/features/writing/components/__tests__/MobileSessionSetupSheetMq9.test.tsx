@@ -38,11 +38,16 @@ describe('MQ-9: лист режима письма', () => {
     expect(within(session).queryByText('writing_mode_flow')).toBeNull();
   });
 
-  it('у иконок режимов нет статус-цветов', () => {
+  it('у иконок режимов есть статус-цвет десктопа (решение владельца 2026-10-18, U-19)', () => {
     const { container } = renderSheet();
     const how = screen.getByRole('group', { name: 'writing_group_how' });
-    expect(how.innerHTML).not.toMatch(/text-accent-|bg-accent-/);
-    expect(container.innerHTML).not.toMatch(/writing_mode_words[\s\S]*accent-danger/);
+    // MQ-9 просил приглушённый цвет; владелец отменил это решение в пакете 0.10.2:
+    // десктоп — эталон, там каждый режим окрашен своим акцентом (`WritingSetup.tsx:147-150`).
+    expect(how.innerHTML).toMatch(/text-accent-warning/);
+    expect(how.innerHTML).toMatch(/text-accent-info/);
+    expect(how.innerHTML).toMatch(/text-accent-danger/);
+    expect(how.innerHTML).toMatch(/text-accent-success/);
+    expect(container.innerHTML).not.toMatch(/writing_mode_words[\s\S]*text-accent-/);
   });
 
   it.each([

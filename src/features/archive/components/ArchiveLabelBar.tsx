@@ -28,7 +28,7 @@ interface ArchiveLabelBarProps {
   onUpdateLabel: (id: string) => void;
   onDeleteLabel: (id: string) => void;
   showControls: boolean;
-  t?: (key: string) => string;
+  t?: (key: string, params?: Record<string, string | number>) => string;
   /** MQ-7: «sheet» — панель на телефоне: подпись строчная, фишки Inter 14 и 44 px. */
   variant?: 'default' | 'sheet';
 }
@@ -77,7 +77,7 @@ export function ArchiveLabelBar({
                   style={{ background: c }}
                   className={cn("w-6 h-6 md:w-4 md:h-4 rounded-full transition-colors cursor-pointer p-0 min-w-0", editLabelColor === c && "ring-2 ring-offset-1 ring-offset-surface-card ring-text-main/40")}
                   onClick={() => setEditLabelColor(c)}
-                  aria-label={`Select color ${c}`}
+                  aria-label={t('archive_label_color_aria', { color: c })}
                 />
                 ))}
               </div>
@@ -167,7 +167,7 @@ export function ArchiveLabelBar({
                 style={{ background: c }}
                 className={cn("w-4 h-4 rounded-full transition-colors p-0 min-w-0", newLabelColor === c && "ring-2 ring-offset-1 ring-offset-surface-card ring-text-main/40")}
                 onClick={() => setNewLabelColor(c)}
-                aria-label={`Select color ${c}`}
+                aria-label={t('archive_label_color_aria', { color: c })}
               />
             ))}
             <div className="relative">

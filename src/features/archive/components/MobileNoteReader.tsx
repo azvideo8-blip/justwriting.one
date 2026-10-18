@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { format } from 'date-fns';
-import { Info, MoreHorizontal, X } from 'lucide-react';
+import { Info, MoreHorizontal, X, Lock, Sparkles, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { ArchiveSession } from '../types';
 import { Label } from '../../../types';
@@ -14,6 +14,7 @@ import { useToast } from '../../../shared/components/Toast';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { ModalShell, SECTION_LABEL, SheetTitle } from '../../../shared/components/ModalShell';
+import { cn } from '../../../core/utils/utils';
 import { InlineTags } from './InlineTags';
 import { MobileNoteActionsSheet } from '../../../app/components/MobileNoteActionsSheet';
 import { usePanelHistory } from '../../../shared/hooks/usePanelHistory';
@@ -171,7 +172,11 @@ export function MobileNoteReader({
         </time>
         {session._locked ? (
           <div className="mt-6 rounded-2xl border border-accent-warning/20 bg-accent-warning/5 p-5 text-center">
-            <p className="text-[15px] text-text-main/80">{t('archive_locked_preview_desc')}</p>
+            {/* U-25 (решение владельца 2026-10-18): как на десктопе — замок 32 и
+                заголовок над пояснением (`DocumentPreview.tsx:727-731`). */}
+            <Lock size={32} className="mx-auto mb-3 text-accent-warning/80" aria-hidden="true" />
+            <p className="text-[15px] font-medium text-text-main">{t('archive_note_locked')}</p>
+            <p className="mt-1 text-[13px] text-text-main/60">{t('archive_locked_preview_desc')}</p>
             <Button
               onClick={() => {
                 onClose();
@@ -200,7 +205,9 @@ export function MobileNoteReader({
                   <button
                     type="button"
                     onClick={() => onSelectRelated(note.documentId)}
-                    className="press flex min-h-12 w-full items-center justify-between gap-3 py-2 text-left"
+                    // U-25: связанные записи — карточки, как в десктопной превью-панели
+                    // (`DocumentPreview.tsx:770-776`); высота 48 px остаётся.
+                    className="press flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-border-subtle/40 bg-surface-card p-3 text-left"
                   >
                     <span className="truncate text-[15px] text-text-main/85">{note.title}</span>
                     <span className="shrink-0 text-[13px] text-text-subtle">{note.date}</span>
@@ -210,6 +217,30 @@ export function MobileNoteReader({
             </ul>
           </section>
         )}
+      </div>
+
+      {/* U-36 (решение владельца 2026-10-18, Q-8): главное действие читалки —
+          общая `Button primary` внизу экрана, как на десктопной превью-панели
+          (`DocumentPreview.tsx:790-810`). Дубль в листе «⋯» оставлен. */}
+      <div className="shrink-0 border-t border-border-subtle px-[var(--reading-gutter)] pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+12px)]">
+        <Button
+          variant="primary"
+          size="lg"
+          className="w-full"
+          onClick={() => {
+            if (session._locked) {
+              window.dispatchEvent(new CustomEvent('open-vault-unlock'));
+              return;
+            }
+            if (session._decryptionError) {
+              showToast(t('archive_decryption_error'), 'error');
+              return;
+            }
+            onContinue(session);
+          }}
+        >
+          {t('archive_continue_writing')}
+        </Button>
       </div>
 
       {/* MF-20: «Инфо» смонтирован всегда — open даёт листу уйти с анимацией. */}
@@ -245,7 +276,7 @@ export function MobileNoteReader({
                     {currentLabel && (
                       <Button
                         onClick={() => onLabelChange(session, undefined)}
-                        className="min-h-11 rounded-xl border border-border-subtle px-3 text-[15px] text-text-main/60"
+                        className="min-h-11 rounded-full border border-border-subtle px-3 text-[15px] text-text-main/60"
                       >
                         {t('archive_no_label')}
                       </Button>
@@ -255,11 +286,12 @@ export function MobileNoteReader({
                         key={l.id}
                         onClick={() => onLabelChange(session, session.labelId === l.id ? undefined : l.id)}
                         aria-pressed={session.labelId === l.id}
-                        className="min-h-11 gap-2 rounded-xl border px-3 text-[15px]"
-                        style={{
-                          borderColor: session.labelId === l.id ? l.color : 'var(--border-light)',
-                          background: session.labelId === l.id ? `color-mix(in srgb, ${l.color} 14%, transparent)` : 'transparent',
-                        }}
+                        // U-23 (хвост): общий чип метки, как в листе действий и в
+                        // «Записано.»; выбранная отмечена кольцом `brand-soft`.
+                        className={cn(
+                          'min-h-11 inline-flex items-center gap-2 rounded-full border border-border-subtle px-3 text-[15px] text-text-main/70',
+                          session.labelId === l.id && 'ring-2 ring-brand-soft text-text-main',
+                        )}
                       >
                         <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: l.color }} />
                         {l.name}
@@ -268,7 +300,7 @@ export function MobileNoteReader({
                     {onAddLabel && !creatingLabel && (
                       <Button
                         onClick={() => setCreatingLabel(true)}
-                        className="min-h-11 rounded-xl border border-dashed border-border-subtle px-3 text-[15px] text-text-main/60"
+                        className="min-h-11 rounded-full border border-dashed border-border-subtle px-3 text-[15px] text-text-main/60"
                       >
                         + {t('archive_add_label')}
                       </Button>
@@ -340,7 +372,7 @@ export function MobileNoteReader({
                   /* MF-15: то же, что десктопное превью — сводка, темы, тон, инсайты,
                      факты; пустые части скрыты. Повторного разбора нет, как на десктопе:
                      для разобранной заметки в «⋯» — «Удалить разбор ИИ». */
-                  <div className="mt-2 space-y-3 text-[15px] leading-[1.5] text-text-main/80">
+                  <div className="mt-2 space-y-3 rounded-xl border border-brand-soft/15 bg-brand-soft/5 p-3 text-[15px] leading-[1.5] text-text-main/80">
                     {summary.summary && <p className="italic">{summary.summary}</p>}
                     {(summary.themes?.length ?? 0) > 0 && <p className="text-text-main/70">{summary.themes!.join(' · ')}</p>}
                     {summary.tone && <p><span className="text-text-main/60">{t('archive_preview_tone')}</span> {summary.tone}</p>}
@@ -358,17 +390,24 @@ export function MobileNoteReader({
                     )}
                   </div>
                 ) : session.excludedFromAI ? (
-                  <p className="mt-2 text-[15px] italic text-text-main/50">{t('archive_preview_ai_excluded')}</p>
+                  // U-25: состояния блока ИИ — те же плашки, что на десктопе
+                  // (`DocumentPreview.tsx:704-713`), кегль оставлен телефонный.
+                  <p className="mt-2 rounded-xl border border-border-subtle/10 bg-surface-base/5 px-3 py-2 text-[15px] italic text-text-main/50">{t('archive_preview_ai_excluded')}</p>
                 ) : analyzing ? (
-                  <p className="mt-2 text-[15px] italic text-text-main/50">{t('archive_preview_analyzing')}</p>
+                  <p className="mt-2 flex items-center gap-2 rounded-xl border border-border-subtle/10 bg-surface-base/5 px-3 py-2 text-[15px] italic text-text-main/50">
+                    <Loader2 size={14} className="animate-spin text-brand-soft" aria-hidden="true" />
+                    {t('archive_preview_analyzing')}
+                  </p>
                 ) : justFinished ? (
-                  <p className="mt-2 text-[15px] text-brand-soft">{t('archive_preview_refresh_hint')}</p>
+                  <p className="mt-2 rounded-xl border border-brand-soft/20 bg-brand-soft/5 px-3 py-2 text-[15px] text-brand-soft">{t('archive_preview_refresh_hint')}</p>
                 ) : (
                   <div className="mt-2 space-y-2">
                     <Button
                       onClick={() => onAnalyze?.()}
-                      className="min-h-11 rounded-xl bg-brand-soft/10 px-3 text-[15px] text-brand-soft"
+                      className="min-h-11 gap-2 rounded-xl border border-brand-soft/20 bg-brand-soft/10 px-3 text-[15px] text-brand-soft"
                     >
+                      {/* U-25: значок разбора как на десктопе (`DocumentPreview.tsx:722`). */}
+                      <Sparkles size={14} className="text-brand-soft" aria-hidden="true" />
                       {t('archive_preview_analyze_btn')}
                     </Button>
                     {analyzeError && <p className="text-[14px] text-accent-danger">{analyzeError}</p>}

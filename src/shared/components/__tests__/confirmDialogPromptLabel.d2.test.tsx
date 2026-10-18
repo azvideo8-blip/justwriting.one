@@ -51,6 +51,27 @@ describe('D-2', () => {
     expect(screen.getByRole('dialog')).not.toHaveTextContent('Удалить');
   });
 
+  // B-8 (ревью 0.10.1): прежние кейсы проверяли только подпись. Второй эффект
+  // правки D-2 — лист ввода не наследует красный цвет разрушающего подтверждения —
+  // теперь проверяется на рендере кнопки.
+  it('подтверждение в листе ввода не красное, а разрушающее подтверждение — красное', () => {
+    mount();
+    act(() => {
+      void store().openConfirm({ title: 'Удалить заметку?', confirmLabel: 'Удалить заметку', destructive: true });
+    });
+    const destructive = screen.getByRole('button', { name: 'Удалить заметку' });
+    expect(destructive.className).toContain('bg-accent-danger');
+    act(() => {
+      store().handleCancel();
+    });
+
+    act(() => {
+      void store().openPrompt({ title: 'Новое название' });
+    });
+    const save = screen.getByRole('button', { name: 'Сохранить' });
+    expect(save.className, 'лист ввода получил красный цвет разрушающего действия').not.toContain('bg-accent-danger');
+  });
+
   it('подтверждение без своей подписи остаётся на «Удалить» — поведение правкой не задето', () => {
     mount();
     act(() => {

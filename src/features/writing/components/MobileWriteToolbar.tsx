@@ -231,7 +231,15 @@ export function MobileWriteToolbar({
           <span aria-hidden="true" className="shrink-0">▾</span>
         </button>
 
-        <div className="flex gap-2 shrink-0 ml-2">
+        {/* U-10 (хвост, решение владельца 2026-10-18): значки собраны в группу с
+            подложкой и разделителем, как в нижней панели десктопа (`BottomStats.tsx:276-278`). */}
+        <div className="flex shrink-0 items-center gap-1 ml-1">
+          <div className="w-px h-6 bg-border-subtle" aria-hidden="true" />
+          {/* Высота группы не растёт: `py-0.5` делал спокойную строку на 4 px выше
+              строки диктовки, и `dictation-panel-above-toolbar.mb5` ловил это как
+              прыжок панели; компактный отступ нужен и чтобы числа чипа не вылезали
+              на 320 px (`write-toolbar-calm.mf3`). */}
+          <div className="flex items-center gap-1 rounded-xl bg-text-main/[0.04] px-0.5">
           {hasSupport && (
             <div className="relative">
               <IconButton
@@ -243,7 +251,8 @@ export function MobileWriteToolbar({
                     ? "border-accent-danger bg-accent-danger/10 text-accent-danger"
                     : showVaultWarn
                     ? "border-accent-warning/50 bg-accent-warning/5 text-accent-warning"
-                    : "border-[var(--border-light)] bg-transparent text-text-main/60 hover:text-[var(--text-main)]"
+                    // В спокойном состоянии рамки нет: она дублировала подложку группы.
+                    : "border-transparent bg-transparent text-text-main/60 hover:text-[var(--text-main)]"
                 )}
                 icon={isListening ? <MicOff size={16} /> : <Mic size={16} />}
               />
@@ -273,6 +282,7 @@ export function MobileWriteToolbar({
           >
             <Save size={16} aria-hidden="true" />
           </Button>
+          </div>
         </div>
         </motion.div>
       )}

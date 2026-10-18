@@ -12,28 +12,44 @@ export type SaveStatusKind = 'idle' | 'saving' | 'saved' | 'cloud-stale' | 'erro
 // загорается фирменным фиолетовым и гаснет; время — в подсказке по наведению.
 // Ошибка и «только локально» не гаснут: цветом и голосом для скринридера (DC-W4).
 const LIT_MS = 900;
+// Длительность CSS-перехода гашения (duration-700): пока она идёт, иконку
+// снимать нельзя — иначе затухание обрывается на середине.
+const FADE_OUT_MS = 700;
+
+function formatSavedAt(language: string) {
+  return new Date().toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' });
+}
 
 export function SaveStatus({
   saveStatus,
   saveErrorKind,
+  hideWhenIdle,
 }: {
   saveStatus: SaveStatusKind;
   saveErrorKind?: 'quota' | 'unknown' | null | undefined;
+  // На телефоне статус показывается только вокруг сохранения: на idle иконки в
+  // строке быть не должно (MQ-4). Десктоп оставляет дискету всегда (DC-W4).
+  hideWhenIdle?: boolean;
 }) {
   const { t, language } = useLanguage();
   const { isZenActive } = useWritingSettings();
   const reducedMotion = useReducedMotion();
   const tipId = useId();
   const [prevStatus, setPrevStatus] = useState<SaveStatusKind>(saveStatus);
-  const [savedAt, setSavedAt] = useState<string | null>(null);
-  const [lit, setLit] = useState(saveStatus === 'saving');
+  // B-4: время и вспышка ставятся и при МОНТИРОВАНИИ, а не только на переходе
+  // статуса. Иначе новая копия (смена шапки на строку дзена) стартует с
+  // savedAt=null и врет «Ещё не сохранялось» про уже сохранённую заметку.
+  const [savedAt, setSavedAt] = useState<string | null>(
+    () => (saveStatus === 'saved' ? formatSavedAt(language) : null),
+  );
+  const [lit, setLit] = useState(saveStatus === 'saving' || saveStatus === 'saved');
 
   // Переход статуса ловится во время рендера, а не в эффекте (храповик
   // set-state-in-effect): время записи и вспышка нужны сразу.
   if (saveStatus !== prevStatus) {
     setPrevStatus(saveStatus);
     if (saveStatus === 'saved') {
-      setSavedAt(new Date().toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' }));
+      setSavedAt(formatSavedAt(language));
     }
     if (saveStatus === 'saving' || saveStatus === 'saved') setLit(true);
   }
@@ -48,6 +64,23 @@ export function SaveStatus({
 
   const isError = saveStatus === 'error';
   const isStale = saveStatus === 'cloud-stale';
+  const activeStatus = saveStatus === 'saving' || saveStatus === 'saved' || isError || isStale;
+  // B-4, пункт 2: на idle в шапке телефона иконки быть не должно, но уходить в
+  // скрытие можно только когда 700-мс затухание доиграло. При keep-mounted
+  // (компонент смонтирован и на idle) само скрытие — это локальный признак:
+  // «показывать уже нечего». Стал снова видно — снимаем скрытие во время
+  // рендера (приём перехвата статуса выше); уходим в скрытие — по таймеру,
+  // setState внутри колбэка, а не в теле эффекта (тот же храповик).
+  const wantHide = hideWhenIdle === true && !activeStatus && !lit;
+  const [hidden, setHidden] = useState(wantHide);
+  if (hidden && !wantHide) setHidden(false);
+  useEffect(() => {
+    if (!wantHide || hidden) return;
+    const timer = setTimeout(() => setHidden(true), FADE_OUT_MS);
+    return () => clearTimeout(timer);
+  }, [wantHide, hidden]);
+  if (hidden) return null;
+
   const tip = isError
     ? (saveErrorKind === 'quota' ? t('editor_error_quota') : t('editor_error_save'))
     : isStale

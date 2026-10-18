@@ -37,12 +37,20 @@ describe('MF-22: explicit cloud choice', () => {
     expect(onFinish2).toHaveBeenCalledWith(true, true);
   });
 
-  it('no control on the step is pre-selected; the two choices weigh the same; no «Пропустить»', () => {
+  // U-31 (решение владельца 2026-10-18): «две равные кнопки» MF-22 отменены —
+  // десктопный `SyncConsentModal` показывает primary + ghost, и телефон обязан
+  // давать ту же иерархию главного действия. Ничего не выбрано заранее и
+  // «Пропустить» нет — эти две проверки MF-22 остаются.
+  it('no control on the step is pre-selected; the first choice is primary, no «Пропустить»', () => {
     const { container } = render(<FirstRunCloudStep position={pos} cloudCount={59} onFinish={vi.fn()} />);
     expect(container.querySelectorAll('[role="switch"], input[type="checkbox"], [aria-checked="true"], [aria-pressed="true"]')).toHaveLength(0);
     const on = screen.getByRole('button', { name: 'first_run_cloud_on' });
     const local = screen.getByRole('button', { name: 'first_run_cloud_local' });
-    expect(on.className).toBe(local.className);
+    expect(on.className).not.toBe(local.className);
+    expect(on.className).toContain('bg-text-main');
+    expect(local.className).toContain('text-text-main/60');
+    expect(on.className).toContain('min-h-11');
+    expect(local.className).toContain('min-h-11');
     expect(screen.queryByRole('button', { name: 'first_run_skip' })).toBeNull();
   });
 });

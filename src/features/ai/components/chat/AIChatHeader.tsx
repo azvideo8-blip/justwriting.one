@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Brain, Settings, Download, Pencil, Archive, Trash2, Plus, ChevronDown, Info, Menu, MoreHorizontal } from 'lucide-react';
 import { IconButton } from '../../../../shared/components/IconButton';
 import { Button } from '../../../../shared/components/Button';
-import { ModalShell, SECTION_LABEL, SheetTitle } from '../../../../shared/components/ModalShell';
+import { ModalShell, SECTION_LABEL, SHEET_DIVIDER, SHEET_ROW, SheetTitle } from '../../../../shared/components/ModalShell';
 import { useLanguage } from '../../../../shared/i18n';
 import { cn } from '../../../../core/utils/utils';
 import { Monogram } from '../AIChatPresentational';
@@ -130,6 +130,10 @@ export function AIChatHeader(props: AIChatHeaderProps) {
     len === 'short' ? t('ai_volume_short') : len === 'standard' ? t('ai_volume_standard') : t('ai_volume_detailed');
 
   if (isMobile) {
+    // U-26 (решение владельца 2026-10-18): единый вид значков шапки — общий
+    // `IconButton` (вид десктопа: без рамки, подложка только при наведении),
+    // цель касания 44 px остаётся. ☰, «⋯» и «+» носят один и тот же класс.
+    const headerIcon = 'w-11 h-11 shrink-0';
     return (
       <div className="relative z-10 px-3 pt-3 pb-2 border-b border-border-subtle">
         {/* 0.10.1: с «⋯» в строке шапки на 360 px имени собеседника не хватало
@@ -137,7 +141,7 @@ export function AIChatHeader(props: AIChatHeaderProps) {
         <div className="flex items-center gap-1">
           <IconButton
             onClick={onOpenDialogues}
-            className="w-11 h-11 shrink-0"
+            className={headerIcon}
             title={t('ai_dialogues_open')}
             label={t('ai_dialogues_open')}
             icon={<Menu size={16} />}
@@ -164,14 +168,14 @@ export function AIChatHeader(props: AIChatHeaderProps) {
               сообщения; действия диалога в листе — только при диалоге. */}
           <IconButton
             onClick={() => setMoreOpen(true)}
-            className="w-11 h-11 shrink-0 rounded-xl text-text-main/60 flex items-center justify-center"
+            className={headerIcon}
             title={t('ai_more')}
             label={t('ai_more')}
             icon={<MoreHorizontal size={16} />}
           />
           <IconButton
             onClick={onNewDialogue}
-            className="w-11 h-11 shrink-0"
+            className={headerIcon}
             title={t('ai_new_dialogue')}
             label={t('ai_new_dialogue')}
             icon={<Plus size={16} />}
@@ -190,16 +194,28 @@ export function AIChatHeader(props: AIChatHeaderProps) {
 
         {/* MF-20: смонтирован всегда — open даёт листу уйти с анимацией. */}
           <ModalShell open={moreOpen} onClose={() => setMoreOpen(false)} labelId="ai-header-more-title" variant="sheet">
-            <div className="p-4 space-y-2">
-              <SheetTitle id="ai-header-more-title" className="truncate">{dialogueTitle ?? activePersonaName}</SheetTitle>
+            {/* U-26 (решение владельца 2026-10-18): строки листа — общий `SHEET_ROW`
+                из U-22 вместо рамки под каждой, группы разделяет `SHEET_DIVIDER`,
+                значок строки 18 px. Порядок пунктов (MF-12) не менялся. Блоки
+                настроек ответа и остатка запросов — не строки, рамка у них осталась.
+                Строки стали 48 px, поэтому список прокручивается: на 360×640
+                нижние пункты не отсекались (ModalShell держит max-h-[85vh] и
+                `overflow-hidden`). */}
+            <div className="flex flex-col min-h-0 flex-1">
+              <div className="px-4 pt-4 pb-2">
+                <SheetTitle id="ai-header-more-title" className="truncate">{dialogueTitle ?? activePersonaName}</SheetTitle>
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto pb-4">
               <button
                 type="button"
                 onClick={() => { setMoreOpen(false); onOpenMemory(); }}
-                className="w-full h-11 flex items-center gap-3 px-3 rounded-xl border border-border-subtle text-sm text-text-main"
+                className={SHEET_ROW}
               >
-                <Brain size={16} /> {t('ai_memory_title')}
+                <Brain size={18} className="text-text-main/60" aria-hidden="true" />
+                <span>{t('ai_memory_title')}</span>
               </button>
-              <div className="w-full rounded-xl border border-border-subtle p-3 space-y-2">
+              <div role="separator" className={SHEET_DIVIDER} />
+              <div className="mx-4 my-3 rounded-xl border border-border-subtle p-3 space-y-2">
                 <div className={SECTION_LABEL}>{t('ai_volume_response_heading')}</div>
                 <div className="flex gap-1.5">
                   {volumeOptions.map(len => (
@@ -226,7 +242,7 @@ export function AIChatHeader(props: AIChatHeaderProps) {
                 </button>
               </div>
               {quota !== undefined && (
-                <div className="w-full min-h-11 flex items-center justify-between gap-3 px-3 py-2 rounded-xl border border-border-subtle text-xs text-text-main/70">
+                <div className="mx-4 mb-3 min-h-11 flex items-center justify-between gap-3 px-3 py-2 rounded-xl border border-border-subtle text-xs text-text-main/70">
                   <span>{t('ai_quota_today')}</span>
                   <span className="tabular-nums text-right">
                     {t('ai_quota_chat')} {quota.chatRemaining}/{quota.chatTotal}
@@ -236,8 +252,9 @@ export function AIChatHeader(props: AIChatHeaderProps) {
                 </div>
               )}
               {hasActiveDialogue && (<>
+              <div role="separator" className={SHEET_DIVIDER} />
               {mobileRename ? (
-                <div className="space-y-2">
+                <div className="px-4 pb-3 space-y-2">
                   <input
                     autoFocus
                     value={mobileRenameValue}
@@ -262,33 +279,39 @@ export function AIChatHeader(props: AIChatHeaderProps) {
                 <button
                   type="button"
                   onClick={() => { setMobileRename(true); setMobileRenameValue(dialogueTitle ?? ''); }}
-                  className="w-full h-11 flex items-center gap-3 px-3 rounded-xl border border-border-subtle text-sm text-text-main"
+                  className={SHEET_ROW}
                 >
-                  <Pencil size={16} /> {t('ai_dialogue_rename')}
+                  <Pencil size={18} className="text-text-main/60" aria-hidden="true" />
+                  <span>{t('ai_dialogue_rename')}</span>
                 </button>
               )}
               <button
                 type="button"
                 onClick={() => { setMoreOpen(false); onExport(); }}
-                className="w-full h-11 flex items-center gap-3 px-3 rounded-xl border border-border-subtle text-sm text-text-main"
+                className={SHEET_ROW}
               >
-                <Download size={16} /> {t('ai_download_md')}
+                <Download size={18} className="text-text-main/60" aria-hidden="true" />
+                <span>{t('ai_download_md')}</span>
               </button>
               <button
                 type="button"
                 onClick={() => { setMoreOpen(false); onArchive(); }}
-                className="w-full h-11 flex items-center gap-3 px-3 rounded-xl border border-border-subtle text-sm text-text-main"
+                className={SHEET_ROW}
               >
-                <Archive size={16} /> {t('ai_to_archive')}
+                <Archive size={18} className="text-text-main/60" aria-hidden="true" />
+                <span>{t('ai_to_archive')}</span>
               </button>
+              <div role="separator" className={SHEET_DIVIDER} />
               <button
                 type="button"
                 onClick={() => { setMoreOpen(false); onDelete(); }}
-                className="w-full h-11 flex items-center gap-3 px-3 rounded-xl border border-border-subtle text-sm text-accent-danger"
+                className={cn(SHEET_ROW, 'text-accent-danger active:bg-accent-danger/10')}
               >
-                <Trash2 size={16} /> {t('ai_delete')}
+                <Trash2 size={18} aria-hidden="true" />
+                <span>{t('ai_delete')}</span>
               </button>
               </>)}
+              </div>
             </div>
           </ModalShell>
 

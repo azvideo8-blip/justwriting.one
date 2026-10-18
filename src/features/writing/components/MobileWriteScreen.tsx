@@ -306,8 +306,13 @@ export function MobileWriteScreen({
                 отдельный блок min-w-60 справа выталкивал «Aa» с края и сам уезжал за экран. */}
             {/* U-16: «сохраняю / сохранено» — значком, как на десктопе (SaveStatus);
                 ошибка и «только на устройстве» — текстом: на телефоне нет наведения. */}
-            {saveMoment === null && (saveStatus === 'saving' || saveStatus === 'saved') && (
-              <SaveStatus saveStatus={saveStatus} saveErrorKind={saveErrorKind} />
+            {/* U-16: «сохраняю / сохранено» — значком, как на десктопке (SaveStatus);
+                ошибка и «только на устройстве» — текстом: на телефоне нет наведения.
+                B-4: на idle компонент остаётся смонтированным и прячется сам, иначе
+                переход saved→idle снимал иконку вразрез с затуханием, а новая копия
+                при смене шапки на строку дзена врет «Ещё не сохранялось». */}
+            {saveMoment === null && (saveStatus === 'saving' || saveStatus === 'saved' || saveStatus === 'idle') && (
+              <SaveStatus saveStatus={saveStatus} saveErrorKind={saveErrorKind} hideWhenIdle />
             )}
             {saveMoment === null && (saveStatus === 'error' || saveStatus === 'cloud-stale') && (
               <span data-testid="save-status-text" className="max-w-[40%] shrink-0 truncate text-[12px] tabular-nums">
@@ -370,7 +375,7 @@ export function MobileWriteScreen({
             {sessionWords} {tp('writing_words', sessionWords)}
           </span>
           <span className="flex-1" />
-          {(saveStatus === 'saving' || saveStatus === 'saved') && <SaveStatus saveStatus={saveStatus} saveErrorKind={saveErrorKind} />}
+          {(saveStatus === 'saving' || saveStatus === 'saved' || saveStatus === 'idle') && <SaveStatus saveStatus={saveStatus} saveErrorKind={saveErrorKind} hideWhenIdle />}
           {(saveStatus === 'error' || saveStatus === 'cloud-stale') && (
             <span className="text-[12px] tabular-nums shrink-0">
               {saveStatus === 'cloud-stale'

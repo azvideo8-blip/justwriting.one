@@ -74,4 +74,22 @@ describe('MF-13: label dot and name on the phone', () => {
     expect(document.querySelector('[data-label-mark]')).not.toBeNull();
     expect(screen.getByText('Аскеза6')).toBeInTheDocument();
   });
+
+  // U-34 (хвост, решение владельца 2026-10-18): карточка сетки на телефоне — та же
+  // полоса метки, что у строки и у десктопной карточки; тонировка 10 % без полосы была.
+  it('карточка сетки на телефоне — полоса метки как у строки', () => {
+    const { container } = render(<GridNoteCard session={{ ...session, labelId: 'l1' } as ArchiveSession} labels={[LABEL]} onClick={vi.fn()} userId="user_1" searchQuery="" />);
+    const card = container.firstElementChild as HTMLElement;
+    expect(card.className, 'у карточки нет полосы метки').toContain('border-l-2');
+    expect(card.style.borderLeftColor).not.toBe('');
+    expect(card.style.background, 'подкраска карточки не 4 %').toContain('4%');
+    expect(card.style.boxShadow, 'у карточки нет внутреннего свечения').not.toBe('');
+  });
+
+  it('карточка сетки без метки — полоса прозрачна, свечения нет', () => {
+    const { container } = render(<GridNoteCard session={session} labels={[LABEL]} onClick={vi.fn()} userId="user_1" searchQuery="" />);
+    const card = container.firstElementChild as HTMLElement;
+    expect(card.className).toContain('border-l-transparent');
+    expect(card.style.boxShadow).toBe('');
+  });
 });

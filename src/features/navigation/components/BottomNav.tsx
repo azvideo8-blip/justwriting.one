@@ -3,7 +3,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { useLoginModal } from '../../../app/useLoginModal';
-import { History, Sparkles } from 'lucide-react';
+import { History, LogIn, Sparkles } from 'lucide-react';
 import { Button } from '../../../shared/components/Button';
 import { useSyncStatus } from '../../../core/sync/useSyncStatus';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
@@ -66,14 +66,19 @@ export function BottomNav() {
   const hidesForKeyboard = layoutMode === 'mobile' && keyboard.up
     && (location.pathname === '/' || location.pathname === '/ai');
 
-  const tabs = [
+  const baseTabs = [
     { id: 'write' as const, path: '/',        label: t('nav_write'),          icon: <PenIcon /> },
     // U-29 (решение владельца 2026-10-18): значок вкладки «Заметки» — `History`,
     // как в боковой панели десктопа; самописный «архивный ящик» убран.
     { id: 'archive' as const, path: '/archive', label: t('nav_notes_short'),  icon: <History size={22} strokeWidth={1.6} aria-hidden="true" /> },
-    { id: 'ai' as const, path: '/ai',          label: t('nav_ai_short'),       icon: <Sparkles size={22} strokeWidth={1.6} aria-hidden="true" /> },
+    // N-2 (решение владельца 2026-10-18): у гостя вкладки «ИИ» нет — раньше она
+    // стояла приглушённой и вела в модалку входа; вместо неё справа «Войти».
+    ...(isGuest ? [] : [{ id: 'ai' as const, path: '/ai', label: t('nav_ai_short'), icon: <Sparkles size={22} strokeWidth={1.6} aria-hidden="true" /> }]),
     { id: 'me' as const,   path: '/me',       label: t('nav_profile_short'),  icon: <MeIcon /> },
   ];
+  const tabs = isGuest
+    ? [...baseTabs, { id: 'login' as const, path: null, label: t('nav_login'), icon: <LogIn size={22} strokeWidth={1.6} aria-hidden="true" /> }]
+    : baseTabs;
 
   type Tab = typeof tabs[number];
 
@@ -85,15 +90,17 @@ export function BottomNav() {
         // ignore
       }
     }
-    // If guest taps auth-required tab — open login modal
-    if (isGuest && tab.id === 'ai') {
+    // «Войти» открывает ту же модалку входа, что десктоп и «Профиль» гостя,
+    // и не ведёт ни на какую страницу (N-2).
+    if (tab.id === 'login') {
       openLoginModal();
       return;
     }
-    void navigate(tab.path);
+    void navigate(tab.path!);
   };
 
   const isActive = (tab: Tab) => {
+    if (tab.path === null) return false;
     if (tab.id === 'write') return location.pathname === '/';
     return location.pathname === tab.path;
   };
@@ -124,20 +131,24 @@ export function BottomNav() {
             aria-label={tab.label}
             aria-current={active ? 'page' : undefined}
             className={cn(
-              "relative flex min-w-16 flex-col items-center gap-[3px] py-1 px-2 bg-transparent border-none cursor-pointer transition-colors duration-150",
-              active ? "text-text-main font-semibold" : "text-text-main/60 hover:text-text-main",
-              isGuest && tab.id === 'ai' ? "opacity-40" : ""
+              // U-35 (решение владельца 2026-10-18, Q-6): активная вкладка — плашка-инверсия,
+              // как активный пункт `Sidebar`, а не только жирная подпись.
+              "relative flex min-w-16 flex-col items-center gap-[3px] py-1 px-2 rounded-xl bg-transparent border-none cursor-pointer transition-colors duration-150",
+              active ? "text-surface-base font-semibold" : "text-text-main/60 hover:text-text-main"
             )}
           >
-            {tab.icon}
+            {active && (
+              <span aria-hidden="true" className="absolute inset-0 rounded-xl bg-text-main" />
+            )}
+            <span className="relative z-10 flex items-center justify-center">{tab.icon}</span>
             {tab.id === 'me' && showAlertDot && (
               <span
                 data-testid="tab-dot"
                 aria-hidden="true"
-                className={cn("absolute top-0.5 right-[22%] w-2 h-2 rounded-full", newestLevel === 'error' ? "bg-accent-danger" : "bg-accent-warning")}
+                className={cn("absolute top-0.5 right-[22%] z-10 w-2 h-2 rounded-full", newestLevel === 'error' ? "bg-accent-danger" : "bg-accent-warning")}
               />
             )}
-            <span className="text-label-sm font-sans tracking-[0.02em]">
+            <span className="relative z-10 text-label-sm font-sans tracking-[0.02em]">
               {tab.label}
             </span>
           </Button>

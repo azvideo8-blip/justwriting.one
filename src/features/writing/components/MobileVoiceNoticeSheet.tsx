@@ -33,6 +33,11 @@ export function MobileVoiceNoticeSheet({ open = true, notice, onCancel, onRecord
             <li>{t('voice_sheet_where_text')}</li>
           </ul>
         )}
+        {/* N-1 (решение владельца 2026-10-18): лист говорит про офлайн до нажатия
+            «Записать», а не постфактум тостом. */}
+        {typeof navigator !== 'undefined' && navigator.onLine === false && (
+          <p className="text-sm text-text-main/80" data-voice-offline>{t('voice_offline_before_start')}</p>
+        )}
         {notice.remaining !== null && !notice.vault && (
           <p className="text-sm text-text-main/80" data-voice-cost>{t('voice_sheet_cost', { remaining: notice.remaining })}</p>
         )}

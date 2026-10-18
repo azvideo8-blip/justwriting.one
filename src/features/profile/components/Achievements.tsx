@@ -265,7 +265,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
   };
 
   return (
-    <div className="px-9 py-6">
+    <div className="px-0 py-6 md:px-9">
       <h2 className="text-[18px] font-medium text-text-main mb-1">
         {t('profile_achievements_title')}
       </h2>

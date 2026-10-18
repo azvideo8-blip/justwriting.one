@@ -31,8 +31,6 @@ export const profileTranslations: Translations = {
   profile_heatmap_summary:    { ru: '{days} дней с записями · {words} слов', en: '{days} days written · {words} words' },
   profile_heatmap_less:       { ru: 'меньше',                     en: 'less' },
   profile_heatmap_more:       { ru: 'больше',                     en: 'more' },
-  profile_act_map:            { ru: 'Карта активности',           en: 'Activity Map' },
-  profile_rhythm:             { ru: 'Ритм по часам',              en: 'Hourly Rhythm' },
   profile_rhythm_title:       { ru: 'Ритм дня',                   en: 'Daily rhythm' },
   profile_rhythm_peak:        { ru: 'типичный час',               en: 'typical hour' },
   profile_mood_title:         { ru: 'Настроение',                 en: 'Mood' },

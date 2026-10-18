@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Archive, Pencil, RotateCcw, Trash2, FileText } from 'lucide-react';
 import type { AIDialogue } from '../../../../core/storage/localDb';
-import { ModalShell, SECTION_LABEL, SheetTitle } from '../../../../shared/components/ModalShell';
+import { ModalShell, SECTION_LABEL, SHEET_DIVIDER, SHEET_ROW, SheetTitle } from '../../../../shared/components/ModalShell';
 import { useLanguage } from '../../../../shared/i18n';
 import { Button } from '../../../../shared/components/Button';
 import { Input } from '../../../../shared/components/Input';
-import { IconButton } from '../../../../shared/components/IconButton';
 import { cn } from '../../../../core/utils/utils';
 import { personaVisual } from '../../constants/personaVisuals';
 import { relativeDate } from '../../../../core/utils/dateUtils';
@@ -182,10 +181,15 @@ export function MobileDialogueListSheet(props: MobileDialogueListSheetProps) {
 
       <ModalShell open={!!actionsFor} onClose={() => setActionsFor(null)} labelId={actionsTitleId} variant="sheet">
         {actionsFor && (
-          <div className="p-4 space-y-2">
-            <SheetTitle id={actionsTitleId} className="truncate">{actionsFor.title}</SheetTitle>
+          /* U-26 (решение владельца 2026-10-18): строки листа действий диалога —
+             общий `SHEET_ROW` (U-22) с подписью и значком 18 px вместо рамки без
+             подписи; перед «Удалить» — общая черта `SHEET_DIVIDER`. */
+          <div className="pb-4">
+            <div className="px-4 pt-4 pb-2">
+              <SheetTitle id={actionsTitleId} className="truncate">{actionsFor.title}</SheetTitle>
+            </div>
             {renaming ? (
-              <div className="space-y-2">
+              <div className="px-4 pb-3 space-y-2">
                 <Input
                   autoFocus
                   value={renameValue}
@@ -204,29 +208,42 @@ export function MobileDialogueListSheet(props: MobileDialogueListSheetProps) {
               </div>
             ) : (
               <>
-                <IconButton
+                <button
+                  type="button"
                   onClick={() => { setRenaming(true); setRenameValue(actionsFor.title); }}
-                  label={t('ai_dialogue_rename')} title={t('ai_dialogue_rename')} icon={<Pencil size={16} />}
-                  className="w-full h-11 justify-start gap-3 px-3 rounded-xl border border-border-subtle text-text-main"
-                />
+                  className={SHEET_ROW}
+                >
+                  <Pencil size={18} className="text-text-main/60" aria-hidden="true" />
+                  <span>{t('ai_dialogue_rename')}</span>
+                </button>
                 {showArchived ? (
-                  <IconButton
+                  <button
+                    type="button"
                     onClick={() => { onUnarchive(actionsFor.id); setActionsFor(null); }}
-                    label={t('ai_unarchive')} title={t('ai_unarchive')} icon={<RotateCcw size={16} />}
-                    className="w-full h-11 justify-start gap-3 px-3 rounded-xl border border-border-subtle text-text-main"
-                  />
+                    className={SHEET_ROW}
+                  >
+                    <RotateCcw size={18} className="text-text-main/60" aria-hidden="true" />
+                    <span>{t('ai_unarchive')}</span>
+                  </button>
                 ) : (
-                  <IconButton
+                  <button
+                    type="button"
                     onClick={() => { onArchive(actionsFor.id); setActionsFor(null); }}
-                    label={t('ai_to_archive')} title={t('ai_to_archive')} icon={<Archive size={16} />}
-                    className="w-full h-11 justify-start gap-3 px-3 rounded-xl border border-border-subtle text-text-main"
-                  />
+                    className={SHEET_ROW}
+                  >
+                    <Archive size={18} className="text-text-main/60" aria-hidden="true" />
+                    <span>{t('ai_to_archive')}</span>
+                  </button>
                 )}
-                <IconButton
+                <div role="separator" className={SHEET_DIVIDER} />
+                <button
+                  type="button"
                   onClick={() => { onDelete(actionsFor.id); setActionsFor(null); }}
-                  label={t('ai_delete')} title={t('ai_delete')} icon={<Trash2 size={16} />}
-                  className="w-full h-11 justify-start gap-3 px-3 rounded-xl border border-border-subtle text-accent-danger"
-                />
+                  className={cn(SHEET_ROW, 'text-accent-danger active:bg-accent-danger/10')}
+                >
+                  <Trash2 size={18} aria-hidden="true" />
+                  <span>{t('ai_delete')}</span>
+                </button>
               </>
             )}
           </div>

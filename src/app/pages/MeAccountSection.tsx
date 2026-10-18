@@ -1,8 +1,8 @@
 import React from 'react';
 import type { AppUser } from '../../core/auth/types';
-import { cn } from '../../core/utils/utils';
 import { useLanguage } from '../../shared/i18n';
 import { SettingRow } from '../../shared/components/MeScreenHelpers';
+import { LanguageSwitch } from '../../shared/components/LanguageSwitch';
 import { useSettings } from '../../core/settings/SettingsContext';
 import { Button } from '../../shared/components/Button';
 import { useLayoutMode } from '../../shared/hooks/useLayoutMode';
@@ -15,7 +15,7 @@ interface MeAccountSectionProps {
 }
 
 export function MeAccountSection({ user, onSignOut, onSignIn }: MeAccountSectionProps) {
-  const { t, language, setLanguage } = useLanguage();
+  const { t } = useLanguage();
   const isGuest = !user;
 
   const { openSettings } = useSettings();
@@ -27,27 +27,15 @@ export function MeAccountSection({ user, onSignOut, onSignIn }: MeAccountSection
 
   return (
     <div>
-      <SettingRow label={t('settings_language')}>
-        <div className="flex bg-text-main/[0.05] rounded-lg p-0.5 gap-0.5">
-          {(['ru', 'en'] as const).map(lang => (
-            <Button
-              type="button"
-              key={lang}
-              variant="ghost"
-              size="sm"
-              onClick={() => setLanguage(lang)}
-              className={cn(
-                "min-w-11 min-h-11 px-3 py-1 rounded-md border-none cursor-pointer text-xs font-medium",
-                language === lang
-                  ? "bg-text-main/[0.1] text-text-main"
-                  : "bg-transparent text-text-main/50"
-              )}
-            >
-              {lang.toUpperCase()}
-            </Button>
-          ))}
+      {/* U-28 (решение владельца 2026-10-18): общий контрол языка — сетка с
+          инверсией, как в десктопной вкладке «Редактор»; второго вида с
+          приглушённой подложкой на телефоне больше нет. */}
+      <div className="py-3.5 border-b border-border-subtle">
+        <div className="text-sm text-text-main/80">{t('settings_language')}</div>
+        <div className="mt-2">
+          <LanguageSwitch />
         </div>
-      </SettingRow>
+      </div>
 
       <SettingRow label={t('settings_title')} hint={t('settings_more_options')}>
         <Button

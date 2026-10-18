@@ -58,7 +58,9 @@ function StepHeader({ index, total, title }: { index: number; total: number; tit
  */
 function Bullet({ children }: { children: ReactNode }) {
   return (
-    <li className="flex gap-3 text-[16px] leading-relaxed text-[var(--text-main)]">
+    // U-31 (решение владельца 2026-10-18): цвет второстепенного текста приглушён,
+    // как на десктопном `SyncConsentModal`, кегль 16 px оставлен (палец и чтение).
+    <li className="flex gap-3 text-[16px] leading-relaxed text-text-main/60">
       <span aria-hidden="true" className="mt-2.5 w-1.5 h-1.5 rounded-full bg-[var(--text-subtle)] shrink-0" />
       <span>{children}</span>
     </li>
@@ -158,10 +160,11 @@ export function FirstRunPolicyStep({ position, onNext }: { position: StepPositio
         />
 
         <Button
+          variant="primary"
           onClick={() => void accept()}
           disabled={!checked || saving}
           aria-describedby={checked ? undefined : 'first-run-consent-hint'}
-          className="mt-3 w-full min-h-11 rounded-xl bg-brand-soft text-surface-base text-[16px] font-semibold disabled:opacity-40"
+          className="mt-3 w-full min-h-11 rounded-xl text-[16px] font-bold disabled:opacity-40"
         >
           {t('privacy_modal_continue')}
         </Button>
@@ -206,7 +209,7 @@ export function FirstRunCodeStep({ position, code, onNext }: { position: StepPos
     <>
       <StepHeader index={position.index} total={position.total} title={t('enc_recovery_code_title')} />
       <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-4">
-        <p className="text-[15px] text-[var(--text-main)]">{t('enc_recovery_code_subtitle')}</p>
+        <p className="text-[15px] text-text-main/60">{t('enc_recovery_code_subtitle')}</p>
 
         <div className="flex gap-2.5 items-start rounded-xl bg-accent-warning/10 border border-accent-warning/20 text-accent-warning p-3">
           <AlertTriangle size={16} className="shrink-0 mt-0.5" aria-hidden="true" />
@@ -251,10 +254,11 @@ export function FirstRunCodeStep({ position, code, onNext }: { position: StepPos
 
       <footer className="px-5 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+20px)]">
         <Button
+          variant="primary"
           onClick={() => onNext(rememberDevice)}
           disabled={!confirmed}
           aria-describedby={confirmed ? undefined : 'first-run-code-hint'}
-          className="w-full min-h-11 rounded-xl bg-brand-soft text-surface-base text-[16px] font-semibold disabled:opacity-40"
+          className="w-full min-h-11 rounded-xl text-[16px] font-bold disabled:opacity-40"
         >
           {t('privacy_modal_continue')}
         </Button>
@@ -285,31 +289,36 @@ export function FirstRunCloudStep({
   // SyncConsentModal; ничего не выбрано заранее, «Пропустить» нет. Вопрос о
   // загрузке — только после «Включить облако» и только если в облаке что-то есть.
   const [askRestore, setAskRestore] = useState(false);
-  const choice = 'w-full min-h-11 rounded-xl border border-[var(--border-light)] text-[16px] font-semibold text-[var(--text-main)]';
+  // U-31 (решение владельца 2026-10-18): как десктопный `SyncConsentModal:59-68` —
+  // первый вариант общий `primary` (инверсия чернил), остальные `ghost`. Прежняя
+  // MF-22 пара «двух равных кнопок» выглядела равной только потому, что десктоп
+  // рядом был primary + ghost; иерархия главного действия теперь видна.
+  const choice = 'w-full min-h-11 rounded-xl text-[16px] font-bold';
+  const altChoice = 'w-full min-h-11 rounded-xl text-[16px]';
 
   return (
     <>
       <StepHeader index={position.index} total={position.total} title={t('first_run_cloud_title')} />
       <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-5">
-        <p className="text-[15px] leading-relaxed text-[var(--text-main)]">{t('sync_consent_body')}</p>
+        <p className="text-[15px] leading-relaxed text-text-main/60">{t('sync_consent_body')}</p>
       </div>
 
       <footer className="px-5 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+20px)] space-y-2">
         {askRestore ? (
           <>
-            <Button onClick={() => onFinish(true, true)} className={choice}>
+            <Button variant="primary" onClick={() => onFinish(true, true)} className={choice}>
               {tp('first_run_restore_switch', cloudCount)}
             </Button>
-            <Button onClick={() => onFinish(true, false)} className={choice}>
+            <Button variant="ghost" onClick={() => onFinish(true, false)} className={altChoice}>
               {t('first_run_restore_later')}
             </Button>
           </>
         ) : (
           <>
-            <Button onClick={() => (cloudCount > 0 ? setAskRestore(true) : onFinish(true, false))} className={choice}>
+            <Button variant="primary" onClick={() => (cloudCount > 0 ? setAskRestore(true) : onFinish(true, false))} className={choice}>
               {t('first_run_cloud_on')}
             </Button>
-            <Button onClick={() => onFinish(false, false)} className={choice}>
+            <Button variant="ghost" onClick={() => onFinish(false, false)} className={altChoice}>
               {t('first_run_cloud_local')}
             </Button>
           </>

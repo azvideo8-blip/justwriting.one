@@ -6,8 +6,7 @@ import { useAuthStatus } from '../../../app/useAuthStatus';
 import { useLoginModal } from '../../../app/useLoginModal';
 import { Section } from './SettingsHelpers';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
-import { SettingRow } from '../../../shared/components/MeScreenHelpers';
-import { cn } from '../../../core/utils/utils';
+import { LanguageSwitch } from '../../../shared/components/LanguageSwitch';
 import { Button } from '../../../shared/components/Button';
 import { SignOutConfirmModal } from '../../auth/components/SignOutConfirmModal';
 import { useConfirmSignOut } from '../hooks/useConfirmSignOut';
@@ -17,7 +16,7 @@ interface AccountProfileSectionProps {
 }
 
 export function AccountProfileSection({ userId: _userId }: AccountProfileSectionProps) {
-  const { t, language, setLanguage } = useLanguage();
+  const { t } = useLanguage();
   const { layoutMode } = useLayoutMode();
   const { isAuthenticated } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
@@ -61,25 +60,15 @@ export function AccountProfileSection({ userId: _userId }: AccountProfileSection
               в мобильном макете: на десктопе язык остаётся в «Редакторе», второй
               переключатель на /settings — изменение десктопа (ревью 0.9.39). */}
           {layoutMode === 'mobile' && <div className="pt-2 border-t border-border-subtle">
-            <SettingRow label={t('settings_language')} divider={false}>
-              <div className="flex bg-white/[0.04] rounded-lg p-0.5 gap-0.5">
-                {(['ru', 'en'] as const).map(lang => (
-                  <Button
-                    type="button"
-                    key={lang}
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setLanguage(lang)}
-                    className={cn(
-                      'min-w-11 min-h-11 px-3 py-1 rounded-md border-none cursor-pointer text-xs font-medium',
-                      language === lang ? 'bg-white/[0.08] text-text-main' : 'bg-transparent text-text-main/50'
-                    )}
-                  >
-                    {lang.toUpperCase()}
-                  </Button>
-                ))}
+            {/* U-28 (решение владельца 2026-10-18): язык на телефоне — общий
+                контрол на токенах; раньше был `bg-white/[0.04]` и
+                `bg-white/[0.08]`, в тёплой теме «notion» он был не виден. */}
+            <div className="py-3.5">
+              <div className="text-sm text-text-main/80">{t('settings_language')}</div>
+              <div className="mt-2">
+                <LanguageSwitch />
               </div>
-            </SettingRow>
+            </div>
           </div>}
 
           <div className="pt-2 border-t border-border-subtle">

@@ -17,6 +17,21 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.10.2',
+    date: '2026-10-18',
+    items: [
+      { category: 'fix', ru: 'Диктовка без интернета говорит правду: «Нет интернета — распознавание речи недоступно» вместо записи, которая только делает вид, что идёт. Если сети нет до начала, приложение сразу предупреждает, что текст останется без обработки. Всё распознанное остаётся в заметке.', en: 'Dictation without internet tells the truth: «No internet — speech recognition is unavailable» instead of a recording that only pretends to run. If you are offline before you start, the app warns that the text will stay unprocessed. Everything recognised stays in the note.' },
+      { category: 'improvement', ru: 'Без входа на телефоне вкладки — «Писать», «Заметки», «Профиль» и «Войти»; вкладки «ИИ», которой нельзя пользоваться без аккаунта, больше нет.', en: 'Without signing in, the phone tabs are «Write», «Notes», «Profile» and «Sign in»; the «AI» tab, which needs an account, is gone.' },
+      { category: 'improvement', ru: 'Телефон ещё ближе к десктопу: настройка сессии, «Записано.» с тремя числами в одну строку, читалка с карточкой ИИ и кнопкой «Продолжить писать», плоские панели тегов, значки состояния копий как на десктопе, активная вкладка выделена плашкой.', en: 'The phone is even closer to the desktop: session setup, «Saved.» with three numbers in one row, the reader with an AI card and a «Continue writing» button, flat tag panels, the same copy-status icons as on desktop, and the active tab highlighted.' },
+      { category: 'new', ru: 'В листе карточки заметки в сетке появилось «Добавить тег».', en: '«Add tag» is now in the sheet of a grid note card.' },
+      { category: 'fix', ru: 'Полоса прогресса слов появляется, только когда цель в словах выбрана; без цели её нет ни сверху, ни снизу.', en: 'The word progress bar appears only when you set a word goal; without a goal it is gone from both the top and bottom panels.' },
+      { category: 'fix', ru: 'Ссылки «📅» в ответах ИИ: зона нажатия больше не задевает соседнюю строку, а поиск заметки не тормозит длинный диалог.', en: '«📅» links in AI answers: the tap area no longer reaches the next line, and looking up the note no longer slows down a long dialogue.' },
+      { category: 'fix', ru: 'Значок сохранения не пишет «Ещё не сохранялось» после того, как заметка сохранена.', en: 'The save icon no longer says «Not saved yet» after the note was saved.' },
+      { category: 'fix', ru: 'Обрыв сети при обмене с облаком больше не попадает в журнал красной ошибкой.', en: 'A dropped connection while talking to the cloud no longer shows up in the log as a red error.' },
+      { category: 'fix', ru: 'Мелочи: число слов в корзине склоняется, подпись выбора цвета метки переведена, выбранный тег в «Записано.» на десктопе не обрезается.', en: 'Small fixes: the word count in the trash uses the right plural, the label colour picker is translated, and the selected tag in «Saved.» on desktop is no longer clipped.' },
+    ],
+  },
+  {
     version: '0.10.1',
     date: '2026-10-18',
     items: [

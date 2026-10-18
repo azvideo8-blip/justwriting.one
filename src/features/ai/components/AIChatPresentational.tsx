@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Sparkles, ChevronDown, ChevronUp, File, Paperclip, Copy, Trash2, RefreshCw, ThumbsUp, ThumbsDown, ChevronLeft, ChevronRight, FilePlus, MoreHorizontal } from 'lucide-react';
 import { Button } from '../../../shared/components/Button';
-import { cn } from '../../../core/utils/utils';
 import { IconButton } from '../../../shared/components/IconButton';
 import { ModalShell, SheetTitle } from '../../../shared/components/ModalShell';
 import { useLanguage } from '../../../shared/i18n';
@@ -190,7 +189,10 @@ export const AssistantTurn = React.memo(
       {!isMobile && <Monogram color={color} mono={mono} size={36} />}
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2.5 mb-2">
-          <span className={cn('text-[13px] font-semibold', isMobile ? 'text-brand-soft' : 'text-text-main')}>{name}</span>
+          {/* U-26 (решение владельца 2026-10-18): имя ассистента над ответом —
+              чернилом `text-text-main`, как на десктопе, где рядом Monogram.
+              Телефон был `text-brand-soft`; десктопная ветка не изменилась. */}
+          <span className="text-[13px] font-semibold text-text-main">{name}</span>
         </div>
         <div
           data-testid="assistant-text"

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { SessionType } from '../store/types';
-import { useTimerStore } from '../store/useTimerStore';
+import { DEFAULT_WORD_GOAL, useTimerStore } from '../store/useTimerStore';
 import { SetupMode } from '../components/WritingSetup';
 import { playGoalSound } from '../../../core/utils/sound';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
@@ -42,6 +42,9 @@ export function useSessionFlow(
   const startCountdown = useCallback((type: SessionType) => {
     if (countdownRef.current !== undefined) clearInterval(countdownRef.current);
     setSessionType(type);
+    // Q-11 (ревью 0.10.2): без выбранной цели «Слова» стартуют с 1000 — одно место
+    // для десктопного и телефонного листа; открытие листа цель не сохраняет.
+    if (type === 'words' && useTimerStore.getState().wordGoal <= 0) useTimerStore.getState().setWordGoal(DEFAULT_WORD_GOAL);
     
     if (layoutMode === 'mobile') {
       handleStart();

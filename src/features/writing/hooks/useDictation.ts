@@ -305,6 +305,14 @@ export function useDictation(): DictationApi {
       session.stopListening();
       return;
     }
+    // N-1 (решение владельца 2026-10-18): правда — до старта, а не после обрыва.
+    // Без сети распознавание может работать частично (на iOS — на устройстве),
+    // поэтому запись не блокируется, но человек сразу слышит, что текст
+    // останется без обработки; если движок всё-таки умрёт, об этом скажет
+    // `useSpeechInput`, а не бесконечный перезапуск.
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      showToast(t('voice_offline_before_start'), 'info');
+    }
     // documentId снимается на старте, а не на стопе: смена заметки посреди записи
     // должна быть заметна и отменяема.
     const snap = useSessionMetaStore.getState();
@@ -316,7 +324,7 @@ export function useDictation(): DictationApi {
       if (hidden) setAiNotice({ yes: false, remaining: 0 });
     });
     void session.toggleListening({ noticeHandled });
-  }, [processing, session]);
+  }, [processing, session, showToast, t]);
   const toggle = useCallback(() => begin(false), [begin]);
   const startAfterNotice = useCallback(() => begin(true), [begin]);
 

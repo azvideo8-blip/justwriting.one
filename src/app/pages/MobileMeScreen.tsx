@@ -187,27 +187,23 @@ export function MobileMeScreen({ user, profile }: MobileMeScreenProps) {
               {/* 3. Streak Ribbon */}
               <StreakRibbon sessions={sessions} />
 
-              {/* 4. Heatmap Activity */}
-              <MeGroup title={t('profile_act_map')}>
-                <Heatmap sessions={sessions} />
-              </MeGroup>
+              {/* 4. Heatmap Activity — U-27 (решение владельца 2026-10-18): обёртка
+                  MeGroup снята, у виджета свой заголовок — как на десктопном
+                  `ProfilePage`. */}
+              <Heatmap sessions={sessions} />
 
               {/* 5. Hour Rhythm */}
-              <MeGroup title={t('profile_rhythm')}>
-                <HourRhythm sessions={sessions} />
-              </MeGroup>
+              <HourRhythm sessions={sessions} />
 
               {/* 6. Mood Trend */}
               <MoodTrend userId={userId} className="py-4" />
 
               {/* 7. Achievements — сброс достижений живёт в настройках (MC-7):
                   в профиле он был единственной разрушительной кнопкой. */}
-              <MeGroup title={t('profile_achievements_title')}>
-                <Achievements
-                  stats={kpiStats}
-                  sessions={sessions}
-                />
-              </MeGroup>
+              <Achievements
+                stats={kpiStats}
+                sessions={sessions}
+              />
             </div>
           )
         )}

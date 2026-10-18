@@ -43,7 +43,7 @@ export function HourRhythm({ sessions }: { sessions: Session[] }) {
   const isPeak = (h: number) => h === peakHour && counts[h] > 0;
 
   return (
-    <div className="px-4 py-6 md:px-9 md:py-8 border-b border-border-subtle" >
+    <div className="px-0 py-6 md:px-9 md:py-8 border-b border-border-subtle" >
       <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-3 mb-4">
         <h2 className="text-[18px] font-medium text-text-main">
           {t('profile_rhythm_title')}

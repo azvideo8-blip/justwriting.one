@@ -19,7 +19,8 @@ import { FinishModalTags } from './FinishModalTags';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { useToast } from '../../../shared/components/Toast';
-import { ModalShell } from '../../../shared/components/ModalShell';
+import { ModalShell, SECTION_LABEL } from '../../../shared/components/ModalShell';
+import { formatTime } from '../../../core/utils/formatTime';
 import { readingTimeMinutes } from '../../../shared/utils/readingTime';
 import { suggestExistingTags } from '../utils/tagSuggestions';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
@@ -593,16 +594,8 @@ function WritingFinishModalBody({
   const finalTitle = titleInputValue.trim() || title || '';
   const heading = buildFinishHeading({ sessionWords, sessionSeconds, quietStats, t, tp });
 
-  // MC-3: на телефоне под заголовком — одна тихая строка из тех же кусочков, что
-  // и заголовок (тикет просит переиспользовать `finish_written_heading`), и эхо
-  // первой фразы текста.
-  const finishSubline = sessionWords > 0
-    ? [
-      tp('archive_word_count', sessionWords),
-      sessionSeconds < 60 ? t('finish_duration_under_minute') : tp('duration_minutes', Math.floor(sessionSeconds / 60)),
-      t('reading_time', { n: readingMinutes }),
-    ].join(' · ')
-    : '';
+  // U-33 (решение владельца 2026-10-18, Q-3): тихая строка MC-3 уступила месту
+  // строке из трёх чисел — она под заголовком.
   const firstSentence = (() => {
     const plain = content.replace(/\s+/g, ' ').trim();
     if (!plain) return '';
@@ -688,10 +681,12 @@ function WritingFinishModalBody({
       variant={isMobile ? 'sheet' : 'modal'}
       fullHeight={isMobile}
       className={cn(
-        "bg-surface-card text-text-main",
+        "text-text-main",
         isMobile
+          // U-20 (решение владельца 2026-10-18): на телефоне одна фоновая подложка —
+          // та, что даёт `ModalShell` (`bg-surface-popup`); второй слой убран.
           ? "finish-sheet-full flex flex-col overflow-hidden"
-          : "shadow-[0_0_60px_rgba(0,0,0,0.8)] rounded-3xl p-8 max-h-[90vh] flex flex-col overflow-hidden no-scrollbar border border-border-subtle h-auto"
+          : "bg-surface-card shadow-[0_0_60px_rgba(0,0,0,0.8)] rounded-3xl p-8 max-h-[90vh] flex flex-col overflow-hidden no-scrollbar border border-border-subtle h-auto"
       )}
     >
         {/* F5 (emil-review, хвост MQ-15): здесь лежала мёртвая анимация —
@@ -706,7 +701,6 @@ function WritingFinishModalBody({
           >
             {/* MC-3: одна строка сверху — «×» (= «Вернуться к тексту»), и всё. */}
             <div className="flex items-start justify-end gap-2 px-3 pt-2 shrink-0">
-              {showCelebration && <CelebrationBadge reduced={!!reducedMotion} />}
               <IconButton
                 onClick={onCancel}
                 className="h-11 w-11 rounded-xl"
@@ -715,12 +709,40 @@ function WritingFinishModalBody({
               />
             </div>
 
+            {/* U-20 (решение владельца 2026-10-18): значок праздника — по центру над
+                заголовком, как на десктопе. Как и в D-12, он вне прокручиваемой
+                области: вспышка выходит за рамку значка и резалась бы краем. */}
+            {showCelebration && (
+              <div className="shrink-0 px-5 text-center">
+                <CelebrationBadge reduced={!!reducedMotion} />
+              </div>
+            )}
+
             <div className="custom-scrollbar flex-1 overflow-y-auto px-5">
               <h3 id="finish-modal-title" className="text-[28px] font-bold leading-[1.15] tracking-tight text-text-main">
                 {t('finish_written_bare')}
               </h3>
-              {finishSubline && (
-                <p className="mt-1 text-[15px] leading-[1.4] text-text-main/60">{finishSubline}</p>
+              {/* U-33 (решение владельца 2026-10-18, Q-3): одна строка из трёх чисел —
+                  слов / время / слов в минуту — в стиле десктопной сетки
+                  (`FinishModalStats.tsx:146-170`): подписи общим моно-капсом (U-9),
+                  числа mono `tabular-nums`. Серию по дням и четыре кнопки десктопа
+                  сюда не переносим; тихая строка «N слов · X · ~Y мин чтения» ей
+                  уступила место. */}
+              {sessionWords > 0 && (
+                <div className="mt-3 grid grid-cols-3 gap-2" data-finish-numbers>
+                  <div>
+                    <div className={SECTION_LABEL}>{t('writing_words')}</div>
+                    <div className="font-mono text-xl font-bold text-text-main tabular-nums">{animWords}</div>
+                  </div>
+                  <div>
+                    <div className={SECTION_LABEL}>{t('writing_time')}</div>
+                    <div className="font-mono text-xl font-bold text-text-main tabular-nums">{formatTime(animSeconds)}</div>
+                  </div>
+                  <div>
+                    <div className={SECTION_LABEL}>{t('writing_wpm')}</div>
+                    <div className="font-mono text-xl font-bold text-text-main tabular-nums">{animWpm}</div>
+                  </div>
+                </div>
               )}
               {/* MF-6: курсивной первой фразы нет — она уже в подсказке поля названия. */}
 
@@ -777,8 +799,10 @@ function WritingFinishModalBody({
                   onClick={() => void finishSave(true)}
                   className="min-h-11 gap-1.5 px-2 text-[14px] text-brand-soft"
                 >
+                  {/* U-20 (решение владельца 2026-10-18): значок тот же, что на
+                      десктопе (`Sparkles` 14), вместо стрелки «→». */}
+                  <Sparkles size={14} aria-hidden="true" />
                   {t('finish_discuss_ai')}
-                  <span aria-hidden="true">→</span>
                 </Button>
               </div>
               <Button
@@ -802,7 +826,13 @@ function WritingFinishModalBody({
             {showCelebration && <CelebrationBadge reduced={!!reducedMotion} />}
             <h3 id="finish-modal-title" className="text-2xl font-bold text-text-main">{heading}</h3>
           </div>
-          <div className="no-scrollbar min-h-0 flex-1 space-y-5 overflow-y-auto">
+          {/* B-7: тело прокрутки получает внутренний отступ с ответным
+              отрицательным полем. Без него край прокрутки резал тень выбранного
+              чипа метки (`shadow-lg`), а увеличенный чип (`scale-105`) выходил за
+              контентную ширину — горизонтальный сдвиг без полосы (`no-scrollbar`).
+              Отступ и поле равны, поэтому содержимое стоит ровно там же; поле в
+              16 px не выходит за `p-8` карточки. */}
+          <div className="no-scrollbar -mx-4 min-h-0 flex-1 space-y-5 overflow-y-auto px-4">
 
           {!quietStats && (
           <FinishModalStats

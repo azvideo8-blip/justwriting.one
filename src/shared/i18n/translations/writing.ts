@@ -165,7 +165,11 @@ export const writingTranslations: Translations = {
   voice_stop_dictation: { ru: 'Остановить диктовку', en: 'Stop dictation' },
   voice_no_punctuation_toast: { ru: 'Текст вставлен без знаков препинания: {reason}', en: 'Text inserted without punctuation: {reason}' },
   voice_no_punctuation_reason_limit: { ru: 'дневной лимит исчерпан', en: 'daily limit reached' },
-  voice_no_punctuation_reason_offline: { ru: 'нет сети', en: 'offline' },
+  // N-1 (решение владельца 2026-10-18): причина офлайн-отказа называет следствие,
+  // а не только факт «нет сети» — человеку важно, что слова останутся как сказаны.
+  voice_no_punctuation_reason_offline: { ru: 'нет интернета, текст останется без обработки', en: 'no internet — the text stays unprocessed' },
+  voice_offline_before_start: { ru: 'Нет интернета — текст останется без обработки', en: 'No internet — the text will stay unprocessed' },
+  voice_offline_no_recognition: { ru: 'Нет интернета — распознавание речи недоступно', en: 'No internet — speech recognition is unavailable' },
   voice_no_punctuation_reason_error: { ru: 'сервис не ответил', en: 'service did not answer' },
   voice_no_punctuation_reason_words_changed: { ru: 'модель изменила слова', en: 'the model changed words' },
   voice_no_punctuation_reason_too_long: { ru: 'слишком длинный кусок', en: 'chunk too long' },

@@ -611,7 +611,7 @@ export function DocumentPreview({
                         style={{ background: c }}
                         className={cn("w-3 h-3 rounded-full transition-colors p-0 min-w-0", newLabelColor === c && "ring-1 ring-offset-1 ring-offset-surface-card ring-text-main/40")}
                         onClick={() => setNewLabelColor(c)}
-                        aria-label={`Select color ${c}`}
+                        aria-label={t('archive_label_color_aria', { color: c })}
                       />
                     ))}
                   </div>

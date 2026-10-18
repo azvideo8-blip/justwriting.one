@@ -35,12 +35,17 @@ describe('MF-10: mobile settings', () => {
     expect(screen.getByTestId('where').textContent).toBe('/me');
   });
 
+  // U-28 (решение владельца 2026-10-18): язык — общий `LanguageSwitch`, сетка из
+  // двух колонок на всю ширину строки. Ширина цели больше не ограничена `min-w-11`
+  // (колонка шире), высота 44 px осталась; имена кнопок — полные.
   it('language buttons are at least 44 px', () => {
     renderWithProviders(<AccountProfileSection userId="u1" />);
-    for (const name of ['RU', 'EN']) {
+    const grid = screen.getByTestId('language-switch');
+    expect(grid.className).toContain('grid-cols-2');
+    for (const name of [/Русский/, /English/]) {
       const b = screen.getByRole('button', { name });
       expect(b.className).toContain('min-h-11');
-      expect(b.className).toContain('min-w-11');
+      expect(grid.contains(b)).toBe(true);
     }
   });
 

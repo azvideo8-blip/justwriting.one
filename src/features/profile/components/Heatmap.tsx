@@ -143,7 +143,7 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
   const weekdayLabels = getDayLabels(language);
 
   return (
-    <div className="px-4 py-6 md:px-9 md:py-8 border-b border-border-subtle relative" ref={containerRef}>
+    <div className="px-0 py-6 md:px-9 md:py-8 border-b border-border-subtle relative" ref={containerRef}>
       <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-3 mb-4">
         <div className="flex items-baseline gap-3">
           <h2 className="text-[18px] font-medium text-text-main">

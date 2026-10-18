@@ -1,6 +1,6 @@
 import { memo, useRef, useState } from 'react';
 import { format, Locale } from 'date-fns';
-import { Trash2, RotateCcw, Clock, MoreVertical } from 'lucide-react';
+import { Trash2, RotateCcw, Clock, MoreHorizontal } from 'lucide-react';
 import { motion } from 'motion/react';
 import { ArchiveSession } from '../types';
 import { Button } from '../../../shared/components/Button';
@@ -39,7 +39,8 @@ interface ArchiveTrashViewProps {
   onOpenPreview?: (session: ArchiveSession) => void;
   dateLocale?: Locale;
   t: (key: string, args?: Record<string, string | number>) => string;
-  /** D-8: счётчик в корзине склоняется — `archive_count_one/_few/_many` уже в словарях. */
+  /** D-8: счётчик записей в корзине склоняется — `archive_count_one/_few/_many` уже в словарях.
+   *  B-5: тем же `tp` считается и число слов, иначе ряд печатал «3 всего слов». */
   tp: (key: string, count: number) => string;
   /** MR-10: на телефоне строки компактные, а действия — под «⋯». */
   isMobile?: boolean;
@@ -51,7 +52,7 @@ interface ArchiveTrashViewProps {
  * Десктопная карточка с двумя кнопками на телефоне давала 190 px на запись.
  */
 function MobileTrashRow({
-  session, daysLeft, onOpenPreview, onRestore, onDeletePermanently, t,
+  session, daysLeft, onOpenPreview, onRestore, onDeletePermanently, t, tp,
 }: {
   session: ArchiveSession;
   daysLeft: number;
@@ -59,6 +60,7 @@ function MobileTrashRow({
   onRestore: (session: ArchiveSession) => Promise<void>;
   onDeletePermanently: (session: ArchiveSession) => void;
   t: ArchiveTrashViewProps['t'];
+  tp: ArchiveTrashViewProps['tp'];
 }) {
   const [open, setOpen] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -97,14 +99,14 @@ function MobileTrashRow({
         <div className="text-[15px] text-text-main truncate">{rowTitle(session, t)}</div>
         <div className="text-[12px] text-text-main/50 truncate">
           {formatDaysLeft(daysLeft, t)}
-          {session.wordCount > 0 && ` · ${session.wordCount} ${t('archive_stat_words')}`}
+          {session.wordCount > 0 && ` · ${session.wordCount} ${tp('archive_stat_words', session.wordCount)}`}
         </div>
       </div>
       <IconButton
         onClick={() => setOpen(true)}
         className="w-11 h-11 shrink-0 flex items-center justify-center rounded-lg text-text-main/60"
         label={t('archive_note_actions')}
-        icon={<MoreVertical size={20} aria-hidden="true" />}
+        icon={<MoreHorizontal size={20} aria-hidden="true" />}
       />
       {open && (
         <ModalShell open={open} onClose={() => setOpen(false)} labelId={titleId} variant="sheet">
@@ -174,6 +176,7 @@ export const ArchiveTrashView = memo(function ArchiveTrashView({
               onRestore={onRestore}
               onDeletePermanently={onDeletePermanently}
               t={t}
+              tp={tp}
             />
           ))}
         </div>
@@ -237,7 +240,7 @@ export const ArchiveTrashView = memo(function ArchiveTrashView({
                     <span className="text-brand-soft font-medium">{t('archive_cloud_only')}</span>
                   )}
                   {session.wordCount > 0 && (
-                    <span>{session.wordCount} {t('archive_stat_words')}</span>
+                    <span>{session.wordCount} {tp('archive_stat_words', session.wordCount)}</span>
                   )}
                   {trashedDate && (
                     <span>• {trashedDate}</span>

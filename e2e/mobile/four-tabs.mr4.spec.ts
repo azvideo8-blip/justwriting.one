@@ -1,6 +1,6 @@
 // MR-4: четыре вкладки, плавающих чипов нет, статусы переехали в «Профиль».
 import { expect, test } from '@playwright/test';
-import { horizontalOverflow, shot, signInMobile, unlockVaultIfAsked } from './harness';
+import { horizontalOverflow, shot, signInMobile, unlockVaultIfAsked, waitForQuietDialogs } from './harness';
 
 test.describe('MR-4: оболочка на четырёх вкладках', () => {
   test('вкладок ровно четыре, бокового скролла нет нигде, журнал больше не висит над панелью', async ({ page }) => {
@@ -44,5 +44,30 @@ test.describe('MR-4: оболочка на четырёх вкладках', () 
       expect(box && box.height, `строка ${label} ниже 48 px`).toBeGreaterThanOrEqual(44);
     }
     await shot(page, 'mr4-me-status');
+  });
+});
+
+// N-2 (решение владельца 2026-10-18): у гостя вкладки «ИИ» больше нет — раньше
+// она стояла приглушённой и вела в модалку входа; теперь справа «Войти», и она
+// открывает ту же модалку, что десктоп и «Профиль» гостя. Аккаунт не нужен.
+test.describe('N-2: нижняя панель гостя', () => {
+  test('четыре вкладки «Писать · Заметки · Профиль · Войти», «ИИ» нет, «Войти» открывает модалку', async ({ page }) => {
+    await page.goto('/');
+    const nav = page.getByTestId('mobile-bottom-nav');
+    await expect(nav, 'гость не получил нижнюю панель').toBeVisible({ timeout: 20_000 });
+    await waitForQuietDialogs(page, 12_000);
+
+    const labels = await nav.locator('button').evaluateAll(bs => bs.map(b => b.getAttribute('aria-label') ?? ''));
+    expect(labels, `вкладки гостя не те: ${labels.join(' · ')}`).toEqual(['Писать', 'Заметки', 'Профиль', 'Войти']);
+
+    for (const label of labels) {
+      const box = await nav.getByRole('button', { name: label }).boundingBox();
+      expect(box && box.height, `вкладка «${label}» ниже 44 px`).toBeGreaterThanOrEqual(44);
+    }
+
+    await nav.getByRole('button', { name: 'Войти' }).click();
+    await expect(page.getByRole('dialog'), '«Войти» не открыло модалку входа').toBeVisible({ timeout: 10_000 });
+    expect(page.url(), '«Войти» ушло на отдельную страницу').toMatch(/\/$/);
+    await shot(page, 'n2-guest-nav');
   });
 });

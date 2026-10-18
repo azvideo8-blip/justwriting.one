@@ -7,7 +7,7 @@ import { cn } from '../../../core/utils/utils';
 import { getDateLocale } from '../../../core/utils/dateUtils';
 import { useLanguage } from '../../../shared/i18n';
 import { formatTime } from '../../../core/utils/formatTime';
-import { useTimerStore } from '../store/useTimerStore';
+import { DEFAULT_WORD_GOAL, useTimerStore } from '../store/useTimerStore';
 import { Button } from '../../../shared/components/Button';
 
 const PROMPT_KEYS = [
@@ -226,7 +226,9 @@ export function WritingSetup({
                         <div className="flex flex-col items-center">
                           <input 
                             type="number" 
-                            value={wordGoal}
+                            // Q-11 (ревью): 1000 — только показ; сохраняется цель при
+                            // вводе или на старте «Слов» (startCountdown), не при открытии.
+                            value={wordGoal || DEFAULT_WORD_GOAL}
                             onChange={(e) => setWordGoal(Number(e.target.value))}
                             aria-label={t('writing_words')}
                             className="w-40 md:w-48 text-center text-5xl md:text-7xl font-black bg-transparent outline-none transition-colors focus:scale-110 text-text-main"
@@ -234,7 +236,7 @@ export function WritingSetup({
                             step="50"
                             autoFocus
                           />
-                          <div className="text-label-sm md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/60">{tp('writing_words', wordGoal)}</div>
+                          <div className="text-label-sm md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/60">{tp('writing_words', wordGoal || DEFAULT_WORD_GOAL)}</div>
                         </div>
                       )}
                       {setupMode === 'finish-by-config' && (

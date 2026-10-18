@@ -17,6 +17,7 @@ import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { MobileRenameSheet } from './MobileRenameSheet';
 import { LabelMark } from './LabelMark';
 import { splitNoteTitle } from './noteTitle';
+import { cn } from '../../../core/utils/utils';
 import { StorageStateIcons } from './StorageStateIcons';
 import { MobileNoteActionsSheet } from '../../../app/components/MobileNoteActionsSheet';
 
@@ -100,7 +101,7 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
   });
 
   // MP-2: на телефоне карточка — только текст. Вход в лист действий один:
-  // долгое нажатие, тот же порог и то же гашение кликa, что у строки списка.
+  // долгое нажатие, тот же порог и то же гашение клика, что у строки списка.
   const startLongPress = (e: React.TouchEvent) => {
     e.stopPropagation();
     longPressFired.current = false;
@@ -136,20 +137,42 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
     const split = splitNoteTitle(session.title, session.content);
     return (
       <div
-        className="flex h-full min-h-11 cursor-pointer flex-col gap-2 rounded-2xl border border-border-subtle bg-surface-card p-4 active:bg-text-main/[0.04]"
-        style={label ? { background: `color-mix(in srgb, ${label.color} 10%, var(--surface-card))` } : undefined}
+        className={cn(
+          // U-34 (хвост, решение владельца 2026-10-18): цвет метки в карточке сетки
+          // несёт та же полоса, что у строки и у десктопной карточки, — раньше была
+          // только тонировка, а `DESIGN.md:260,331` обещает полосу на обоих устройствах.
+          // U-21 (решение владельца 2026-10-18): отступ карточки на телефоне — как на
+          // десктопе, `p-5` (был `p-4`).
+          "flex h-full min-h-11 cursor-pointer flex-col gap-2 rounded-2xl border border-border-subtle border-l-2 bg-surface-card p-5 active:bg-text-main/[0.04]",
+          !label && "border-l-transparent",
+        )}
+        style={label
+          ? {
+            borderLeftColor: label.color,
+            background: `color-mix(in srgb, ${label.color} 4%, var(--surface-card))`,
+            boxShadow: `inset 3px 0 8px color-mix(in srgb, ${label.color} 15%, transparent)`,
+          }
+          : undefined}
         onClick={handleCardTap}
         onTouchStart={startLongPress}
         onTouchMove={cancelLongPress}
         onTouchEnd={cancelLongPress}
       >
+        {/* U-21 (решение владельца 2026-10-18): строка даты — как у десктопной карточки,
+            13 px и /60. Относительного времени («N назад») нет: и юнитный, и браузерный
+            храповики MP-2 считают его в карточке на телефоне регрессией
+            (`e2e/mobile/grid-card-text.mp2.spec.ts:55`). */}
+        <div className="text-[13px] font-medium text-text-main/60 tabular-nums">
+          {formattedDate}
+        </div>
+
         {session._locked ? (
-          <h2 className="flex items-center gap-1.5 text-[15px] italic leading-snug text-text-main/70">
+          <h2 className="flex items-center gap-1.5 text-[17px] font-semibold italic leading-snug text-text-main/70">
             <Lock size={15} className="shrink-0 text-accent-warning/80" aria-label={t('archive_note_locked')} />
             <span className="truncate">{t('archive_note_locked')}</span>
           </h2>
         ) : session._decryptionError ? (
-          <h2 className="flex items-center gap-1.5 text-[15px] italic leading-snug text-accent-danger/80">
+          <h2 className="flex items-center gap-1.5 text-[17px] font-semibold italic leading-snug text-accent-danger/80">
             <AlertCircle size={15} className="shrink-0" aria-label={t('archive_decryption_error')} />
             <span className="truncate">{t('archive_decryption_error')}</span>
           </h2>
@@ -157,22 +180,47 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
           /* MF-14: значки — в строке названия, после него; название режется раньше значков. */
           <div className="flex min-w-0 items-center gap-2">
             {split.title ? (
-              <h2 className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-snug text-text-main">
+              /* U-21: название карточки на телефоне — 17 px, как на десктопе (было 15 px). */
+              <h2 className="min-w-0 flex-1 truncate text-[17px] font-semibold leading-snug text-text-main">
                 {highlightText(split.title, searchQuery)}
               </h2>
             ) : <span className="flex-1" />}
-            <StorageStateIcons cloud={!!session._hasCloudCopy} device={!!session._isLocal} analyzed={!!aiProcessed} />
+            <StorageStateIcons
+              cloud={!!session._hasCloudCopy}
+              device={!!session._isLocal}
+              analyzed={!!aiProcessed}
+              pendingSync={!!session._hasPendingSync}
+              excluded={!!session.excludedFromAI}
+            />
           </div>
         )}
-        {/* MF-16: без своего названия превью идёт после выведенного. */}
+        {/* MF-16: без своего названия превью идёт после выведенного.
+            U-21: цвет и межстрочный превью — как на десктопе: `text-text-main/60`
+            и `leading-relaxed` (было /70 и 1.45). */}
         {split.preview && (
-          <p className="line-clamp-6 whitespace-pre-wrap text-[14px] leading-[1.45] text-pretty text-text-main/70">
+          <p className="line-clamp-6 whitespace-pre-wrap text-[14px] leading-relaxed text-pretty text-text-main/60">
             {highlightText(split.preview, searchQuery)}
           </p>
         )}
         {/* MF-13: метка в подвале карточки — точка и имя её цветом. */}
         {label && (
           <div className="mt-auto pt-1 text-[12px]"><LabelMark label={label} /></div>
+        )}
+
+        {/* U-37 (решение владельца 2026-10-18, Q-10): подвала карточки не делают,
+            тег добавляют из листа долгого нажатия — ввод появляется в карточке. */}
+        {tagInputOpen && (
+          <div onClick={e => e.stopPropagation()}>
+            <InlineTags
+              variant="row"
+              tags={session.tags || []}
+              allTags={allTags}
+              onChange={newTags => onTagsChange?.(session, newTags)}
+              isAdding
+              onStartAdding={() => setTagInputOpen(true)}
+              onStopAdding={() => setTagInputOpen(false)}
+            />
+          </div>
         )}
 
         {/* MQ-5: листы смонтированы всегда — уход вниз играет сам лист (useExitLinger). */}
@@ -184,6 +232,7 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
             labels={labels}
             onOpen={onClick}
             onRename={() => { void rename(); }}
+            onAddTag={() => setTagInputOpen(true)}
             onDelete={() => onDelete?.(session)}
             onLabelChange={labelId => onLabelChange?.(session, labelId)}
             onStorageChange={() => onStorageChange?.()}

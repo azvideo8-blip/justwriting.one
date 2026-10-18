@@ -99,6 +99,10 @@ export function useSpeechInput({ onSessionEnd, onError }: UseSpeechInputProps) {
   // закрыли». Без этого флага onend после aborted перезапускал движок, и после
   // возврата из фона микрофон писал снова сам (findings-G G3: starts: 2).
   const abortedRef = useRef(false);
+  // N-1 (решение владельца 2026-10-18): без сети `network` — не пауза, а смерть
+  // движка. Флаг нужен, чтобы `onend` после сбоя не пошёл в ветку перезапуска:
+  // человек не должен видеть «запись идёт», когда распознавать нечему.
+  const offlineStopRef = useRef(false);
   const cancelledRef = useRef(false);
   const deliveredRef = useRef(false);
   const resultsSinceRestartRef = useRef(0);
@@ -176,6 +180,7 @@ export function useSpeechInput({ onSessionEnd, onError }: UseSpeechInputProps) {
     interimRef.current = '';
     indexOffsetRef.current = 0;
     wantStopRef.current = false;
+    offlineStopRef.current = false;
     abortedRef.current = false;
     cancelledRef.current = false;
     deliveredRef.current = false;
@@ -239,7 +244,13 @@ export function useSpeechInput({ onSessionEnd, onError }: UseSpeechInputProps) {
       // флаг новой сессии.
       if (!isCurrent()) return;
       if (event.error !== 'aborted') {
-        if (RECOVERABLE_ERRORS.has(event.error) && !wantStopRef.current) {
+        const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+        if (RECOVERABLE_ERRORS.has(event.error) && !wantStopRef.current && offline && event.error === 'network') {
+          // Офлайн-сбой не продолжение: отдаём сказанное и останавливаем сессию.
+          offlineStopRef.current = true;
+          showToast(t('voice_offline_no_recognition'), 'warning');
+          deliver();
+        } else if (RECOVERABLE_ERRORS.has(event.error) && !wantStopRef.current) {
           // Сессию продолжит onend (ветка перезапуска); если перезапуски пойдут
           // вхолостую, там же собранное и отдадут.
         } else {
@@ -272,7 +283,7 @@ export function useSpeechInput({ onSessionEnd, onError }: UseSpeechInputProps) {
         setIsListening(false);
         return;
       }
-      if (wantStopRef.current || abortedRef.current) {
+      if (wantStopRef.current || abortedRef.current || offlineStopRef.current) {
         deliver();
         return;
       }

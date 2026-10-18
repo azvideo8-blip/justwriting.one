@@ -1,6 +1,7 @@
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Plus } from 'lucide-react';
 import { ModalShell, SheetTitle } from '../../../../shared/components/ModalShell';
 import { useLanguage } from '../../../../shared/i18n';
+import { Monogram } from '../AIChatPresentational';
 import { personaVisual } from '../../constants/personaVisuals';
 import type { AIChatHeaderPersona } from './AIChatHeader';
 
@@ -43,7 +44,10 @@ export function MobilePersonaSheet(props: MobilePersonaSheetProps) {
                   className="flex-1 min-w-0 h-12 flex items-center gap-3 px-3 rounded-xl text-left"
                   style={on ? { background: `${v.color}1a` } : undefined}
                 >
-                  <span className="w-[9px] h-[9px] rounded-full shrink-0" style={{ background: v.color }} />
+                  {/* U-26 (решение владельца 2026-10-18): в строке собеседника —
+                      тот же `Monogram` 18 px, что в десктопной строке выбора
+                      (AIChatHeader), а не цветная точка 9 px. */}
+                  <Monogram color={v.color} mono={v.mono} size={18} />
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-medium text-text-main truncate">{p.name}</span>
                     <span className="block text-[13px] text-text-main/60 truncate">{role}</span>
@@ -65,7 +69,9 @@ export function MobilePersonaSheet(props: MobilePersonaSheetProps) {
             onClick={() => { onCreate(); onClose(); }}
             className="w-full h-12 flex items-center gap-3 px-3 rounded-xl text-sm font-medium text-text-main/80 border-t border-border-subtle mt-1"
           >
-            {t('ai_persona_create_row')}
+            {/* U-26: у «Создать» — значок Plus, как в десктопной строке создания. */}
+            <Plus size={18} className="text-text-main/60" aria-hidden="true" />
+            <span>{t('ai_persona_create_row')}</span>
           </button>
         </div>
         <p className="px-4 py-3 text-[13px] text-text-main/60 border-t border-border-subtle">{t('ai_persona_sheet_footer')}</p>

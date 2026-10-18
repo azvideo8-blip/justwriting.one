@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.10.2 — 2026-10-18
+
+- **[RU]** Диктовка без интернета говорит правду: «Нет интернета — распознавание речи недоступно» вместо записи, которая только делает вид, что идёт. Если сети нет до начала, приложение сразу предупреждает, что текст останется без обработки. Всё распознанное остаётся в заметке.
+- **[EN]** Dictation without internet tells the truth: «No internet — speech recognition is unavailable» instead of a recording that only pretends to run. If you are offline before you start, the app warns that the text will stay unprocessed. Everything recognised stays in the note.
+- **[RU]** Без входа на телефоне вкладки — «Писать», «Заметки», «Профиль» и «Войти»; вкладки «ИИ», которой нельзя пользоваться без аккаунта, больше нет.
+- **[EN]** Without signing in, the phone tabs are «Write», «Notes», «Profile» and «Sign in»; the «AI» tab, which needs an account, is gone.
+- **[RU]** Телефон ещё ближе к десктопу: настройка сессии, «Записано.» с тремя числами в одну строку, читалка с карточкой ИИ и кнопкой «Продолжить писать», плоские панели тегов, значки состояния копий как на десктопе, активная вкладка выделена плашкой.
+- **[EN]** The phone is even closer to the desktop: session setup, «Saved.» with three numbers in one row, the reader with an AI card and a «Continue writing» button, flat tag panels, the same copy-status icons as on desktop, and the active tab highlighted.
+- **[RU]** В листе карточки заметки в сетке появилось «Добавить тег».
+- **[EN]** «Add tag» is now in the sheet of a grid note card.
+- **[RU]** Полоса прогресса слов появляется, только когда цель в словах выбрана; без цели её нет ни сверху, ни снизу.
+- **[EN]** The word progress bar appears only when you set a word goal; without a goal it is gone from both the top and bottom panels.
+- **[RU]** Ссылки «📅» в ответах ИИ: зона нажатия больше не задевает соседнюю строку, а поиск заметки не тормозит длинный диалог.
+- **[EN]** «📅» links in AI answers: the tap area no longer reaches the next line, and looking up the note no longer slows down a long dialogue.
+- **[RU]** Значок сохранения не пишет «Ещё не сохранялось» после того, как заметка сохранена.
+- **[EN]** The save icon no longer says «Not saved yet» after the note was saved.
+- **[RU]** Обрыв сети при обмене с облаком больше не попадает в журнал красной ошибкой.
+- **[EN]** A dropped connection while talking to the cloud no longer shows up in the log as a red error.
+- **[RU]** Мелочи: число слов в корзине склоняется, подпись выбора цвета метки переведена, выбранный тег в «Записано.» на десктопе не обрезается.
+- **[EN]** Small fixes: the word count in the trash uses the right plural, the label colour picker is translated, and the selected tag in «Saved.» on desktop is no longer clipped.
+
 ## 0.10.1 — 2026-10-18
 
 - **[RU]** Листы на телефоне закрываются свайпом вниз.

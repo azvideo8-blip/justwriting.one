@@ -29,7 +29,8 @@ interface MarkdownRendererProps {
 export const MarkdownRenderer = React.memo(
   function MarkdownRenderer({ content, className, onCitationClick }: MarkdownRendererProps) {
     // U-32: ссылка на заметку — маленькая плашка (~20 px); на телефоне цель
-    // касания расширяется до 44 px без изменения раскладки.
+    // касания дорастает до 44 px настоящим padding'ом с ответным отрицательным
+    // полем (B-3), раскладку не двигает и на соседнюю строку не залезает.
     const mobile = useLayoutMode().layoutMode === 'mobile';
     return (
       <div className={className}>
@@ -69,13 +70,24 @@ export const MarkdownRenderer = React.memo(
                 // onCitationClick (it looks the document up and no-ops if missing).
                 // Disabling on missing *display metadata* left dead icons for notes
                 // that actually exist when the metadata fetch lagged or failed once.
+                //
+                // B-3 (0.10.2): раньше цель касания 44px рисовалась
+                // absolutely-позиционированным псевдоэлементом поверх строки — он
+                // залезал на «📅» ниже по тексту, и тап открывал превью чужой заметки.
+                // Теперь, как у «×» вложения в 0.10.1: у кнопки настоящий padding, а
+                // его прирост съедает ответный отрицательный margin — раскладка не
+                // двигается, но зона становится настоящей и в потоке, а не оверлеем.
+                // Видимая плашка (фон, скругление) живёт на внутреннем span, чтобы
+                // вертикальный padding не растягивал саму плашку.
                 return (
                   <button
                     type="button"
                     onClick={() => onCitationClick?.(id)}
-                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded bg-brand-soft/20 text-brand-soft hover:bg-brand-soft/30 transition-colors text-xs font-medium cursor-pointer align-baseline select-none${mobile ? ' clickable-target-expansion' : ''}`}
+                    className={`inline-flex items-center align-baseline select-none${mobile ? ' -my-3 -mx-1.5 px-1.5 py-3' : ' mx-0.5'}`}
                   >
-                    {children}
+                    <span className="inline-flex items-center gap-1 rounded bg-brand-soft/20 px-1.5 py-0.5 text-xs font-medium text-brand-soft transition-colors hover:bg-brand-soft/30">
+                      {children}
+                    </span>
                   </button>
                 );
               }
