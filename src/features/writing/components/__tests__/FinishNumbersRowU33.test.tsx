@@ -82,8 +82,12 @@ describe('U-33: одна строка из трёх чисел', () => {
     expect(row.textContent).toContain('writing_time');
     expect(row.textContent).toContain('writing_wpm');
     // Числа доходят по счётчику `useCountUp` (800 мс на rAF) — ждём финальных значений.
-    await waitFor(() => expect(row.textContent).toContain('2:00'), { timeout: 2500 });
-    expect(row.textContent).toContain('15');
+    // Каждое число досчитывается своим кадром: «2:00» могло прийти раньше «15»
+    // (выкатка 0.10.4 упала на «14») — ждём оба в одном условии.
+    await waitFor(() => {
+      expect(row.textContent).toContain('2:00');
+      expect(row.textContent).toContain('15');
+    }, { timeout: 2500 });
     // Подписи — общий моноширинный капс (U-9), числа — mono `tabular-nums`.
     for (const cell of cells) {
       const label = cell.firstElementChild as HTMLElement;

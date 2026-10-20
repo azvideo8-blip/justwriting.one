@@ -191,3 +191,26 @@ describe('R7Q-031: ворота журнала миграций в выкатк�
     expect(publish).toBeGreaterThan(gate);
   });
 });
+
+// Решение владельца 2026-10-20: выкатка не повторяет тесты, а CI на main не
+// повторяет прогон ветки с тем же деревом. Здесь — то, что держит это безопасным.
+describe('без повторов: шлагбаум остаётся', () => {
+  it('выкатка пускает только sha с зелёным CI, и проверка стоит до сборки', () => {
+    expect(stepAt('CI этого коммита зелёный')).toBeGreaterThan(-1);
+    expect(stepAt('CI этого коммита зелёный')).toBeLessThan(stepAt('Сборка клиента'));
+    expect(deploy).not.toMatch(/- name: Тесты/);
+  });
+
+  it('already-green — только для push в main, тяжёлые джобы пропускаются лишь по найденному двойнику', () => {
+    expect(ci).toMatch(/already-green:\s*\n\s*if: github\.actor != 'dependabot\[bot\]' && github\.event_name == 'push' && github\.ref == 'refs\/heads\/main'/);
+    // gitleaks по диапазону main — в already-green, до поиска двойника.
+    const ag = ci.slice(ci.indexOf('\n  already-green:\n'), ci.indexOf('\n  build:\n'));
+    expect(ag.indexOf('gitleaks-scan.sh'), 'скан секретов в already-green').toBeGreaterThan(-1);
+    expect(ag.indexOf('gitleaks-scan.sh')).toBeLessThan(ag.indexOf('already-green.mjs'));
+    for (const job of ['build', 'rls', 'mobile-e2e']) {
+      const block = ci.slice(ci.indexOf(`\n  ${job}:\n`));
+      expect(block, job).toMatch(/needs: already-green[\s\S]{0,300}needs\.already-green\.outputs\.run == ''/);
+    }
+  });
+});
+

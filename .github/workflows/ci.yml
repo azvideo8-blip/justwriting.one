@@ -38,8 +38,53 @@ on:
         default: false
 
 jobs:
+  # Решение владельца 2026-10-20: push в main с деревом, которое уже прошло ПОЛНЫЙ
+  # CI на рабочей ветке (выпуск: ветка зеленеет, потом тот же код одним коммитом
+  # в main), тяжёлые джобы не повторяет — scripts/ci/already-green.mjs. Строго:
+  # двойник — только push-прогон ci.yml не на main, успех, то же дерево, все
+  # тяжёлые джобы success. Сбой или неясность — полный прогон. Шлагбаум выкатки
+  # (deploy.yml: зелёный push-прогон этого sha в main) не меняется.
+  already-green:
+    if: github.actor != 'dependabot[bot]' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, justwriting-vps]
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      run: ${{ steps.twin.outputs.run }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        fetch-depth: 0
+    # Проверка коммита 5fbab718: на ветке gitleaks видел только свой push (у
+    # свежей ветки — один коммит), а полный диапазон выпуска проверял прогон на
+    # main, который теперь может пропустить build. Поэтому скан диапазона
+    # main (before..sha) — здесь, всегда и ДО поиска двойника: нашёл секрет —
+    # джоб красный, двойник не выдаётся, build идёт и тоже краснеет.
+    - name: Secret scan (gitleaks, диапазон main)
+      run: |
+        set -euo pipefail
+        FROM="${{ github.event.before }}"
+        if [ "$FROM" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "${FROM}^{commit}" 2>/dev/null \
+           || ! git merge-base --is-ancestor "$FROM" HEAD 2>/dev/null; then
+          LOG_OPTS="-1 ${GITHUB_SHA}"
+        else
+          LOG_OPTS="${FROM}..${GITHUB_SHA}"
+        fi
+        bash scripts/gitleaks-scan.sh "$LOG_OPTS"
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: '22'
+    - id: twin
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: node scripts/ci/already-green.mjs
+
   build:
-    if: github.actor != 'dependabot[bot]'
+    needs: already-green
+    # `!cancelled()`: джоб идёт и когда already-green пропущен (не main) или упал
+    # (сбой — значит полный прогон, а не пропуск тестов).
+    if: ${{ !cancelled() && github.actor != 'dependabot[bot]' && needs.already-green.outputs.run == '' }}
     runs-on: ${{ (github.event_name == 'pull_request' || inputs.hosted) && 'ubuntu-latest' || fromJSON('["self-hosted","justwriting-vps"]') }}
     env:
       # На VPS :3000 — прод-API, :3100 — стенд из gates.yml; E2E берёт свой порт.
@@ -252,7 +297,8 @@ jobs:
   # функции, правила Firestore — проверяло main вместо PR.
   
   rls:
-    if: github.actor != 'dependabot[bot]'
+    needs: already-green
+    if: ${{ !cancelled() && github.actor != 'dependabot[bot]' && needs.already-green.outputs.run == '' }}
     runs-on: ${{ (github.event_name == 'pull_request' || inputs.hosted) && 'ubuntu-latest' || fromJSON('["self-hosted","justwriting-vps"]') }}
     services:
       postgres:
@@ -298,7 +344,8 @@ jobs:
   # ждёт зелёный CI) не проходила бы. Порты стенда (3300…3313, 8999, 3013, 5442)
   # на VPS свободны: :3000 и :5432 держит прод, поэтому здесь и не дефолтные.
   mobile-e2e:
-    if: github.actor != 'dependabot[bot]'
+    needs: already-green
+    if: ${{ !cancelled() && github.actor != 'dependabot[bot]' && needs.already-green.outputs.run == '' }}
     runs-on: ${{ (github.event_name == 'pull_request' || inputs.hosted) && 'ubuntu-latest' || fromJSON('["self-hosted","justwriting-vps"]') }}
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
