@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Brain, X, Trash2 } from 'lucide-react';
-import { AIChatMemoryService } from '../services/AIChatMemoryService';
+import { Brain, X, Trash2, Undo2 } from 'lucide-react';
+import { AIChatMemoryService, isUnreviewedLegacyMemory } from '../services/AIChatMemoryService';
 import type { AIChatMemory } from '../../../core/storage/localDb';
 import { useLanguage } from '../../../shared/i18n';
 import { Button } from '../../../shared/components/Button';
@@ -51,6 +51,19 @@ export function MemoryManagerModal({ onClose }: MemoryManagerModalProps) {
     }
   };
 
+  // Решение владельца 2026-10-20 (AP-2, «в»): старая память без источника ИИ не
+  // уходит, пока человек не вернул её в контекст.
+  const handleReturn = async (id: string) => {
+    setMemories(prev => prev.map(m => (m.id === id ? { ...m, reviewedAt: Date.now() } : m)));
+    try {
+      await AIChatMemoryService.markReviewed(id);
+    } catch {
+      void loadMemories();
+    }
+  };
+
+  const unreviewedCount = memories.filter(isUnreviewedLegacyMemory).length;
+
   const handleForgetAll = async () => {
     const ok = await confirmDialog({
       title: t('ai_memory_forget_all'),
@@ -93,6 +106,11 @@ export function MemoryManagerModal({ onClose }: MemoryManagerModalProps) {
               </div>
             ) : (
               <div className="space-y-5">
+                {unreviewedCount > 0 && (
+                  <p data-testid="memory-unreviewed-hint" className="text-xs leading-snug text-text-main/60">
+                    {t('ai_memory_unreviewed_hint')}
+                  </p>
+                )}
                 {grouped.map(({ kind, items }) => (
                   <div key={kind}>
                     <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-text-main/60 mb-2.5">
@@ -106,7 +124,21 @@ export function MemoryManagerModal({ onClose }: MemoryManagerModalProps) {
                         >
                           <span className="flex-1 min-w-0 text-sm text-text-main/80 leading-snug">
                             {m.text}
+                            {isUnreviewedLegacyMemory(m) && (
+                              <span data-testid="memory-unknown-source" className="mt-1 block text-xs text-text-main/60">
+                                {t('ai_memory_unknown_source')}
+                              </span>
+                            )}
                           </span>
+                          {isUnreviewedLegacyMemory(m) && (
+                            <IconButton
+                              onClick={() => void handleReturn(m.id)}
+                              className="shrink-0 p-1 rounded-lg text-text-main/60 hover:text-text-main transition-colors"
+                              label={t('ai_memory_return')}
+                              title={t('ai_memory_return')}
+                              icon={<Undo2 size={14} />}
+                            />
+                          )}
                           <IconButton
                             onClick={() => void handleDelete(m.id)}
                             className="shrink-0 p-1 rounded-lg text-text-main/30 hover:text-accent-danger transition-colors"

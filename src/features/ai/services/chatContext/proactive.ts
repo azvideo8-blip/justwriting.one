@@ -1,9 +1,12 @@
 import { getLocalDb } from '../../../../core/storage/localDb';
+import type { AIDialogue } from '../../../../core/storage/localDb';
 import { AIDialogueService } from '../AIDialogueService';
 import { AIMonthlyDigestService } from '../AIMonthlyDigestService';
 import { AITimelineService } from '../AITimelineService';
 import { reportError } from '../../../../shared/errors/reportError';
 import { isExcludedFromAI } from '../../utils/isExcludedFromAI';
+import { extractCitationIds } from './citations';
+import { hiddenNoteIdsFromDocs, ALL_NOTES_HIDDEN, type HiddenNoteIds } from '../../utils/hiddenNoteIds';
 
 interface BuildProactiveBlockParams {
   personaId: string;
@@ -15,6 +18,22 @@ interface BuildProactiveBlockParams {
 export async function buildProactiveBlock({ personaId, turnEmb }: BuildProactiveBlockParams): Promise<string> {
   let proactiveBlock = '';
   const shownIds = new Set<string>();
+
+  // AP-2: итог архивного диалога и событие прошлой сессии — производные
+  // переписки. Если в ней цитировалась скрытая заметка, пересказ не берём.
+  // Приёмка ai-privacy (L-3): сбой чтения — не «ничего не скрыто», а «скрыто всё»:
+  // пересказы диалогов в этот ход не берём.
+  let hiddenIds: HiddenNoteIds = ALL_NOTES_HIDDEN;
+  try {
+    const db = await getLocalDb();
+    hiddenIds = hiddenNoteIdsFromDocs(await db.getAll('documents'));
+  } catch (e) {
+    reportError(e, { action: '[useAIChatContext] proactive hidden set failed' });
+  }
+  const citesHidden = (d: AIDialogue): boolean =>
+    (!!d.documentId && hiddenIds.has(d.documentId))
+    || d.messages.some(m => extractCitationIds(m.content).some(id => hiddenIds.has(id)));
+
   try {
     const recentDigests = await AIMonthlyDigestService.getRecent(2);
     const db = await getLocalDb();
@@ -70,7 +89,7 @@ export async function buildProactiveBlock({ personaId, turnEmb }: BuildProactive
 
   try {
     const archived = await AIDialogueService.list({ includeArchived: true });
-    const personaArchived = archived.filter(d => d.personaId === personaId && d.archivedAt !== undefined && d.closingSummary !== undefined && d.closingSummary !== '');
+    const personaArchived = archived.filter(d => d.personaId === personaId && d.archivedAt !== undefined && d.closingSummary !== undefined && d.closingSummary !== '' && !citesHidden(d));
     const recentArchived = personaArchived
       .sort((a, b) => (b.archivedAt ?? 0) - (a.archivedAt ?? 0))
       .slice(0, 3);
@@ -91,8 +110,11 @@ export async function buildProactiveBlock({ personaId, turnEmb }: BuildProactive
   try {
     const db = await getLocalDb();
     const allEvents = await db.getAll('aiDialogueEvents');
+    const leakingDialogues = new Set(
+      (await db.getAll('aiDialogues')).filter(citesHidden).map(d => d.id),
+    );
     const otherEvents = allEvents
-      .filter(e => !shownIds.has(e.dialogueId))
+      .filter(e => !shownIds.has(e.dialogueId) && !leakingDialogues.has(e.dialogueId))
       .sort((a, b) => b.date.localeCompare(a.date))
       .slice(0, 5);
 

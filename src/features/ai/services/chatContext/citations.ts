@@ -1,7 +1,10 @@
 // AUDIT-M3: `[#id]` в тексте заметки/памяти не должен открывать цитирование
 // исключённых из AI или несуществующих документов — id валидируются по корпусу.
 
-const CITATION_RE = /\[#([a-zA-Z0-9_-]+)\]/g;
+// Номер импортированной заметки — с точкой («1720194283.716586»), и ссылка бывает
+// с шапкой «[#id · дата]» — как в extractDocumentIdsFromText (AIMemoryAssembler).
+// Без этого фильтр скрытых заметок (AP-2) их цитаты пропускал (приёмка ai-privacy).
+const CITATION_RE = /\[#([a-zA-Z0-9_.-]+)(?:\s·[^\]\n]*)?\]/g;
 
 export function extractCitationIds(content: string): string[] {
   const ids: string[] = [];

@@ -119,6 +119,10 @@ describe('SB-3: обрыв стрима не должен стирать пок�
 
   it('остановка до первого куска не пишет фантомный ход', async () => {
     vi.spyOn(transport, 'streamChat').mockImplementation((params) => new Promise<string>((_res, rej) => {
+      // Как fetch: уже отменённый сигнал отказывает сразу. «Стоп» может прийти
+      // до начала потока (подготовка хода читает базу), и подписка на 'abort'
+      // после отмены не сработала бы никогда.
+      if (params.signal?.aborted) { rej(new Error('ABORTED')); return; }
       params.signal?.addEventListener('abort', () => rej(new Error('ABORTED')));
     }));
 

@@ -73,7 +73,7 @@ describe('AG-PROF-1: Portrait Integrity & Service Guards', () => {
     expect(cachedSections.themes?.content).toBe('Успешный раздел тем');
   });
 
-  it('Requirement 2: AIMonthlyDigestService does not re-generate if a fresh (<24h) digest exists', async () => {
+  it('Requirement 2: AIMonthlyDigestService does not re-generate if a fresh (<24h) digest covers all live notes', async () => {
     const db = await getLocalDb();
     const month = '2026-08';
 
@@ -82,13 +82,15 @@ describe('AG-PROF-1: Portrait Integrity & Service Guards', () => {
       narrative: 'Существующий свежий дайджест',
       tones: ['спокойный'],
       themes: ['творчество'],
-      noteCount: 5,
+      noteCount: 2,
+      // Приёмка ai-privacy: дайджест хранит номера заметок, по которым собран.
+      noteIds: ['d_aug_1', 'd_aug_2'],
       generatedAt: Date.now() - 1000, // 1 second ago (< 24h)
     } as never);
 
     vi.spyOn(AITimelineService, 'getByMonth').mockResolvedValue([
-      { date: '2026-08-01', month, summary: 'День 1', tone: 'спокойный', themes: ['творчество'] } as never,
-      { date: '2026-08-02', month, summary: 'День 2', tone: 'спокойный', themes: ['творчество'] } as never,
+      { documentId: 'd_aug_1', date: '2026-08-01', month, summary: 'День 1', tone: 'спокойный', themes: ['творчество'] } as never,
+      { documentId: 'd_aug_2', date: '2026-08-02', month, summary: 'День 2', tone: 'спокойный', themes: ['творчество'] } as never,
     ]);
 
     const summarizeSpy = vi.spyOn(AIService, 'summarizeFacet');

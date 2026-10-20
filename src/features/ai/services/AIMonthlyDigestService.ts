@@ -7,10 +7,10 @@ import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncServ
 
 import type { CallAiOptions } from '../../../core/ai/callAi';
 
-// ponytail: dedupe concurrent generation for the same month. save() fires this
-// fire-and-forget on every summary; a bulk re-summarize (DiagnosticsPage) saves
-// N notes before the first slow AI call writes the digest, so without this guard
-// each save re-fires generateForMonth → N racing summarizeFacet calls for one month.
+// Дедупликация одновременной пересборки одного месяца. Единственный вызов —
+// обновление профиля по нажатию человека (AIProfileRefreshService), но оно идёт
+// по месяцам подряд; без стража повторный вход в тот же месяц платил бы за
+// вторую summarizeFacet, пока первая ещё не записала дайджест.
 const inFlightMonths = new Set<string>();
 
 export const AIMonthlyDigestService = {
@@ -26,28 +26,49 @@ export const AIMonthlyDigestService = {
 
   async get(month: string): Promise<AIMonthlyDigest | undefined> {
     const db = await getLocalDb();
-    return db.get('aiMonthlyDigest', month);
+    const digest = await db.get('aiMonthlyDigest', month);
+    return digest && (await coversOnlyLiveNotes(digest)) ? digest : undefined;
   },
 
   async getRecent(n = 3): Promise<AIMonthlyDigest[]> {
     const db = await getLocalDb();
-    const all = await db.getAll('aiMonthlyDigest');
-    // Sort by month desc and slice
-    return all
-      .sort((a, b) => b.month.localeCompare(a.month))
-      .slice(0, n);
+    const all = (await db.getAll('aiMonthlyDigest')).sort((a, b) => b.month.localeCompare(a.month));
+    const out: AIMonthlyDigest[] = [];
+    for (const d of all) {
+      if (out.length >= n) break;
+      if (await coversOnlyLiveNotes(d)) out.push(d);
+    }
+    return out;
+  },
+
+  /** AP-1: месяц, в котором лежала скрытая или удалённая заметка, больше не хранится. */
+  async deleteMonth(month: string): Promise<void> {
+    const db = await getLocalDb();
+    await db.delete('aiMonthlyDigest', month);
+    LocalStoreSyncService.scheduleStoreDelete('aiMonthlyDigest', month);
   },
 };
 
 async function generateForMonthInner(month: string, opts?: CallAiOptions): Promise<void> {
     const db = await getLocalDb();
     const existing = await db.get('aiMonthlyDigest', month);
-    if (existing && Date.now() - existing.generatedAt < 24 * 60 * 60 * 1000) {
+
+    const entries = await AITimelineService.getByMonth(month);
+    // Дайджест собран из хронологии, а она скрытые и корзинные заметки уже не
+    // отдаёт. Если живых записей осталось меньше двух, пересобирать не из чего:
+    // удаляем дайджест, иначе он продолжает пересказывать скрытое.
+    if (entries.length < 2) {
+      if (existing) await AIMonthlyDigestService.deleteMonth(month);
       return;
     }
 
-    const entries = await AITimelineService.getByMonth(month);
-    if (entries.length < 2) return; // not enough data
+    // 24-часовой страж бережёт от второй платной пересборки, но не от
+    // устаревшего текста: noteCount больше числа живых записей значит, что
+    // заметки скрыли или удалили, — тогда пересобираем, не дожидаясь суток.
+    const staleCount = existing ? !(await coversOnlyLiveNotes(existing)) : false;
+    if (existing && !staleCount && Date.now() - existing.generatedAt < 24 * 60 * 60 * 1000) {
+      return;
+    }
 
     // Call summarizeFacet
     const notesInput = entries.map(e => ({
@@ -111,9 +132,28 @@ async function generateForMonthInner(month: string, opts?: CallAiOptions): Promi
       tones,
       themes,
       noteCount: entries.length,
+      noteIds: entries.map(e => e.documentId),
       generatedAt: Date.now(),
     };
 
     await db.put('aiMonthlyDigest', digest);
     LocalStoreSyncService.scheduleStoreSync('aiMonthlyDigest', digest.month);
+}
+
+/**
+ * Приёмка ai-privacy (security-review, Vuln 4 + проверка коммита): дайджест
+ * отдаётся читателям, только если ВСЕ заметки, по которым он собран, ещё живы в
+ * хронологии месяца (она скрытые и корзинные уже не отдаёт). Сверка по номерам, а
+ * не по количеству: «одну скрыли, одну добавили» количество не меняет. У старого
+ * дайджеста номеров нет — не отдаётся до пересборки по действию человека. Сбой
+ * чтения — не отдаётся: «нет ответа» не значит «всё живое». Вызовов ИИ нет.
+ */
+async function coversOnlyLiveNotes(digest: AIMonthlyDigest): Promise<boolean> {
+  if (!digest.noteIds || digest.noteIds.length === 0) return false;
+  try {
+    const live = new Set((await AITimelineService.getByMonth(digest.month)).map(e => e.documentId));
+    return digest.noteIds.every(id => live.has(id));
+  } catch {
+    return false;
+  }
 }

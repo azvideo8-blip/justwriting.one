@@ -12,6 +12,7 @@ import { isExcludedFromAI } from '../utils/isExcludedFromAI';
 import { localDayKey } from '../../../core/utils/dateUtils';
 import { persistPendingAnalysisDelete, forgetPendingAnalysisDelete } from './pendingAnalysisDeletes';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
+import { purgeNoteDerivatives } from '../../../core/services/noteDerivativePurge';
 
 /**
  * Разбор одной заметки — по явному нажатию, и только по нему.
@@ -97,10 +98,10 @@ async function latestContent(documentId: string): Promise<string | null> {
  * доказательства тем, «история жизни», доказательства убеждений. В них лежат
  * дословные предложения заметки, и они уходят в подсказки чата. Исключение
  * заметки из ИИ (или её удаление) раньше оставляло их жить — и в облаке тоже.
- * Сводный текст месяца (aiMonthlyDigest) хирургически не вычистить: он
- * пересобирается при следующем разборе месяца.
+ * Сводный текст месяца, грани профиля и портрет чистит общий
+ * `purgeNoteDerivatives` (AP-1/AP-3) — он вызывается из `clear` до этой уборки.
  */
-async function purgeNoteDerivatives(ids: string[]): Promise<void> {
+async function purgeAnalysisDerivatives(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
   const idSet = new Set(ids);
   const mine = (unitId: string) => ids.some(id => unitId === `summary-${id}` || unitId.startsWith(`timeline-${id}-`));
@@ -387,6 +388,11 @@ export const NoteAnalysisService = {
 
   /** Удаляет всё, что разбор оставил после себя, — и на устройстве, и в облаке. */
   async clear(documentId: string): Promise<void> {
+    // Общая уборка профиля: грань, портрет и дайджест месяца (AP-1/AP-3) — ПЕРВОЙ:
+    // месяц дайджеста находится по строке хронологии, а AISummaryService.delete её
+    // удаляет. Раньше уборка шла после, и дайджест месяца, где заметку разобрали до
+    // продолжения в другом месяце, оставался (приёмка ai-privacy, I-2).
+    await purgeNoteDerivatives(documentId);
     await AISummaryService.delete(documentId);
     await AIEmbeddingService.delete(documentId);
 
@@ -402,7 +408,7 @@ export const NoteAnalysisService = {
       }
     }
     await tx.done;
-    await purgeNoteDerivatives([...new Set([documentId, uuid].filter((x): x is string => !!x))]);
+    await purgeAnalysisDerivatives([...new Set([documentId, uuid].filter((x): x is string => !!x))]);
 
     // Облачные копии: «удалить разбор» без этого оставляло бы сводку и вектор
     // лежать в базе, то есть ничего по сути не удаляло.

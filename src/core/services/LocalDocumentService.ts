@@ -1,11 +1,10 @@
 import { getLocalDb, LocalDocument, randomUUID } from '../storage/localDb';
-import { invalidatePortrait } from '../ai/portraitEpoch';
 import { invalidateEmbeddingIndexCache } from './embeddingIndexCache';
 import { reportError } from '../../shared/errors/reportError';
-import { writeFacetStore } from './facetLock';
 import { LocalStoreSyncService } from './LocalStoreSyncService';
 import { tombstoneDialogue } from '../storage/dialogueMerge';
 import { DataProvider } from '../data';
+import { purgeNoteDerivatives } from './noteDerivativePurge';
 
 /**
  * Сносит облачную копию производной ИИ, привязанной к заметке.
@@ -251,6 +250,11 @@ export const LocalDocumentService = {
       const canonicalId = canonicalUuid ?? doc?.uuid;
       const effectiveOwnerId = ownerId ?? doc?.guestId;
 
+      // AP-3: грани, портрет и дайджест чистит та же уборка, что и на скрытии.
+      // Здесь она идёт ДО шага 1: хронология ещё на месте, и по ней находится
+      // месяц дайджеста.
+      await purgeNoteDerivatives(documentId, effectiveOwnerId);
+
       // 1. Delete aiSummaries, aiEmbeddings, aiTimeline
       await Promise.all([
         db.delete('aiSummaries', documentId).catch(fail),
@@ -356,47 +360,8 @@ export const LocalDocumentService = {
         }
       } catch { fail(); }
 
-      // 7. Clean aiProfileFacets and invalidate portrait if modified
-      let facetsChanged = false;
-      await writeFacetStore(async (store) => {
-        try {
-          const facets = await store.getAll();
-          const tx = store.transaction();
-          for (const f of facets) {
-            if (f.noteIds.includes(documentId)) {
-              facetsChanged = true;
-              f.noteIds = f.noteIds.filter(nid => nid !== documentId);
-              f.noteCount = Math.max(0, (f.noteCount ?? 1) - 1);
-              f.dirty = true;
-              f.updatedAt = Date.now();
-              if (f.noteIds.length === 0 && (!f.dialogueIds || f.dialogueIds.length === 0)) {
-                await tx.store.delete(f.id);
-                LocalStoreSyncService.scheduleStoreDelete('aiProfileFacets', f.id);
-              } else {
-                await tx.store.put(f);
-                LocalStoreSyncService.scheduleStoreSync('aiProfileFacets', f.id);
-              }
-            }
-          }
-          await tx.done;
-        } catch { fail(); }
-      });
-
-      if (facetsChanged) {
-        try {
-          invalidatePortrait();
-          await db.delete('aiPortrait', 'singleton');
-          LocalStoreSyncService.scheduleStoreDelete('aiPortrait', 'singleton');
-          if (typeof localStorage !== 'undefined') {
-            localStorage.removeItem('ai_user_portrait');
-            // Кэш портрета привязан к аккаунту — снести надо и его копию.
-            for (const k of Object.keys(localStorage)) {
-              if (k.startsWith('ai_user_portrait_')) localStorage.removeItem(k);
-            }
-            localStorage.removeItem('ai_portrait_sections');
-          }
-        } catch { fail(); }
-      }
+      // 7. Грани профиля, портрет и дайджест месяца — общий purgeNoteDerivatives
+      //    в начале метода (AP-3): он же чистит их на скрытии и в корзине.
 
       // 8. Clean aiBeliefs evidence
       try {

@@ -138,7 +138,16 @@ apply_mutation "2.19 refund charged day" api/postgresAiContext.ts m219.py \
 cat > scripts/mutations/m38.py <<'EOF'
 import sys
 p=sys.argv[1]; s=open(p).read()
+# 3.8 (0.10.3): оба обработчика close начинаются с clientClosed = true,
+# во втором ещё clearTimeout(deadlineId) — шаблон держит обе ветки.
 s=s.replace("""  res.on('close', () => {
+    clientClosed = true;
+    controller.abort();
+    void settlement.settle('closed').catch((e) => console.error('[chat] settle on close', e));
+  });""","")
+s=s.replace("""  res.on('close', () => {
+    clientClosed = true;
+    clearTimeout(deadlineId);
     controller.abort();
     void settlement.settle('closed').catch((e) => console.error('[chat] settle on close', e));
   });""","")
@@ -173,10 +182,11 @@ apply_mutation "2.9 parseVersionNumber" src/core/data/providers/versions.ts m29.
 cat > scripts/mutations/m215.py <<'EOF'
 import sys
 p=sys.argv[1]; s=open(p).read()
-s=s.replace("""      if (updateError != null) {
+# 2.15 (0.10.3): catch (updateError) вместо if (updateError != null).
+s=s.replace("""      } catch (updateError) {
         failedUuids.push(doc.uuid ?? '');
         reportError(updateError, { action: 'renameTagInAllDocs_update', docUuid: doc.uuid });
-      }""","""      if (updateError != null) {
+      }""","""      } catch (updateError) {
         reportError(updateError, { action: 'renameTagInAllDocs_update', docUuid: doc.uuid });
       }""")
 open(p,'w').write(s)
@@ -283,9 +293,10 @@ cat > scripts/mutations/m28.py <<'EOF'
 import sys
 p=sys.argv[1]; s=open(p).read()
 # AG-5 (2026-09-27): удаление источника переехало внутрь ветки «записано в аккаунт».
-s=s.replace("""        await guestDb.delete('drafts', 'guest_draft');
-        if (userDb !== guestDb) {""","""        if (userDb !== guestDb) {""")
-s=s.replace("""        try { localStorage.removeItem(STORAGE_KEYS.GUEST_DRAFT); } catch { /* ignore */ }""","")
+# 0.10.3: отступ 6 пробелов, у localStorage — 4.
+s=s.replace("""      await guestDb.delete('drafts', 'guest_draft');
+      if (userDb !== guestDb) {""","""      if (userDb !== guestDb) {""")
+s=s.replace("""    try { localStorage.removeItem(STORAGE_KEYS.GUEST_DRAFT); } catch { /* ignore */ }""","")
 open(p,'w').write(s)
 EOF
 apply_mutation "2.8 guest draft consumed" src/features/auth/services/migrateDocuments.ts m28.py \

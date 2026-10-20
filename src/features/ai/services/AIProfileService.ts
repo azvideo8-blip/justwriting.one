@@ -9,6 +9,8 @@ import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { CloudSyncService } from '../../../core/services/CloudSyncService';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { analyzeWritingStyle } from '../utils/styleAnalyzer';
+import { isExcludedFromAI } from '../utils/isExcludedFromAI';
+import { usableMemories } from './AIChatMemoryService';
 import { AIBackgroundBudget } from './AIBackgroundBudget';
 import { reportError } from '../../../shared/errors/reportError';
 import { useAiLimitStore } from '../store/useAiLimitStore';
@@ -216,17 +218,34 @@ export const AIProfileService = {
     const startEpoch = getPortraitEpoch();
     try {
       const db = await getLocalDb();
-      const facets = await db.getAll('aiProfileFacets');
+      // AP-3: грань, которая ещё перечисляет скрытую или корзинную заметку,
+      // в промпт не идёт. Уборка при скрытии обычно уже убрала id, но строка
+      // могла остаться от прежней версии или приехать из облака; summary такой
+      // грани дословно пересказывает скрытое, пока её не пересоберут.
+      const rawFacets = await db.getAll('aiProfileFacets');
+      const hiddenIds = new Set<string>();
+      for (const id of new Set(rawFacets.flatMap(f => f.noteIds))) {
+        try {
+          const doc = await db.get('documents', id);
+          if (doc && isExcludedFromAI(doc)) hiddenIds.add(id);
+        } catch { /* документ не прочитан — не считаем его скрытым */ }
+      }
+      const facets = rawFacets.filter(f => f.noteIds.every(id => !hiddenIds.has(id)));
 
       // TICKET-053: Compile communication preferences from chat memory
-      const chatMemories = await db.getAll('aiChatMemory');
+      // Приёмка ai-privacy: портрет — тот же фильтр памяти, что и разговор: источник
+      // скрыт или неизвестен (старая непросмотренная) — в промпт не идёт.
+      const rawMemories = await db.getAll('aiChatMemory');
+      const docsAll = await db.getAll('documents');
+      const chatMemories = usableMemories(rawMemories, docsAll);
       const preferences = chatMemories
         .filter(m => m.kind === 'preference')
         .map(m => `- ${m.text}`)
         .join('\n');
 
       // TICKET-054: Local writing style metrics
-      const allDocs = await db.getAll('documents');
+      // AP-4: скрытые и корзинные заметки не участвуют в средних.
+      const allDocs = docsAll.filter(d => !isExcludedFromAI(d));
       const styleContents: string[] = [];
       for (const doc of allDocs) {
         const content = await LocalVersionService.getLatestContent(doc.id);

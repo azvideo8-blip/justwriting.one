@@ -23,6 +23,7 @@ import { DataProvider } from '../../../core/data';
 import { getIndexingConsent, setIndexingConsent, INDEXING_CONSENT_VERSION } from '../../../core/ai/indexingConsent';
 import { indexPending } from '../utils/embeddingIndexer';
 import { looksLikeNoteSearch, splitAttachedMessage, cleanAttachedTitle, legacyNoteHidden } from '../utils/aiChatTransport';
+import { citesHiddenNote } from '../utils/hiddenNoteIds';
 import { useLanguage } from '../../../shared/i18n';
 import { localDayKey } from '../../../core/utils/dateUtils';
 import { noteMetaFor } from '../utils/noteMeta';
@@ -572,23 +573,36 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     if (!lastAssistant) return;
     // EA-18: служебный запрос подсказок — только если человек их не выключил.
     if (!getChatExtrasEnabled(getCurrentUser()?.uid)) return;
-    void AIService.chat({
-      personaId: 'coach',
-      callType: 'follow_up',
-      messages: [{ role: 'user', content: `Предложи 3 коротких варианта следующего сообщения пользователя (1-5 слов каждое, по-русски, как будто пользователь пишет собеседнику). Контекст — последний ответ ИИ:\n\n${lastAssistant.slice(0, 800)}\n\nОтветь ТОЛЬКО JSON-массивом строк, без пояснений.` }],
-    }).then(res => {
-      if (res.ok && res.text) {
-        try {
-          const parsed = JSON.parse(res.text);
-          if (Array.isArray(parsed) && parsed.length > 0 && parsed.every(s => typeof s === 'string')) {
-            setFollowUps(parsed.slice(0, 3));
-            return;
-          }
-        } catch { /* fall through to static */ }
-      }
-      setFollowUps(CHAT_FOLLOW_UPS);
-    }).catch(() => setFollowUps(CHAT_FOLLOW_UPS));
-  }, [displayMessages]);
+    // Приёмка ai-privacy (security-review, Vuln 3): подсказки шлют модели начало
+    // последнего ответа — если он цитирует скрытую заметку, запрос не делаем.
+    // Не прочиталась база — тоже не делаем: «нет ответа» не значит «не скрыта».
+    // Тема диалога — скрытая заметка (в том числе старый диалог без номера темы,
+    // S-63 legacyNoteHidden) — тоже не шлём.
+    const dlg = activeDialogue;
+    void (async () => {
+      const db = await getLocalDb();
+      if (dlg && await legacyNoteHidden(dlg, db)) return true;
+      return citesHiddenNote(lastAssistant, () => db.getAll('documents'), dlg?.documentId);
+    })().catch(() => true).then(blocked => {
+      if (blocked) { setFollowUps(CHAT_FOLLOW_UPS); return; }
+      void AIService.chat({
+        personaId: 'coach',
+        callType: 'follow_up',
+        messages: [{ role: 'user', content: `Предложи 3 коротких варианта следующего сообщения пользователя (1-5 слов каждое, по-русски, как будто пользователь пишет собеседнику). Контекст — последний ответ ИИ:\n\n${lastAssistant.slice(0, 800)}\n\nОтветь ТОЛЬКО JSON-массивом строк, без пояснений.` }],
+      }).then(res => {
+        if (res.ok && res.text) {
+          try {
+            const parsed = JSON.parse(res.text);
+            if (Array.isArray(parsed) && parsed.length > 0 && parsed.every(s => typeof s === 'string')) {
+              setFollowUps(parsed.slice(0, 3));
+              return;
+            }
+          } catch { /* fall through to static */ }
+        }
+        setFollowUps(CHAT_FOLLOW_UPS);
+      }).catch(() => setFollowUps(CHAT_FOLLOW_UPS));
+    });
+  }, [displayMessages, activeDialogue]);
 
   return {
     dialogues, archivedDialogues, activeDialogueId, setActiveDialogueId,

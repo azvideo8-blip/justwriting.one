@@ -8,7 +8,10 @@ import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncServ
 import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
 import { withMessageIds } from '../../../core/storage/dialogueMerge';
-import { toApiContent } from '../utils/aiChatTransport';
+import { toApiContent, citesAnyId, HIDDEN_ANSWER_PLACEHOLDER } from '../utils/aiChatTransport';
+import { extractCitationIds } from './chatContext/citations';
+import { isExcludedFromAI } from '../utils/isExcludedFromAI';
+import { hiddenNoteIdsFromDocs, type CitableNoteDoc } from '../utils/hiddenNoteIds';
 
 
 type MemoryKind = 'fact' | 'insight' | 'commitment' | 'preference';
@@ -19,6 +22,43 @@ function coerceKind(kind: string): MemoryKind {
   return VALID_KINDS.includes(kind as MemoryKind) ? (kind as MemoryKind) : 'fact';
 }
 
+function docsById(docs: ReadonlyArray<CitableNoteDoc>): Map<string, CitableNoteDoc> {
+  const byId = new Map<string, CitableNoteDoc>();
+  for (const d of docs) {
+    byId.set(d.id, d);
+    if (d.uuid) byId.set(d.uuid, d);
+    if (d.linkedCloudId) byId.set(d.linkedCloudId, d);
+  }
+  return byId;
+}
+
+/**
+ * AP-2: память, у которой известны источники, не отдаётся, если хоть один из
+ * них скрыт, в корзине или удалён. Память без источников — накопленная до
+ * 0.10.4: не отдаётся, пока человек её не просмотрит (решение владельца, «в»).
+ */
+function memorySourcesVisible(memory: AIChatMemory, byId: Map<string, CitableNoteDoc>): boolean {
+  const ids = memory.sourceDocumentIds;
+  // Решение владельца 2026-10-20 (AP-2, «в»): источник неизвестен (память до
+  // 0.10.4) — ИИ её не получает, пока человек не вернул её в контекст.
+  if (ids === undefined) return memory.reviewedAt !== undefined;
+  return ids.every(id => {
+    const doc = byId.get(id);
+    return !!doc && !isExcludedFromAI(doc);
+  });
+}
+
+/** Память без источника, ещё не просмотренная человеком (не уходит ИИ). */
+export function isUnreviewedLegacyMemory(memory: AIChatMemory): boolean {
+  return memory.sourceDocumentIds === undefined && memory.reviewedAt === undefined;
+}
+
+/** Память, которую можно отдать ИИ: источники видимы, старая — просмотрена. */
+export function usableMemories(memories: ReadonlyArray<AIChatMemory>, docs: ReadonlyArray<CitableNoteDoc>): AIChatMemory[] {
+  const byId = docsById(docs);
+  return memories.filter(m => memorySourcesVisible(m, byId));
+}
+
 export const AIChatMemoryService = {
   async extractFromDialogue(dialogueId: string, messages: { role: string; content: string; type?: string | undefined; id?: string | undefined }[]): Promise<void> {
     const userMessages = messages.filter(m => m.role === 'user' && m.content.trim().length > 10);
@@ -26,6 +66,9 @@ export const AIChatMemoryService = {
 
     try {
       const db = await getLocalDb();
+      const docs = await db.getAll('documents');
+      const hiddenIds = hiddenNoteIdsFromDocs(docs);
+      const byId = docsById(docs);
       let dialogue: AIDialogue | undefined;
       try {
         const stored = await db.get('aiDialogues', dialogueId);
@@ -69,13 +112,20 @@ export const AIChatMemoryService = {
       // с role:'system' проходило фильтр по type и валило запрос целиком.
       const recent = bounded
         .filter(m => m.role === 'user' || m.role === 'assistant')
-        .map(m => ({
-          role: m.role,
+        .map(m => {
           // Ответы ассистента обрезаются до 600 символов, пользовательские до MEMORY_EXTRACT_MAX_MESSAGE_CHARS
-          content: m.role === 'assistant'
+          const content = m.role === 'assistant'
             ? m.content.slice(0, 600)
-            : m.content.slice(0, MEMORY_EXTRACT_MAX_MESSAGE_CHARS),
-        }));
+            : m.content.slice(0, MEMORY_EXTRACT_MAX_MESSAGE_CHARS);
+          // AP-2: цитата скрытой заметки не уходит в извлечение памяти — ни
+          // текстом ответа, ни как повод вывести «факт» из скрытого.
+          return {
+            role: m.role,
+            content: m.role === 'assistant' && citesAnyId(m.content, hiddenIds)
+              ? HIDDEN_ANSWER_PLACEHOLDER
+              : content,
+          };
+        });
       if (recent.length === 0) return;
 
       // DA-2: ограничить суммарный вход памяти до INTERNAL_CALL_MAX_INPUT_CHARS (4000)
@@ -95,6 +145,18 @@ export const AIChatMemoryService = {
         }
       }
       if (cappedRecent.length === 0) return;
+
+      // AP-2: источники новой памяти — видимые заметки, на которые ссылается
+      // окно извлечения. Скрытые цитаты уже заменены заглушкой выше.
+      const sourceDocumentIds = [...new Set(cappedRecent.flatMap(m => extractCitationIds(m.content)))]
+        .filter(id => {
+          const doc = byId.get(id);
+          return !!doc && !isExcludedFromAI(doc);
+        })
+        // Приёмка ai-privacy (M-1): постоянный номер, а не локальный — на другом
+        // устройстве у заметки свой локальный номер, и память по нему «теряла»
+        // источник и не отдавалась вовсе.
+        .map(id => byId.get(id)?.uuid ?? id);
 
       const result = await AIService.extractChatMemory({ messages: cappedRecent });
       if (!result.ok) {
@@ -170,10 +232,22 @@ export const AIChatMemoryService = {
           for (const existingMem of existing) {
             if (existingMem.vector && cosineSimilarity(vector, existingMem.vector) > 0.92) {
               isDuplicate = true;
+              // Непросмотренная старая память остаётся старой: новые источники не
+              // делают известным то, что в ней накоплено раньше (AP-2, «в»).
+              let sourcesChanged = false;
+              if (!isUnreviewedLegacyMemory(existingMem)) {
+                const mergedSources = new Set([...(existingMem.sourceDocumentIds ?? []), ...sourceDocumentIds]);
+                sourcesChanged = mergedSources.size !== (existingMem.sourceDocumentIds?.length ?? 0);
+                if (sourcesChanged) existingMem.sourceDocumentIds = [...mergedSources];
+              }
               if (mem.text.length > existingMem.text.length) {
                 existingMem.text = mem.text;
                 existingMem.updatedAt = now;
                 existingMem.vector = vector;
+                await db.put('aiChatMemory', existingMem);
+                LocalStoreSyncService.scheduleStoreSync('aiChatMemory', existingMem.id);
+              } else if (sourcesChanged) {
+                existingMem.updatedAt = now;
                 await db.put('aiChatMemory', existingMem);
                 LocalStoreSyncService.scheduleStoreSync('aiChatMemory', existingMem.id);
               }
@@ -192,6 +266,9 @@ export const AIChatMemoryService = {
             updatedAt: now,
           };
           if (vector) entry.vector = vector;
+          // Всегда, и пустым списком: «цитат не было» — известный источник, а не
+          // старая память без источника.
+          entry.sourceDocumentIds = sourceDocumentIds;
           await db.put('aiChatMemory', entry);
           LocalStoreSyncService.scheduleStoreSync('aiChatMemory', entry.id);
           existing.push(entry);
@@ -242,6 +319,8 @@ export const AIChatMemoryService = {
         sourceDialogueId: sourceDialogueId ?? 'manual',
         createdAt: now,
         updatedAt: now,
+        // Записал сам человек — источник известен.
+        sourceDocumentIds: [],
       };
       if (vector) entry.vector = vector;
       await db.put('aiChatMemory', entry);
@@ -255,9 +334,11 @@ export const AIChatMemoryService = {
     const db = await getLocalDb();
     const all = await db.getAll('aiChatMemory');
     if (all.length === 0) return [];
+    const byId = docsById(await db.getAll('documents'));
 
     return all
       .filter(m => m.vector)
+      .filter(m => memorySourcesVisible(m, byId))
       .map(m => ({ m, sim: cosineSimilarity(queryVector, m.vector!) }))
       .sort((a, b) => b.sim - a.sim)
       .slice(0, k)
@@ -274,10 +355,22 @@ export const AIChatMemoryService = {
   async getPreferences(): Promise<AIChatMemory[]> {
     const db = await getLocalDb();
     const all = await db.getAll('aiChatMemory');
+    const byId = docsById(await db.getAll('documents'));
     return all
       .filter(m => m.kind === 'preference')
+      .filter(m => memorySourcesVisible(m, byId))
       .sort((a, b) => b.createdAt - a.createdAt)
       .slice(0, 5);
+  },
+
+  /** «Вернуть в контекст»: человек просмотрел старую память без источника. */
+  async markReviewed(id: string): Promise<void> {
+    const db = await getLocalDb();
+    const mem = await db.get('aiChatMemory', id);
+    if (!mem) return;
+    mem.reviewedAt = Date.now();
+    await db.put('aiChatMemory', mem);
+    LocalStoreSyncService.scheduleStoreSync('aiChatMemory', id);
   },
 
   async delete(id: string): Promise<void> {

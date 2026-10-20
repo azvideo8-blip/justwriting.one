@@ -1,4 +1,5 @@
 import { getLocalDb } from '../../../../core/storage/localDb';
+import { isExcludedFromAI } from '../../utils/isExcludedFromAI';
 
 export function formatDateYYYYMMDD(timestamp: number | undefined): string {
   if (!timestamp) return 'unknown-date';
@@ -14,7 +15,7 @@ export function formatDateYYYYMMDD(timestamp: number | undefined): string {
 // guesses — which is how "I only see the two you sent" gets said about a search
 // over the entire corpus.
 export async function getCorpusStats(db: Awaited<ReturnType<typeof getLocalDb>>): Promise<{ total: number; from: string; to: string }> {
-  const docs = await db.getAll('documents');
+  const docs = (await db.getAll('documents')).filter(d => !isExcludedFromAI(d));
   const dates = docs.map(d => d.lastSessionAt || d.firstSessionAt || 0).filter(Boolean).sort((a, b) => a - b);
   return {
     total: docs.length,

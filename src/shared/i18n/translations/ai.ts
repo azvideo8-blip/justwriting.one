@@ -77,6 +77,9 @@ export const aiTranslations: Translations = {
   ai_memory_forget_all: { ru: 'Забыть всё', en: 'Forget all' },
   ai_memory_forget_all_confirm: { ru: 'Удалить все воспоминания безвозвратно?', en: 'Delete all memories permanently?' },
   ai_memory_delete: { ru: 'Удалить воспоминание', en: 'Delete memory' },
+  ai_memory_unreviewed_hint: { ru: 'Источник части воспоминаний неизвестен — они сохранены до того, как приложение стало это отмечать. ИИ их не использует, пока ты их не просмотришь: верни нужные в контекст или удали.', en: 'Some memories have an unknown source — they were saved before the app started tracking it. The AI does not use them until you review them: return the ones you want to the context or delete them.' },
+  ai_memory_unknown_source: { ru: 'Источник неизвестен — ИИ не использует', en: 'Unknown source — not used by the AI' },
+  ai_memory_return: { ru: 'Вернуть в контекст', en: 'Return to context' },
   // DLG-Q10: сверка поста Редактора с заметкой. Строка модели «что изменил»
   // врёт, счёт ведёт код — здесь только подписи частей.
   ai_editor_diff_title: { ru: 'Сверка с заметкой', en: 'Checked against the note' },

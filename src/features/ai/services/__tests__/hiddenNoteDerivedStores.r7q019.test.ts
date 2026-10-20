@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import 'fake-indexeddb/auto';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { AITimelineService } from '../AITimelineService';
+import { NoteAnalysisService } from '../NoteAnalysisService';
 import { AIThemeLedgerService } from '../AIThemeLedgerService';
 import { AIThreadService } from '../AIThreadService';
 import { AIMemoryAssembler } from '../AIMemoryAssembler';
@@ -9,8 +10,12 @@ import { buildTemporalBlocks } from '../chatContext/temporalBlocks';
 import { buildAggregateThemeBlock } from '../chatContext/aggregateStats';
 import { AISummaryService } from '../AISummaryService';
 import { AIEmbeddingService } from '../AIEmbeddingService';
+import { AIProfileFacetService } from '../AIProfileFacetService';
+import { AIProfileService } from '../AIProfileService';
+import { AIService } from '../AIService';
 import { cloudVectorMatchesNote } from '../AIRestoreService';
 import { LocalStoreSyncService } from '../../../../core/services/LocalStoreSyncService';
+import { writeFacetStore } from '../../../../core/services/facetLock';
 import { emitDomainEvent, _resetDomainEventHandlersForTests } from '../../../../core/events/domainEvents';
 import { initAiDomainEvents } from '../../subscribeDomainEvents';
 
@@ -205,5 +210,197 @@ describe('R7Q-019/R7F-010: производные скрытой или корз
 
     expect(del).toHaveBeenCalledWith('aiTimeline', DOC_HIDDEN);
     _resetDomainEventHandlersForTests();
+  });
+});
+
+// AP-3: грань профиля и портрет — такие же производные заметки, как хронология.
+// Скрытие чистило только сводку и хронологию, а грань с её формулировкой
+// продолжала уходить в промпт портрета; портрет — в каждый не-редакторский ход.
+// Маркеры выдуманные.
+describe('AP-3: скрытие чистит грани профиля и портрет', () => {
+  const DOC_TO_HIDE = 'doc_ap3_hidden';
+  const DOC_KEEP = 'doc_ap3_keep';
+  const FACET_MARKER = 'МАРКЕР-ГРАНИ-AP3';
+  const PORTRAIT_MARKER = 'МАРКЕР-ПОРТРЕТА-AP3';
+
+  const facet = (id: string, noteIds: string[], summary: string) => ({
+    id,
+    label: id,
+    summary,
+    centroid: [1, 0],
+    noteIds,
+    noteCount: noteIds.length,
+    firstAt: 1,
+    lastAt: 2,
+    updatedAt: 1,
+    buildId: 'b_ap3',
+  });
+
+  beforeEach(async () => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+    const db = await getLocalDb();
+    for (const store of [
+      'documents', 'aiSummaries', 'aiTimeline', 'aiMonthlyDigest', 'aiProfileFacets', 'aiPortrait', 'aiChatMemory',
+    ] as const) {
+      await db.clear(store);
+    }
+
+    await db.put('documents', doc(DOC_KEEP));
+    await db.put('documents', doc(DOC_TO_HIDE, { excludedFromAI: true }));
+    await db.put('aiTimeline', timelineEntry(DOC_TO_HIDE, 'факт скрытой', '2026-09-20'));
+    await db.put('aiMonthlyDigest', {
+      month: '2026-09',
+      narrative: 'МАРКЕР-ДАЙДЖЕСТА-AP3',
+      tones: [],
+      themes: [],
+      noteCount: 2,
+      generatedAt: Date.now(),
+    });
+
+    await writeFacetStore(async store => {
+      await store.put(facet('f_only_hidden_ap3', [DOC_TO_HIDE], FACET_MARKER) as never);
+      await store.put({ ...facet('f_mixed_ap3', [DOC_TO_HIDE, DOC_KEEP], `${FACET_MARKER}-смешанная`), label: `${FACET_MARKER}-название`, _excerptSeed: [`${FACET_MARKER}-выдержка`] } as never);
+      await store.put(facet('f_ok_ap3', [DOC_KEEP], 'видимая грань') as never);
+    });
+
+    await db.put('aiPortrait', { id: 'singleton', portrait: PORTRAIT_MARKER, updatedAt: 1, generatedAtDelta: 0 });
+    localStorage.setItem('ai_user_portrait', PORTRAIT_MARKER);
+    localStorage.setItem('ai_portrait_sections', '{"themes":{"content":"' + PORTRAIT_MARKER + '"}}');
+    localStorage.setItem('ai_portrait_sections_guest', '{"themes":{"content":"' + PORTRAIT_MARKER + '"}}');
+  });
+
+  // Приёмка ai-privacy (security-review, Vuln 4): заметку скрыли ДО AP-1 — её
+  // месяц не чистился, дайджест остался. Читатели его не отдают, пока он
+  // пересказывает больше заметок, чем живо в хронологии. Без вызовов ИИ.
+  // Мутация: убрать coversOnlyLiveNotes из getRecent/get — красный.
+  it('старый дайджест месяца со скрытой заметкой не отдаётся читателям', async () => {
+    const { AIMonthlyDigestService } = await import('../AIMonthlyDigestService');
+    expect((await AIMonthlyDigestService.getRecent(3)).map(d => d.narrative).join('\n')).not.toContain('МАРКЕР-ДАЙДЖЕСТА-AP3');
+    expect(await AIMonthlyDigestService.get('2026-09')).toBeUndefined();
+  });
+
+  // Проверка коммита 0784810a: сверка по количеству пропускала «одну скрыли, одну
+  // добавили». Теперь — по номерам заметок дайджеста. Мутация: вернуть сверку по
+  // noteCount — красный второй случай.
+  it('дайджест отдаётся, только если живы именно его заметки', async () => {
+    const { AIMonthlyDigestService } = await import('../AIMonthlyDigestService');
+    const db = await getLocalDb();
+    await db.put('documents', doc('doc_ap3_new'));
+    await db.put('aiTimeline', timelineEntry(DOC_KEEP, 'факт видимой', '2026-09-21'));
+    await db.put('aiTimeline', timelineEntry('doc_ap3_new', 'факт новой', '2026-09-22'));
+    // Собран по скрытой и видимой; сейчас живы видимая и новая — 2 = 2, но не те.
+    await db.put('aiMonthlyDigest', { month: '2026-09', narrative: 'МАРКЕР-ДАЙДЖЕСТА-AP3', tones: [], themes: [], noteCount: 2, noteIds: [DOC_TO_HIDE, DOC_KEEP], generatedAt: Date.now() });
+    expect(await AIMonthlyDigestService.get('2026-09'), 'скрыли одну, добавили другую').toBeUndefined();
+    // Собран по живым — отдаётся.
+    await db.put('aiMonthlyDigest', { month: '2026-09', narrative: 'видимый пересказ', tones: [], themes: [], noteCount: 2, noteIds: [DOC_KEEP, 'doc_ap3_new'], generatedAt: Date.now() });
+    expect((await AIMonthlyDigestService.get('2026-09'))?.narrative).toBe('видимый пересказ');
+  });
+
+  it('скрыли → грани без noteId и dirty, портрет и дайджест удалены', async () => {
+    vi.spyOn(AISummaryService, 'delete').mockResolvedValue(undefined as never);
+    vi.spyOn(AIEmbeddingService, 'delete').mockResolvedValue(undefined as never);
+    const del = vi.spyOn(LocalStoreSyncService, 'scheduleStoreDelete').mockImplementation(() => {});
+    vi.spyOn(LocalStoreSyncService, 'scheduleStoreSync').mockImplementation(() => {});
+    const db = await getLocalDb();
+
+    await NoteAnalysisService.clear(DOC_TO_HIDE);
+
+    expect(await db.get('aiProfileFacets', 'f_only_hidden_ap3')).toBeUndefined();
+    const mixed = await db.get('aiProfileFacets', 'f_mixed_ap3');
+    expect(mixed?.noteIds).toEqual([DOC_KEEP]);
+    expect(mixed?.dirty).toBe(true);
+    // Приёмка ai-privacy (Vuln 1): пересказ смешанной грани стёрт вместе с номером.
+    expect(JSON.stringify(mixed), 'ни пересказа, ни выдержек, ни придуманного названия').not.toContain(FACET_MARKER);
+    expect(mixed?.pendingSummary, 'пересказ — заново, по действию человека').toBe(true);
+    expect(await db.get('aiMonthlyDigest', '2026-09')).toBeUndefined();
+    expect(del).toHaveBeenCalledWith('aiMonthlyDigest', '2026-09');
+    expect(localStorage.getItem('ai_user_portrait')).toBeNull();
+    expect(localStorage.getItem('ai_portrait_sections')).toBeNull();
+    expect(localStorage.getItem('ai_portrait_sections_guest')).toBeNull();
+  });
+
+  // Приёмка ai-privacy (security-review, Vuln 1): номер скрытой заметки ушёл из
+  // смешанной грани, а пересказ оставался — и стражи на чтении (ищут скрытые
+  // номера в noteIds) пропускали её в промпт и в интерфейс. Мутация: не стирать
+  // summary в purgeNoteDerivatives — красный.
+  it('скрыли → смешанная грань не несёт пересказ ни в generate(), ни в интерфейс', async () => {
+    vi.spyOn(AISummaryService, 'delete').mockResolvedValue(undefined as never);
+    vi.spyOn(AIEmbeddingService, 'delete').mockResolvedValue(undefined as never);
+    vi.spyOn(LocalStoreSyncService, 'scheduleStoreDelete').mockImplementation(() => {});
+    vi.spyOn(LocalStoreSyncService, 'scheduleStoreSync').mockImplementation(() => {});
+    await NoteAnalysisService.clear(DOC_TO_HIDE);
+    await writeFacetStore(async store => {
+      await store.put(facet('f_2b_ap3', [DOC_KEEP], 'вторая видимая') as never);
+      await store.put(facet('f_3b_ap3', [DOC_KEEP], 'третья видимая') as never);
+    });
+
+    const all = await AIProfileFacetService.getAll();
+    expect(all.map(f => f.summary).join('\n')).not.toContain(FACET_MARKER);
+
+    const chat = vi.spyOn(AIService, 'chat').mockResolvedValue({ ok: true, text: 'раздел портрета' } as never);
+    await AIProfileService.generate();
+    expect(chat.mock.calls.map(c => JSON.stringify(c[0])).join('\n')).not.toContain(FACET_MARKER);
+  });
+
+  it('generate() не отправляет модели сводку грани со скрытой заметкой', async () => {
+    // Строка могла остаться от прежней версии или приехать из облака: грань всё
+    // ещё перечисляет скрытую заметку. Промпт портрета её не получает.
+    await writeFacetStore(async store => {
+      await store.put(facet('f_stale_ap3', [DOC_TO_HIDE], FACET_MARKER) as never);
+      await store.put(facet('f_2_ap3', [DOC_KEEP], 'вторая видимая') as never);
+      await store.put(facet('f_3_ap3', [DOC_KEEP], 'третья видимая') as never);
+    });
+    const chat = vi.spyOn(AIService, 'chat').mockResolvedValue({ ok: true, text: 'раздел портрета' } as never);
+
+    await AIProfileService.generate();
+
+    const sent = chat.mock.calls.map(c => JSON.stringify(c[0])).join('\n');
+    expect(sent).not.toContain(FACET_MARKER);
+  });
+
+  // Приёмка ai-privacy: портрет читал всю память напрямую. Теперь — тот же фильтр,
+  // что и разговор: старая непросмотренная (решение владельца, «в») и память со
+  // скрытым источником в промпт не идут. Мутация: снять usableMemories — красный.
+  it('generate() не отправляет модели старую непросмотренную память и память скрытой', async () => {
+    const db = await getLocalDb();
+    await db.put('aiChatMemory', { id: 'm_legacy_ap', kind: 'preference', text: 'МАРКЕР-ПАМЯТИ-СТАРАЯ', sourceDialogueId: 'd1', createdAt: 1, updatedAt: 1 });
+    await db.put('aiChatMemory', { id: 'm_hidden_ap', kind: 'preference', text: 'МАРКЕР-ПАМЯТИ-СКРЫТАЯ', sourceDialogueId: 'd2', createdAt: 1, updatedAt: 1, sourceDocumentIds: [DOC_TO_HIDE] });
+    await db.put('aiChatMemory', { id: 'm_ok_ap', kind: 'preference', text: 'видимое предпочтение', sourceDialogueId: 'd3', createdAt: 1, updatedAt: 1, sourceDocumentIds: [] });
+    await writeFacetStore(async store => {
+      await store.put(facet('f_2c_ap3', [DOC_KEEP], 'вторая видимая') as never);
+      await store.put(facet('f_3c_ap3', [DOC_KEEP], 'третья видимая') as never);
+    });
+    const chat = vi.spyOn(AIService, 'chat').mockResolvedValue({ ok: true, text: 'раздел портрета' } as never);
+
+    await AIProfileService.generate();
+
+    const sent = chat.mock.calls.map(c => JSON.stringify(c[0])).join('\n');
+    expect(sent).not.toContain('МАРКЕР-ПАМЯТИ');
+  });
+
+  // Проверка коммита 8b1994ee: getAll читают и пути к ИИ — номер, который на
+  // устройстве не нашёлся, грань не пропускает; найденная по uuid — пропускает.
+  // Мутация: «нет документа — видима» — красный.
+  it('грань с ненайденным номером скрыта, найденная по uuid — видна', async () => {
+    await writeFacetStore(async store => {
+      await store.put(facet('f_foreign_ap3', ['doc_from_other_device'], 'МАРКЕР-ЧУЖАЯ') as never);
+      await store.put(facet('f_by_uuid_ap3', [`uuid_${DOC_KEEP}`], 'по постоянному номеру') as never);
+    });
+    const ids = (await AIProfileFacetService.getAll()).map(f => f.id);
+    expect(ids).not.toContain('f_foreign_ap3');
+    expect(ids).toContain('f_by_uuid_ap3');
+  });
+
+  it('интерфейс граней не показывает грань со скрытой заметкой', async () => {
+    const db = await getLocalDb();
+    expect(await db.get('documents', DOC_TO_HIDE)).toBeTruthy();
+    await writeFacetStore(async store => {
+      await store.put(facet('f_cloud_stale_ap3', [DOC_TO_HIDE], FACET_MARKER) as never);
+    });
+
+    const all = await AIProfileFacetService.getAll();
+
+    expect(all.some(f => f.summary.includes(FACET_MARKER))).toBe(false);
   });
 });

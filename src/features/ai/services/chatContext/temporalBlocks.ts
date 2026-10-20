@@ -67,7 +67,7 @@ function localDayStart(key: string): number {
 
 async function countNotesInWindow(db: LocalDb, minTime: number, maxTime: number): Promise<number> {
   const docs = await db.getAll('documents');
-  return docs.filter(doc => typeof doc.lastSessionAt === 'number' && doc.lastSessionAt >= minTime && doc.lastSessionAt <= maxTime).length;
+  return docs.filter(doc => !isExcludedFromAI(doc) && typeof doc.lastSessionAt === 'number' && doc.lastSessionAt >= minTime && doc.lastSessionAt <= maxTime).length;
 }
 
 /**

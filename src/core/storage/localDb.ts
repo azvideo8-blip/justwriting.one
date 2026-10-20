@@ -234,6 +234,12 @@ export interface AIMonthlyDigest {
   tones: string[];     // dominant tones
   themes: string[];    // recurring themes
   noteCount: number;
+  /**
+   * Приёмка ai-privacy: заметки, по которым собран пересказ. Читатели отдают
+   * дайджест, только если все они ещё живы в хронологии месяца; у старого
+   * дайджеста поля нет — он не отдаётся до пересборки (по действию человека).
+   */
+  noteIds?: string[];
   generatedAt: number;
 }
 
@@ -278,6 +284,18 @@ export interface AIChatMemory {
   createdAt: number;
   updatedAt: number;
   vector?: number[];
+  /**
+   * AP-2: заметки, на которые опиралась реплика-источник (цитаты `[#id]` окна
+   * извлечения). Память без этого поля — накопленная до 0.10.4: источник
+   * неизвестен, ИИ её не получает до просмотра человеком (`reviewedAt`).
+   */
+  sourceDocumentIds?: string[];
+  /**
+   * Решение владельца 2026-10-20 (AP-2, вариант «в»): память без источника (до
+   * 0.10.4) не отдаётся ИИ, пока человек её не просмотрит; «вернуть в контекст»
+   * ставит эту отметку.
+   */
+  reviewedAt?: number;
 }
 
 /** A theme/facet of the living AI profile, derived by clustering note embeddings. */

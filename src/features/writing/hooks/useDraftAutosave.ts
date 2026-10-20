@@ -36,11 +36,18 @@ export function useDraftAutosave(
   const userId = user?.uid ?? null;
   const { saveStatus, saveErrorKind, lastSavedAt, remotePermanentError, wrapSave } = useDraftCore({ userId });
   const draftDataRef = useRef(draftData);
+  // Приёмка ai-privacy (код-ревью, M-3): поколение черновика на момент последней
+  // правки. Сохранение заметки поднимает поколение и стирает черновик ДО сброса
+  // сессии; запись на размонтировании в этом окне с текущим поколением вернула бы
+  // уже сохранённый текст «несохранённым черновиком». С этим поколением запись
+  // отвергается (saveToLocal сверяет поколение).
+  const draftGenAtEditRef = useRef<number | undefined>(undefined);
   const { layoutMode } = useLayoutMode();
 
   useEffect(() => {
     draftDataRef.current = draftData;
-  }, [draftData]);
+    if (userId) draftGenAtEditRef.current = WritingDraftService.getDraftGeneration(userId);
+  }, [draftData, userId]);
 
   // Чей текст в редакторе — записано в самом сторе текста (N-47), а не в этом
   // хуке: стор переживает уход со страницы письма, и после приглашения или
@@ -87,16 +94,26 @@ export function useDraftAutosave(
     return false;
   }, [rescueForPreviousOwner]);
 
-  const doAutosaveLocal = useCallback(async (): Promise<DraftSaveOutcome> => {
+  const doAutosaveLocal = useCallback(async (opts?: { rescue?: boolean; generation?: number | undefined }): Promise<DraftSaveOutcome> => {
     if (!user) return SKIPPED;
     const current = draftDataRef.current;
     if (!current.content.trim() && !current.title.trim()) return SKIPPED;
     // D-24: do not save draft for continued notes with no edits
     if (isPristineContinuedSession(current.content, current.title)) return SKIPPED;
-    if (!ownsText(user.uid)) return SKIPPED;
+    if (opts?.rescue === false) {
+      // AS-1: на размонтировании чужой текст не спасаем — этим занят эффект
+      // смены аккаунта, а его побочные записи из cleanup путают следующий монтаж.
+      const contentState = useContentStore.getState();
+      const owner = contentState.ownerUid;
+      if (owner && owner !== user.uid && !owner.startsWith('guest')) return SKIPPED;
+      // Владельца нет, а в редакторе уже другой текст (спасение очистило стор) —
+      // это хвост чужой сессии, подписывать его текущему аккаунту нельзя.
+      if ((!owner || owner.startsWith('guest')) && contentState.content !== current.content) return SKIPPED;
+      if (!owner || owner.startsWith('guest')) useContentStore.setState({ ownerUid: user.uid });
+    } else if (!ownsText(user.uid)) return SKIPPED;
 
     const draft = buildLocalDraft(user, current);
-    const result = await persistDraft(draft, { remote: false });
+    const result = await persistDraft(draft, opts?.generation !== undefined ? { remote: false, generation: opts.generation } : { remote: false });
     if (!result.localOk) {
       throw new Error('Local save failed');
     }
@@ -148,14 +165,23 @@ export function useDraftAutosave(
   useSyncUnloadSave(user, draftDataRef);
   useVisibilitySave(wrappedForceSave, () => draftDataRef.current.content);
 
-  // Invalidate in-flight autosaves on unmount or when transitioning to idle
+  // Invalidate in-flight autosaves on unmount or when transitioning to idle.
+  // AS-1: перед подъёмом поколения пишем локальный черновик — уход из редактора
+  // снимает таймер, и последние секунды набора иначе жили только в памяти.
   useEffect(() => {
     return () => {
-      if (userId) {
-        WritingDraftService.bumpDraftGeneration(userId);
-      }
+      if (!userId) return;
+      void (async () => {
+        try {
+          await doAutosaveLocal({ rescue: false, generation: draftGenAtEditRef.current });
+        } catch (e) {
+          reportError(e, { action: 'draftAutosave_unmount', userId });
+        } finally {
+          WritingDraftService.bumpDraftGeneration(userId);
+        }
+      })();
     };
-  }, [userId]);
+  }, [userId, doAutosaveLocal]);
 
   useEffect(() => {
     if (draftData.status === 'idle' && userId) {
@@ -167,7 +193,9 @@ export function useDraftAutosave(
   useEffect(() => {
     const isPristine = isPristineContinuedSession(draftData.content, draftData.title);
     if (user && !isPristine && (draftData.content.trim() || draftData.title.trim())) {
-      const debounceDelay = layoutMode === 'mobile' ? 5000 : 500;
+      // AS-1: на телефоне секунда, а не пять: локальная запись не тратит
+      // облачную квоту, и окно, в котором текст живёт только в памяти, короче.
+      const debounceDelay = layoutMode === 'mobile' ? 1000 : 500;
       const timeout = setTimeout(() => void wrappedAutosaveLocal(), debounceDelay);
       return () => clearTimeout(timeout);
     }

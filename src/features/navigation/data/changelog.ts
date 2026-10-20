@@ -17,6 +17,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.10.4',
+    date: '2026-10-20',
+    items: [
+      { category: 'fix', ru: 'Заметка, скрытая от ИИ, больше не попадает к нему окольными путями: через месячные пересказы, грани профиля и портрет, старые ответы и память диалога, подсказки следующего вопроса.', en: 'A note hidden from the AI no longer reaches it indirectly: through monthly digests, profile facets and the portrait, old answers and dialogue memory, or follow-up suggestions.' },
+      { category: 'improvement', ru: 'Память ИИ, накопленная до этой версии, не используется, пока ты её не просмотришь: в «Памяти ИИ» её можно вернуть в контекст или удалить. Пересказы месяцев ИИ получит снова после обновления профиля.', en: 'AI memory saved before this version is not used until you review it: in «AI memory» you can return it to the context or delete it. The AI gets monthly digests again after you refresh the profile.' },
+      { category: 'fix', ru: 'При уходе из редактора последние секунды набора сохраняются; на телефоне черновик сохраняется быстрее.', en: 'Leaving the editor saves the last seconds of typing; on a phone the draft is saved sooner.' },
+      { category: 'fix', ru: 'Счётчики и средние, которые видит ИИ, не учитывают скрытые заметки.', en: 'Counts and averages the AI sees no longer include hidden notes.' },
+      { category: 'fix', ru: 'Нижний лист на компьютере больше не закрывается перетаскиванием мышью.', en: 'A bottom sheet on a computer no longer closes when dragged with the mouse.' },
+    ],
+  },
+  {
     version: '0.10.3',
     date: '2026-10-18',
     items: [

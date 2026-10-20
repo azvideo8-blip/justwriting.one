@@ -7,7 +7,8 @@ import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncServ
 import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
 import { isTombstoned, stampMessage, tombstoneDialogue, withMessageIds } from '../../../core/storage/dialogueMerge';
-import { toApiContent, legacyNoteHidden } from '../utils/aiChatTransport';
+import { toApiContent, legacyNoteHidden, citesAnyId, HIDDEN_ANSWER_PLACEHOLDER } from '../utils/aiChatTransport';
+import { hiddenNoteIdsFromDocs } from '../utils/hiddenNoteIds';
 import { isExcludedFromAI, isPastedAttachmentId } from '../utils/isExcludedFromAI';
 
 import { writeFacetStore } from '../../../core/services/facetLock';
@@ -380,13 +381,21 @@ export const AIDialogueService = {
 
       const last10 = chatMessages.slice(-10);
       const legacyParse = { legacyNoteHidden: await legacyNoteHidden(dialogue, db) };
+      // AP-2: итог не пересказывает скрытую заметку — ответ с её цитатой
+      // уходит в модель заглушкой, как и в истории чата.
+      const hiddenIds = hiddenNoteIdsFromDocs(await db.getAll('documents'));
       const { AIService } = await import('./AIService');
       const response = await AIService.chat({
         personaId: 'custom',
         callType: 'system_task',
         customSystemPrompt: SYSTEM_TASK_PROMPTS.dialogueSummary,
         // S-51: тело приложенной заметки в модель не идёт — те же правила, что у истории чата.
-        messages: last10.map(m => ({ role: m.role, content: toApiContent(m.content, undefined, legacyParse) })),
+        messages: last10.map(m => ({
+          role: m.role,
+          content: m.role === 'assistant' && citesAnyId(m.content, hiddenIds)
+            ? HIDDEN_ANSWER_PLACEHOLDER
+            : toApiContent(m.content, undefined, legacyParse),
+        })),
       });
 
       if (response.ok && response.text) {

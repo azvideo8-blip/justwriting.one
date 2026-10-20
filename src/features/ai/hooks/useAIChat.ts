@@ -28,9 +28,12 @@ import {
   toApiContent,
   splitAttachedMessage,
   legacyNoteHidden,
+  citesAnyId,
+  HIDDEN_ANSWER_PLACEHOLDER,
   API_MSG_CAP,
   _streamUnavailableUntil
 } from '../utils/aiChatTransport';
+import { hiddenNoteIdsFromDocs } from '../utils/hiddenNoteIds';
 import { sanitizeFirstSeenDates } from '../utils/dateGuard';
 import { normalizeQuoteText, unquoteAbsent } from '../../../shared/ai/quoteGuard';
 import { CITATION_RE, isRecognisedCitation, extractSearchRequest } from '../shared/citationPatterns';
@@ -542,8 +545,12 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         : currentDialogue.messages;
       const sourceForApi: AIMessage[] = text.trim() ? [...baseMessages, { role: 'user' as const, content: text, type: 'chat' as const }] : [...baseMessages];
       // S-63: старые ходы без шапки — тело скрытой заметки-темы не идёт ни в историю, ни в память.
-      const legacyParse = { legacyNoteHidden: await legacyNoteHidden(currentDialogue, await getLocalDb()) };
-      const apiMessages = prepareApiMessages(sourceForApi, legacyParse);
+      const localDb = await getLocalDb();
+      const legacyParse = { legacyNoteHidden: await legacyNoteHidden(currentDialogue, localDb) };
+      // AP-2: цитата скрытой заметки в старом ответе — тот же запрет, что и на
+      // тело приложенной заметки. Снимок документов один на ход.
+      const hiddenCiteIds = hiddenNoteIdsFromDocs(await localDb.getAll('documents'));
+      const apiMessages = prepareApiMessages(sourceForApi, { ...legacyParse, hiddenCitationIds: hiddenCiteIds });
 
       const isFirstTurn = baseMessages.filter(m => m.type !== 'system').length === 0;
 
@@ -780,7 +787,13 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       if (context.getMessageCount() % 3 === 0 && getChatExtrasEnabled(getCurrentUser()?.uid)) {
         // Strip attachment bodies — memory extraction goes to an AI endpoint with
         // the same per-message cap, and raw note text shouldn't be stored anyway.
-        const memMessages = allMessages.map(m => ({ ...m, content: toApiContent(m.content, API_MSG_CAP, legacyParse) }));
+        // AP-2: ответ с цитатой скрытой заметки в окно извлечения не идёт.
+        const memMessages = allMessages.map(m => {
+          const content = toApiContent(m.content, API_MSG_CAP, legacyParse);
+          return m.role === 'assistant' && citesAnyId(m.content, hiddenCiteIds)
+            ? { ...m, content: HIDDEN_ANSWER_PLACEHOLDER }
+            : { ...m, content };
+        });
         void AIChatMemoryService.extractFromDialogue(currentDialogue.id, memMessages);
       }
       const updated = await AIDialogueService.get(currentDialogue.id);

@@ -91,8 +91,10 @@ export function shouldDismissSheet(offsetY: number, velocityY: number): boolean 
  * Можно ли начать свайп листа с этой точки. Нельзя из поля ввода (там жест —
  * выделение текста) и из прокручиваемого блока, который не в самом верху: там
  * свайп вниз прокручивает содержимое — как в iOS, закрытие только «от верха».
+ * UI-1: мышью лист не тащим — на десктопе это ломало выделение текста.
  */
-export function canStartSheetDrag(target: EventTarget | null, root: HTMLElement | null): boolean {
+export function canStartSheetDrag(target: EventTarget | null, root: HTMLElement | null, pointerType?: string): boolean {
+  if (pointerType === 'mouse') return false;
   if (!(target instanceof Element) || !root) return false;
   for (let el: Element | null = target; el && el !== root.parentElement; el = el.parentElement) {
     const tag = el.tagName;
@@ -194,7 +196,7 @@ export function ModalShell({
           dragListener: false,
           dragConstraints: { top: 0, bottom: 0 },
           dragElastic: { top: 0, bottom: 0.6 },
-          onPointerDown: (e: ReactPointerEvent) => { if (canStartSheetDrag(e.target, ref.current)) dragControls.start(e); },
+          onPointerDown: (e: ReactPointerEvent) => { if (canStartSheetDrag(e.target, ref.current, e.pointerType)) dragControls.start(e); },
           onDragEnd: (_e: unknown, info: PanInfo) => {
             if (shouldDismissSheet(info.offset.y, info.velocity.y)) onClose();
           },

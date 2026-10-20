@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.10.4 — 2026-10-20
+
+- **[RU]** Заметка, скрытая от ИИ, больше не попадает к нему окольными путями: через месячные пересказы, грани профиля и портрет, старые ответы и память диалога, подсказки следующего вопроса.
+- **[EN]** A note hidden from the AI no longer reaches it indirectly: through monthly digests, profile facets and the portrait, old answers and dialogue memory, or follow-up suggestions.
+- **[RU]** Память ИИ, накопленная до этой версии, не используется, пока ты её не просмотришь: в «Памяти ИИ» её можно вернуть в контекст или удалить. Пересказы месяцев ИИ получит снова после обновления профиля.
+- **[EN]** AI memory saved before this version is not used until you review it: in «AI memory» you can return it to the context or delete it. The AI gets monthly digests again after you refresh the profile.
+- **[RU]** При уходе из редактора последние секунды набора сохраняются; на телефоне черновик сохраняется быстрее.
+- **[EN]** Leaving the editor saves the last seconds of typing; on a phone the draft is saved sooner.
+- **[RU]** Счётчики и средние, которые видит ИИ, не учитывают скрытые заметки.
+- **[EN]** Counts and averages the AI sees no longer include hidden notes.
+- **[RU]** Нижний лист на компьютере больше не закрывается перетаскиванием мышью.
+- **[EN]** A bottom sheet on a computer no longer closes when dragged with the mouse.
+
 ## 0.10.3 — 2026-10-18
 
 - **[RU]** При обрыве связи подтверждение паролем (удаление аккаунта, сейф) больше не говорит «неверный пароль».

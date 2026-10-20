@@ -7,6 +7,8 @@ import { AIService } from '../services/AIService';
 import { useAiLimitStore } from '../store/useAiLimitStore';
 import { isExcludedFromAI } from './isExcludedFromAI';
 import { detectPersonMentions } from '../services/chatContext/personQuotes';
+import { extractCitationIds } from '../services/chatContext/citations';
+import type { HiddenNoteIds } from './hiddenNoteIds';
 import type { getLocalDb } from '../../../core/storage/localDb';
 
 export let _streamUnavailableUntil = 0;
@@ -196,6 +198,21 @@ export interface AttachedParseOptions {
    * в историю, память и закрывающую сводку).
    */
   legacyNoteHidden?: boolean | undefined;
+  /**
+   * AP-2: id заметок, скрытых от ИИ или удалённых. Ответ ассистента, который на
+   * них ссылается, в модель не идёт: цитата в старом ответе переживает скрытие
+   * заметки, и фильтр приложенной заметки её не видит.
+   */
+  hiddenCitationIds?: HiddenNoteIds | undefined;
+}
+
+/** AP-2: чем заменяется в истории ответ, цитировавший скрытую заметку. */
+export const HIDDEN_ANSWER_PLACEHOLDER = '[ответ о скрытой заметке]';
+
+/** AP-2: ссылается ли текст на одну из скрытых заметок. */
+export function citesAnyId(content: string, hiddenIds: HiddenNoteIds): boolean {
+  if (hiddenIds.size === 0) return false;
+  return extractCitationIds(content).some(id => hiddenIds.has(id));
 }
 
 type LegacyLookupDb = Pick<Awaited<ReturnType<typeof getLocalDb>>, 'get' | 'getAll'>;
@@ -290,8 +307,14 @@ export function prepareApiMessages(messages: AIMessage[], opts?: AttachedParseOp
     }
   }
   const lastTwoAssistant = new Set(assistantIndices.slice(-2));
+  const hiddenIds: HiddenNoteIds = opts?.hiddenCitationIds ?? new Set<string>();
 
   return pruned.map((m, idx) => {
+    // AP-2: ответ с цитатой скрытой/удалённой заметки не уходит модели даже
+    // обрезанным: сам текст ответа и есть пересказ скрытого.
+    if (m.role === 'assistant' && citesAnyId(m.content, hiddenIds)) {
+      return { ...m, content: HIDDEN_ANSWER_PLACEHOLDER };
+    }
     if (m.role === 'assistant' && !lastTwoAssistant.has(idx)) {
       return { ...m, content: toApiContent(m.content, API_ASSISTANT_OLD_CAP, opts) };
     }
