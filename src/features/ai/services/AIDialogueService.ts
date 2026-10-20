@@ -1,4 +1,4 @@
-import { getLocalDb, randomUUID } from '../../../core/storage/localDb';
+import { carryCloudSyncFields, getLocalDb, randomUUID } from '../../../core/storage/localDb';
 import { SYSTEM_TASK_PROMPTS } from '../../../shared/ai/systemTaskPrompts';
 import type { AIDialogue, DialogueMessage } from '../../../core/storage/localDb';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
@@ -436,7 +436,13 @@ export const AIDialogueService = {
         existing.updatedAt = Date.now();
         await tx.objectStore('aiDialogues').put(existing);
 
-        await tx.objectStore('aiDialogueEvents').put({
+        // SF2-5: строка события собирается заново и в собственной транзакции —
+        // обёртка `db.put` её не видит, поэтому серверную отметку и хэша переносим
+        // явно. Без них запись остаётся «без базы», и следующая выгрузка берёт
+        // ТЕКУЩИЙ штамп облака своей базой (класс F-1).
+        const eventStore = tx.objectStore('aiDialogueEvents');
+        const previousEvent = await eventStore.get(id) as Record<string, unknown> | undefined;
+        await eventStore.put(carryCloudSyncFields({
           dialogueId: id,
           date,
           month,
@@ -445,7 +451,7 @@ export const AIDialogueService = {
           summary: text,
           themes: [],
           ...(vector ? { vector } : {}),
-        });
+        }, previousEvent) as never);
 
         await tx.done;
         LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);

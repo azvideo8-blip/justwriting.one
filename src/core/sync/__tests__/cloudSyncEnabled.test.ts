@@ -14,6 +14,10 @@ vi.mock('../../data', () => ({
     saveSummary: vi.fn(),
     saveEmbedding: vi.fn(),
     saveLocalStoreRecord: vi.fn(),
+    // S0-1: скаляр уходит условной записью по серверной отметке; облако здесь пусто,
+    // поэтому база null (вставка), а запись всегда проходит.
+    saveLocalStoreRecordIfUnstamped: vi.fn().mockResolvedValue({ written: true, stampedAt: null }),
+    getLocalStoreRecord: vi.fn().mockResolvedValue(null),
     deleteLocalStoreRecord: vi.fn(),
   },
 }));
@@ -78,6 +82,7 @@ describe('SEC-8: cloudSyncEnabled switch governing all background uploads', () =
     LocalStoreSyncService.scheduleStoreSync('aiPortrait', 'p1');
     const syncRes = await LocalStoreSyncService.flushPending();
     expect(DataProvider.saveLocalStoreRecord).not.toHaveBeenCalled();
+    expect(DataProvider.saveLocalStoreRecordIfUnstamped).not.toHaveBeenCalled();
     expect(syncRes.synced).toBe(0);
   });
 
@@ -116,7 +121,7 @@ describe('SEC-8: cloudSyncEnabled switch governing all background uploads', () =
     // 3. LocalStoreSyncService flush
     LocalStoreSyncService.scheduleStoreSync('aiPortrait', 'p1');
     const syncRes = await LocalStoreSyncService.flushPending();
-    expect(DataProvider.saveLocalStoreRecord).toHaveBeenCalled();
+    expect(DataProvider.saveLocalStoreRecordIfUnstamped).toHaveBeenCalled();
     expect(syncRes.synced).toBe(1);
   });
 
@@ -127,7 +132,7 @@ describe('SEC-8: cloudSyncEnabled switch governing all background uploads', () =
     await db.put('aiPortrait', { id: 'p1', portrait: 'Портрет', updatedAt: Date.now(), generatedAtDelta: 0 });
 
     const res = await LocalStoreSyncService.syncAllLocalStores('user_123');
-    expect(DataProvider.saveLocalStoreRecord).toHaveBeenCalled();
+    expect(DataProvider.saveLocalStoreRecordIfUnstamped).toHaveBeenCalled();
     expect(res.synced).toBe(1);
   });
 });

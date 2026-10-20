@@ -91,8 +91,9 @@ describe('GUARD-1: Field inventory and write-site encryption classification for 
       setProfileLoaded(userId, true);
 
       let savedPayload: Record<string, unknown> | null = null;
-      vi.spyOn(DataProvider, 'saveDraft').mockImplementation(async (_uid, payload) => {
+      vi.spyOn(DataProvider, "saveDraft").mockImplementation(async (_uid, payload) => {
         savedPayload = payload;
+        return null;
       });
 
       const draft = {

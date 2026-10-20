@@ -11,6 +11,9 @@ vi.mock('../../../../core/data', () => ({
     saveSummary: vi.fn().mockResolvedValue(undefined),
     saveEmbedding: vi.fn().mockResolvedValue(undefined),
     saveLocalStoreRecord: vi.fn().mockResolvedValue(undefined),
+    // S0-1: выгрузка скаляра — условная запись; облако пусто, база null.
+    saveLocalStoreRecordIfUnstamped: vi.fn().mockResolvedValue({ written: true, stampedAt: null }),
+    getLocalStoreRecord: vi.fn().mockResolvedValue(null),
     deleteLocalStoreRecord: vi.fn().mockResolvedValue(undefined),
   },
 }));
@@ -69,7 +72,7 @@ describe('SEC-6: AIDerivedDataSyncService cloud backfill pass', () => {
 
     expect(DataProvider.saveSummary).toHaveBeenCalledTimes(1);
     expect(DataProvider.saveEmbedding).toHaveBeenCalledTimes(1);
-    expect(DataProvider.saveLocalStoreRecord).toHaveBeenCalledTimes(1);
+    expect(DataProvider.saveLocalStoreRecordIfUnstamped).toHaveBeenCalledTimes(1);
   });
 
   it('is idempotent: running twice does not throw and maintains consistency', async () => {
@@ -118,6 +121,7 @@ describe('SEC-6: AIDerivedDataSyncService cloud backfill pass', () => {
     expect(DataProvider.saveSummary).not.toHaveBeenCalled();
     expect(DataProvider.saveEmbedding).not.toHaveBeenCalled();
     expect(DataProvider.saveLocalStoreRecord).not.toHaveBeenCalled();
+    expect(DataProvider.saveLocalStoreRecordIfUnstamped).not.toHaveBeenCalled();
   });
 
   // Проход прерывается на середине штатно: сейф может закрыться по бездействию,

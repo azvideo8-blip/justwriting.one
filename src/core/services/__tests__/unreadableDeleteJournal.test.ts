@@ -10,7 +10,8 @@ import { getLocalDb } from '../../storage/localDb';
 import { reportError } from '../../../shared/errors/reportError';
 
 const USER = 'u_a5_journal';
-const DELETES_KEY = 'ai_sync_pending_deletes';
+// S0-2 (F-3): журнал на ключе учётки.
+const DELETES_KEY = 'ai_sync_pending_deletes:u_a5_journal';
 // Строка, написанная другой версией приложения: readPersistedDeletes не может её
 // разобрать и обязан вернуть «неизвестно», а не пустой список.
 const CORRUPT = '{обрывок без закрывающей скобки';

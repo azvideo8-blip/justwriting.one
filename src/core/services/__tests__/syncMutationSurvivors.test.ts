@@ -363,6 +363,8 @@ describe('CloudSyncService (csc-*)', () => {
     await db.put('versions', { id: 'v2', documentId: 'd_csc14', guestId: USER, version: 2, content: 'Text 2', wordCount: 1, duration: 1, wpm: 1, sessionStartedAt: new Date(), savedAt: new Date() } as never);
 
     vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue({ id: 'cloud_csc14', currentVersion: 1 } as never);
+    // S0-4: после принятой записи движок перечитывает живой облачный ряд.
+    vi.spyOn(DocumentService, 'getDocument').mockResolvedValue({ id: 'cloud_csc14', currentVersion: 1 } as never);
     vi.spyOn(VersionService, 'getVersions').mockResolvedValue([
       { id: 'cv1', version: 1, content: 'Text 1' } as never,
     ]);

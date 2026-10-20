@@ -47,7 +47,9 @@ describe('R4-004: corrupt journals are not overwritten by writers', { timeout: 3
   beforeEach(async () => {
     localStorage.clear();
     vi.clearAllMocks();
-    save = vi.spyOn(DataProvider, 'saveLocalStoreRecord').mockReset().mockResolvedValue(undefined as never);
+    save = vi.spyOn(DataProvider, 'saveLocalStoreRecordIfUnstamped').mockReset().mockResolvedValue({ written: true, stampedAt: null } as never);
+    // S0-1: базовая отметка не запомнена — выгрузка перечитывает облако; здесь его нет.
+    vi.spyOn(DataProvider, 'getLocalStoreRecord').mockReset().mockResolvedValue(null as never);
     // S-34: диалог перед выгрузкой читает облачную строку; здесь облако пусто.
     vi.spyOn(DataProvider, 'getLocalStoreRecord').mockResolvedValue(null);
     vi.spyOn(DataProvider as Required<typeof DataProvider>, 'getLocalStoreRecordPages').mockResolvedValue([]);

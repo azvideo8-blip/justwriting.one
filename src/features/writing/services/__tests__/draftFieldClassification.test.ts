@@ -27,8 +27,9 @@ describe('LIFE-2: Draft tags encryption & field classification', () => {
     setProfileLoaded(userId, true);
 
     let savedPayload: Record<string, unknown> | null = null;
-    vi.spyOn(DataProvider, 'saveDraft').mockImplementation(async (_uid, payload) => {
+    vi.spyOn(DataProvider, "saveDraft").mockImplementation(async (_uid, payload) => {
       savedPayload = payload;
+      return null;
     });
 
     const draft = {

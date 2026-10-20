@@ -74,12 +74,15 @@ describe('DocumentService', () => {
       expect(doc).toBeNull();
     });
 
-    it('returns null for corrupted doc', async () => {
+    // S0-5: провал разбора — ошибка, а не «строки нет». Null здесь читался
+    // вызывающим как «облачного ряда нет», и addCloudCopy заводил второй
+    // документ поверх живого (класс A).
+    it('throws UnreadableCloudRowError for corrupted doc', async () => {
       vi.mocked(DataProvider.getDocument).mockResolvedValue({
         id: 'doc_corrupted', title: 'Test', currentVersion: 'invalid' as unknown as number, totalWords: 10, totalDuration: 10, sessionsCount: 1, firstSessionAt: 1000, lastSessionAt: 2000, tags: [], labelId: null
       });
-      const doc = await DocumentService.getDocument('u1', 'doc_corrupted');
-      expect(doc).toBeNull();
+      await expect(DocumentService.getDocument('u1', 'doc_corrupted'))
+        .rejects.toThrow(/UNREADABLE_CLOUD_ROW/);
     });
   });
 
@@ -155,7 +158,7 @@ describe('DocumentService', () => {
 
   describe('update functions', () => {
     it('updateDocumentAfterSession calls updateDocumentSessionStats', async () => {
-      vi.mocked(DataProvider.updateDocumentSessionStats).mockResolvedValue();
+      vi.mocked(DataProvider.updateDocumentSessionStats).mockResolvedValue(null);
       await DocumentService.updateDocumentAfterSession('u1', 'doc1', { totalWords: 10, durationDelta: 10, currentVersion: 1 });
       expect(DataProvider.updateDocumentSessionStats).toHaveBeenCalledWith('u1', 'doc1', { totalWords: 10, durationDelta: 10, currentVersion: 1, mood: null });
     });

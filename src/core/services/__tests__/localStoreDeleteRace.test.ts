@@ -46,7 +46,9 @@ describe('R4-075: scheduleStoreDelete wins over an in-flight scheduleStoreSync r
     resolveGet = null;
     nextGet = undefined;
     del = vi.spyOn(DataProvider, 'deleteLocalStoreRecord').mockReset().mockResolvedValue(undefined as never);
-    save = vi.spyOn(DataProvider, 'saveLocalStoreRecord').mockReset().mockResolvedValue(undefined as never);
+    save = vi.spyOn(DataProvider, 'saveLocalStoreRecordIfUnstamped').mockReset().mockResolvedValue({ written: true, stampedAt: null } as never);
+    // S0-1: базовая отметка не запомнена — выгрузка перечитывает облако; здесь его нет.
+    vi.spyOn(DataProvider, 'getLocalStoreRecord').mockReset().mockResolvedValue(null as never);
   });
 
   it('a delete landing between the read and resolve survives as a delete', async () => {
@@ -84,7 +86,9 @@ describe('M-10: a flush inside the read window does not drop the re-created reco
 
   it('re-created record after delete reaches the cloud', async () => {
     const del = vi.spyOn(DataProvider, 'deleteLocalStoreRecord').mockReset().mockResolvedValue(undefined as never);
-    const save = vi.spyOn(DataProvider, 'saveLocalStoreRecord').mockReset().mockResolvedValue(undefined as never);
+    const save = vi.spyOn(DataProvider, 'saveLocalStoreRecordIfUnstamped').mockReset().mockResolvedValue({ written: true, stampedAt: null } as never);
+    // S0-1: базовая отметка не запомнена — выгрузка перечитывает облако; здесь его нет.
+    vi.spyOn(DataProvider, 'getLocalStoreRecord').mockReset().mockResolvedValue(null as never);
     if (DataProvider.deleteLocalStorePagedRecords) vi.spyOn(DataProvider, 'deleteLocalStorePagedRecords').mockReset().mockResolvedValue(undefined as never);
     const tab = new LocalStoreSyncManager();
     tab.scheduleStoreDelete('aiPortrait', 'p1');
@@ -100,7 +104,7 @@ describe('M-10: a flush inside the read window does not drop the re-created reco
     expect(getPendingStoreUpserts(USER)).toEqual([{ uid: USER, store: 'aiPortrait', key: 'p1' }]);
     expect(getLocalStoreSyncSummary(USER).pending).toBe(1);
     await tab.flushPending(true);
-    expect(save).toHaveBeenCalledWith(USER, 'aiPortrait', 'p1', expect.anything());
+    expect(save).toHaveBeenCalledWith(USER, 'aiPortrait', 'p1', expect.anything(), null);
     expect(getLocalStoreSyncSummary(USER).pending).toBe(0);
   });
 });

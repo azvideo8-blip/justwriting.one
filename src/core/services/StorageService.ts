@@ -2,7 +2,7 @@ import { withDocumentLock, LOCK_TTL_MS } from '../sync/withDocumentLock';
 import { getLocalDb } from '../storage/localDb';
 import { LocalStorageService } from './LocalStorageService';
 import { LocalDocumentService } from './LocalDocumentService';
-import { DocumentService } from './DocumentService';
+import { DocumentService, UnreadableCloudRowError } from './DocumentService';
 import { CloudSyncService } from './CloudSyncService';
 import { ProfileUpdater } from './ProfileUpdater';
 import { SaveDocumentData, StorageState } from './storageTypes';
@@ -227,7 +227,14 @@ export const StorageService = {
   async getStorageState(userId: string, localId?: string, cloudId?: string): Promise<StorageState> {
     const [localExists, cloudExists] = await Promise.all([
       localId ? LocalStorageService.getDocument(localId, userId).then(d => !!d) : Promise.resolve(false),
-      cloudId ? CloudSyncService.getDocument(userId, cloudId).then(d => !!d) : Promise.resolve(false),
+      // S0-5: ряд, который не разобрался, — это «ряд есть». Для плашки
+      // «в облаке» это true: строка живёт на сервере, мы её просто не прочли.
+      // Прочие ошибки (сеть, сейф) не глушим — статус обязан их показать.
+      cloudId
+        ? CloudSyncService.getDocument(userId, cloudId)
+            .then(d => d !== null)
+            .catch(e => (e instanceof UnreadableCloudRowError ? true : Promise.reject(e)))
+        : Promise.resolve(false),
     ]);
     return { local: localExists, cloud: cloudExists };
   },

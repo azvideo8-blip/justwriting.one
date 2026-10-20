@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.5 — 2026-10-20
+
+- **[RU]** Синхронизация надёжнее: правка ИИ-данных больше не затирает чужую, очереди отправки у каждого аккаунта свои, а заметка, которая не прочиталась из облака, не считается удалённой.
+- **[EN]** Sync is more reliable: an AI data edit no longer overwrites someone else's, each account has its own upload queue, and a note that could not be read from the cloud is no longer treated as deleted.
+- **[RU]** Черновик не теряет набранный текст при плохой сети и не воскресает после удаления.
+- **[EN]** A draft no longer loses typed text on a bad network and does not come back after being deleted.
+
 ## 0.10.4 — 2026-10-20
 
 - **[RU]** Заметка, скрытая от ИИ, больше не попадает к нему окольными путями: через месячные пересказы, грани профиля и портрет, старые ответы и память диалога, подсказки следующего вопроса.

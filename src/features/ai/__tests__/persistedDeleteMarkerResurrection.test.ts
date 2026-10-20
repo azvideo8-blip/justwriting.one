@@ -33,7 +33,8 @@ describe('A-1 (R2-003): a record that exists again drops its persisted delete ma
     const db = await getLocalDb();
     await db.clear('aiPortrait');
     await db.put('aiPortrait' as never, { id: 'p1', portrait: '# восстановленный разбор', updatedAt: 1000, generatedAtDelta: 0 } as never);
-    vi.spyOn(DataProvider, 'saveLocalStoreRecord').mockReset().mockResolvedValue(undefined as never);
+    vi.spyOn(DataProvider, 'saveLocalStoreRecordIfUnstamped').mockReset().mockResolvedValue({ written: true, stampedAt: null } as never);
+    vi.spyOn(DataProvider, 'getLocalStoreRecord').mockReset().mockResolvedValue(null as never);
     // T-8: «Отправить всё» читает серверные отметки — облака здесь нет.
     vi.spyOn(DataProvider, 'getLocalStoreStamps').mockResolvedValue([]);
     if (DataProvider.deleteLocalStorePagedRecords) {
@@ -58,7 +59,7 @@ describe('A-1 (R2-003): a record that exists again drops its persisted delete ma
 
     expect(DataProvider.deleteLocalStoreRecord, 'живая запись не должна быть удалена в облаке')
       .not.toHaveBeenCalledWith(USER, 'aiPortrait', 'p1');
-    expect(DataProvider.saveLocalStoreRecord).toHaveBeenCalledWith(USER, 'aiPortrait', 'p1', expect.anything());
+    expect(DataProvider.saveLocalStoreRecordIfUnstamped).toHaveBeenCalledWith(USER, 'aiPortrait', 'p1', expect.anything(), null);
     expect(getPendingStoreDeleteKeys(USER)?.size).toBe(0);
     expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 0, dead: 0, oversized: 0, unknown: false });
   });

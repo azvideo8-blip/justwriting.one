@@ -683,6 +683,26 @@ export class FaultInterceptor {
 
           if (this.onRequest) await this.onRequest(table);
 
+          // SF2-4: запись с `.select()` (return=representation) обязана отдавать то
+          // же, что PostgREST: запрошенные колонки, а при `maybeSingle`/`single` —
+          // `null`, если ни одна строка не задерована. Без этой ветки харнес врал:
+          // `.update(...).select('stamped_at').maybeSingle()` при нуле строк
+          // возвращал `[]`, и CAS скаляра читался как «строка принята»
+          // (`written: true`) — ровно тот класс, где «нет строк» читают как «данные
+          // есть». На нём в стенде неживой оказывался переход «страницы → одна
+          // строка» (SF-4): запись выходила из облака вместе со страницами.
+          const writeCols = op === 'select' ? null : selectCols;
+          if (writeCols) {
+            const rows = (result.data as Record<string, unknown>[] | null) ?? [];
+            const projected = rows.map(r => Object.fromEntries(writeCols.map(c => [c, r[c]])));
+            result = {
+              data: (isSingle || isMaybeSingle)
+                ? (projected.length > 0 ? projected[0]! : null)
+                : projected,
+              error: result.error,
+            };
+          }
+
           // 3. Phantom Write (network_post & network_mid):
           // Write succeeded in Postgres, BUT network drops before client gets ACK.
           // Запись уже прошла — сбой изменил исход доставки ACK: считать пожар.

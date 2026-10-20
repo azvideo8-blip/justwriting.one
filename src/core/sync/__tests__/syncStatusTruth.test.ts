@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { configure, renderHook, waitFor } from '@testing-library/react';
+
+// Мелочи раунда 2: `waitFor` ждёт по условию, но бюджет по умолчанию — 1 с, и
+// под нагрузкой полного прогона первый опрос синка в него не успевает
+// («sync_off» = «ещё не знаем»). Условие то же, времени больше.
+configure({ asyncUtilTimeout: 5_000 });
 
 /**
  * Состояние синхронизации обязано говорить правду.

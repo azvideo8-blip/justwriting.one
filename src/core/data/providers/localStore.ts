@@ -1,5 +1,5 @@
 import { getSupabase } from '../../supabase/client';
-import { ProviderRecord, LocalStoreRecordRow } from '../types';
+import { ProviderRecord, LocalStoreRecordRow, ConditionalScalarWrite } from '../types';
 import { likeGlob, likePrefix } from './fields';
 import { pageAll, ownRows, ownRow } from './pageAll';
 
@@ -74,6 +74,66 @@ export async function saveLocalStoreRecordIfUnchanged(
     .select('key');
   if (error != null) throw error;
   return Array.isArray(data) && data.length === 1;
+}
+
+/**
+ * S0-1 (F-1): запись скалярной строки с условием на СЕРВЕРНУЮ отметку той
+ * версии, от которой получена локальная копия. Слепой `upsert` всего ряда
+ * тихо стирал правку второго устройства: здесь ряд не принимается, если с
+ * момента нашей базы его кто-то переставлял (триггер `0037` делает это на
+ * любом insert/update), — вызывающий перечитывает облако и решает спор.
+ *
+ * Почему не буквальное `.eq('stamped_at', iso)` из тикета: `stamped_at` —
+ * `timestamptz` с микросекундами, а локальная база хранит миллисекунды
+ * (`parseStampedAt` округляет вниз). Точное равенство усечённым литералом не
+ * совпало бы ни с одной реальной строкой, и CAS отваливал бы каждую выгрузку.
+ *
+ * SF-6: окно — ОТ ТОЙ ЖЕ МИЛЛИСЕКУНДЫ И ДО НЕЙ ВКЛЮЧИТЕЛЬНО
+ * (`.gte(база).lt(база+1мс)`), а не только верхняя граница. Один `lt` пропускал и
+ * ряд СТАРШЕ базы: серверные часы отвели назад, или транзакция, начатая раньше,
+ * закоммитилась позже — и условная запись перетирала версию, которой устройство не
+ * видело, ровно тем жестом, который должен был этого запретить.
+ * Ложных отказов не добавилось: строка, принятая в той же миллисекунде, что и наша
+ * усечённая база, по-прежнему проходит (`>=` ей выполняется).
+ */
+export async function saveLocalStoreRecordIfUnstamped(
+  userId: string,
+  store: string,
+  key: string,
+  payload: ProviderRecord,
+  baseStampedAt: number | null,
+): Promise<ConditionalScalarWrite> {
+  if (baseStampedAt === null) {
+    // Базы нет: строки в облаке не было. insert вместо upsert — кто-то успел
+    // создать ряд, это 23505 (конфликт), а не «перезаписать чужое».
+    const { data, error } = await getSupabase()
+      .from('local_store_records')
+      .insert({ user_id: userId, store, key, payload, checksum: null })
+      .select('stamped_at')
+      .maybeSingle();
+    if (error != null) {
+      if ((error as { code?: string }).code === '23505') return { written: false };
+      throw error;
+    }
+    return { written: true, stampedAt: parseStampedAt((data as Record<string, unknown> | null)?.stamped_at) ?? null };
+  }
+  /*gate:clock-rule*/
+  // Участок правила спора копий: здесь запрещено читать часы устройства
+// (`Date.now()`, `new Date()` без аргумента). Гейт — src/test/syncRuleGates.s06.test.ts (S0-6).
+  const { data, error } = await getSupabase()
+    .from('local_store_records')
+    .update({ payload, checksum: null })
+    .eq('user_id', userId)
+    .eq('store', store)
+    .eq('key', key)
+    .gte('stamped_at', new Date(baseStampedAt).toISOString())
+    .lt('stamped_at', new Date(baseStampedAt + 1).toISOString())
+  /*endgate:clock-rule*/
+    .select('stamped_at')
+    .maybeSingle();
+  if (error != null) throw error;
+  if (data == null) return { written: false };
+  return { written: true, stampedAt: parseStampedAt((data as Record<string, unknown>).stamped_at) ?? null };
 }
 
 /** Страницы одной версии записи `key#N` — одним запросом. Upsert массивом — это

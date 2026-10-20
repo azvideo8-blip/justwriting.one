@@ -9,7 +9,8 @@ import { getLocalDb } from '../../storage/localDb';
 import { reportError } from '../../../shared/errors/reportError';
 
 const USER = 'u_f2_journal';
-const DELETES_KEY = 'ai_sync_pending_deletes';
+// S0-2 (F-3): журнал — на ключ учётки; общий ключ прежней формы больше не читается.
+const DELETES_KEY = 'ai_sync_pending_deletes:u_f2_journal';
 
 vi.mock('../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../sync/cloudSyncEnabled', () => ({ cloudSyncEnabled: () => true }));
@@ -31,7 +32,9 @@ describe('F-2: a corrupt delete journal heals instead of stopping uploads foreve
     const db = await getLocalDb();
     await db.clear('aiPortrait');
     await db.put('aiPortrait' as never, { id: 'p1', portrait: '# x', updatedAt: 1000, generatedAtDelta: 0 } as never);
-    vi.spyOn(DataProvider, 'saveLocalStoreRecord').mockReset().mockResolvedValue(undefined as never);
+    vi.spyOn(DataProvider, 'saveLocalStoreRecordIfUnstamped').mockReset().mockResolvedValue({ written: true, stampedAt: null } as never);
+    // S0-1: скаляр без запомненной базы перечитывает облако — здесь его нет.
+    vi.spyOn(DataProvider, 'getLocalStoreRecord').mockReset().mockResolvedValue(null as never);
     if (DataProvider.deleteLocalStorePagedRecords) {
       vi.spyOn(DataProvider, 'deleteLocalStorePagedRecords').mockReset().mockResolvedValue(undefined as never);
     }
@@ -51,7 +54,7 @@ describe('F-2: a corrupt delete journal heals instead of stopping uploads foreve
     // First drain: no upsert, backup key holds the raw string, journal is [], one reportError
     const res1 = await tab.flushPending(true);
     expect(res1.synced).toBe(0);
-    expect(DataProvider.saveLocalStoreRecord).not.toHaveBeenCalled();
+    expect(DataProvider.saveLocalStoreRecordIfUnstamped).not.toHaveBeenCalled();
 
     // Verify backup key holds the raw string
     const backupKeys = Object.keys(localStorage).filter(k => k.startsWith('ai_sync_pending_deletes.corrupt.'));
@@ -78,7 +81,7 @@ describe('F-2: a corrupt delete journal heals instead of stopping uploads foreve
     // Second drain: the upsert goes out, no new reportError
     const res2 = await tab.flushPending(true);
     expect(res2.synced).toBe(1);
-    expect(DataProvider.saveLocalStoreRecord).toHaveBeenCalledWith(USER, 'aiPortrait', 'p1', expect.anything());
+    expect(DataProvider.saveLocalStoreRecordIfUnstamped).toHaveBeenCalledWith(USER, 'aiPortrait', 'p1', expect.anything(), null);
 
     // No new reportError
     expect(reportError).toHaveBeenCalledTimes(1);
@@ -126,21 +129,26 @@ describe('F-2: a corrupt delete journal heals instead of stopping uploads foreve
     // Drain 1
     const r1 = await tab.flushPending(true);
     expect(r1.synced).toBe(0);
-    expect(DataProvider.saveLocalStoreRecord).not.toHaveBeenCalled();
+    expect(DataProvider.saveLocalStoreRecordIfUnstamped).not.toHaveBeenCalled();
 
     // Drain 2
     const r2 = await tab.flushPending(true);
     expect(r2.synced).toBe(0);
-    expect(DataProvider.saveLocalStoreRecord).not.toHaveBeenCalled();
+    expect(DataProvider.saveLocalStoreRecordIfUnstamped).not.toHaveBeenCalled();
 
     // Drain 3
     const r3 = await tab.flushPending(true);
     expect(r3.synced).toBe(0);
-    expect(DataProvider.saveLocalStoreRecord).not.toHaveBeenCalled();
+    expect(DataProvider.saveLocalStoreRecordIfUnstamped).not.toHaveBeenCalled();
 
-    // Ровно один отчёт на каждый журнал за загрузку страницы (R4-004 добавил
-    // второй журнал — oversized; повторов между дренами по-прежнему нет).
-    expect(reportError).toHaveBeenCalledTimes(2);
+    // Ровно один отчёт на каждый журнал за загрузку страницы: удалений, oversized
+    // и — с S0-2 — правок (нечитаемый журнал upsert'ов больше не «пусто»).
+    expect(reportError).toHaveBeenCalledTimes(3);
+    expect(reportError).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ action: 'readPersistedUpserts' }),
+      'warning',
+    );
     expect(reportError).toHaveBeenCalledWith(
       expect.any(Error),
       expect.objectContaining({ action: 'flushPending_deleteJournalUnknown', userId: USER }),

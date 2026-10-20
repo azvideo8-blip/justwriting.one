@@ -106,7 +106,33 @@ const SEALED_ARRAYS = ['tags'];
  * сейфа и не дошла до миграции), остальные её поля шифруются этим же запросом.
  * На обычной, уже зашифрованной строке это по-прежнему один запрос.
  */
-async function writeDocumentPatch(userId: string, documentId: string, payload: Record<string, unknown>): Promise<void> {
+/** Метка ряда из ответа на СОБСТВЕННУЮ запись (SF-7). `null` — ответа нет. */
+function serverStampOf(rows: unknown): number | null {
+  const first = Array.isArray(rows) ? rows[0] : rows;
+  const raw = (first as Record<string, unknown> | null | undefined)?.updated_at;
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+  if (typeof raw === 'string') {
+    const ms = Date.parse(raw);
+    return Number.isFinite(ms) ? ms : null;
+  }
+  return null;
+}
+
+/**
+ * Правка строки `documents`.
+ *
+ * SF-7: `returnStamp` — попросить сервер отдать `updated_at` принятой строки.
+ * Просит тот, кто собирается запомнить «до какой облачной версии этот ряд
+ * выгружен»: перечитывание ряда после записи ловит в этом окне чужую запись.
+ * Без просьбы запрос остаётся ровно таким, каким был (лишние байты в ответе на
+ * каждое сохранение метаданных не нужны).
+ */
+async function writeDocumentPatch(
+  userId: string,
+  documentId: string,
+  payload: Record<string, unknown>,
+  returnStamp = false,
+): Promise<number | null> {
   const update = (patch: Record<string, unknown>) => getSupabase()
     .from('documents')
     .update(patch)
@@ -115,18 +141,25 @@ async function writeDocumentPatch(userId: string, documentId: string, payload: R
     .is('deleted_at', null);
 
   if (payload._encrypted !== true) {
-    const { error } = await update(payload);
+    if (!returnStamp) {
+      const { error } = await update(payload);
+      if (error != null) throw error;
+      return null;
+    }
+    const { data, error } = await update(payload).select('updated_at');
     if (error != null) throw error;
-    return;
+    return serverStampOf(data);
   }
 
-  const { data: touched, error } = await update(payload).eq('_encrypted', true).select('uuid');
+  const { data: touched, error } = await update(payload)
+    .eq('_encrypted', true)
+    .select(returnStamp ? 'uuid,updated_at' : 'uuid');
   if (error != null) throw error;
-  if (touched != null && touched.length > 0) return;
+  if (touched != null && touched.length > 0) return serverStampOf(touched);
 
   const row = await getDocument(userId, documentId);
   // Строки нет или это надгробие: правка, как и раньше, ни во что не попадает.
-  if (!row) return;
+  if (!row) return null;
 
   let patch = payload;
   if (row._encrypted !== true) {
@@ -137,8 +170,14 @@ async function writeDocumentPatch(userId: string, documentId: string, payload: R
     // required = true: открытым текстом остаток не уйдёт ни при каком раскладе.
     patch = { ...toDb(DOCUMENT_FIELDS, await maybeEncrypt(rest, SEALED_STRINGS, SEALED_ARRAYS, true)), ...payload };
   }
-  const { error: sealError } = await update(patch);
+  if (!returnStamp) {
+    const { error: sealError } = await update(patch);
+    if (sealError != null) throw sealError;
+    return null;
+  }
+  const { data: sealed, error: sealError } = await update(patch).select('updated_at');
   if (sealError != null) throw sealError;
+  return serverStampOf(sealed);
 }
 
 export async function updateDocument(userId: string, documentId: string, data: ProviderRecord): Promise<void> {
@@ -167,7 +206,7 @@ export async function updateDocumentSessionStats(
     sessionsDelta?: number;
     lastSessionAt?: Date;
   }
-): Promise<void> {
+): Promise<number | null> {
   const delta = Math.max(0, stats.sessionsDelta ?? 1);
   if (delta > 0) {
     // Атомарно в БД (0020): две вкладки или два устройства больше не
@@ -200,7 +239,7 @@ export async function updateDocumentSessionStats(
   delete payload.id;
   delete payload.uuid;
   delete payload.user_id;
-  await writeDocumentPatch(userId, documentId, payload);
+  return writeDocumentPatch(userId, documentId, payload, true);
 }
 
 export async function deleteDocument(userId: string, documentId: string): Promise<void> {

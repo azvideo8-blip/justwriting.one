@@ -17,6 +17,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.10.5',
+    date: '2026-10-20',
+    items: [
+      { category: 'fix', ru: 'Синхронизация надёжнее: правка ИИ-данных больше не затирает чужую, очереди отправки у каждого аккаунта свои, а заметка, которая не прочиталась из облака, не считается удалённой.', en: 'Sync is more reliable: an AI data edit no longer overwrites someone else\'s, each account has its own upload queue, and a note that could not be read from the cloud is no longer treated as deleted.' },
+      { category: 'fix', ru: 'Черновик не теряет набранный текст при плохой сети и не воскресает после удаления.', en: 'A draft no longer loses typed text on a bad network and does not come back after being deleted.' },
+    ],
+    announce: false,
+  },
+  {
     version: '0.10.4',
     date: '2026-10-20',
     items: [

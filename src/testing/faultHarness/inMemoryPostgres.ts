@@ -38,7 +38,11 @@ const TABLE_COLUMNS: Record<TableName, readonly string[]> = {
   users: ['id', 'uid', 'email', 'encryption_meta', 'created_at'],
   ai_summaries: ['id', 'document_id', 'user_id', 'summary', 'created_at'],
   ai_embeddings: ['id', 'document_id', 'user_id', 'dim', 'created_at'],
-  local_store_records: ['id', 'user_id', 'store', 'key', 'payload', 'created_at', 'updated_at'],
+  // SF2-4 (перенос S0-7): `stamped_at` — серверная метка ряда из миграции 0037.
+  // Без неё стенд не видел ни CAS скалярной выгрузки, ни инкрементального забора
+  // ИИ-данных: оба решаются отметкой сервера, и на голых `updated_at` харнес
+  // молчал там, где прод отказывает.
+  local_store_records: ['id', 'user_id', 'store', 'key', 'payload', 'checksum', 'created_at', 'updated_at', 'stamped_at'],
 };
 
 // R4-029: уникальные кортежи — по реальной схеме (0001_schema.sql,
@@ -60,6 +64,9 @@ const UNIQUE_TUPLES: Partial<Record<TupleTable, (row: PostgresRow) => string>> =
   ai_embeddings: r => `emb:${r.user_id}:${r.document_id}`,
   local_store_records: r => `lsr:${r.user_id}:${r.store ?? r.store_name}:${r.key ?? r.record_key}`,
 };
+
+/** Серверная метка прода — строка ISO-8601 (`timestamptz`), её и сравниваем. */
+const ISO_STAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
 
 function duplicateError(table: TableName) {
   return {
@@ -147,6 +154,19 @@ export class InMemoryPostgres {
     return new Date(this.lastStamp).toISOString();
   }
 
+  /**
+   * SF2-4: триггер 0037 для `local_store_records` — серверная метка ряда на
+   * ЛЮБОМ insert/update, и клиент её не задаёт. Без неё на стенде не живут ни
+   * CAS скалярной выгрузки, ни инкрементальный забор ИИ-данных: оба решаются
+   * отметкой сервера. Для `documents` — прежний `updated_at` (0028).
+   */
+  private applyServerStamp(table: TableName, row: PostgresRow): void {
+    if (table !== 'local_store_records') return;
+    const s = this.stamp();
+    row.stamped_at = s;
+    row.updated_at = s;
+  }
+
   public executeInsert(
     table: TableName,
     payload: PostgresRow | PostgresRow[]
@@ -160,6 +180,7 @@ export class InMemoryPostgres {
       if (!row.id) row.id = this.nextId(table);
       if (!row.created_at) row.created_at = new Date().toISOString();
       if (table === 'documents' && !row.updated_at) row.updated_at = this.stamp();
+      this.applyServerStamp(table, row);
 
       // Уникальный кортеж (R4-029): enforced на insert так же, как на upsert.
       const tupleFn = UNIQUE_TUPLES[table];
@@ -199,10 +220,13 @@ export class InMemoryPostgres {
       }
 
       if (matchIndex >= 0) {
-        current[matchIndex] = { ...current[matchIndex], ...row, ...(table === 'documents' ? { updated_at: this.stamp() } : {}) };
+        const merged = { ...current[matchIndex], ...row, ...(table === 'documents' ? { updated_at: this.stamp() } : {}) };
+        this.applyServerStamp(table, merged);
+        current[matchIndex] = merged;
         upserted.push(current[matchIndex]!);
       } else {
         if (table === 'documents' && !row.updated_at) row.updated_at = this.stamp();
+        this.applyServerStamp(table, row);
         current.push(row);
         upserted.push(row);
       }
@@ -222,7 +246,9 @@ export class InMemoryPostgres {
 
     for (let i = 0; i < current.length; i++) {
       if (this.matchesFilters(current[i]!, filters)) {
-        current[i] = { ...current[i], ...payload, ...(table === 'documents' ? { updated_at: this.stamp() } : {}) };
+        const merged = { ...current[i], ...payload, ...(table === 'documents' ? { updated_at: this.stamp() } : {}) };
+        this.applyServerStamp(table, merged);
+        current[i] = merged;
         updated.push(current[i]!);
       }
     }
@@ -289,6 +315,26 @@ export class InMemoryPostgres {
     return { data: rows.map(r => ({ ...r })), error: null };
   }
 
+  /**
+   * SF2-4: порядковое сравнение для фильтров `gt/gte/lt/lte`. Числа — как раньше.
+   * Серверные метки (`stamped_at`, `updated_at`) прод отдаёт строками ISO-8601, а
+   * провайдер ставит условие тоже ISO-строкой: без этой ветки CAS скаляра и
+   * инкрементальный забор ИИ-данных на стенде не срабатывали бы вовсе.
+   * Строка-курсор (например `document_id` у эмбеддингов) под ISO не попадает и
+   * остаётся несравнимой — как было.
+   */
+  private compareRange(val: unknown, filterValue: unknown): number | null {
+    if (typeof val === 'number' && typeof filterValue === 'number') {
+      return val === filterValue ? 0 : val < filterValue ? -1 : 1;
+    }
+    if (typeof val === 'string' && typeof filterValue === 'string' && ISO_STAMP.test(val) && ISO_STAMP.test(filterValue)) {
+      const a = Date.parse(val);
+      const b = Date.parse(filterValue);
+      if (Number.isFinite(a) && Number.isFinite(b)) return a === b ? 0 : a < b ? -1 : 1;
+    }
+    return null;
+  }
+
   public matchesFilters(row: PostgresRow, filters: QueryFilter[]): boolean {
     for (const f of filters) {
       const val = row[f.column];
@@ -314,16 +360,16 @@ export class InMemoryPostgres {
           }
           break;
         case 'gt':
-          if (typeof val !== 'number' || val <= (f.value as number)) return false;
+          { const c = this.compareRange(val, f.value); if (c === null || c <= 0) return false; }
           break;
         case 'gte':
-          if (typeof val !== 'number' || val < (f.value as number)) return false;
+          { const c = this.compareRange(val, f.value); if (c === null || c < 0) return false; }
           break;
         case 'lt':
-          if (typeof val !== 'number' || val >= (f.value as number)) return false;
+          { const c = this.compareRange(val, f.value); if (c === null || c >= 0) return false; }
           break;
         case 'lte':
-          if (typeof val !== 'number' || val > (f.value as number)) return false;
+          { const c = this.compareRange(val, f.value); if (c === null || c > 0) return false; }
           break;
         case 'like': {
           const str = String(val ?? '');

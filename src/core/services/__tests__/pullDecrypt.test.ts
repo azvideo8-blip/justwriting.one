@@ -32,6 +32,9 @@ describe('pull облачных версий в локальный стор (AUD
       { id: 'a', documentId: 'local_1', version: 1, content: 'локальный текст v1' } as never,
     ]);
     // Обе стороны уже связаны: удалённого нет, замка нет.
+    // S0-4: после принятой записи движок перечитывает живой облачный ряд —
+    vi.spyOn(DocumentService, 'getDocument').mockImplementation(async (u: string, id: string) =>
+      (await vi.mocked(DocumentService.getDocumentWithDeleted)(u, id)) as never);
     vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue({
       id: 'cloud_1', title: 'n', tags: [], totalWords: 3, totalDuration: 0,
       currentVersion: 2, sessionsCount: 2, firstSessionAt: new Date(1), lastSessionAt: new Date(2),
@@ -41,7 +44,7 @@ describe('pull облачных версий в локальный стор (AUD
     vi.spyOn(LocalStorageService, 'createDocument').mockResolvedValue('local_fork');
     // Push-путь не тестируем здесь — гасим сетевые записи.
     vi.spyOn(VersionService, 'addVersion').mockResolvedValue('cloud_ver');
-    vi.spyOn(DocumentService, 'updateDocumentAfterSession').mockResolvedValue(undefined);
+    vi.spyOn(DocumentService, 'updateDocumentAfterSession').mockResolvedValue(null);
   });
 
   afterEach(() => vi.restoreAllMocks());

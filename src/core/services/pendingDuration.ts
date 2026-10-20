@@ -1,4 +1,5 @@
 import { reportError } from '../../shared/errors/reportError';
+import { readJournal, writeJournal } from '../sync/syncJournal';
 
 /**
  * W-6: секунды, которые заметка должна облачному счётчику.
@@ -12,8 +13,11 @@ import { reportError } from '../../shared/errors/reportError';
  *
  * Форма та же, что у журналов pending-удалений (SA-1): маркер ложится на диск до
  * успеха, и пережитое закрытие вкладки не стоит потери.
+ *
+ * S0-2 (F-3): ключ — на учётку. В общем ключе одна чужая строка делала журнал
+ * нечитаемым для всего устройства, а «нечитаемо» здесь читалось как «долга нет».
  */
-const LS_KEY = 'sync_pending_duration';
+const PENDING_DURATION_BASE = 'sync_pending_duration';
 
 interface OwedEntry {
   uid: string;
@@ -23,45 +27,45 @@ interface OwedEntry {
 
 let reportedUnreadable = false;
 
-function readJournal(): OwedEntry[] {
-  let raw: string | null;
-  try { raw = localStorage.getItem(LS_KEY); } catch { return []; }
-  try {
-    const parsed: unknown = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(parsed)) throw new Error('not an array');
-    return (parsed as OwedEntry[]).filter(e =>
-      e !== null && typeof e.uid === 'string' && typeof e.docId === 'string'
-      && Number.isFinite(e.seconds) && e.seconds > 0);
-  } catch {
-    // Нечитаемый журнал = «долга нет»: худший исход — потерянные секунды, а не
-    // удвоенные. Сказать один раз за загрузку страницы.
-    if (!reportedUnreadable) {
-      reportedUnreadable = true;
-      reportError(new Error('Journal of owed session durations is unreadable — read as empty'), { action: 'readOwedDurations' }, 'warning');
-    }
-    return [];
-  }
+function isOwedRow(v: unknown): v is OwedEntry {
+  const o = v as Record<string, unknown> | null;
+  return o !== null && typeof o === 'object'
+    && typeof o.uid === 'string' && typeof o.docId === 'string'
+    && Number.isFinite(o.seconds) && Number(o.seconds) > 0;
 }
 
-function writeJournal(list: OwedEntry[]): void {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(list)); }
-  catch (e) { reportError(e, { action: 'writeOwedDurations' }, 'warning'); }
+function readJournalFor(uid: string): OwedEntry[] {
+  const res = readJournal(PENDING_DURATION_BASE, uid, isOwedRow);
+  if ('rows' in res) return res.rows;
+  // Нечитаемый журнал = «долга нет»: худший исход — потерянные секунды, а не
+  // удвоенные. Сказать один раз за загрузку страницы.
+  if (!reportedUnreadable) {
+    reportedUnreadable = true;
+    reportError(new Error('Journal of owed session durations is unreadable — read as empty'), { action: 'readOwedDurations' }, 'warning');
+  }
+  return [];
+}
+
+function writeJournalFor(uid: string, list: OwedEntry[]): void {
+  if (!writeJournal(PENDING_DURATION_BASE, uid, list)) {
+    reportError(new Error('Journal of owed session durations could not be written'), { action: 'writeOwedDurations' }, 'warning');
+  }
 }
 
 /** Записать долг рядом с уже висящим. Нули и отрицательные значения не пишутся. */
 export function oweSessionDuration(uid: string, docId: string, seconds: number): void {
   if (!uid || !docId || !Number.isFinite(seconds) || seconds <= 0) return;
-  const list = readJournal();
+  const list = readJournalFor(uid);
   const entry = list.find(e => e.uid === uid && e.docId === docId);
   if (entry) entry.seconds += seconds;
   else list.push({ uid, docId, seconds });
-  writeJournal(list);
+  writeJournalFor(uid, list);
 }
 
 /** Сколько секунд заметка должна облаку прямо сейчас. */
 export function owedSessionDuration(uid: string, docId: string): number {
   if (!uid || !docId) return 0;
-  return readJournal().find(e => e.uid === uid && e.docId === docId)?.seconds ?? 0;
+  return readJournalFor(uid).find(e => e.uid === uid && e.docId === docId)?.seconds ?? 0;
 }
 
 /**
@@ -70,10 +74,10 @@ export function owedSessionDuration(uid: string, docId: string): number {
  */
 export function settleSessionDuration(uid: string, docId: string, sent: number): void {
   if (!uid || !docId || !Number.isFinite(sent) || sent <= 0) return;
-  const list = readJournal();
+  const list = readJournalFor(uid);
   const entry = list.find(e => e.uid === uid && e.docId === docId);
   if (!entry) return;
   entry.seconds -= sent;
   if (entry.seconds <= 0) list.splice(list.indexOf(entry), 1);
-  writeJournal(list);
+  writeJournalFor(uid, list);
 }

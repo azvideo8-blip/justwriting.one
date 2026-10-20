@@ -60,12 +60,16 @@ describe('Sync cycle invariant (AUDIT-5.2)', () => {
       });
       return id;
     });
-    vi.spyOn(DocumentService, 'getDocument').mockImplementation(async (_uid, id) =>
-      (cloudDocs.get(id) ?? null) as never,
-    );
+    // S0-4: после выгрузки движок перечитывает живой ряд — серверная метка
+    // `updated_at` нужна для отметки «до какой версии выгружено».
+    vi.spyOn(DocumentService, 'getDocument').mockImplementation(async (_uid, id) => {
+      const doc = cloudDocs.get(id);
+      return (doc ? { ...doc, updatedAt: doc.updatedAt ?? new Date().toISOString() } : null) as never;
+    });
     vi.spyOn(DocumentService, 'updateDocumentAfterSession').mockImplementation(async (_uid, id, patch) => {
       const doc = cloudDocs.get(id);
       if (doc) Object.assign(doc, patch);
+      return null;
     });
     vi.spyOn(VersionService, 'getVersions').mockImplementation(async (_uid, cloudId) =>
       (cloudVersions.get(cloudId) ?? []) as never,

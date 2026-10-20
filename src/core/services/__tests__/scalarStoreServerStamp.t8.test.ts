@@ -192,7 +192,10 @@ describe('T-8: правило и служебное поле', () => {
     expect(decideScalarCopy({ ...base, pending: false, base: 1, cloudStamp: 9 })).toBe('cloud');
     expect(decideScalarCopy({ ...base, pending: false, base: 9, cloudStamp: 9 })).toBe('local');
     expect(decideScalarCopy({ ...base, pending: false, base: undefined, cloudStamp: 9, sameContent: true })).toBe('adopt');
-    expect(decideScalarCopy({ ...base, pending: false, base: undefined, cloudStamp: 9 })).toBe('local');
+    // S0-3 (F-2): нет базы, содержимое отличается, невыгруженной правки нет —
+    // облако побеждает и запоминается. Прежнее `local` сравнивало часы устройств
+    // и держало такую запись в заложниках навсегда (scalarHostageNoBase.s03).
+    expect(decideScalarCopy({ ...base, pending: false, base: undefined, cloudStamp: 9 })).toBe('cloud');
     expect(decideScalarCopy({ ...base, pending: false, base: undefined, cloudStamp: undefined, localTs: 1, cloudTs: 2 })).toBe('cloud');
   });
 

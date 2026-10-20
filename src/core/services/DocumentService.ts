@@ -6,6 +6,20 @@ import { documentDbSchema } from '../data/schemas';
 import { documentFromDb } from './mappers';
 import { maybeEncrypt, maybeDecrypt, DecryptionError } from '../crypto/cryptoHelpers';
 
+/**
+ * S0-5 (класс A): облачный ряд ЕСТЬ, но не разбирается схемой. Это не «ряда
+ * нет»: вызывающие, которые по `null` заводят второй облачный документ
+ * (`addCloudCopy:841-844 → 1157`), плодят дубли живой заметки, а третье
+ * устройство получает две копии одного текста. Провал разбора — ошибка.
+ */
+export class UnreadableCloudRowError extends Error {
+  constructor(documentId: string, kind: 'getDocument' | 'getDocumentWithDeleted') {
+    super(`UNREADABLE_CLOUD_ROW: ${kind}: document ${documentId} does not match the schema`);
+    this.name = 'UnreadableCloudRowError';
+  }
+}
+
+
 export const DocumentService = {
   async createDocument(
     userId: string,
@@ -82,7 +96,9 @@ export const DocumentService = {
     const parsed = documentDbSchema.safeParse({ id: documentId, ...docData });
     if (!parsed.success) {
       reportError(parsed.error, { action: 'getDocument_parse', docId: documentId });
-      return null;
+      // S0-5: «не разобралось» ≠ «нет». Null читался вызывающим как «облачного
+      // ряда нет», и addCloudCopy заводил второй документ поверх живого.
+      throw new UnreadableCloudRowError(documentId, 'getDocument');
     }
     return documentFromDb(parsed.data);
   },
@@ -116,7 +132,9 @@ export const DocumentService = {
     const parsed = documentDbSchema.safeParse({ id: documentId, ...docData });
     if (!parsed.success) {
       reportError(parsed.error, { action: 'getDocument_parse', docId: documentId });
-      return null;
+      // S0-5: то же для чтения вместе с надгробиями: «не разобрано» не значит
+      // «строки нет», иначе удаление заметки в облаке превращается в отсутствие.
+      throw new UnreadableCloudRowError(documentId, 'getDocumentWithDeleted');
     }
     return documentFromDb(parsed.data);
   },
@@ -205,7 +223,7 @@ export const DocumentService = {
       sessionsDelta?: number | undefined;
       lastSessionAt?: Date | undefined;
     }
-  ): Promise<void> {
+  ): Promise<number | null> {
     const payload: Parameters<typeof DataProvider.updateDocumentSessionStats>[2] = {
       totalWords: data.totalWords,
       durationDelta: data.durationDelta,
@@ -221,7 +239,7 @@ export const DocumentService = {
       if (encrypted._encrypted === true) payload.moodEncrypted = true;
     }
 
-    await DataProvider.updateDocumentSessionStats(userId, documentId, payload);
+    return DataProvider.updateDocumentSessionStats(userId, documentId, payload);
   },
 
   async updateTags(userId: string, documentId: string, tags: string[]): Promise<void> {

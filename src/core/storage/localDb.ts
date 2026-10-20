@@ -9,6 +9,26 @@ import { clearStoredSession } from '../auth/storedSession';
 // срабатывать только для баз ниже N, а не заново при каждом подъёме версии.
 export const DB_VERSION = 21;
 
+/**
+ * SF-5: сторы, чьи записи помнят серверную отметку облачной версии
+ * (`_cloudStampedAt`), от которой получена локальная копия.
+ */
+export const CLOUD_STAMP_STORES: readonly string[] = [
+  'aiPortrait',
+  'aiProfileFacets',
+  'aiDialogueEvents',
+  'aiChatMemory',
+  'lifeStory',
+  'aiThemeLedger',
+  'aiTimeline',
+  'aiBeliefs',
+  'aiBeliefRejections',
+  'aiCommitments',
+  'aiMonthlyDigest',
+  'aiThreads',
+  'aiPersonas',
+];
+
 // AUDIT-part2 4.2: скалярные поля наследуются от канонического DocumentFields
 // (shared/types) — расхождение локальной и облачной форм ловит компилятор.
 export interface LocalDocument extends DocumentFields<number> {
@@ -101,6 +121,28 @@ export interface LocalDraft {
   tags?: string[] | undefined;
   labelId?: string | undefined;
   updatedAt: number;
+  /**
+   * SF-2: серверная метка (`drafts.updated_at`, триггер 0043) той облачной версии,
+   * которую это устройство видело последней. Служебное поле прибора, в облако не
+   * едет (нет в DRAFT_CLOUD_FIELDS) — как `_cloudStampedAt` у ИИ-сторов.
+   */
+  _cloudUpdatedAt?: number | undefined;
+  /**
+   * SF2-1: хэш нагрузки, ПРИНЯТОЙ облаком последней. От него считается признак
+   * «в локальной копии есть правки, которые ещё не уехали». Служебное поле
+   * прибора, в облако не едет.
+   */
+  _cloudAckedHash?: string | undefined;
+  /**
+   * SF2-1: хэши последних ОТПРАВЛЕННЫХ в облако нагрузок, ответа на которые мы не
+   * видели (старшие в начале, потолок — `SENT_HASH_CAP` в core/sync/sentHashes).
+   * Нужны именно списком: на плохой сети подряд падают несколько сохранений, и
+   * облако может держать любое из них.
+   * Совпал ли хэш облачной строки с этим списком — единственный способ
+   * отличить «там наша запись, ответа мы не видели» от «правили на другом
+   * устройстве». Без этого признака спор черновика затирает дописанный текст.
+   */
+  _cloudSentHashes?: string[] | undefined;
 }
 
 interface PendingSession {
@@ -694,6 +736,133 @@ const dbInstances = new Map<string, IDBPDatabase<JustWritingDB>>();
 const dbOpenPromises = new Map<string, Promise<IDBPDatabase<JustWritingDB>>>();
 let dbGeneration = 0;
 
+/**
+ * Имена полей — `CLOUD_STAMP_FIELD`, `CLOUD_BASE_HASH_FIELD` и
+ * `CLOUD_SENT_HASHES_FIELD` в `LocalStoreSyncService`; здесь литералы, потому что
+ * импорт сервиса создал бы цикл (сервис получает базу отсюда). SF2-2: кроме
+ * отметки ряда переносятся и два хэша — на них держится различение «там наша же
+ * запись» и «там чужая правка», и потеря их писателем означает вечный конфликт.
+ */
+const CLOUD_SYNC_KEYS: ReadonlyArray<{ key: string; holds: (v: unknown) => boolean }> = [
+  { key: '_cloudStampedAt', holds: v => typeof v === 'number' && Number.isFinite(v) },
+  { key: '_cloudBaseHash', holds: v => typeof v === 'string' },
+  // SF3-3: след отправки — список, а не одна строка (пустой список — «не помним»,
+  // он переносится как значение, а не выкидывается как нечитаемое поле).
+  { key: '_cloudSentHashes', holds: v => Array.isArray(v) },
+];
+
+type StampStore = {
+  put(store: string, value: unknown, key?: IDBValidKey): Promise<IDBValidKey>;
+  transaction(store: string, mode: IDBTransactionMode): {
+    objectStore(name: string): {
+      keyPath: IDBObjectStore['keyPath'];
+      get(query: IDBValidKey): Promise<unknown>;
+      put(value: unknown, query?: IDBValidKey): Promise<IDBValidKey>;
+    };
+    done: Promise<void>;
+  };
+};
+
+function carriedFields(record: Record<string, unknown>) {
+  return CLOUD_SYNC_KEYS.filter(f => !f.holds(record[f.key]));
+}
+
+/**
+ * SF2-5: перенос синхронных полей скалярной строки — тем же правилом, которым
+ * живёт обёртка `db.put`. Нужен отдельным экспортом, потому что два писателя
+ * (`AIDialogueService.generateClosingSummary`, `AITimelineService.rebuildFromSummaries`)
+ * пишут внутри собственной транзакции через `tx.objectStore(...).put` и прокси
+ * до них не доходит: строка собрана заново, и серверная отметка с хэшами
+ * терялись — ровно класс F-1 (без базы выгрузка берёт ТЕКУЩИЙ штамп облака своей
+ * базой, условие проходит по построению, чужая версия пертирается молча).
+ *
+ * SF2-2: хэш базы относится к КОНКРЕТНОЙ отметке ряда — приносится только вместе
+ * с ней. Иначе запись, принёсшая штамп другой версии, получила бы чужой хэш базы,
+ * и настоящая правка второго устройства прошла бы как «наше же содержимое».
+ */
+export function carryCloudSyncFields(
+  record: Record<string, unknown>,
+  previous: Record<string, unknown> | undefined,
+): Record<string, unknown> {
+  let next: Record<string, unknown> = record;
+  const sameStamp = previous?.['_cloudStampedAt'] === (record['_cloudStampedAt'] ?? previous?.['_cloudStampedAt']);
+  for (const f of carriedFields(record)) {
+    if (f.key === '_cloudBaseHash' && !sameStamp) continue;
+    const value = previous?.[f.key];
+    if (f.holds(value)) next = { ...next, [f.key]: value };
+  }
+  return next;
+}
+
+/**
+ * SF-5: `_cloudStampedAt` — отметка той облачной версии, от которой получена
+ * локальная копия. На ней держится условная запись (CAS): без неё писатель
+ * читает облако и берёт его ТЕКУЩИЙ штамп своей базой, условие проходит по
+ * построению, и защита остаётся только в окне «чтение → запись» — то есть
+ * более новая чужая версия перетирается молча.
+ *
+ * Писатели ИИ-сторов собирают объект заново и поле теряют
+ * (`AIProfileService.savePortrait` кладёт `{ id, portrait, updatedAt,
+ * generatedAtDelta }`). Переносим отметку здесь, в единственной точке записи,
+ * а не в 30 сервисах: поле принадлежит синхронизации, а не состоянию редактора,
+ * и требовать его от каждого нового писателя — значит гарантировать новый пропуск.
+ *
+ * Ключ выводим по `keyPath` стора (у скалярных он `'id'`, у `aiTimeline` —
+ * `'documentId'`), чтение прежней записи и правка — одной транзакцией. Не сумели
+ * вывести ключ или транзакция упала — пишем как без обёртки: потеря отметки лучше
+ * потери записи.
+ */
+function putPreservingCloudStamp(
+  db: StampStore,
+  store: string,
+  value: unknown,
+  key?: IDBValidKey,
+): Promise<IDBValidKey> {
+  const plain = () => (key === undefined ? db.put(store, value) : db.put(store, value, key));
+  const record = value as Record<string, unknown> | null;
+  const plainObject = record !== null && typeof record === 'object' && !Array.isArray(record);
+  if (!CLOUD_STAMP_STORES.includes(store) || !plainObject) return plain();
+  if (carriedFields(record).length === 0) return plain();
+  return (async () => {
+    try {
+      const tx = db.transaction(store, 'readwrite');
+      const os = tx.objectStore(store);
+      // Ключ может лежать в самой строке (`keyPath: 'id'`) — тогда вызывать put с
+      // явным ключом нельзя: IndexedDB отвечает DataError. Явный ключ передаём только
+      // для сторов с внешним ключом.
+      const inline = typeof os.keyPath === 'string';
+      const derived: unknown = inline ? record[os.keyPath as string] : undefined;
+      const target: IDBValidKey | undefined = key
+        ?? (typeof derived === 'string' || typeof derived === 'number' || derived instanceof Date ? derived : undefined);
+      if (target === undefined) {
+        await tx.done;
+        return plain();
+      }
+      const prev = await os.get(target) as Record<string, unknown> | undefined;
+      const next = carryCloudSyncFields(record, prev);
+      await (inline && key === undefined ? os.put(next) : os.put(next, target));
+      await tx.done;
+      return target;
+    } catch (err) {
+      reportError(err, { action: 'putPreservingCloudStamp', store }, 'warning');
+      return plain();
+    }
+  })();
+}
+
+function withCloudStampPreservation(db: IDBPDatabase<JustWritingDB>): IDBPDatabase<JustWritingDB> {
+  return new Proxy(db, {
+    get(target, prop) {
+      if (prop === 'put') {
+        return (store: string, value: unknown, key?: IDBValidKey) =>
+          putPreservingCloudStamp(target as unknown as StampStore, store, value, key);
+      }
+      const current = Reflect.get(target, prop, target) as unknown;
+      return typeof current === 'function' ? (current as (...a: unknown[]) => unknown).bind(target) : current;
+    },
+  });
+}
+
 export function resetDbInstance(name?: string): void {
   dbGeneration++;
   if (name) {
@@ -1155,7 +1324,7 @@ export async function getLocalDb(customUid?: string): Promise<IDBPDatabase<JustW
       }
       dbOpenPromises.delete(dbName);
     },
-  });
+  }).then(withCloudStampPreservation);
 
   try {
     const db = await openPromise;

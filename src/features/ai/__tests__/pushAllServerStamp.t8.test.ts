@@ -29,13 +29,14 @@ describe('T-8: «Отправить всё» не перетирает обла�
     const db = await getLocalDb();
     await db.clear('aiPortrait');
     await db.put('aiPortrait' as never, { id: 'p1', portrait: 'старый', updatedAt: 9e12, _cloudStampedAt: 1000 } as never);
-    vi.spyOn(DataProvider, 'saveLocalStoreRecord').mockReset().mockResolvedValue(undefined as never);
+    vi.spyOn(DataProvider, 'saveLocalStoreRecordIfUnstamped').mockReset().mockResolvedValue({ written: true, stampedAt: null } as never);
+    vi.spyOn(DataProvider, 'getLocalStoreRecord').mockReset().mockResolvedValue(null as never);
     if (DataProvider.deleteLocalStorePagedRecords) {
       vi.spyOn(DataProvider, 'deleteLocalStorePagedRecords').mockReset().mockResolvedValue(undefined as never);
     }
   });
 
-  const uploaded = () => vi.mocked(DataProvider.saveLocalStoreRecord).mock.calls.some(c => c[1] === 'aiPortrait' && c[2] === 'p1');
+  const uploaded = () => vi.mocked(DataProvider.saveLocalStoreRecordIfUnstamped).mock.calls.some(c => c[1] === 'aiPortrait' && c[2] === 'p1');
 
   it('облачная версия новее — запись не выгружается', async () => {
     vi.spyOn(DataProvider, 'getLocalStoreStamps').mockResolvedValue([{ store: 'aiPortrait', key: 'p1', stamped_at: 2000 }]);
@@ -47,7 +48,7 @@ describe('T-8: «Отправить всё» не перетирает обла�
     vi.spyOn(DataProvider, 'getLocalStoreStamps').mockResolvedValue([{ store: 'aiPortrait', key: 'p1', stamped_at: 1000 }]);
     await new LocalStoreSyncManager().syncAllLocalStores(USER);
     expect(uploaded()).toBe(true);
-    const payload = vi.mocked(DataProvider.saveLocalStoreRecord).mock.calls.find(c => c[2] === 'p1')?.[3] as { data?: string };
+    const payload = vi.mocked(DataProvider.saveLocalStoreRecordIfUnstamped).mock.calls.find(c => c[2] === 'p1')?.[3] as { data?: string };
     expect(payload.data).not.toContain('_cloudStampedAt');
   });
 

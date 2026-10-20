@@ -49,6 +49,9 @@ describe('AG-CORRUPT-3: addCloudCopy ciphertext comparison guard', () => {
       sessionStartedAt: new Date(),
     });
 
+    // S0-4: после принятой записи движок перечитывает живой облачный ряд —
+    vi.spyOn(DocumentService, 'getDocument').mockImplementation(async (u: string, id: string) =>
+      (await vi.mocked(DocumentService.getDocumentWithDeleted)(u, id)) as never);
     vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue({
       id: 'cloud_corrupt_1',
       title: 'Local Note',
@@ -108,6 +111,9 @@ describe('AG-CORRUPT-3: addCloudCopy ciphertext comparison guard', () => {
       sessionStartedAt: new Date(),
     });
 
+    // S0-4: после принятой записи движок перечитывает живой облачный ряд —
+    vi.spyOn(DocumentService, 'getDocument').mockImplementation(async (u: string, id: string) =>
+      (await vi.mocked(DocumentService.getDocumentWithDeleted)(u, id)) as never);
     vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue({
       id: 'cloud_corrupt_2',
       title: 'Local Locked Note',
@@ -160,6 +166,9 @@ describe('AG-CORRUPT-3: addCloudCopy ciphertext comparison guard', () => {
       sessionStartedAt: new Date(),
     });
 
+    // S0-4: после принятой записи движок перечитывает живой облачный ряд —
+    vi.spyOn(DocumentService, 'getDocument').mockImplementation(async (u: string, id: string) =>
+      (await vi.mocked(DocumentService.getDocumentWithDeleted)(u, id)) as never);
     vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue({
       id: 'cloud_diverged_1',
       title: 'Diverged Note',

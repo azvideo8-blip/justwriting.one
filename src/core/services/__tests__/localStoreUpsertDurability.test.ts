@@ -32,7 +32,9 @@ describe('SA-1: pending AI-store upserts survive the tab closing', () => {
     const db = await getLocalDb();
     await db.put('aiPortrait' as never, { id: 'p1', portrait: '# x', updatedAt: 1000, generatedAtDelta: 0 } as never);
     if (DataProvider.deleteLocalStorePagedRecords) vi.spyOn(DataProvider, 'deleteLocalStorePagedRecords').mockReset().mockResolvedValue(undefined as never);
-    save = vi.spyOn(DataProvider, 'saveLocalStoreRecord').mockReset().mockResolvedValue(undefined as never);
+    save = vi.spyOn(DataProvider, 'saveLocalStoreRecordIfUnstamped').mockReset().mockResolvedValue({ written: true, stampedAt: null } as never);
+    // S0-1: базовая отметка не запомнена — выгрузка перечитывает облако; здесь его нет.
+    vi.spyOn(DataProvider, 'getLocalStoreRecord').mockReset().mockResolvedValue(null as never);
   });
 
   it('a scheduled upsert is handed to the next instance, not lost with the old one', async () => {
@@ -45,7 +47,7 @@ describe('SA-1: pending AI-store upserts survive the tab closing', () => {
     const res = await reopened.flushPending(true);
 
     expect(res.synced).toBe(1);
-    expect(save).toHaveBeenCalledWith(USER, 'aiPortrait', 'p1', expect.anything());
+    expect(save).toHaveBeenCalledWith(USER, 'aiPortrait', 'p1', expect.anything(), null);
     expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 0, dead: 0, oversized: 0, unknown: false });
   });
 
@@ -91,7 +93,7 @@ describe('SA-1: pending AI-store upserts survive the tab closing', () => {
     for (let i = 0; i < 6; i++) await tab.flushPending(true);
     expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 0, dead: 1, oversized: 0, unknown: false });
 
-    save.mockResolvedValue(undefined as never);
+    save.mockResolvedValue({ written: true, stampedAt: null } as never);
     tab.scheduleStoreSync('aiPortrait', 'p1');
     expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 1, dead: 0, oversized: 0, unknown: false });
     await tab.flushPending(true);

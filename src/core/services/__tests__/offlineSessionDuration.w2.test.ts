@@ -99,6 +99,9 @@ describe('W-2: длительность офлайн-сессии доезжае
     setEncryptionEnabled(USER, false);
     const db = await getLocalDb(USER);
     for (const s of ['documents', 'versions', 'syncQueue'] as const) await db.clear(s);
+    // S0-4: после принятой записи движок перечитывает ЖИВОЙ облачный ряд —
+    // оттуда берётся серверная метка для lastSeenCloudUpdatedAt.
+    vi.spyOn(DocumentService, 'getDocument').mockResolvedValue(cloudRow(0) as never);
   });
 
   it('заметка уже в облаке: дельта = длительность досланных версий', async () => {
@@ -112,7 +115,7 @@ describe('W-2: длительность офлайн-сессии доезжае
     vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue(cloudRow(0, 0) as never);
     vi.spyOn(VersionService, 'getVersions').mockResolvedValue([]);
     vi.spyOn(VersionService, 'addVersion').mockResolvedValue('cloud_ver');
-    const after = vi.spyOn(DocumentService, 'updateDocumentAfterSession').mockResolvedValue(undefined);
+    const after = vi.spyOn(DocumentService, 'updateDocumentAfterSession').mockResolvedValue(null);
 
     await CloudSyncService.addCloudCopy(USER, 'd1');
 
@@ -131,10 +134,12 @@ describe('W-2: длительность офлайн-сессии доезжае
 
     vi.spyOn(DocumentService, 'createDocument').mockRejectedValue(dup23505);
     vi.spyOn(DocumentService, 'findByUuid').mockResolvedValue(cloudRow(100) as never);
+    // S0-4: после принятой записи метку «до какой версии» читают с сервера.
+    vi.spyOn(DocumentService, 'getDocument').mockResolvedValue(cloudRow(100) as never);
     vi.spyOn(VersionService, 'addVersion').mockResolvedValue('cloud_ver');
     // Облако держит v1 — её 100 уже сложены в total_duration прежней выгрузкой.
     vi.spyOn(VersionService, 'getVersions').mockResolvedValue([{ version: 1, content: 'текст v1' }] as never);
-    const after = vi.spyOn(DocumentService, 'updateDocumentAfterSession').mockResolvedValue(undefined);
+    const after = vi.spyOn(DocumentService, 'updateDocumentAfterSession').mockResolvedValue(null);
 
     await CloudSyncService.addCloudCopy(USER, 'd2');
 
@@ -153,8 +158,10 @@ describe('W-2: длительность офлайн-сессии доезжае
     await db.put('versions', verRow('d3', 1, 100) as never);
 
     vi.spyOn(DocumentService, 'createDocument').mockResolvedValue('cloud_1');
+    // S0-4: перечит облачного ряда за серверной меткой.
+    vi.spyOn(DocumentService, 'getDocument').mockResolvedValue(cloudRow(100) as never);
     vi.spyOn(VersionService, 'addVersion').mockResolvedValue('cloud_ver');
-    const after = vi.spyOn(DocumentService, 'updateDocumentAfterSession').mockResolvedValue(undefined);
+    const after = vi.spyOn(DocumentService, 'updateDocumentAfterSession').mockResolvedValue(null);
 
     await CloudSyncService.addCloudCopy(USER, 'd3');
 
@@ -182,6 +189,7 @@ describe('W-2: длительность офлайн-сессии доезжае
       .mockImplementation(async (_u: string, _id: string, data: { durationDelta: number }) => {
         // Формула сервера: greatest(0, total_duration + delta).
         cloudTotal = Math.max(0, cloudTotal + data.durationDelta);
+        return null;
       });
 
     await CloudSyncService.addCloudCopy(USER, 'd4');
@@ -210,7 +218,7 @@ describe('W-2: длительность офлайн-сессии доезжае
     vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue(cloudRow(300) as never);
     vi.spyOn(VersionService, 'getVersions').mockResolvedValue([{ version: 1, content: 'текст v1' }] as never);
     vi.spyOn(VersionService, 'addVersion').mockResolvedValue('cloud_ver');
-    const after = vi.spyOn(DocumentService, 'updateDocumentAfterSession').mockResolvedValue(undefined);
+    const after = vi.spyOn(DocumentService, 'updateDocumentAfterSession').mockResolvedValue(null);
 
     await CloudSyncService.syncVersionToCloud(
       USER,

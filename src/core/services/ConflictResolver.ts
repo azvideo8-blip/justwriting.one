@@ -192,11 +192,16 @@ export const ConflictResolver = {
           await tx.store.delete(lv.id);
           continue;
         }
+        /*gate:clock-rule*/
+        // Участок правила: решение «эта локальная версия расходится с облаком».
+        // Часы устройства здесь запрещены (гейт S0-6): сравнение должно быть по
+        // содержимому, а не по времени прибора.
         const comparison = comparableOrUnknown(
           { content: cv.content, _decryptionError: cv._decryptionError },
           { content: lv.content },
         );
         if (comparison.comparable && !comparison.same) {
+        /*endgate:clock-rule*/
           await tx.store.delete(lv.id);
         }
       }

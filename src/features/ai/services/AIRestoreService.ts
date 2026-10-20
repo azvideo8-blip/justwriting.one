@@ -3,6 +3,7 @@ import type { AIDocumentSummary, AIDocumentEmbedding, AITimelineEntry, AIProfile
 import { DataProvider } from '../../../core/data';
 import type { LocalStoreRecordRow } from '../../../core/data/types';
 import { mergeDialogues, dialogueFingerprint, isTombstoned } from '../../../core/storage/dialogueMerge';
+import { contentHash } from '../../../core/utils/contentHash';
 import { pageTextOf, parseLocalStoreKey, selectCloudVersion, PAGE_TEXT_FIELDS, type CloudRow } from '../../../core/services/localStorePages';
 import {
   HEAD_TEXT_FIELDS,
@@ -24,6 +25,7 @@ import {
   getPendingUpsertKeySet,
   stripCloudStamp,
   CLOUD_STAMP_FIELD,
+  CLOUD_BASE_HASH_FIELD,
 } from '../../../core/services/LocalStoreSyncService';
 
 import { reportError } from '../../../shared/errors/reportError';
@@ -671,8 +673,15 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
         // у постраничной записи базовой строки нет, есть страницы `key#N`).
         const stamps = rows.map(r => r.stamped_at).filter((n): n is number => typeof n === 'number');
         const cloudStamp = stamps.length > 0 ? Math.max(...stamps) : undefined;
+        // SF2-2: вместе с отметкой ряда запоминается и хэш его содержимого —
+        // принятая облачная версия становится базой, от которой следующая правка
+        // отличает «там наше же» (слепой upsert, потерянный ответ) от «там чужое».
         const withStamp = (value: unknown): unknown => (cloudStamp !== undefined && value && typeof value === 'object'
-          ? { ...(value as Record<string, unknown>), [CLOUD_STAMP_FIELD]: cloudStamp }
+          ? {
+              ...(value as Record<string, unknown>),
+              [CLOUD_STAMP_FIELD]: cloudStamp,
+              [CLOUD_BASE_HASH_FIELD]: contentHash(fullJson),
+            }
           : value);
         const writeLocal = async (value: unknown) => {
           if (store === 'aiProfileFacets') await writeFacetStore(s => s.put(value as AIProfileFacet));
@@ -977,7 +986,15 @@ export async function restoreAndReattachAIData(userId: string): Promise<AIRestor
  *   выгрузка получит более позднюю серверную отметку;
  * - отметка известна — облако побеждает, только если его версия новее;
  * - отметки ещё нет (записи до 0.10.0): одинаковое содержимое — запомнить отметку,
- *   иначе прежнее правило по времени внутри записи (одноразовый переход).
+ *   иначе — S0-3 (F-2): облако побеждает и запоминается.
+ *
+ * S0-3: прежним `legacy` этот случай сравнивал `cloudTs` и `localTs`, а оба числа
+ * придумали часы устройств. Запись 0.9.x с устройства, чьи часы спешат, никогда не
+ * принимала облачную копию и никогда не получала базу — «одноразовый переход»
+ * оказывался вечным заложником. Обоснование нового правила: правку, которую
+ * человек не успел выгрузить, видно в очереди (см. выше), значит запись без базы и
+ * без очереди — копия прошлой синхронизации, и для неё облако авторитетно.
+ * Принятая отметка делает следующий спор серверным, а не часовым.
  */
 export function decideScalarCopy(o: {
   pending: boolean | null;
@@ -987,10 +1004,16 @@ export function decideScalarCopy(o: {
   localTs: number | null;
   cloudTs: number | null;
 }): 'cloud' | 'local' | 'adopt' {
+  /*gate:clock-rule*/
+  // Всё правило выбора копии — под разметкой: и решение по серверной отметке, и
+  // переходная ветка по часам (`legacy`). Гейт — src/test/syncRuleGates.s06.test.ts
+  // (S0-6, SF-9): раньше метка охватывала только строку `pending`, и `Date.now()`
+  // в `legacy` гейту не был виден.
   if (o.pending !== false) return 'local';
   const legacy = o.localTs !== null && o.cloudTs !== null && o.cloudTs > o.localTs ? 'cloud' : 'local';
   if (o.cloudStamp === undefined) return legacy;
   if (typeof o.base === 'number') return o.cloudStamp > o.base ? 'cloud' : 'local';
   if (o.sameContent) return 'adopt';
-  return legacy;
+  return 'cloud';
+  /*endgate:clock-rule*/
 }

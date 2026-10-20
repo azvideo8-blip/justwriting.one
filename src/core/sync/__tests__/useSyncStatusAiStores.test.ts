@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { configure, renderHook, waitFor } from '@testing-library/react';
+
+// Приёмка SYNC0 (L-1): drafts.ts тянет dateUtils → date-fns, и первый динамический
+// импорт LocalStoreSyncService под vitest вырос со 135 до ~665 мс; 1 с по умолчанию
+// под нагрузкой не хватало. Продукт не задет (dateUtils и так в стартовом куске).
+configure({ asyncUtilTimeout: 5_000 });
 
 /**
  * SA-1: бейдж должен говорить правду про два хвоста.

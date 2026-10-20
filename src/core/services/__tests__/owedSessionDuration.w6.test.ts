@@ -120,7 +120,7 @@ async function saveSessionWithFailedCounters(docId: string) {
   vi.spyOn(VersionService, 'addVersion').mockResolvedValue('cloud_ver');
   const after = vi.spyOn(DocumentService, 'updateDocumentAfterSession')
     .mockRejectedValueOnce(countersError)
-    .mockResolvedValue(undefined);
+    .mockResolvedValue(null);
   const res = await CloudSyncService.syncVersionToCloud(
     USER,
     docId,
@@ -153,9 +153,17 @@ describe('W-6: секунды сессии с упавшим вызовом сч
     vi.restoreAllMocks();
     setProfileLoaded(USER, true);
     setEncryptionEnabled(USER, false);
+    // S0-2: журнал долгов живёт на ключе учётки; сносить надо и его, и прежний
+    // общий ключ, иначе долг перетекает между тестами.
     localStorage.removeItem('sync_pending_duration');
+    localStorage.removeItem(`sync_pending_duration:${USER}`);
     const db = await getLocalDb(USER);
     for (const s of ['documents', 'versions', 'syncQueue'] as const) await db.clear(s);
+    // S0-4: после принятой записи движок перечитывает живой облачный ряд.
+    vi.spyOn(DocumentService, 'getDocument').mockResolvedValue({
+      id: 'cloud_w6', uuid: 'cloud_w6', currentVersion: 2,
+      updatedAt: new Date().toISOString(),
+    } as never);
   });
 
   it('дренаж после упавшего вызова досылает долг: облако 100 → 160', async () => {
@@ -174,6 +182,7 @@ describe('W-6: секунды сессии с упавшим вызовом сч
     const drained = vi.spyOn(DocumentService, 'updateDocumentAfterSession')
       .mockImplementation(async (_u: string, _id: string, data: { durationDelta: number }) => {
         cloudTotal = Math.max(0, cloudTotal + data.durationDelta);
+        return null;
       });
     drained.mockClear();
 
@@ -195,6 +204,7 @@ describe('W-6: секунды сессии с упавшим вызовом сч
     vi.spyOn(DocumentService, 'updateDocumentAfterSession')
       .mockImplementation(async (_u: string, _id: string, data: { durationDelta: number }) => {
         cloudTotal = Math.max(0, cloudTotal + data.durationDelta);
+        return null;
       });
     await CloudSyncService.addCloudCopy(USER, 'w6b');
     expect(cloudTotal).toBe(160);
@@ -213,7 +223,7 @@ describe('W-6: секунды сессии с упавшим вызовом сч
 
     const { after } = await saveSessionWithFailedCounters('w6c');
     mockCloudAfterVersionArrived();
-    after.mockResolvedValue(undefined);
+    after.mockResolvedValue(null);
     after.mockClear();
 
     await CloudSyncService.addCloudCopy(USER, 'w6c');
@@ -235,7 +245,7 @@ describe('W-6: секунды сессии с упавшим вызовом сч
     vi.spyOn(VersionService, 'addVersion').mockResolvedValue('cloud_ver');
     const after = vi.spyOn(DocumentService, 'updateDocumentAfterSession')
       .mockRejectedValueOnce(countersError)
-      .mockResolvedValue(undefined);
+      .mockResolvedValue(null);
 
     await expect(CloudSyncService.addCloudCopy(USER, 'w6d')).rejects.toThrow();
     expect(after.mock.calls[0]![2]).toMatchObject({ durationDelta: 60 });
@@ -254,9 +264,17 @@ describe('W-6, ревью 0.9.31: ни двойного счёта, ни пот�
     vi.restoreAllMocks();
     setProfileLoaded(USER, true);
     setEncryptionEnabled(USER, false);
+    // S0-2: журнал долгов живёт на ключе учётки; сносить надо и его, и прежний
+    // общий ключ, иначе долг перетекает между тестами.
     localStorage.removeItem('sync_pending_duration');
+    localStorage.removeItem(`sync_pending_duration:${USER}`);
     const db = await getLocalDb(USER);
     for (const s of ['documents', 'versions', 'syncQueue'] as const) await db.clear(s);
+    // S0-4: после принятой записи движок перечитывает живой облачный ряд.
+    vi.spyOn(DocumentService, 'getDocument').mockResolvedValue({
+      id: 'cloud_w6', uuid: 'cloud_w6', currentVersion: 2,
+      updatedAt: new Date().toISOString(),
+    } as never);
   });
 
   it('таймаут вызова счётчиков — «не дождались», а не «не легло»: без двойного счёта', async () => {
@@ -268,7 +286,7 @@ describe('W-6, ревью 0.9.31: ни двойного счёта, ни пот�
     vi.spyOn(VersionService, 'addVersion').mockResolvedValue('cloud_ver');
     vi.spyOn(DocumentService, 'updateDocumentAfterSession')
       .mockImplementationOnce(async (_u: string, _id: string, d: { durationDelta: number }) => { cloudTotal += d.durationDelta; throw new TimeoutError('Sync timeout'); })
-      .mockImplementation(async (_u: string, _id: string, d: { durationDelta: number }) => { cloudTotal += d.durationDelta; });
+      .mockImplementation(async (_u: string, _id: string, d: { durationDelta: number }) => { cloudTotal += d.durationDelta; return null; });
     await expect(CloudSyncService.addCloudCopy(USER, 'p1')).rejects.toThrow();
     mockCloudAfterVersionArrived();
     await CloudSyncService.addCloudCopy(USER, 'p1');
@@ -286,7 +304,7 @@ describe('W-6, ревью 0.9.31: ни двойного счёта, ни пот�
     vi.spyOn(VersionService, 'addVersion').mockResolvedValue('cloud_ver');
     vi.spyOn(DocumentService, 'updateMetadata').mockRejectedValueOnce(new Error('503')).mockResolvedValue(undefined as never);
     vi.spyOn(DocumentService, 'updateDocumentAfterSession')
-      .mockImplementation(async (_u: string, _id: string, dd: { durationDelta: number }) => { cloudTotal += dd.durationDelta; });
+      .mockImplementation(async (_u: string, _id: string, dd: { durationDelta: number }) => { cloudTotal += dd.durationDelta; return null; });
     await expect(CloudSyncService.addCloudCopy(USER, 'p2')).rejects.toThrow();
     mockCloudAfterVersionArrived();
     await CloudSyncService.addCloudCopy(USER, 'p2');
@@ -302,7 +320,7 @@ describe('W-6, ревью 0.9.31: ни двойного счёта, ни пот�
     vi.spyOn(DocumentService, 'createDocument').mockImplementation(async (_u: string, p: { totalDuration?: number | undefined }) => { cloudTotal = p.totalDuration ?? 0; return 'cloud_new'; });
     vi.spyOn(VersionService, 'addVersion').mockResolvedValue('cloud_ver');
     vi.spyOn(DocumentService, 'updateDocumentAfterSession')
-      .mockImplementation(async (_u: string, _id: string, dd: { durationDelta: number }) => { cloudTotal += dd.durationDelta; });
+      .mockImplementation(async (_u: string, _id: string, dd: { durationDelta: number }) => { cloudTotal += dd.durationDelta; return null; });
     await CloudSyncService.addCloudCopy(USER, 'p3');
     expect(cloudTotal).toBe(160);
   });
@@ -318,7 +336,7 @@ describe('W-6, ревью 0.9.31: ни двойного счёта, ни пот�
     vi.spyOn(VersionService, 'getVersions').mockResolvedValue(cloudVersions(false));
     vi.spyOn(VersionService, 'addVersion').mockResolvedValueOnce('v2').mockRejectedValueOnce(new Error('503')).mockResolvedValue('ok');
     vi.spyOn(DocumentService, 'updateDocumentAfterSession')
-      .mockImplementation(async (_u: string, _id: string, dd: { durationDelta: number }) => { cloudTotal += dd.durationDelta; });
+      .mockImplementation(async (_u: string, _id: string, dd: { durationDelta: number }) => { cloudTotal += dd.durationDelta; return null; });
     await expect(CloudSyncService.addCloudCopy(USER, 'p4')).rejects.toThrow();
     vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue(cloudRow(100, 2) as never);
     vi.spyOn(VersionService, 'getVersions').mockResolvedValue(cloudVersions(true));

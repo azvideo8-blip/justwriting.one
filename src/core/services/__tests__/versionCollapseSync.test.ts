@@ -68,6 +68,7 @@ describe('DEEP-6: version collapse in diagnostics persists across sync', () => {
     vi.spyOn(DataProvider, 'updateDocumentSessionStats').mockImplementation(async (_uid, cloudDocId, data) => {
       const existing = cloudDocs.get(cloudDocId) ?? {};
       cloudDocs.set(cloudDocId, { ...existing, ...data });
+      return null;
     });
 
     vi.spyOn(DataProvider, 'getVersions').mockImplementation(async () => {

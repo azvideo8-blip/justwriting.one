@@ -44,6 +44,16 @@ function makeLocalDb(overrides: Record<string, unknown> = {}) {
     delete: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   } as unknown as Awaited<ReturnType<typeof getLocalDb>>;
+  // SF-2: saveToLocal читает прежнюю отметку и пишет её одной транзакцией, чтобы
+  // параллельная запись не съела её. Мок транзакции ходит в те же get/put, что и
+  // остальной дабл — иначе проверка «что реально ушло» стала бы пустой.
+  (db as unknown as { transaction: unknown }).transaction = vi.fn(() => ({
+    store: {
+      get: (key: string) => (db as unknown as { get(s: string, k: string): Promise<unknown> }).get('drafts', key),
+      put: (value: unknown) => (db as unknown as { put(s: string, v: unknown): Promise<unknown> }).put('drafts', value),
+    },
+    done: Promise.resolve(),
+  }));
   vi.mocked(getLocalDb).mockResolvedValue(db);
   return db;
 }
@@ -51,7 +61,9 @@ function makeLocalDb(overrides: Record<string, unknown> = {}) {
 describe('WritingDraftService', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(DataProvider.saveDraft).mockResolvedValue(undefined);
+    // SF-2: saveDraft отдаёт серверную метку ряда; `null` — метки нет (в этих тестах
+    // она не предмет проверки, отметку «облако видели» ставить нечему).
+    vi.mocked(DataProvider.saveDraft).mockResolvedValue(null);
     vi.mocked(DataProvider.getDraft).mockResolvedValue(null);
     vi.mocked(DataProvider.deleteDraft).mockResolvedValue(undefined);
     localStorage.clear();
@@ -258,8 +270,8 @@ describe('WritingDraftService', () => {
       const uid = 'user_gen_test';
       const draft = { userId: uid, content: 'in flight text', updatedAt: 1000 } as unknown as LocalDraft;
 
-      let resolveSave!: () => void;
-      const savePromise = new Promise<void>(r => { resolveSave = r; });
+      let resolveSave!: (v: number | null) => void;
+      const savePromise = new Promise<number | null>(r => { resolveSave = r; });
       vi.mocked(DataProvider.saveDraft).mockImplementation(() => savePromise);
 
       const genAtStart = WritingDraftService.getDraftGeneration(uid);
@@ -268,7 +280,7 @@ describe('WritingDraftService', () => {
       // Session ends while save is in flight
       WritingDraftService.bumpDraftGeneration(uid);
 
-      resolveSave();
+      resolveSave(null);
       const result = await saveOp;
       expect(result).toBe(false);
     });

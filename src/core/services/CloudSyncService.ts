@@ -69,6 +69,90 @@ export const CLOUD_COPY_TOMBSTONE = 'TOMBSTONE';
 const CLOUD_SYNC_TIMEOUT = 30_000;
 
 /**
+ * S0-4 (Fable §1.1): отметка «до какой облачной версии выгружен этот ряд»
+ * берётся С СЕРВЕРА, а не с часов устройства.
+ *
+ * `lastSeenCloudUpdatedAt` сравнивается с серверным `updated_at` при сверке
+ * (`reconcileLinkedDocuments`, `:274`). Прежним кодом после выгрузки туда
+ * ставился `new Date().toISOString()`, то есть local time: устройство с часами
+ * вперёд объявляло своё же облако устаревшим, и правка с другого устройства не
+ * приезжала, пока часы не поправят.
+ *
+ * Не прочитали серверную метку — поле НЕ перезаписывается: «не знаю» для `:274`
+ * означает «суди по номеру версии», а «сутки вперёд» означает «не приезжает
+ * никогда». Молчать об этом нельзя, поэтому — warning.
+ */
+async function markCloudSeen(
+  userId: string,
+  localDocumentId: string,
+  cloudId: string,
+  // null — номер выгруженной версии берём из самого ряда: так делал этот проход
+  // до правки, и две его точки различались именно формой записи счётчика.
+  syncedVersion: number | null,
+  context: string,
+  // SF-7: метка, которую сервер отдал на НАШЕЙ записи. Если она есть, рядом
+  // ничего читать не нужно: перечитывание ряда после записи ловит в этом окне
+  // чужую запись и принимает её за свою — после чего локальный ряд «видел»
+  // версию, которой не видел, и сверка изменений (`:274`) чужую правку больше
+  // не зовёт. Нет метки в ответе (фолбэк ветки с надгробием) — прежний путь.
+  writtenUpdatedAt: number | null = null,
+): Promise<void> {
+  let serverIso: string | null = null;
+  /*gate:clock-rule*/
+  // Решение «какой меткой считать облако»: ответ собственной записи, иначе
+  // перечитывание ряда, иначе ничего. Часов прибора здесь быть не должно — гейт
+  // (S0-6, SF-9) следит за всем блоком, а не за одной строкой.
+  // `rowMissing` — перечитывание не отдало строку вовсе (ряд снесли во время
+  // записи). Row без `updated_at` в проде быть не может (`0001`/`0028`:
+  // not null default now()), поэтому отдельного отчёта на него нет — метку всё
+  // равно не отравляем часовым значением.
+  let rowMissing = false;
+  if (writtenUpdatedAt !== null && Number.isFinite(writtenUpdatedAt)) {
+    serverIso = new Date(writtenUpdatedAt).toISOString();
+  } else try {
+    // Живой ряд, не «с надгробиями»: нам нужна серверная метка версии,
+    // которую сервер только что принял.
+    const cloud = await DocumentService.getDocument(userId, cloudId);
+    rowMissing = cloud == null;
+    const raw = cloud?.updatedAt ?? cloud?.createdAt ?? null;
+    if (typeof raw === 'string' || typeof raw === 'number' || raw instanceof Date) {
+      const ms = raw instanceof Date ? raw.getTime() : (typeof raw === 'number' ? raw : Date.parse(raw));
+      if (Number.isFinite(ms)) serverIso = new Date(ms).toISOString();
+    }
+  } catch (e) {
+    reportError(e, { action: 'markCloudSeen_read', cloudId, documentId: localDocumentId, context }, 'warning');
+  }
+  /*endgate:clock-rule*/
+
+  try {
+    const db = await getLocalDb(userId);
+    const tx = db.transaction('documents', 'readwrite');
+    const cur = await tx.store.get(localDocumentId);
+    if (cur) {
+      await tx.store.put({
+        ...cur,
+        lastSyncedCloudVersion: syncedVersion ?? cur.currentVersion,
+        ...(serverIso !== null ? { lastSeenCloudUpdatedAt: serverIso } : {}),
+      });
+    }
+    await tx.done;
+  } catch (e) {
+    // Заметка в облаке есть; не записалась только отметка «до какой версии
+    // выгружено» — следующий проход выгрузит лишний раз. Не сбой, но видно.
+    reportError(e, { action: 'addCloudCopy_markSynced', documentId: localDocumentId, cloudId, context }, 'warning');
+    return;
+  }
+
+  if (serverIso === null && rowMissing) {
+    reportError(
+      new Error('Cloud row unreadable after upload — lastSeenCloudUpdatedAt left as is, not set from the device clock'),
+      { action: 'markCloudSeen_noServerStamp', cloudId, documentId: localDocumentId, context },
+      'warning',
+    );
+  }
+}
+
+/**
  * Снять задачи очереди, относящиеся к заметке.
  *
  * Правило одно: задача принадлежит заметке, если совпал её documentId или это
@@ -273,10 +357,15 @@ export const CloudSyncService = {
         const cloudTime = cloudDoc.updatedAt ? new Date(cloudDoc.updatedAt).getTime() : (cloudDoc.createdAt ? new Date(cloudDoc.createdAt).getTime() : 0);
         const localSeenTime = localDoc.lastSeenCloudUpdatedAt ? new Date(localDoc.lastSeenCloudUpdatedAt).getTime() : 0;
 
+  /*gate:clock-rule*/
+  // Всё правило «облако новее» — под разметкой (SF-9): и решение по запомненной
+  // серверной метке, и запасной путь по `lastSessionAt`/номеру версии. Гейт —
+  // src/test/syncRuleGates.s06.test.ts (S0-6).
         const isCloudNewer = localSeenTime > 0
           ? cloudTime > localSeenTime
           : (cloudDoc.currentVersion > (localDoc.lastSyncedCloudVersion ?? localDoc.currentVersion) ||
              (cloudTime > (localDoc.lastSessionAt || 0) && cloudDoc.currentVersion >= localDoc.currentVersion));
+  /*endgate:clock-rule*/
 
         if (!isCloudNewer) {
           skipped++;
@@ -697,13 +786,21 @@ export const CloudSyncService = {
         // M-12: как в R4-005 — отставший счётчик облачного ряда прятал хвост
         // скачанной истории за «синхронизировано».
         const seenMaxVersion = Math.max(cloudDoc.currentVersion, latestVersionNo);
+        // S0-4: метку даёт сервер. Строки без `updated_at` и без `created_at`
+        // здесь быть не должно (`0001` даёт `default now()`, `0028/0043`
+        // переставляют триггер), но если так — поле не трогаем: прежний fallback
+        // `new Date()` ставил в ряд local time и прятал чужие изменения ровно на
+        // величину хода часов.
+        const cloudStampIso = cloudDoc.updatedAt
+          ? new Date(cloudDoc.updatedAt).toISOString()
+          : (cloudDoc.createdAt ? new Date(cloudDoc.createdAt).toISOString() : null);
         await LocalStorageService.updateDocument(localId, {
           totalWords: cloudDoc.totalWords,
           totalDuration: cloudDoc.totalDuration,
           currentVersion: seenMaxVersion,
           sessionsCount: cloudDoc.sessionsCount ?? 1,
           lastSyncedCloudVersion: seenMaxVersion,
-          lastSeenCloudUpdatedAt: cloudDoc.updatedAt ? new Date(cloudDoc.updatedAt).toISOString() : (cloudDoc.createdAt ? new Date(cloudDoc.createdAt).toISOString() : new Date().toISOString()),
+          ...(cloudStampIso !== null ? { lastSeenCloudUpdatedAt: cloudStampIso } : {}),
         }, userId);
 
         await LocalStorageService.updateLinkedCloudId(localId, cloudDocumentId, userId);
@@ -919,6 +1016,9 @@ export const CloudSyncService = {
           // снаружи try: catch решает по ним, что повиснет долгом.
           const owed = owedSessionDuration(userId, localDocumentId);
           let statsInFlight = false;
+          // SF-7: метка, которую сервер отдал на НАШЕЙ записи счётчиков. От неё
+          // зависит отметка «до какой облачной версии выгружен этот ряд».
+          let writtenStamp: number | null = null;
           try {
           for (const ver of missing) {
             const idx = localVersions.findIndex(v => v.id === ver.id);
@@ -1003,7 +1103,7 @@ export const CloudSyncService = {
             // W-6: к дельте этого прогона добавляем долг прежних упавших вызовов;
             // списываем его только после успеха — наросшее за время полёта остаётся.
             statsInFlight = true;
-              await withTimeout(DocumentService.updateDocumentAfterSession(userId, cloudId, {
+              writtenStamp = await withTimeout(DocumentService.updateDocumentAfterSession(userId, cloudId, {
                 totalWords: metaDoc.totalWords,
                 // V-5: приращение считает сервер (0039); W-2: дельта — длительность
                 // версий, уехавших в облако этим прогоном. Нулевая дельта означала
@@ -1026,15 +1126,7 @@ export const CloudSyncService = {
             throw e;
           }
           const syncdVer = Math.max(metaDoc.currentVersion, existingDoc.currentVersion);
-          try {
-            const db = await getLocalDb(userId);
-            const tx = db.transaction('documents', 'readwrite');
-            const cur = await tx.store.get(localDocumentId);
-            if (cur) await tx.store.put({ ...cur, lastSyncedCloudVersion: syncdVer, lastSeenCloudUpdatedAt: new Date().toISOString() });
-            await tx.done;
-          } catch (e) {
-            reportError(e, { action: 'addCloudCopy_markSynced', documentId: localDocumentId });
-          }
+          await markCloudSeen(userId, localDocumentId, cloudId, syncdVer, 'linked', writtenStamp);
           return cloudId;
         }
         await LocalStorageService.updateLinkedCloudId(localDocumentId, '', userId);
@@ -1152,6 +1244,8 @@ export const CloudSyncService = {
       let uploadedSessions = 0;
       let owed = 0;
       let statsInFlight = false;
+      // SF-7: метка, которую сервер отдал на записи счётчиков этого прогона.
+      let createdStamp: number | null = null;
       try {
         const sortedVersions = [...versions].sort((a, b) => (a.version ?? 0) - (b.version ?? 0));
         // W-2: при принятом ряде версия могла уехать в облако раньше (и тогда её
@@ -1213,7 +1307,7 @@ export const CloudSyncService = {
         }
 
         statsInFlight = true;
-        await withTimeout(DocumentService.updateDocumentAfterSession(userId, cloudId, {
+        createdStamp = await withTimeout(DocumentService.updateDocumentAfterSession(userId, cloudId, {
           totalWords: localDoc.totalWords,
           // V-5: создавая облачный ряд, createDocument уже положил в него
           // накопленные счётчики этого устройства, поэтому за такую выгрузку
@@ -1264,17 +1358,7 @@ export const CloudSyncService = {
       // exists, and a retry that did not know about it would create a second one.
       await LocalStorageService.updateLinkedCloudId(localDocumentId, cloudId, userId);
       await LocalStorageService.migrateDocumentOwner(localDocumentId, userId, userId);
-      try {
-        const db = await getLocalDb(userId);
-        const tx = db.transaction('documents', 'readwrite');
-        const cur = await tx.store.get(localDocumentId);
-        if (cur) await tx.store.put({ ...cur, lastSyncedCloudVersion: cur.currentVersion, lastSeenCloudUpdatedAt: new Date().toISOString() });
-        await tx.done;
-      } catch (e) {
-        // Заметка в облаке есть; не записалась только отметка «до какой версии
-        // выгружено» — следующий проход выгрузит лишний раз. Не сбой, но видно.
-        reportError(e, { action: 'addCloudCopy_markSynced' }, 'warning');
-      }
+      await markCloudSeen(userId, localDocumentId, cloudId, null, 'created', createdStamp);
 
       useActivityLogStore.getState().addActivity(
         'activity_cloud_note_saved',

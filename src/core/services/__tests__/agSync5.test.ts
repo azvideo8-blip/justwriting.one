@@ -39,6 +39,9 @@ describe('AG-SYNC-5: Cloud Sync bidirectional reconciliation & tombstones', () =
     });
     await LocalStorageService.updateLinkedCloudId(docId, 'cloud_tombstone_1', userId);
 
+    // S0-4: после принятой записи движок перечитывает живой облачный ряд —
+    vi.spyOn(DocumentService, 'getDocument').mockImplementation(async (u: string, id: string) =>
+      (await vi.mocked(DocumentService.getDocumentWithDeleted)(u, id)) as never);
     vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue({
       id: 'cloud_tombstone_1',
       title: '',
@@ -98,6 +101,9 @@ describe('AG-SYNC-5: Cloud Sync bidirectional reconciliation & tombstones', () =
       sessionStartedAt: new Date(1000),
     });
 
+    // S0-4: после принятой записи движок перечитывает живой облачный ряд —
+    vi.spyOn(DocumentService, 'getDocument').mockImplementation(async (u: string, id: string) =>
+      (await vi.mocked(DocumentService.getDocumentWithDeleted)(u, id)) as never);
     vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue({
       id: 'cloud_collab_1',
       currentVersion: 2,
@@ -160,6 +166,9 @@ describe('AG-SYNC-5: Cloud Sync bidirectional reconciliation & tombstones', () =
       sessionStartedAt: new Date(1000),
     });
 
+    // S0-4: после принятой записи движок перечитывает живой облачный ряд —
+    vi.spyOn(DocumentService, 'getDocument').mockImplementation(async (u: string, id: string) =>
+      (await vi.mocked(DocumentService.getDocumentWithDeleted)(u, id)) as never);
     vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue({
       id: 'cloud_collab_divergent',
       currentVersion: 2,
@@ -258,6 +267,9 @@ describe('AG-SYNC-5: Cloud Sync bidirectional reconciliation & tombstones', () =
       sessionStartedAt: new Date(1000),
     });
 
+    // S0-4: после принятой записи движок перечитывает живой облачный ряд —
+    vi.spyOn(DocumentService, 'getDocument').mockImplementation(async (u: string, id: string) =>
+      (await vi.mocked(DocumentService.getDocumentWithDeleted)(u, id)) as never);
     vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue({
       id: 'cloud_divergent_1',
       currentVersion: 1,
@@ -282,6 +294,9 @@ describe('AG-SYNC-5: Cloud Sync bidirectional reconciliation & tombstones', () =
     });
     await LocalStorageService.updateLinkedCloudId(docId, 'cloud_collide_1', userId);
 
+    // S0-4: после принятой записи движок перечитывает живой облачный ряд —
+    vi.spyOn(DocumentService, 'getDocument').mockImplementation(async (u: string, id: string) =>
+      (await vi.mocked(DocumentService.getDocumentWithDeleted)(u, id)) as never);
     vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue({
       id: 'cloud_collide_1',
       currentVersion: 1,

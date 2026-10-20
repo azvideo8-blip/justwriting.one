@@ -9,6 +9,10 @@ import { updateDocumentSessionStats } from '../providers/documents';
 type Patch = Record<string, unknown>;
 const rpcs: Array<{ fn: string; args: Record<string, unknown> }> = [];
 const patches: Patch[] = [];
+// SF-7: запись счётчиков просит у сервера `updated_at` принятой строки. Мок
+// обязан быть цепочечным и thenable на любом шаге — иначе «зелёный тест» значит
+// только то, что код до запроса не дошёл.
+const STAMPED = [{ updated_at: '2026-10-17T12:00:00.000Z' }];
 
 vi.mock('../../supabase/client', () => ({
   getSupabase: () => ({
@@ -19,10 +23,16 @@ vi.mock('../../supabase/client', () => ({
     from: () => ({
       update: (patch: Patch) => {
         patches.push(patch);
-        const chain: unknown = {
-          eq: () => chain,
-          is: () => Promise.resolve({ data: [], error: null }),
-          then: (ok: (v: unknown) => unknown) => Promise.resolve({ error: null }).then(ok),
+        const chain: {
+          eq(): unknown;
+          is(): unknown;
+          select(): Promise<{ data: unknown; error: null }>;
+          then(res: (v: unknown) => unknown): Promise<unknown>;
+        } = {
+          eq() { return chain; },
+          is() { return chain; },
+          select() { return Promise.resolve({ data: STAMPED, error: null }); },
+          then(res) { return Promise.resolve({ data: null, error: null }).then(res); },
         };
         return chain;
       },

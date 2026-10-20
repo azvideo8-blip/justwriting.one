@@ -39,6 +39,16 @@ vi.mock('../../data', () => ({
       saved.push(`${store}:${key}`);
       cloud.set(`${store}:${key}`, { store, key, payload });
     },
+    // S0-1: скаляр уходит этой записью; поведение то же, что у saveLocalStoreRecord.
+    saveLocalStoreRecordIfUnstamped: async (_uid: string, store: string, key: string, payload: Record<string, unknown>) => {
+      if (hangNextSave) {
+        hangNextSave = false;
+        await new Promise<void>(res => { releaseSave = res; });
+      }
+      saved.push(`${store}:${key}`);
+      cloud.set(`${store}:${key}`, { store, key, payload });
+      return { written: true, stampedAt: null };
+    },
     deleteLocalStoreRecordsByKeys: async () => {},
     getUserSummaries: async () => [],
     getUserEmbeddingsPaginated: async () => ({ items: [], nextCursorId: null, readCount: 0 }),
@@ -62,8 +72,11 @@ vi.mock('../../../shared/errors/logger', () => ({ logger: { info: vi.fn(), warn:
 
 /** Прогонить микротasks и setImmediate: IDB и провайдер живут на них, а не на
  *  подставных таймерах, иначе проверка успевает раньше записи. */
+// SF2-2: перед условной записью drain делает ещё один заход в IndexedDB (хэш
+// отправки), поэтому числу оборотов микротasks нужно быть с запасом: 4 хватало
+// ровно до этого поля.
 async function pump(): Promise<void> {
-  for (let i = 0; i < 4; i += 1) await new Promise(res => setImmediate(res));
+  for (let i = 0; i < 12; i += 1) await new Promise(res => setImmediate(res));
 }
 
 async function putRecord(id: string): Promise<void> {
@@ -77,6 +90,8 @@ async function putRecord(id: string): Promise<void> {
     createdAt: 1000,
   });
 }
+
+const svcHandle = () => LocalStoreSyncService as unknown as { timer: unknown };
 
 async function stagePending(id = KEY): Promise<void> {
   await putRecord(id);
@@ -116,7 +131,7 @@ describe('R7Q-006: ранний выход из flushPending не оставля
     await vi.advanceTimersByTimeAsync(1500);
     await pump();
     expect(saved, 'при запертом сейфе ничего не отправляется').toEqual([]);
-    expect(vi.getTimerCount(), 'выход «сейф заперт» обязан оставить будильник').toBe(1);
+    expect(svcHandle().timer, 'выход «сейф заперт» обязан оставить будильник').not.toBeNull();
 
     hasSessionKey = true;
     // Повтор намечен, но не каждые 1,5 с: запертый сейф может продержаться весь
@@ -136,7 +151,9 @@ describe('R7Q-006: ранний выход из flushPending не оставля
     await stagePending();
 
     const first = LocalStoreSyncService.flushPending();
-    await new Promise(res => setImmediate(res));
+    // S0-1: перед условной записью скаляр перечитывает облако, значит до зависшей
+    // записи дело доходит не за один тик — качаем тем же pump(), что и везде.
+    await pump();
     expect(releaseSave, 'первый проход дошёл до облака и висит в нём').toBeTruthy();
 
     await putRecord(KEY2);
@@ -144,7 +161,9 @@ describe('R7Q-006: ранний выход из flushPending не оставля
     await vi.advanceTimersByTimeAsync(1500);
     await pump();
     expect(saved, 'пока первый проход висит, второго в облаке нет').not.toContain(`${STORE}:${KEY2}`);
-    expect(vi.getTimerCount(), 'выход по isSyncing обязан оставить будильник').toBe(1);
+    // Сам будильник, а не счётчик таймеров процесса: fake-indexeddb и моки
+    // держат свои setTimeout, и абсолютное число — шум окружения, а не свойство.
+    expect(svcHandle().timer, 'выход по isSyncing обязан оставить будильник').not.toBeNull();
 
     releaseSave?.();
     await first;
@@ -161,7 +180,7 @@ describe('R7Q-006: ранний выход из flushPending не оставля
     await stagePending();
     await vi.advanceTimersByTimeAsync(1500);
     await pump();
-    expect(vi.getTimerCount(), 'при выключенной синхронизации будильника нет').toBe(0);
+    expect(svcHandle().timer, 'при выключенной синхронизации будильника нет').toBeNull();
     await vi.advanceTimersByTimeAsync(120_000);
     await pump();
     expect(saved, 'и отправок тоже нет').toEqual([]);

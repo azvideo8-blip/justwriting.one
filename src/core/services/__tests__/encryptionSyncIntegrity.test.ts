@@ -94,6 +94,9 @@ describe('AG-CORRUPT-1 & AG-CORRUPT-2: Encryption sync integrity', () => {
     // 2. Encrypt the same content as stored in cloud
     const encrypted = await maybeEncrypt({ content: plaintext }, ['content'], [], userId);
 
+    // S0-4: после принятой записи движок перечитывает живой облачный ряд —
+    vi.spyOn(DocumentService, 'getDocument').mockImplementation(async (u: string, id: string) =>
+      (await vi.mocked(DocumentService.getDocumentWithDeleted)(u, id)) as never);
     vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue({
       id: cloudDocId,
       title: 'Секретная заметка',

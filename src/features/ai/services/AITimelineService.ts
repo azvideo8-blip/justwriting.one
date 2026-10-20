@@ -1,4 +1,4 @@
-import { getLocalDb, type AITimelineEntry } from '../../../core/storage/localDb';
+import { carryCloudSyncFields, getLocalDb, type AITimelineEntry } from '../../../core/storage/localDb';
 import { localDayKey, localMonthKey } from '../../../core/utils/dateUtils';
 import { loadVisibleNoteKeys } from '../utils/retrieval/docSnapshot';
 
@@ -35,6 +35,15 @@ export const AITimelineService = {
     const docsStore = tx.objectStore('documents');
     const timelineStore = tx.objectStore('aiTimeline');
 
+    // SF2-5: прежние строки снимаются ДО перезаписи — в них серверная отметка и
+    // хэши принятой облачной версии; без них вся хронология после пересборки
+    // становится «без базы», и выгрузка пертирает чужое (обёртка `db.put` этот
+    // путь не видит: запись идёт внутри общей транзакции).
+    const previousEntries = await timelineStore.getAll();
+    const previousByDoc = new Map<string, Record<string, unknown>>(
+      previousEntries.map(e => [e.documentId, e as unknown as Record<string, unknown>]),
+    );
+
     // Clear existing timeline entries first
     await timelineStore.clear();
 
@@ -68,7 +77,10 @@ export const AITimelineService = {
         if (summary.arousal !== undefined) {
           timelineEntry.arousal = summary.arousal;
         }
-        await timelineStore.put(timelineEntry);
+        await timelineStore.put(carryCloudSyncFields(
+          timelineEntry as unknown as Record<string, unknown>,
+          previousByDoc.get(summary.documentId),
+        ) as never);
         count++;
       }
     }

@@ -1,9 +1,9 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import 'fake-indexeddb/auto';
-import { IDBFactory } from 'fake-indexeddb';
 import { LifecycleRunner } from '../lifecycleRunner';
-import { getLocalDb, resetDbInstance } from '../../../core/storage/localDb';
+import { getLocalDb } from '../../../core/storage/localDb';
+import { Device, activeDevice, forgetDevice, activateDevice } from '../harnessDevice';
 import { StorageService } from '../../../core/services/StorageService';
 import { LocalStorageService } from '../../../core/services/LocalStorageService';
 import { SyncService } from '../../../core/services/SyncService';
@@ -14,29 +14,9 @@ import { SyncService } from '../../../core/services/SyncService';
  * Each «device» has its own IndexedDB (a separate fake IDBFactory) and its own
  * localStorage; the cloud is the harness's in-memory Postgres. Both run the
  * production save and sync code — no hand-written cloud rows for «device B».
+ * Устройство и переключение — в ../harnessDevice (SF2-4: тот же цикл нужен
+ * записям `local_store_records`, второму спеку про ИИ-данные).
  */
-class Device {
-  readonly factory = new IDBFactory();
-  readonly storage = new Map<string, string>();
-  constructor(readonly name: string) {}
-}
-
-let current: Device | null = null;
-function use(dev: Device): void {
-  if (current === dev) return;
-  if (current) {
-    current.storage.clear();
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i)!;
-      current.storage.set(k, localStorage.getItem(k)!);
-    }
-  }
-  localStorage.clear();
-  for (const [k, v] of dev.storage) localStorage.setItem(k, v);
-  resetDbInstance();
-  (globalThis as { indexedDB: IDBFactory }).indexedDB = dev.factory;
-  current = dev;
-}
 
 async function allTexts(uid: string): Promise<{ byUuid: Map<string, string>; everything: Set<string> }> {
   const db = await getLocalDb();
@@ -81,11 +61,11 @@ function save(uid: string, localId: string, content: string, at: number) {
 
 describe('№2: two devices, one cloud', () => {
   const runner = new LifecycleRunner();
-  afterEach(() => { runner.teardown(); current = null; });
+  afterEach(() => { runner.teardown(); forgetDevice(); });
 
   it('a note made on A appears on B, and B\'s edit reaches A', async () => {
     const A = new Device('A'), B = new Device('B');
-    use(A);
+    activateDevice(A);
     await runner.setup();
     const uid = runner.userId;
     A.storage.set('auto_sync_enabled', 'true');
@@ -94,7 +74,7 @@ describe('№2: two devices, one cloud', () => {
     await save(uid, aId, 'first from A', 1000);
     await StorageService.addCloudCopy(uid, aId);
 
-    use(B);
+    activateDevice(B);
     localStorage.setItem('auto_sync_enabled', 'true');
     await syncRound(uid);
     const onB = await allTexts(uid);
@@ -103,7 +83,7 @@ describe('№2: two devices, one cloud', () => {
     const bDoc = (await (await getLocalDb()).getAll('documents'))[0]!;
     await save(uid, bDoc.id, 'edit from B', 2000);
 
-    use(A);
+    activateDevice(A);
     await syncRound(uid);
     const onA = await allTexts(uid);
     expect([...onA.byUuid.values()]).toEqual(['edit from B']);
@@ -111,7 +91,7 @@ describe('№2: two devices, one cloud', () => {
 
   it('a note created and edited offline reaches the other device with its latest text', async () => {
     const A = new Device('A'), B = new Device('B');
-    use(B);
+    activateDevice(B);
     await runner.setup();
     const uid = runner.userId;
     B.storage.set('auto_sync_enabled', 'true'); A.storage.set('auto_sync_enabled', 'true');
@@ -129,7 +109,7 @@ describe('№2: two devices, one cloud', () => {
     await syncRound(uid);
     const cloud = runner.interceptor.postgres.getRows('versions').map(v => `${v.version}:${v.content}`);
     const docs = runner.interceptor.postgres.getRows('documents').map(d => `cv${d.current_version}`);
-    use(A);
+    activateDevice(A);
     await syncRound(uid);
     const onA = await allTexts(uid);
     expect({ cloud, docs, a: [...onA.byUuid.values()] }).toEqual({ cloud: expect.anything(), docs: expect.anything(), a: ['offline two'] });
@@ -137,7 +117,7 @@ describe('№2: two devices, one cloud', () => {
 
   it('after a fork on B, A\'s next edit of the original still reaches B', async () => {
     const A = new Device('A'), B = new Device('B');
-    use(A);
+    activateDevice(A);
     await runner.setup();
     const uid = runner.userId;
     A.storage.set('auto_sync_enabled', 'true'); B.storage.set('auto_sync_enabled', 'true');
@@ -149,16 +129,16 @@ describe('№2: two devices, one cloud', () => {
     net(true);
     const mA = await saveNewNote(uid, 'a1');
     await save(uid, mA, 'a2', Date.now());
-    use(B); net(true); await syncRound(uid);
+    activateDevice(B); net(true); await syncRound(uid);
     const mB = (await (await getLocalDb()).getAll('documents'))[0]!.id;
     net(false);
     await save(uid, mB, 'b3', Date.now()).catch(() => {});
     await save(uid, mB, 'b4', Date.now()).catch(() => {});
-    use(A); net(true); await save(uid, mA, 'a3', Date.now());
-    use(B); net(true); await syncRound(uid);
-    use(A); net(false); await save(uid, mA, 'a4', Date.now()).catch(() => {});
+    activateDevice(A); net(true); await save(uid, mA, 'a3', Date.now());
+    activateDevice(B); net(true); await syncRound(uid);
+    activateDevice(A); net(false); await save(uid, mA, 'a4', Date.now()).catch(() => {});
     net(true); await syncRound(uid);
-    use(B); net(true); await syncRound(uid);
+    activateDevice(B); net(true); await syncRound(uid);
     const vs = (await (await getLocalDb()).getAllFromIndex('versions', 'by-document', mB)).map(v => `${v.version}:${v.content}`).sort();
     const cloud = runner.interceptor.postgres.getRows('documents').map(d => `cv${d.current_version}`);
     expect({ vs, cloud }).toEqual({ vs: ['1:a1', '2:a2', '3:a3', '4:a4'], cloud: expect.anything() });
@@ -181,7 +161,7 @@ describe('№2: two devices, one cloud', () => {
       const pick = <T,>(a: T[]): T => a[Math.floor(rnd() * a.length)]!;
 
       const A = new Device('A'), B = new Device('B');
-      use(A);
+      activateDevice(A);
       await runner.setup();
       const uid = runner.userId;
       A.storage.set('auto_sync_enabled', 'true');
@@ -196,7 +176,7 @@ describe('№2: two devices, one cloud', () => {
       const upd: string[] = [];
       const origUpd = LocalDocumentService.updateDocument.bind(LocalDocumentService);
       vi.spyOn(LocalDocumentService, 'updateDocument').mockImplementation(async (id, data) => {
-        if (process.env.TRACE_DOC && id.endsWith(process.env.TRACE_DOC)) upd.push(`${current?.name} updateDocument ${JSON.stringify({ t: data.trashedAt, seen: data.lastSeenCloudUpdatedAt?.slice(14, 23) })} after: ${log[log.length - 1]}`);
+        if (process.env.TRACE_DOC && id.endsWith(process.env.TRACE_DOC)) upd.push(`${activeDevice()?.name} updateDocument ${JSON.stringify({ t: data.trashedAt, seen: data.lastSeenCloudUpdatedAt?.slice(14, 23) })} after: ${log[log.length - 1]}`);
         return origUpd(id, data);
       });
       if (process.env.TRACE_CLOUD) {
@@ -204,7 +184,7 @@ describe('№2: two devices, one cloud', () => {
         const origU = pg.executeUpdate.bind(pg);
         pg.executeUpdate = ((table, payload, filters) => {
           const r = origU(table, payload, filters);
-          if (table === 'documents') for (const row of r.data ?? []) if (String(row.uuid).endsWith(process.env.TRACE_CLOUD!)) upd.push(`${current?.name} CLOUD update ${JSON.stringify(Object.keys(payload))} trashed=${String(row.trashed_at ?? '')} up=${String(row.updated_at).slice(14, 23)} after: ${log[log.length - 1]}`);
+          if (table === 'documents') for (const row of r.data ?? []) if (String(row.uuid).endsWith(process.env.TRACE_CLOUD!)) upd.push(`${activeDevice()?.name} CLOUD update ${JSON.stringify(Object.keys(payload))} trashed=${String(row.trashed_at ?? '')} up=${String(row.updated_at).slice(14, 23)} after: ${log[log.length - 1]}`);
           return r;
         }) as typeof pg.executeUpdate;
       }
@@ -221,7 +201,7 @@ describe('№2: two devices, one cloud', () => {
 
       for (let step = 0; step < STEPS; step++) {
         const dev = pick([A, B]);
-        use(dev); setNet(dev);
+        activateDevice(dev); setNet(dev);
         const db = await getLocalDb();
         const docs = (await db.getAll('documents')).filter(d => d.guestId === uid);
         // Порядок getAll идёт по случайным id — сортируем по тексту первой версии,
@@ -275,7 +255,7 @@ describe('№2: two devices, one cloud', () => {
 
       offline.set(A, false); offline.set(B, false);
       // A, B, A, B, A, B, A — последнее слово за A, чтобы увидеть последнюю выгрузку B.
-      for (const dev of [A, B, A, B, A, B, A]) { use(dev); setNet(dev); await syncRound(uid); }
+      for (const dev of [A, B, A, B, A, B, A]) { activateDevice(dev); setNet(dev); await syncRound(uid); }
 
       const dump = async () => {
         const db = await getLocalDb();
@@ -287,8 +267,8 @@ describe('№2: two devices, one cloud', () => {
         }
         return out.join('\n');
       };
-      use(A); const a = await allTexts(uid); const dumpA = await dump();
-      use(B); const b = await allTexts(uid); const dumpB = await dump();
+      activateDevice(A); const a = await allTexts(uid); const dumpA = await dump();
+      activateDevice(B); const b = await allTexts(uid); const dumpB = await dump();
       const cloudDump = runner.interceptor.postgres.getRows('documents').map(d => `  ${String(d.uuid).slice(-4)}${d.trashed_at ? ' TRASH' : ''}${d.deleted_at ? ' DEL' : ''} cv=${d.current_version} up=${String(d.updated_at ?? '').slice(14, 23)} [${runner.interceptor.postgres.getRows('versions').filter(v => v.document_uuid === d.uuid).map(v => `${v.version}:${v.content}`).join(', ')}]`).join('\n');
       if (upd.length) log.push(`--- trace:\n${upd.join('\n')}`);
       log.push(`--- A:\n${dumpA}\n--- B:\n${dumpB}\n--- cloud:\n${cloudDump}`);

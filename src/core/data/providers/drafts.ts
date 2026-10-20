@@ -1,6 +1,7 @@
 import { ownRows, ownRow } from './pageAll';
 import { getSupabase } from '../../supabase/client';
 import { ProviderRecord } from '../types';
+import { toTimestampMs } from '../../utils/dateUtils';
 import {
   DRAFT_FIELDS, DRAFT_REV, VERSION_FIELDS, DOCUMENT_FIELDS, toDb, fromDb,
 } from './fields';
@@ -16,12 +17,21 @@ export async function getDraft(userId: string): Promise<ProviderRecord | null> {
   return fromDb(DRAFT_REV, data);
 }
 
-export async function saveDraft(userId: string, data: ProviderRecord): Promise<void> {
+/**
+ * SF-2: запись возвращает серверную метку ряда (`updated_at`), которую поставил
+ * триггер 0043, а не часы прибора. Вызывающему она нужна как отметка «до какой
+ * облачной версии я написался» — без неё спор черновика решают часы устройства,
+ * отстающего на минуты. `null` — метку не прочитали: это «не знаю», а не «нулевая».
+ */
+export async function saveDraft(userId: string, data: ProviderRecord): Promise<number | null> {
   const payload = toDb(DRAFT_FIELDS, { ...data, updatedAt: new Date(), userId });
-  const { error } = await getSupabase()
+  const { data: written, error } = await getSupabase()
     .from('drafts')
-    .upsert(payload);
+    .upsert(payload)
+    .select('updated_at')
+    .maybeSingle();
   if (error != null) throw error;
+  return toTimestampMs((written as ProviderRecord | null)?.updated_at);
 }
 
 export async function updateDraft(userId: string, data: ProviderRecord): Promise<void> {

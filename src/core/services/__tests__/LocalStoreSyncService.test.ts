@@ -22,6 +22,12 @@ vi.mock('../../data', () => ({
       return true;
     },
     saveLocalStoreRecord: (...args: unknown[]) => mockSaveRecord(...args),
+    // S0-1: скаляр уходит условной записью по серверной отметке; здесь облако
+    // пусто и запись всегда проходит — тот же mockSaveRecord видит сам факт.
+    saveLocalStoreRecordIfUnstamped: async (u: string, s: string, k: string, p: unknown) => {
+      await mockSaveRecord(u, s, k, p);
+      return { written: true, stampedAt: null };
+    },
     // Страницы уходят одним запросом (атомарность проверяет localStoreSyncPaging);
     // здесь каждая страница видна тем же mockSaveRecord, что и одиночная запись.
     saveLocalStoreRecordPages: async (u: string, s: string, pages: Array<{ key: string; payload: unknown }>) => {

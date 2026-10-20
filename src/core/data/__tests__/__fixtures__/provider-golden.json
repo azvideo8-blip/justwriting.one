@@ -206,6 +206,18 @@
           "eq([\"user_id\",\"u1\"])",
           "eq([\"uuid\",\"doc_1\"])",
           "is([\"deleted_at\",null])",
+          "select([\"updated_at\"])"
+        ],
+        "payload": "updated_at"
+      },
+      {
+        "table": "documents",
+        "chain": [
+          "update([{\"current_version\":4,\"last_session_at\":\"2026-08-25T06:23:16.895Z\"}])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"uuid\",\"doc_1\"])",
+          "is([\"deleted_at\",null])",
+          "select([\"updated_at\"])",
           "<await>"
         ]
       }
@@ -258,6 +270,18 @@
           "eq([\"user_id\",\"u1\"])",
           "eq([\"uuid\",\"doc_1\"])",
           "is([\"deleted_at\",null])",
+          "select([\"updated_at\"])"
+        ],
+        "payload": "updated_at"
+      },
+      {
+        "table": "documents",
+        "chain": [
+          "update([{\"current_version\":4,\"last_session_at\":\"2025-08-24T01:46:40.000Z\"}])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"uuid\",\"doc_1\"])",
+          "is([\"deleted_at\",null])",
+          "select([\"updated_at\"])",
           "<await>"
         ]
       }
@@ -297,6 +321,18 @@
           "eq([\"user_id\",\"u1\"])",
           "eq([\"uuid\",\"doc_1\"])",
           "is([\"deleted_at\",null])",
+          "select([\"updated_at\"])"
+        ],
+        "payload": "updated_at"
+      },
+      {
+        "table": "documents",
+        "chain": [
+          "update([{\"current_version\":4,\"last_session_at\":\"2026-08-25T06:23:16.896Z\"}])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"uuid\",\"doc_1\"])",
+          "is([\"deleted_at\",null])",
+          "select([\"updated_at\"])",
           "<await>"
         ]
       }
@@ -689,7 +725,7 @@
     ]
   },
   "saveDraft": {
-    "result": null,
+    "result": 1787648400000,
     "calls": [
       {
         "table": "drafts",
@@ -707,7 +743,16 @@
         "table": "drafts",
         "chain": [
           "upsert([{\"title\":\"d\",\"content\":\"cd\",\"updated_at\":\"2026-08-25T06:23:16.896Z\",\"user_id\":\"u1\"}])",
-          "<await>"
+          "select([\"updated_at\"])"
+        ],
+        "payload": "updated_at"
+      },
+      {
+        "table": "drafts",
+        "chain": [
+          "upsert([{\"title\":\"d\",\"content\":\"cd\",\"updated_at\":\"2026-08-25T06:23:16.896Z\",\"user_id\":\"u1\"}])",
+          "select([\"updated_at\"])",
+          "maybeSingle([])"
         ]
       }
     ]

@@ -28,13 +28,16 @@ describe('R3-1: a failed metadata edit reaches the cloud on the retry', () => {
     await LocalDocumentService.updateExcludedFromAI(docId, true, userId);
     await LocalDocumentService.setMetadataDirty(docId, true, userId);
 
+    // S0-4: после принятой записи движок перечитывает живой облачный ряд —
+    vi.spyOn(DocumentService, 'getDocument').mockImplementation(async (u: string, id: string) =>
+      (await vi.mocked(DocumentService.getDocumentWithDeleted)(u, id)) as never);
     vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue({
       id: 'cloud_1', title: 'Старое', tags: [], currentVersion: 5, totalWords: 0, totalDuration: 0,
       sessionsCount: 0, firstSessionAt: null, lastSessionAt: null,
     } as never);
     vi.spyOn(VersionService, 'getVersions').mockResolvedValue([]);
     const meta = vi.spyOn(DocumentService, 'updateMetadata').mockResolvedValue(undefined);
-    vi.spyOn(DocumentService, 'updateDocumentAfterSession').mockResolvedValue(undefined);
+    vi.spyOn(DocumentService, 'updateDocumentAfterSession').mockResolvedValue(null);
 
     await CloudSyncService.addCloudCopy(userId, docId);
 

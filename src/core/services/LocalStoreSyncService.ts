@@ -1,4 +1,5 @@
 import { getLocalDb } from '../storage/localDb';
+import { contentHash } from '../utils/contentHash';
 import type { AIDialogue } from '../storage/localDb';
 import { DIALOGUE_SCHEMA, dialogueFingerprint, mergeDialogues, withMessageIds } from '../storage/dialogueMerge';
 import { DataProvider } from '../data';
@@ -6,6 +7,14 @@ import { getCurrentUser } from '../auth';
 import { maybeEncrypt, maybeDecrypt, getEncryptionEnabled } from '../crypto/cryptoHelpers';
 import { getSessionKey } from '../crypto/encrypt';
 import { cloudSyncEnabled } from '../sync/cloudSyncEnabled';
+import { pushSentHash, readSentHashes } from '../sync/sentHashes';
+import {
+  parseJournalRows,
+  readJournal,
+  readJournalRawForHealing,
+  writeJournal,
+  currentJournalUid,
+} from '../sync/syncJournal';
 import { reportError } from '../../shared/errors/reportError';
 import { logger } from '../../shared/errors/logger';
 import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
@@ -129,7 +138,10 @@ export function splitStringIntoChunks(str: string, maxBytesPerChunk = PAGE_SPLIT
 // Держать его только в памяти значило терять при закрытии вкладки (а при
 // выключенной синхронизации — всю сессию), и ежедневное восстановление
 // возвращало удалённое. Поэтому ожидающие удаления лежат на диске до успеха.
-const PENDING_DELETES_LS_KEY = 'ai_sync_pending_deletes';
+//
+// S0-2 (F-3): ключ — на учётку. Прежний общий ключ делал одну битую строку
+// чужой учётки стоп-сигналом для всех аккаунтов устройства.
+const PENDING_DELETES_BASE = 'ai_sync_pending_deletes';
 const CORRUPT_DELETES_BACKUP_PREFIX = 'ai_sync_pending_deletes.corrupt.';
 
 export interface PersistedDelete { uid: string; store: string; key: string }
@@ -140,65 +152,58 @@ export function _resetReportedForTests(): void {
   hasReportedJournalUnknownThisPageLoad = false;
 }
 
-export function readPersistedDeletesRaw(): { raw: string | null } | { unavailable: true } {
-  try {
-    return { raw: localStorage.getItem(PENDING_DELETES_LS_KEY) };
-  } catch {
-    return { unavailable: true };
-  }
+function isDeleteRow(v: unknown): v is PersistedDelete {
+  return v !== null && typeof v === 'object'
+    && typeof (v as Record<string, unknown>).uid === 'string'
+    && typeof (v as Record<string, unknown>).store === 'string'
+    && typeof (v as Record<string, unknown>).key === 'string';
+}
+
+/** Сырой текст своего журнала удалений — для починки битого JSON. */
+export function readPersistedDeletesRaw(uid?: string | null): { raw: string | null } | { unavailable: true } {
+  const res = readJournalRawForHealing(PENDING_DELETES_BASE, uid ?? currentJournalUid());
+  if ('unavailable' in res) return { unavailable: true };
+  if ('none' in res) return { raw: null };
+  return { raw: res.raw };
 }
 
 export function parseDeleteJournal(raw: string): { list: PersistedDelete[]; dropped: number } | { corrupt: true } {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return { corrupt: true };
-  }
-  if (!Array.isArray(parsed)) {
-    return { corrupt: true };
-  }
-  const list: PersistedDelete[] = [];
-  let dropped = 0;
-  for (const item of parsed) {
-    if (
-      item !== null &&
-      typeof item === 'object' &&
-      typeof (item as Record<string, unknown>).uid === 'string' &&
-      typeof (item as Record<string, unknown>).store === 'string' &&
-      typeof (item as Record<string, unknown>).key === 'string'
-    ) {
-      list.push({
-        uid: (item as PersistedDelete).uid,
-        store: (item as PersistedDelete).store,
-        key: (item as PersistedDelete).key,
-      });
-    } else {
-      dropped++;
-    }
-  }
-  return { list, dropped };
+  const parsed = parseJournalRows(raw, isDeleteRow);
+  return 'corrupt' in parsed ? parsed : { list: parsed.rows, dropped: parsed.dropped };
 }
 
+/**
+ * Снести по префиксу прежние копии нечитаемого журнала и вернуть, сколько снесли.
+ * Общий помощник двух починко — журнала удалений и журнала правок: без него тот же
+ * цикл был написан дважды, и храповик S0-6 (обращения к localStorage в этом файле)
+ * поднимался с 8 до 11 именно из-за копирования, а не из-за нового долга.
+ */
+function removeJournalBackups(prefix: string): number {
+  const doomed: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith(prefix)) doomed.push(k);
+  }
+  for (const k of doomed) localStorage.removeItem(k);
+  return doomed.length;
+}
+
+/**
+ * Бэкап битого журнала и спасение валидных строк СВОЕЙ учётки. Строки других
+ * аккаунтов из общего ключа не трогаются: их перенесёт их собственный проход
+ * (флаг переноса — на учётку).
+ */
 export function healCorruptDeleteJournal(
   raw: string,
   uid?: string,
 ): { salvaged: PersistedDelete[]; dropped: number } {
+  const target = uid ?? currentJournalUid();
   try {
-    const keysToRemove: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && k.startsWith(CORRUPT_DELETES_BACKUP_PREFIX)) {
-        keysToRemove.push(k);
-      }
-    }
-    for (const k of keysToRemove) {
-      localStorage.removeItem(k);
-    }
     // R4-019: бэкап нигде не читается и затирался следующим heal молча. Остался
     // вариант «удалить с названным числом» — пусть потеря хотя бы видна в отчёте.
-    if (keysToRemove.length > 0) {
-      reportError(new Error('Stale unreadable delete-journal backups wiped'), { action: 'healCorruptDeleteJournal_staleBackups', count: keysToRemove.length }, 'warning');
+    const stale = removeJournalBackups(CORRUPT_DELETES_BACKUP_PREFIX);
+    if (stale > 0) {
+      reportError(new Error('Stale unreadable delete-journal backups wiped'), { action: 'healCorruptDeleteJournal_staleBackups', count: stale }, 'warning');
     }
     localStorage.setItem(`${CORRUPT_DELETES_BACKUP_PREFIX}${Date.now()}`, raw);
   } catch (err) {
@@ -206,22 +211,20 @@ export function healCorruptDeleteJournal(
   }
 
   const parsed = parseDeleteJournal(raw);
-  const salvaged = 'corrupt' in parsed ? [] : parsed.list;
+  const all = 'corrupt' in parsed ? [] : parsed.list.filter(d => d.uid === target);
   const dropped = 'corrupt' in parsed ? 0 : parsed.dropped;
 
-  try {
-    localStorage.setItem(PENDING_DELETES_LS_KEY, JSON.stringify(salvaged));
-  } catch (err) {
-    reportError(err, { action: 'healCorruptDeleteJournal_writeSalvaged' }, 'warning');
+  if (!writeJournal(PENDING_DELETES_BASE, target, all)) {
+    reportError(new Error('Delete journal could not be written after heal'), { action: 'healCorruptDeleteJournal_writeSalvaged' }, 'warning');
   }
 
-  reportDeleteJournalUnknown('flushPending_deleteJournalUnknown', uid, {
+  reportDeleteJournalUnknown('flushPending_deleteJournalUnknown', target ?? undefined, {
     rawLength: raw.length,
-    salvaged: salvaged.length,
+    salvaged: all.length,
     dropped,
   });
 
-  return { salvaged, dropped };
+  return { salvaged: all, dropped };
 }
 
 // A-5 (R2-012): «пусто» и «не прочитано» — разные состояния. Пустой журнал
@@ -232,13 +235,13 @@ export function healCorruptDeleteJournal(
 // `null` — «журнал не читается», `[]` — «прочитан и пуст».
 // F-2: битый JSON в работающем storage исцеляется (бэкап + спасение валидных),
 // а на проходе обнаружения возвращается null (fail closed для этого прохода).
-export function readPersistedDeletes(): PersistedDelete[] | null {
-  const rawRes = readPersistedDeletesRaw();
-  if ('unavailable' in rawRes) return null;
-  if (rawRes.raw === null) return [];
-  const parsed = parseDeleteJournal(rawRes.raw);
-  if ('corrupt' in parsed || parsed.dropped > 0) return null;
-  return parsed.list;
+export function readPersistedDeletes(uid?: string | null): PersistedDelete[] | null {
+  const target = uid === undefined ? currentJournalUid() : uid;
+  const res = readJournal(PENDING_DELETES_BASE, target, isDeleteRow);
+  if ('unavailable' in res || 'corrupt' in res) return null;
+  // Строка без ключа могла быть живым обязательством: угадывать нельзя (A-5).
+  if (res.dropped > 0) return null;
+  return res.rows;
 }
 
 /** Причина, по которой проход останавливает загрузки: её надо назвать вслух. */
@@ -260,20 +263,22 @@ function reportDeleteJournalUnknown(
   );
 }
 
-function writePersistedDeletes(list: PersistedDelete[]): void {
+function writePersistedDeletes(uid: string | null, list: PersistedDelete[]): void {
   // Не записалось — после перезагрузки удаление в облаке забудется, и разбор
   // останется там. Молчать об этом нельзя.
-  try { localStorage.setItem(PENDING_DELETES_LS_KEY, JSON.stringify(list)); } catch (e) { reportError(e, { action: 'writePersistedDeletes' }, 'warning'); }
+  if (!writeJournal(PENDING_DELETES_BASE, uid, list)) {
+    reportError(new Error('Delete journal could not be written'), { action: 'writePersistedDeletes' }, 'warning');
+  }
 }
 
 function persistDelete(uid: string, store: string, key: string): void {
-  const list = readPersistedDeletes();
+  const list = readPersistedDeletes(uid);
   // Перечитать нечего — значит и дописать нельзя: запись одного нового
   // обязательства стёрла бы все прежние, а их нельзя вывести заново.
   if (list === null) return reportDeleteJournalUnknown('persistDelete_deleteJournalUnknown', uid);
   if (!list.some(d => d.uid === uid && d.store === store && d.key === key)) {
     list.push({ uid, store, key });
-    writePersistedDeletes(list);
+    writePersistedDeletes(uid, list);
   }
 }
 
@@ -283,20 +288,27 @@ function forgetPersistedDelete(uid: string, store: string, key: string): void {
 
 function forgetPersistedDeletes(uid: string, entries: Array<{ store: string; key: string }>): void {
   if (entries.length === 0) return;
-  const list = readPersistedDeletes();
+  const list = readPersistedDeletes(uid);
   // То же: снимали бы маркеры, перезаписав нечитаемый журнал пустым списком.
   // Удаление просто уедет в облако ещё раз — это идемпотентно.
   if (list === null) return;
   const doomed = new Set(entries.map(e => upsertKey(e.store, e.key)));
   const next = list.filter(d => !(d.uid === uid && doomed.has(upsertKey(d.store, d.key))));
-  if (next.length !== list.length) writePersistedDeletes(next);
+  if (next.length !== list.length) writePersistedDeletes(uid, next);
 }
 
 /** Ключи `store:key`, облачное удаление которых ещё не дошло — восстановлению их не трогать. `null` — журнал не читается. */
 export function getPendingStoreDeleteKeys(uid: string): Set<string> | null {
-  const list = readPersistedDeletes();
+  const list = readPersistedDeletes(uid);
   if (list === null) return null;
   return new Set(list.filter(d => d.uid === uid).map(d => `${d.store}:${d.key}`));
+}
+
+/** Журнал учётки по базовому имени ключа — диагностика и тест переноса (S0-2). */
+export function readScopedJournal(base: string, uid: string | null): PersistedDelete[] | null {
+  const res = readJournal(base, uid, isDeleteRow);
+  if ('unavailable' in res || 'corrupt' in res || res.dropped > 0) return null;
+  return res.rows;
 }
 
 // SA-1: ожидающее обновление жило только в памяти. Окно потери — дебаунс
@@ -305,40 +317,136 @@ export function getPendingStoreDeleteKeys(uid: string): Set<string> | null {
 // syncAllLocalStores зовётся только из ручной кнопки. Выбор — тот же образец,
 // что у персистентных удалений выше: маркер лежит на диске до успеха.
 //
-// Почему не «фоновый syncAllLocalStores при входе и при возврате фокуса»: он
-// перечитывает, перешифровывает и перезагружает ВСЕ записи всех 14 сторов
-// ради нескольких потерянных, требует разблокированного сейфа и всё равно не
-// накрывает окно дебаунса.
-const PENDING_UPSERTS_LS_KEY = 'ai_sync_pending_upserts';
+// S0-2 (F-3, остаток R3-012): ключ — на учётку, а нечитаемый журнал больше не
+// читается как пустой. «Не знаю, что должно быть выгружено» — это `null`, и на
+// нём дренаж останавливает правки, как уже делает с удалениями.
+const PENDING_UPSERTS_BASE = 'ai_sync_pending_upserts';
 
 interface PersistedUpsert { uid: string; store: string; key: string; attempts?: number }
 
 let reportedUpsertsUnreadable = false;
 
-// ponytail: нечитаемый журнал загрузок читается как пустой — в отличие от
-// удалений, загрузку можно вывести заново («Отправить всё» перечитывает сторы).
-// Но битое содержимое молча не проходит (R3-012): сказать один раз за загрузку
-// страницы. Недоступный storage уже называет журнал удалений — второй отчёт лишний.
-function readPersistedUpserts(): PersistedUpsert[] {
-  let raw: string | null;
-  try { raw = localStorage.getItem(PENDING_UPSERTS_LS_KEY); } catch { return []; }
-  try {
-    const parsed: unknown = raw ? JSON.parse(raw) : [];
-    if (Array.isArray(parsed)) return parsed as PersistedUpsert[];
-  } catch { /* ниже */ }
-  if (!reportedUpsertsUnreadable) {
-    reportedUpsertsUnreadable = true;
-    reportError(new Error('Journal of pending AI-store uploads is unreadable — read as empty'), { action: 'readPersistedUpserts' }, 'warning');
-  }
-  return [];
+function isUpsertRow(v: unknown): v is PersistedUpsert {
+  const o = v as Record<string, unknown> | null;
+  return o !== null && typeof o === 'object'
+    && typeof o.uid === 'string' && typeof o.store === 'string' && typeof o.key === 'string'
+    && (o.attempts === undefined || typeof o.attempts === 'number');
 }
 
-function writePersistedUpserts(list: PersistedUpsert[]): void {
-  // Не записалось — потеря ровно та же, что без персистентности.
-  try { localStorage.setItem(PENDING_UPSERTS_LS_KEY, JSON.stringify(list)); } catch (e) { reportError(e, { action: 'writePersistedUpserts' }, 'warning'); }
+function readPersistedUpserts(uid: string | null): PersistedUpsert[] | null {
+  const res = readJournal(PENDING_UPSERTS_BASE, uid, isUpsertRow);
+  if ('rows' in res && res.dropped === 0) return res.rows;
+  if (!reportedUpsertsUnreadable) {
+    reportedUpsertsUnreadable = true;
+    reportError(
+      new Error('Journal of pending AI-store uploads is unreadable — uploads are held back, not assumed empty'),
+      { action: 'readPersistedUpserts', dropped: 'rows' in res ? res.dropped : undefined },
+      'warning',
+    );
+  }
+  return null;
+}
+
+/** Сырой текст своего журнала правок — для починки битого JSON (как у удалений). */
+function readPersistedUpsertsRaw(uid: string | null): { raw: string | null } | { unavailable: true } {
+  const res = readJournalRawForHealing(PENDING_UPSERTS_BASE, uid);
+  if ('unavailable' in res) return { unavailable: true };
+  if ('none' in res) return { raw: null };
+  return { raw: res.raw };
+}
+
+/** Бэкап битого журнала и спасение валидных строк своей учётки. */
+function healCorruptUpsertJournal(raw: string, uid: string | null): PersistedUpsert[] {
+  try {
+    // SF2-7: прежние копии нечитаемого журнала правок сносятся перед новой —
+    // ровно как у журнала удалений (`healCorruptDeleteJournal`, общий помощник
+    // `removeJournalBackups`). Без этого на устройстве копился рой `…corrupt.<ts>`
+    // на каждый битый прогон: их никто не читает, а место в localStorage (5 МБ на
+    // весь браузер) они занимают.
+    const stale = removeJournalBackups(CORRUPT_UPSERTS_BACKUP_PREFIX);
+    if (stale > 0) {
+      reportError(new Error('Stale unreadable upsert-journal backups wiped'),
+        { action: 'healCorruptUpsertJournal_staleBackups', count: stale }, 'warning');
+    }
+    localStorage.setItem(`${CORRUPT_UPSERTS_BACKUP_PREFIX}${Date.now()}`, raw);
+  } catch (err) {
+    reportError(err, { action: 'healCorruptUpsertJournal_backup' }, 'warning');
+  }
+  const parsed = parseJournalRows(raw, isUpsertRow);
+  const salvaged = 'corrupt' in parsed ? [] : parsed.rows.filter(u => u.uid === uid);
+  if (!writeJournal(PENDING_UPSERTS_BASE, uid, salvaged)) {
+    reportError(new Error('Upload journal could not be written after heal'), { action: 'healCorruptUpsertJournal_writeSalvaged' }, 'warning');
+  }
+  return salvaged;
+}
+
+function writePersistedUpserts(uid: string | null, list: PersistedUpsert[]): boolean {
+  const ok = writeJournal(PENDING_UPSERTS_BASE, uid, list);
+  if (!ok) reportError(new Error('Upload journal could not be written'), { action: 'writePersistedUpserts' }, 'warning');
+  return ok;
 }
 
 const upsertKey = (store: string, key: string) => `${store}:${key}`;
+
+// SF-8: журнал правок не читается — дописать отметку нельзя (перезапись стёрла бы
+// прежние обязательства), но и молча её выбросить нельзя. Без отметки S0-3 читает
+// запись как «невыгруженной правки нет» и отдаёт её облаку, а `persistUpserts`
+// именно так и делал: `return` без следа. Вкладка, закрытая до починки битого JSON,
+// = правка перезаписана. Теперь отметка живёт в памяти аккаунта, об этом пишет в
+// журнал ошибок, и переезжает в журнал, как только тот снова читается.
+//
+// Память не переживает закрытие вкладки — это потолок того, что можно сделать без
+// диска; окно, которое она закрывает, — «журнал битый → следующий дренаж его лечит».
+const memoryPendingUpserts = new Map<string, Set<string>>();
+let reportedMemoryPendingUpserts = false;
+
+function holdPendingUpsertsInMemory(uid: string, entries: Array<{ store: string; key: string }>): void {
+  if (entries.length === 0) return;
+  const held = memoryPendingUpserts.get(uid) ?? new Set<string>();
+  for (const { store, key } of entries) held.add(upsertKey(store, key));
+  memoryPendingUpserts.set(uid, held);
+  if (!reportedMemoryPendingUpserts) {
+    reportedMemoryPendingUpserts = true;
+    reportError(
+      new Error('Upload journal is unreadable — pending marks are held in memory and re-committed when it reads again'),
+      { action: 'persistUpserts_memoryFallback', uid, held: held.size },
+      'warning',
+    );
+  }
+}
+
+function memoryPendingUpsertEntries(uid: string): Array<{ store: string; key: string }> {
+  const held = memoryPendingUpserts.get(uid);
+  if (!held || held.size === 0) return [];
+  return [...held].map(k => {
+    const i = k.indexOf(':');
+    return { store: k.slice(0, i), key: k.slice(i + 1) };
+  });
+}
+
+/** Дописать память-отметки в журнал, если он снова читается. Успех — память чиста. */
+function commitMemoryPendingUpserts(uid: string): boolean {
+  const held = memoryPendingUpsertEntries(uid);
+  if (held.length === 0) return true;
+  const list = readPersistedUpserts(uid);
+  if (list === null) {
+    holdPendingUpsertsInMemory(uid, held);
+    return false;
+  }
+  const seen = new Set(list.map(u => recordId(u.uid, upsertKey(u.store, u.key))));
+  for (const { store, key } of held) {
+    const id = recordId(uid, upsertKey(store, key));
+    if (seen.has(id)) continue;
+    seen.add(id);
+    list.push({ uid, store, key });
+  }
+  if (!writePersistedUpserts(uid, list)) {
+    holdPendingUpsertsInMemory(uid, held);
+    return false;
+  }
+  memoryPendingUpserts.delete(uid);
+  return true;
+}
 
 // Составной id записи внутри JSON-нагрузки — не ключ localStorage, поэтому
 // склейка через конкатенацию: гейт инвентаря ключей читает шаблоны с
@@ -347,15 +455,25 @@ const recordId = (uid: string, itemKey: string) => uid + '/' + itemKey;
 
 function persistUpserts(uid: string, entries: Array<{ store: string; key: string }>): void {
   if (entries.length === 0) return;
-  const list = readPersistedUpserts();
+  const list = readPersistedUpserts(uid);
+  // Журнал не читается — дописывать нельзя: перезапись стёрла бы прежние
+  // обязательства (тот же класс, что у удалений, A-5). SF-8: отметку держим в
+  // памяти аккаунта, чтобы следующий читаемый проход её дописал.
+  if (list === null) {
+    holdPendingUpsertsInMemory(uid, entries);
+    return;
+  }
+  // Что висело в памяти — едет в журнал этим же списком.
+  const carried = memoryPendingUpsertEntries(uid);
   const seen = new Set(list.map(u => recordId(u.uid, upsertKey(u.store, u.key))));
-  for (const { store, key } of entries) {
+  for (const { store, key } of [...entries, ...carried]) {
     const id = recordId(uid, upsertKey(store, key));
     if (seen.has(id)) continue;
     seen.add(id);
     list.push({ uid, store, key });
   }
-  writePersistedUpserts(list);
+  if (writePersistedUpserts(uid, list)) memoryPendingUpserts.delete(uid);
+  else holdPendingUpsertsInMemory(uid, entries);
 }
 
 /** Обновить счётчик попыток / убрать маркеры одним перечнём и одной записью. */
@@ -365,7 +483,8 @@ function applyUpsertMarkerChanges(
   stillPending: (itemKey: string) => boolean,
 ): void {
   if (changes.attempts.size === 0 && changes.dropped.size === 0) return;
-  const list = readPersistedUpserts();
+  const list = readPersistedUpserts(uid);
+  if (list === null) return;
   const next: PersistedUpsert[] = [];
   for (const u of list) {
     if (u.uid !== uid) { next.push(u); continue; }
@@ -374,44 +493,105 @@ function applyUpsertMarkerChanges(
     const attempts = changes.attempts.get(id);
     next.push(attempts === undefined ? u : { ...u, attempts });
   }
-  writePersistedUpserts(next);
+  // Не записалось — на диске остаётся ПРЕЖНИЙ список: снятые отметки не сняты,
+  // счётчик попыток не записан. Обязательство не потеряно (запись стоит под тем же
+  // флагом «не знаю»), а потеряна была бы, пиши мы сюда пустой список вместо отказа.
+  writePersistedUpserts(uid, next); // намеренно: см. комментарий выше
 }
 
-/** Записи, ждущие облачного upsert и ещё не уехавшие (с пережитой перезагрузкой). */
 /**
- * T-8 (0.10.0): ключи `store:key` с невыгруженной локальной правкой этого аккаунта —
- * для спора копий при заборе. `null` — журнал не читается: «нет правок» и «не знаю»
- * — разные ответы, и на `null` забор обязан оставить локальную копию.
+ * T-8 (0.10.0): ключи `store:key`, у которых есть невыгруженная локальная правка
+ * этого аккаунта — для спора копий при заборе. `null` — какой-то из журналов не
+ * читается: «нет правок» и «не знаю» — разные ответы, и на `null` забор обязан
+ * оставить локальную копию.
+ *
+ * SF-1/SF-3: журнал правок — не полный список такого долга. Отказ выгрузки
+ * снимает отметку в трёх штатных местах: после `MAX_UPSERT_ATTEMPTS` запись
+ * переходит в `ai_sync_dead_upserts` (`markerChanges.dropped`), непоместившаяся —
+ * в `oversized` (`markOversized`). Обязательство при этом не закрыто: правка
+ * осталась единственной копией. Без союза журналов забор читал снятую отметку как
+ * «правок нет» и по правилу S0-3 (`нет базы + содержимое отличается → облако`)
+ * затирал её облачной копией — то есть CAS-отказ, придуманный ничего не терять,
+ * терял правку на следующем заборе.
+ *
+ * Отметку в журнале правок при этом НЕ оставляем: дренаж перечитывает журнал на
+ * каждом проходе, и записи, отвергнутые сервером, крутились бы вечно, удваивая
+ * счёт в бейдже (тот же довод, что у `markOversized`). Держим обязательство в
+ * его собственном журнале, а здесь собираем из всех трёх.
  */
 export function getPendingUpsertKeySet(uid: string): Set<string> | null {
-  let raw: string | null;
-  try { raw = localStorage.getItem(PENDING_UPSERTS_LS_KEY); } catch { return null; }
-  try {
-    const parsed: unknown = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(parsed)) return null;
-    return new Set((parsed as PersistedUpsert[]).filter(u => u.uid === uid).map(u => upsertKey(u.store, u.key)));
-  } catch { return null; }
+  const list = readPersistedUpserts(uid);
+  if (list === null) return null;
+  const keys = new Set(list.filter(u => u.uid === uid).map(u => upsertKey(u.store, u.key)));
+
+  const dead = readDeadUpserts(uid);
+  if (dead === null) return null;
+  for (const d of dead) {
+    if (d.uid === uid) keys.add(upsertKey(d.store, d.key));
+  }
+
+  const oversized = readOversizedRecords(uid);
+  if (oversized === null) return null;
+  for (const o of oversized) keys.add(`${o.store}:${o.key}`);
+
+  // SF-8: отметки, которые не удалось записать в журнал правок. Пока журнал не
+  // читается, весь этот множество и так `null` («не знаю»), а вот после починки,
+  // до переноса в журнал, они обязаны быть здесь — иначе окно между «починили» и
+  // «дописали» читается как «правок нет».
+  for (const k of memoryPendingUpserts.get(uid) ?? []) keys.add(k);
+
+  return keys;
 }
 
 /** T-8: серверная отметка облачной версии, от которой получена локальная копия. */
 export const CLOUD_STAMP_FIELD = '_cloudStampedAt';
+/**
+ * SF2-2: два хэша рядом с отметкой. `CLOUD_BASE_HASH_FIELD` — содержимое того
+ * облачного ряда, к которому относится отметка базы; `CLOUD_SENT_HASHES_FIELD` —
+ * содержимое ОТПРАВЛЕННЫХ нагрузок, ответа на которые мы не видели. Оба поля
+ * прибора, в облако не едут (stripCloudStamp) и переживают перезапись строки
+ * писателем (обёртка `put` в localDb).
+ *
+ * Без них отказ CAS различается только «облако = наша ТЕКУЩАЯ копия», а этого
+ * мало: на плохой сети облако держит нашу же ПРОШЛУЮ отправку (ответ потерялся),
+ * а после слепого upsert другого устройства («зашифровать всё») облако держит
+ * тот же текст, от которого мы правили. В обоих случаях чужой правки нет, и
+ * прежний код объявлял её: пять отказов — запись мёртва, синхронизация её встаёт
+ * с обеих сторон.
+ *
+ * SF3-3: списком, а не одним слотом. Слот перезаписывается ПЕРЕД каждым запросом
+ * (`rememberSentHash`), а читается обратно только при отказе — значит попытка,
+ * которая до сервера не дошла (`network_pre`), стирает доказательство предыдущей,
+ * дошедшей без ответа. Дальше наша же версия в облаке читается чужой правкой, и
+ * запись умирает ровно так, как умирала без хэша вообще.
+ */
+export const CLOUD_BASE_HASH_FIELD = '_cloudBaseHash';
+export const CLOUD_SENT_HASHES_FIELD = '_cloudSentHashes';
 
 export function stripCloudStamp(record: unknown): unknown {
-  if (!record || typeof record !== 'object' || !(CLOUD_STAMP_FIELD in record)) return record;
-  const copy = { ...(record as Record<string, unknown>) };
+  if (!record || typeof record !== 'object') return record;
+  const source = record as Record<string, unknown>;
+  if (!(CLOUD_STAMP_FIELD in source) && !(CLOUD_BASE_HASH_FIELD in source) && !(CLOUD_SENT_HASHES_FIELD in source)) {
+    return record;
+  }
+  const copy = { ...source };
   delete copy[CLOUD_STAMP_FIELD];
+  delete copy[CLOUD_BASE_HASH_FIELD];
+  delete copy[CLOUD_SENT_HASHES_FIELD];
   return copy;
 }
 
-export function getPendingStoreUpserts(uid: string): PersistedUpsert[] {
-  return readPersistedUpserts().filter(u => u.uid === uid);
+/** Обновления, ждущие облачного upsert и ещё не уехавшие. `null` — журнал не читается. */
+export function getPendingStoreUpserts(uid: string): PersistedUpsert[] | null {
+  return readPersistedUpserts(uid);
 }
 
 // SA-1: «молча сброшенного» не существует. Запись, которую сервер отверг
 // MAX_UPSERT_ATTEMPTS раз, раньше исчезала из очереди без следа — ни в бейдже,
 // ни в журнале. Теперь у неё есть персистентная отметка (по образцу
 // OVERSIZED_LS_KEY), снимаемая успехом, новой правкой или удалением.
-const DEAD_UPSERTS_LS_KEY = 'ai_sync_dead_upserts';
+const DEAD_UPSERTS_BASE = 'ai_sync_dead_upserts';
+const CORRUPT_UPSERTS_BACKUP_PREFIX = 'ai_sync_pending_upserts.corrupt.';
 
 export interface DeadStoreUpsert {
   uid: string;
@@ -424,15 +604,19 @@ export interface DeadStoreUpsert {
 
 let reportedDeadUpsertsUnreadable = false;
 
+function isDeadRow(v: unknown): v is DeadStoreUpsert {
+  const o = v as Record<string, unknown> | null;
+  return o !== null && typeof o === 'object'
+    && typeof o.uid === 'string' && typeof o.store === 'string' && typeof o.key === 'string'
+    && typeof o.lastError === 'string' && typeof o.attempts === 'number' && typeof o.timestamp === 'number';
+}
+
 // R4-004: «пусто» и «не читается» — разные состояния. Битый JSON, прочитанный
 // как [], позволял markDeadUpsert затереть журнал: прежние отметки гибли молча.
 // null — «не читается»: писатели пропускают запись, читатели показывают нижнюю границу.
-function readDeadUpserts(): DeadStoreUpsert[] | null {
-  try {
-    const raw = localStorage.getItem(DEAD_UPSERTS_LS_KEY);
-    const parsed: unknown = raw ? JSON.parse(raw) : [];
-    if (Array.isArray(parsed)) return parsed as DeadStoreUpsert[];
-  } catch { /* ниже */ }
+function readDeadUpserts(uid: string | null): DeadStoreUpsert[] | null {
+  const res = readJournal(DEAD_UPSERTS_BASE, uid, isDeadRow);
+  if ('rows' in res && res.dropped === 0) return res.rows;
   if (!reportedDeadUpsertsUnreadable) {
     reportedDeadUpsertsUnreadable = true;
     reportError(new Error('Journal of dead AI-store upserts is unreadable — new marks are not written'), { action: 'readDeadUpserts' }, 'warning');
@@ -440,48 +624,52 @@ function readDeadUpserts(): DeadStoreUpsert[] | null {
   return null;
 }
 
-function writeDeadUpserts(list: DeadStoreUpsert[]): void {
-  try { localStorage.setItem(DEAD_UPSERTS_LS_KEY, JSON.stringify(list)); } catch (e) { reportError(e, { action: 'writeDeadUpserts' }, 'warning'); }
+function writeDeadUpserts(uid: string | null, list: DeadStoreUpsert[]): void {
+  if (!writeJournal(DEAD_UPSERTS_BASE, uid, list)) {
+    reportError(new Error('Dead-upsert journal could not be written'), { action: 'writeDeadUpserts' }, 'warning');
+  }
 }
 
 export function getDeadStoreUpserts(uid?: string): DeadStoreUpsert[] {
-  const list = readDeadUpserts();
+  const target = uid ?? currentJournalUid();
+  const list = readDeadUpserts(target);
   return uid ? (list ?? []).filter(d => d.uid === uid) : (list ?? []);
 }
 
 /** false — журнал не читается и отметка не записана: маркер загрузки снимать нельзя (M-11). */
 function markDeadUpsert(uid: string, store: string, key: string, attempts: number, lastError: string): boolean {
-  const list = readDeadUpserts();
+  const list = readDeadUpserts(uid);
   if (list === null) return false;
   const next = list.filter(d => !(d.uid === uid && d.store === store && d.key === key));
   next.push({ uid, store, key, lastError, attempts, timestamp: Date.now() });
-  writeDeadUpserts(next);
+  writeDeadUpserts(uid, next);
   return true;
 }
 
 /** Снять отметку «отвергнуто» сразу с нескольких записей — одним перечнём. */
 function forgetDeadUpserts(uid: string, entries: Array<{ store: string; key: string }>): void {
   if (entries.length === 0) return;
-  const list = readDeadUpserts();
+  const list = readDeadUpserts(uid);
   if (list === null) return;
   const doomed = new Set(entries.map(e => recordId(uid, upsertKey(e.store, e.key))));
   const next = list.filter(d => !doomed.has(recordId(d.uid, upsertKey(d.store, d.key))));
   if (next.length === list.length) return;
-  writeDeadUpserts(next);
+  writeDeadUpserts(uid, next);
 }
 
-/** Состояние ИИ-сторов для бейджа: pending — ждущие upsert + незакрытые удаления. `unknown` — какой-то из журналов (удалений, отвергнутых, слишком больших) не читается, и счёт поэтому нижняя граница. oversized — записи, живущие только на устройстве (R4-017). */
+/** Состояние ИИ-сторов для бейджа: pending — ждущие upsert + незакрытые удаления. `unknown` — какой-то из журналов (правок, удалений, отвергнутых, слишком больших) не читается, и счёт поэтому нижняя граница. oversized — записи, живущие только на устройстве (R4-017). */
 export function getLocalStoreSyncSummary(uid: string): { pending: number; dead: number; oversized: number; unknown: boolean } {
-  const deletes = readPersistedDeletes();
-  const dead = readDeadUpserts();
+  const deletes = readPersistedDeletes(uid);
+  const upserts = readPersistedUpserts(uid);
+  const dead = readDeadUpserts(uid);
   const oversized = readOversizedRecords(uid);
-  const pending = getPendingStoreUpserts(uid).length
+  const pending = (upserts === null ? 0 : upserts.filter(u => u.uid === uid).length)
     + (deletes === null ? 0 : deletes.filter(d => d.uid === uid).length);
   return {
     pending,
     dead: (dead ?? []).filter(d => d.uid === uid).length,
     oversized: (oversized ?? []).length,
-    unknown: deletes === null || dead === null || oversized === null,
+    unknown: deletes === null || upserts === null || dead === null || oversized === null,
   };
 }
 
@@ -637,11 +825,11 @@ function isPlaintextUnderVault(e: unknown): boolean {
   return err?.name === 'DecryptionError' && err.cause?.message === 'PLAINTEXT_UNDER_VAULT';
 }
 
-async function readDialogueText(payload: Record<string, unknown>): Promise<string> {
+async function readDialogueText(payload: Record<string, unknown>, what = 'cloud dialogue row'): Promise<string> {
   try {
     const dec = await maybeDecrypt(payload, [...PAGE_TEXT_FIELDS], []);
     const text = pageTextOf(dec);
-    if (text === null) throw new Error('S-34: cloud dialogue row has no readable data');
+    if (text === null) throw new Error(`S-34: ${what} has no readable data`);
     return text;
   } catch (e) {
     if (!isPlaintextUnderVault(e)) throw e;
@@ -651,6 +839,48 @@ async function readDialogueText(payload: Record<string, unknown>): Promise<strin
     if (raw !== null) return raw;
     throw e;
   }
+}
+
+/**
+ * S0-1: открытая строка скалярного стора из облака — её JSON и серверная
+ * отметка. `null` — строки нет. Непрочитываемая строка — ошибка, а не «облака
+ * нет»: тот же класс, что S-54 для диалогов (условная запись поверх того, чего
+ * не можем прочесть, стёрла бы чужую правку).
+ */
+/**
+ * SF2-7: старше ли базовый ряд собственной полной группе страниц. Строка
+ * `key#N` — страница той же записи; если её набор полон и свежет базовой строки,
+ * базовая строка — остаток неудавшейся выгрузки, а не актуальная версия.
+ */
+async function baseRowIsLeftover(
+  uid: string,
+  store: SupportedLocalStoreName,
+  key: string,
+  baseStamp: number | null,
+): Promise<boolean> {
+  if (!DataProvider.getLocalStoreRecordPages) return false;
+  const pages = await DataProvider.getLocalStoreRecordPages(uid, store, key);
+  if (pages.length === 0) return false;
+  const groupMax = pages.reduce((m, r) => Math.max(m, r.stamped_at ?? 0), 0);
+  if (baseStamp !== null && groupMax <= baseStamp) return false;
+  const rows: CloudRow[] = pages.map(r => ({
+    key: r.key, payload: r.payload as Record<string, unknown>, checksum: r.checksum, stamped_at: r.stamped_at,
+  }));
+  const version = selectCloudVersion(rows, false);
+  return version !== null && version.kind === 'pages';
+}
+
+async function readCloudScalar(
+  uid: string,
+  store: SupportedLocalStoreName,
+  key: string,
+): Promise<{ json: string; stampedAt: number | null } | null> {
+  const row = await DataProvider.getLocalStoreRecord(uid, store, key);
+  if (!row) return null;
+  return {
+    json: await readDialogueText(row.payload as Record<string, unknown>, 'cloud scalar row'),
+    stampedAt: typeof row.stamped_at === 'number' ? row.stamped_at : null,
+  };
 }
 
 /** То же для полей head'а и сегмента: открытый текст под сейфом читается, всё
@@ -781,6 +1011,14 @@ export class LocalStoreSyncManager {
   // M-10: поколение удалений по ключу. Растёт только в scheduleStoreDelete —
   // flush, чистящий очередь, или подтянутое с диска удаление его не меняют.
   private deleteGen = new Map<string, number>();
+  /**
+   * SF2-2: путь «оставить моё» включается ТОЛЬКО на проходе явного «отправить
+   * всё» (`syncAllLocalStores`), а не на любой ручной выгрузке: `flushPending(true)`
+   * вызывают и «синхронизировать сейчас», и дозапись после разблокировки сейфа.
+   * На настоящем споре копий такой проход перетирает облачную версию чужого
+   * устройства — жест, на который человек нажал кнопку, но не каждый ручной клик.
+   */
+  private keepMinePass = false;
   // R7Q-007: отложенные повторы уборки сирот, одна запись на пару uid:диалог.
   private orphanRetryTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -809,7 +1047,7 @@ export class LocalStoreSyncManager {
     // Журнал не читается — считаем, что удаление возможно: ветка ниже сама
     // решает по наличию записи в IndexedDB, а дренаж на неизвестном журнале
     // ни одного upsert не отправит.
-    const deletes = uid ? readPersistedDeletes() : [];
+    const deletes = uid ? readPersistedDeletes(uid) : [];
     const hasPersistedDelete = !uid
       ? false
       : (deletes === null ? true : deletes.some(d => d.uid === uid && d.store === store && d.key === key));
@@ -898,6 +1136,280 @@ export class LocalStoreSyncManager {
     const current = await tx.store.get(key);
     if (current && current.updatedAt !== fromCloud) await tx.store.put({ ...current, updatedAt: fromCloud });
     await tx.done;
+  }
+
+  /**
+   * S0-1 / F-2: после принятой выгрузки скаляра устройство запоминает новую
+   * серверную отметку. Без этого скаляр никогда не узнавал, какой версией облака
+   * он владеет: `adoptServerStamp` есть только у диалогов, а отметка появлялась
+   * лишь при совпадении содержимого на заборе — то есть зависела от везения.
+   */
+  private async adoptScalarStamp(
+    db: Awaited<ReturnType<typeof getLocalDb>>,
+    store: SupportedLocalStoreName,
+    key: string,
+    stampMs: number | null,
+    baseJson?: string,
+    sentAcknowledged = true,
+  ): Promise<void> {
+    if (stampMs === null || !Number.isFinite(stampMs)) return;
+    const tx = await (db as unknown as {
+      transaction(s: string, m: string): Promise<{ store: { get(k: string): Promise<unknown>; put(v: unknown): Promise<unknown> }; done: Promise<void> }>;
+    }).transaction(store, 'readwrite');
+    const current = await tx.store.get(key);
+    // Запись могли снести, пока летел запрос: воскрешать нельзя, и лишнее поле
+    // нечего писать в то, чего больше нет.
+    if (current && typeof current === 'object' && !Array.isArray(current)
+      && (current as Record<string, unknown>)[CLOUD_STAMP_FIELD] !== stampMs) {
+      const next: Record<string, unknown> = { ...(current as Record<string, unknown>), [CLOUD_STAMP_FIELD]: stampMs };
+      // SF2-2: база — это не только номер ряда, но и его содержимое. Хэш
+      // принимается вместе с отметкой: иначе следующее сравнение не отличит
+      // «облако двинулось само» от «там чужой текст».
+      if (baseJson !== undefined) next[CLOUD_BASE_HASH_FIELD] = contentHash(baseJson);
+      // SF2-2: `_cloudSentHashes` означает «эти нагрузки мы положили на сеть и
+      // НЕ видели ответа». Принятая запись закрывает список целиком — он гасится,
+      // а не перезаписывается хэшем принятой (как у черновика в SF3-1): у скаляра
+      // принятое содержимое уже названо полем `_cloudBaseHash`, а второй след
+      // переезжал бы обёрткой `put` в строку, у которой ДРУГАЯ база, и чужую
+      // облачную версию выдавал бы «нашу» (красный RT-1 в scalarUploadCas.s01).
+      if (sentAcknowledged) delete next[CLOUD_SENT_HASHES_FIELD];
+      await tx.store.put(next);
+    }
+    await tx.done;
+  }
+
+  /**
+   * SF2-2: хэш уехавшей нагрузки пишется ДО запроса. Ответ на запись рвётся уже
+   * после коммита на сервере, и без этого следа свою же дошедшую копию приходится
+   * читать чужой правкой.
+   *
+   * SF3-3: след — список, а не один слот. Запрос, который до сервера не дошёл,
+   * ничего в облако не положил, но прежним кодом затирал хэш предыдущей, дошедшей
+   * без ответа отправки — и доказательство «облако наше» терялось ровно в тот
+   * момент, когда оно нужнее всего.
+   */
+  private async rememberSentHash(
+    db: Awaited<ReturnType<typeof getLocalDb>>,
+    store: SupportedLocalStoreName,
+    key: string,
+    localJson: string,
+  ): Promise<void> {
+    const hash = contentHash(localJson);
+    // Отметка об отправке — полезная, а не обязательная: не сумели записать
+    // (нет транзакции, нет строки) — выгрузка всё равно идёт. Терять её из-за
+    // служебного поля хуже, чем потерять само поле.
+    try {
+      const tx = await (db as unknown as {
+        transaction(s: string, m: string): Promise<{ store: { get(k: string): Promise<unknown>; put(v: unknown): Promise<unknown> }; done: Promise<void> }>;
+      }).transaction(store, 'readwrite');
+      const current = await tx.store.get(key);
+      if (current && typeof current === 'object' && !Array.isArray(current)) {
+        const before = readSentHashes((current as Record<string, unknown>)[CLOUD_SENT_HASHES_FIELD]);
+        const after = pushSentHash(before, hash);
+        if (after !== before) {
+          await tx.store.put({ ...(current as Record<string, unknown>), [CLOUD_SENT_HASHES_FIELD]: after });
+        }
+      }
+      await tx.done;
+    } catch (err) {
+      reportError(err, { action: 'rememberSentHash', store, key }, 'warning');
+    }
+  }
+
+  /**
+   * S0-1 (F-1): выгрузка скалярной строки с условием на серверную отметку базы.
+   *
+   * База известна — пишем сразу с условием (обычный путь: одна правка, один
+   * запрос). Базы нет — сначала одно чтение облака: строки нет → `insert`;
+   * облако держит ровно этот JSON → не пишем ничего и принимаем его отметку
+   * (иначе каждый проход переставлял бы ряду `stamped_at`, а забор на всех
+   * устройствах читал это как правку с чужого — тот же класс, что S-57 у
+   * диалогов); иначе условие ставится по отметке прочитанной версии.
+   *
+   * Ноль строк (конфликт) — перечитать и решить ЗАНОВО, а не писать поверх.
+   *
+   * SF-1/SF-2 раунда 1 умели только «облако = наша ТЕКУЩАЯ копия → принять».
+   * SF2-2: этого мало, и отказ на ложном «чужом» дорог — пять попыток, запись в
+   * `ai_sync_dead_upserts`, и каждое следующее её изменение ловит тот же отказ:
+   * синхронизация этой записи встаёт с обеих сторон, а признак один — счётчик
+   * мёртвых в значке. Чужой правки нет, если облачное содержимое совпадает:
+   *   • с хэшем ПОСЛЕДНЕЙ ОТПРАВЛЕННОЙ нагрузки — наша запись дошла до сервера,
+   *     а ответ потерялся (на плохой сети это обычный исход);
+   *   • с хэшем БАЗЫ — рядом лежит тот же текст, от которого мы правили: слепой
+   *     upsert другого устройства («зашифровать всё», «отправить всё», гонка
+   *     писателя `{...existing}` с `adoptScalarStamp`) двинул только метку.
+   * Тогда принимаем облачную метку как новую базу и ПОВТОРЯЕМ условную запись
+   * один раз. Настоящий спор (иное содержимое) остаётся отказом: фоновая выгрузка
+   * чужое не затирает. Перетирает только явное «отправить всё» (`forceOwn`) — это
+   * путь «оставить моё» из тикета: человек нажал кнопку на этом устройстве, и
+   * вилка «править вечно refused» хуже. Проигравшая облачная версия при этом
+   * ТЕРЯЕТСЯ — на словах «её устройство не теряет свою копию» неверно: ряд в
+   * облаке становится нашим, а на следующем заборе то устройство (если у него нет
+   * своей невыгруженной правки) примет нашу копию и локально. Решение владельца —
+   * кнопка, а не тихий союз.
+   */
+  private async uploadScalar(
+    uid: string,
+    db: Awaited<ReturnType<typeof getLocalDb>>,
+    store: SupportedLocalStoreName,
+    key: string,
+    localJson: string,
+    payload: Record<string, unknown>,
+    forceOwn = false,
+  ): Promise<void> {
+    /*gate:clock-rule*/
+    // Всё решение «на какую облачную версию я пишу и что делать при отказе» —
+    // под разметкой (SF-9): выбор базы, условная запись, разрешение конфликта.
+    // Часы устройства здесь запрещены, гейт — src/test/syncRuleGates.s06.test.ts.
+    const current = await (db as unknown as { get(s: string, k: string): Promise<unknown> }).get(store, key) as Record<string, unknown> | undefined;
+    const remembered = current?.[CLOUD_STAMP_FIELD];
+    // SF2-2: сравниваем с тем, что устройство отправляло ПРЕЖДЕ этой попытки:
+    // хэш текущей нагрузки облако не может содержать, если её ещё не приняли.
+    const rememberedBaseHash = typeof current?.[CLOUD_BASE_HASH_FIELD] === 'string' ? current[CLOUD_BASE_HASH_FIELD] as string : undefined;
+    // SF3-3: список неотправленных, а не один слот — слот затирался попыткой,
+    // которая до сервера не дошла, и доказательство «облако наше» пропадало.
+    const rememberedSentHashes = readSentHashes(current?.[CLOUD_SENT_HASHES_FIELD]);
+    let base: number | null = typeof remembered === 'number' && Number.isFinite(remembered) ? remembered : null;
+
+    if (base === null) {
+      const cloud = await readCloudScalar(uid, store, key);
+      if (cloud === null) {
+        base = null; // строки в облаке нет — вставка, а не перезапись
+      } else if (cloud.json === localJson) {
+        await this.adoptScalarStamp(db, store, key, cloud.stampedAt, cloud.json);
+        return;
+      } else {
+        base = cloud.stampedAt;
+      }
+    }
+
+    // SF2-1 для ИИ-сторов: след об отправке пишется до запроса. Обрыв ответа
+    // после коммита — ровно тот случай, который иначе читается как чужая правка.
+    await this.rememberSentHash(db, store, key, localJson);
+
+    const res = await DataProvider.saveLocalStoreRecordIfUnstamped(uid, store, key, payload, base);
+    if (res.written) {
+      await this.adoptScalarStamp(db, store, key, res.stampedAt, localJson);
+      return;
+    }
+    // Конфликт: перечитать и решить заново, а не писать поверх.
+    const cloud = await readCloudScalar(uid, store, key);
+    if (cloud === null) {
+      // SF-4: базовой строки `key` нет, но её группа страниц `key#N` может лежать
+      // в облаке — это правка, у которой текст уложился в одну строку. База локальной
+      // копии в этом случае — максимум отметок СТРАНИЦ (так её ставит забор), и
+      // условие `.update()` по строке `key` не задевает ничего: «конфликт», перечитка
+      // даёт null, отказ «пропала во время выгрузки» — и так пять раз, навсегда.
+      await this.uploadScalarOverPages(uid, db, store, key, payload, localJson, base);
+      return;
+    }
+    if (cloud.json === localJson) {
+      await this.adoptScalarStamp(db, store, key, cloud.stampedAt, cloud.json);
+      return;
+    }
+    // SF2-7: остаток прежней базовой строки рядом с БОЛЕЕ НОВОЙ полной группой
+    // страниц — следствие постраничной выгрузки, упавшей посередине. Забор такой
+    // ряд не читает (`selectCloudVersion` берёт свежую полную версию), но CAS
+    // целятся именно в строку `key`: условие не проходит, перечитка отдаёт старый
+    // текст, и каждая следующая правка ловит тот же отказ до смерти записи.
+    // Остаток сносится, и решение уходит в путь SF-4 («страницы → одна строка»),
+    // где вставка идёт с проверкой отсутствия.
+    if (cloud !== null && DataProvider.deleteLocalStoreExactRecord && await baseRowIsLeftover(uid, store, key, cloud.stampedAt)) {
+      await DataProvider.deleteLocalStoreExactRecord(uid, store, key);
+      await this.uploadScalarOverPages(uid, db, store, key, payload, localJson, base);
+      return;
+    }
+    // SF2-2: содержимое облака совпало с нашей последней отправкой или с базой,
+    // от которой мы правили, — чужой правки нет. Принимаем метку и повторяем.
+    const cloudHash = contentHash(cloud.json);
+    if (cloud.stampedAt !== null && (rememberedSentHashes.includes(cloudHash) || cloudHash === rememberedBaseHash)) {
+      await this.adoptScalarStamp(db, store, key, cloud.stampedAt, cloud.json, false);
+      const again = await DataProvider.saveLocalStoreRecordIfUnstamped(uid, store, key, payload, cloud.stampedAt);
+      if (again.written) {
+        await this.adoptScalarStamp(db, store, key, again.stampedAt ?? cloud.stampedAt, localJson);
+        return;
+      }
+      // Облако двинулось и за время нашей перечитки — пусть следующий проход
+      // решает заново по свежим хэшам.
+      throw new Error(`S0-1: ${store}/${key} moved again after rebase — retry keeps local copy`);
+    }
+    if (forceOwn) {
+      // Явное «отправить всё» = «оставить моё». Запись идёт вслепую, и только ПОСЛЕ
+      // неё перечитывается метка.
+      reportError(
+        new Error(`S0-1: ${store}/${key} overwritten by explicit «отправить всё» — cloud copy of the other device is replaced`),
+        { action: 'sf22_keep_mine_forced', store, key },
+        'warning',
+      );
+      await DataProvider.saveLocalStoreRecord(uid, store, key, payload);
+      const written = await readCloudScalar(uid, store, key);
+      // SF3-6: принимать можно ТОЛЬКО свою нагрузку. Ряд в окне между слепой
+      // записью и перечиткой — это запись другого устройства, и её метка, став
+      // нашей базой, означала бы, что следующий условный проход молча перетирает
+      // чужую версию: ровно та защита, ради которой CAS и ставился.
+      if (written === null || written.json !== localJson) {
+        throw new Error(`S0-1: ${store}/${key} was edited during «отправить всё» — local copy kept, cloud stamp not adopted`);
+      }
+      await this.adoptScalarStamp(db, store, key, written.stampedAt, written.json);
+      return;
+    }
+    throw new Error(`S0-1: ${store}/${key} was edited on another device — local copy kept, not uploaded`);
+    /*endgate:clock-rule*/
+  }
+
+  /**
+   * SF-4: переход «страницы → одна строка».
+   *
+   * Пока в облаке есть страницы этой записи и их отметка не ушла вперёд от нашей
+   * базы, вставка строки `key` — не перезапись чужого: чужая версия это наша же
+   * прежняя, разложенная по страницам. Вставка идёт с проверкой отсутствия (23505 =
+   * кто-то успел вставить свою строку — это конфликт, а не затирание), а прежние
+   * страницы сносит уже стоящий в дренаже `deleteLocalStorePagedRecords` — строго
+   * после принятой записи, чтобы при отказе облако осталось целым.
+   *
+   * Строк ни базовой, ни страниц нет — прежний отказ: «облако пропало посреди
+   * выгрузки» не имеет права превращаться в слепую вставку, иначе правка этого
+   * устройства воскресила бы удалённое другим.
+   */
+  private async uploadScalarOverPages(
+    uid: string,
+    db: Awaited<ReturnType<typeof getLocalDb>>,
+    store: SupportedLocalStoreName,
+    key: string,
+    payload: Record<string, unknown>,
+    localJson: string,
+    base: number | null,
+  ): Promise<void> {
+    /*gate:clock-rule*/
+    // Решение «можно ли вставить строку поверх группы страниц»: сверяются две
+    // серверные метки, часов прибора здесь нет (S0-6, SF-9).
+    const pages = DataProvider.getLocalStoreRecordPages
+      ? await DataProvider.getLocalStoreRecordPages(uid, store, key)
+      : [];
+    if (pages.length === 0) {
+      throw new Error(`S0-1: cloud row ${store}/${key} disappeared mid-upload`);
+    }
+    const groupMax = pages.reduce((m, r) => Math.max(m, r.stamped_at ?? 0), 0);
+    if (base !== null && groupMax > base) {
+      throw new Error(`S0-1: ${store}/${key} pages were edited on another device — local copy kept, not uploaded`);
+    }
+
+    const inserted = await DataProvider.saveLocalStoreRecordIfUnstamped(uid, store, key, payload, null);
+    /*endgate:clock-rule*/
+    if (inserted.written) {
+      await this.adoptScalarStamp(db, store, key, inserted.stampedAt, localJson);
+      return;
+    }
+    // 23505: строку `key` вставили, пока мы читали страницы. Решаем по ней заново.
+    const again = await readCloudScalar(uid, store, key);
+    if (again === null) {
+      throw new Error(`S0-1: cloud row ${store}/${key} disappeared mid-upload`);
+    }
+    if (again.json === localJson) {
+      await this.adoptScalarStamp(db, store, key, again.stampedAt, again.json);
+      return;
+    }
+    throw new Error(`S0-1: ${store}/${key} was edited on another device — local copy kept, not uploaded`);
   }
 
   /**
@@ -1232,13 +1744,13 @@ export class LocalStoreSyncManager {
     }
 
     // Удаления, пережившие закрытие вкладки, возвращаются в очередь.
-    const persistedDeletes = readPersistedDeletes();
+    const persistedDeletes = readPersistedDeletes(uid);
     const deleteJournalUnknown = persistedDeletes === null;
     if (deleteJournalUnknown) {
       // Не знаем, какие из ожидающих отправки записей на самом деле удалены.
       // Один upsert воскрешает в облаке снесённый разбор, поэтому удаления
       // этот проход делает, а обновлений — нет (fail closed).
-      const rawRes = readPersistedDeletesRaw();
+      const rawRes = readPersistedDeletesRaw(uid);
       if (!('unavailable' in rawRes) && rawRes.raw !== null) {
         healCorruptDeleteJournal(rawRes.raw, uid);
       } else {
@@ -1254,10 +1766,26 @@ export class LocalStoreSyncManager {
 
     // SA-1: то же для обновлений — маркер переживает и закрытие вкладки, и
     // выключенную автосинхронизацию (раньше он жил только в памяти).
-    for (const u of readPersistedUpserts()) {
-      if (u.uid !== uid || !SUPPORTED_LOCAL_STORES.includes(u.store as SupportedLocalStoreName)) continue;
-      const k = `${u.store}:${u.key}`;
-      if (!this.pending.has(k)) this.pending.set(k, { store: u.store as SupportedLocalStoreName, key: u.key, isDelete: false, attempts: u.attempts ?? 0 });
+    // S0-2 (остаток R3-012): нечитаемый журнал правок — `null`, а не `[]`:
+    // «не знаю, что должно уехать» не даёт drain'у ни одной загрузки, ровно как
+    // нечитаемый журнал удалений. Битый JSON исцеляется спасением (бэкап +
+    // валидные строки), и следующий проход уже работает.
+    const persistedUpserts = readPersistedUpserts(uid);
+    const upsertJournalUnknown = persistedUpserts === null;
+    if (upsertJournalUnknown) {
+      const rawRes = readPersistedUpsertsRaw(uid);
+      if (!('unavailable' in rawRes) && rawRes.raw !== null) {
+        healCorruptUpsertJournal(rawRes.raw, uid);
+      }
+    } else {
+      // SF-8: журнал снова читается — то, что висело в памяти, дописываем сюда и
+      // берём в этот же проход.
+      const journal = commitMemoryPendingUpserts(uid) ? (readPersistedUpserts(uid) ?? persistedUpserts) : persistedUpserts;
+      for (const u of journal) {
+        if (u.uid !== uid || !SUPPORTED_LOCAL_STORES.includes(u.store as SupportedLocalStoreName)) continue;
+        const k = `${u.store}:${u.key}`;
+        if (!this.pending.has(k)) this.pending.set(k, { store: u.store as SupportedLocalStoreName, key: u.key, isDelete: false, attempts: u.attempts ?? 0 });
+      }
     }
 
     if (this.pending.size === 0) return result;
@@ -1292,7 +1820,7 @@ export class LocalStoreSyncManager {
 
       for (const item of items) {
         const itemKey = `${item.store}:${item.key}`;
-        if (deleteJournalUnknown && !item.isDelete) {
+        if ((deleteJournalUnknown || upsertJournalUnknown) && !item.isDelete) {
           // Отложить, а не исполнить: маркер на диске остаётся, обязательство
           // не считается закрытым, и бейдж по-прежнему показывает несданное.
           if (!this.pending.has(itemKey)) this.pending.set(itemKey, item);
@@ -1402,17 +1930,20 @@ export class LocalStoreSyncManager {
               uid,
             );
 
-            await DataProvider.saveLocalStoreRecord(
-              uid,
-              item.store,
-              item.key,
-              encrypted,
-            );
+            await this.uploadScalar(uid, db, item.store, item.key, jsonString, encrypted as Record<string, unknown>, this.keepMinePass);
             if (DataProvider.deleteLocalStorePagedRecords) {
               await DataProvider.deleteLocalStorePagedRecords(uid, item.store, item.key);
             }
           } else {
             // SYNC-4: Multi-page split upload
+            // S0-1: эта ветка остаётся слепой — ПОСОГЛАСОВАННОЕ исключение тикета.
+            // У постраничной записи базовой строки `key` нет (её как раз сносит
+            // `deleteLocalStoreExactRecord` ниже), поэтому сравнивать отметку не с
+            // чем: группа страниц `key#N` получает по своим `stamped_at` максимум,
+            // а условие `.lt(stamped_at, …)` на весь набор — это CAS по самой
+            // поздней странице, которая при частичной записи может и не существовать
+            // (тот же класс, что M-1 у диалогов: «условие не проходило никогда»).
+            // Тикет на починку — в отчёте SYNC0 (S0-1, «не сломать»).
             const totalPages = chunks.length;
 
             // Сначала шифруем все страницы, потом пишем их одним запросом: запись
@@ -1531,6 +2062,16 @@ export class LocalStoreSyncManager {
     // блоком, иначе по перезаписи списка на каждую запись.
     const batch: Array<{ store: SupportedLocalStoreName; key: string }> = [];
 
+    // SF3-2: пропуск «метка облака впереди базы» придуман для записей, которые
+    // НИЧЕГО не должны. У записи с открытым обязательством (журнал правок,
+    // отвергнутые, слишком большие) эта метка впереди ВСЕГДА: забор держит
+    // локальную копию и не берёт её, а мёртвые в очереди нет — значит фильтр
+    // закрывал «отправить всё» именно для тех, кому он и нужен, и путь «оставить
+    // моё» до них не доходил никогда. «Не знаю» (журнал не читается) — тоже не
+    // право пропускать: дренаж на нечитаемом журнале и так не отправит ни одной
+    // правки, а молча пропущенная запись из тупика не выйдет.
+    const obligated = getPendingUpsertKeySet(userId);
+
     for (const store of SUPPORTED_LOCAL_STORES) {
       if (!db.objectStoreNames.contains(store)) continue;
       try {
@@ -1539,9 +2080,18 @@ export class LocalStoreSyncManager {
         // Ключи и значения одного стора IndexedDB отдаёт в одном порядке — по ключу.
         const allValues = store === 'aiDialogues' ? [] : await idb.getAll(store);
         for (const [i, key] of allKeys.entries()) {
+          /*gate:clock-rule*/
+          // «Отправить всё»: ряд пропускается, только если серверная метка облака
+          // ушла вперёд от запомненной базы И у ряда нет открытого обязательства.
+          // Нечитаемый журнал (`obligated === null`) обязательств НЕ даёт: иначе
+          // «отправить всё» присваивало бы чужие новые версии (приёмка SYNC0, M-1).
+          // Часы прибора здесь не участвуют (S0-6, SF-9) — сравнение приборного
+          // `payload.updatedAt` с серверным уже ломало этот проход (класс S-57).
+          const id = `${store}:${String(key)}`;
           const base = (allValues[i] as Record<string, unknown> | undefined)?.[CLOUD_STAMP_FIELD];
-          const cloud = cloudStamps.get(`${store}:${String(key)}`);
-          if (typeof base === 'number' && cloud !== undefined && cloud > base) continue;
+          const cloud = cloudStamps.get(id);
+          if (typeof base === 'number' && cloud !== undefined && cloud > base && !(obligated !== null && obligated.has(id))) continue;
+          /*endgate:clock-rule*/
           batch.push({ store, key: String(key) });
         }
       } catch (err) {
@@ -1561,7 +2111,12 @@ export class LocalStoreSyncManager {
 
     // SEC-8 / SEC-6: syncAllLocalStores is a manual/backfill pass, so it runs
     // regardless of the background auto-sync toggle.
-    return this.flushPending(true);
+    this.keepMinePass = true;
+    try {
+      return await this.flushPending(true);
+    } finally {
+      this.keepMinePass = false;
+    }
   }
 }
 

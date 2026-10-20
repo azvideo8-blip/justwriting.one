@@ -1,24 +1,33 @@
-// R7F-020: общие журналы ожидающей синхронизации стирались выходом ЛЮБОГО
+// R7F-020 + S0-2: общие журналы ожидающей синхронизации стирались выходом ЛЮБОГО
 // аккаунта. Подметание clearAccountScopedStorage() сносит всё, что не объявлено
-// настройкой устройства и не помечено чужим uid — а журналы лежат под ОДНИМ
-// ключом и хранят записи всех аккаунтов этого браузера. Выход A с очисткой
-// уносил у B ожидающие облачные удаления (следующее восстановление возвращало в
-// облако удалённый разбор B) и долг секунд за уже выгруженные ряды версий.
+// настройкой устройства и не помечено чужим uid, — а журналы лежали под ОДНИМ
+// ключом и хранили записи всех аккаунтов браузера. Выход A с очисткой уносил у B
+// ожидающие облачные удаления (следующее восстановление возвращало в облако
+// удалённый разбор B) и долг секунд за уже выгруженные ряды версий.
 //
-// Правка: у журнала запись подписана uid — стирать СВОИ записи, а не ключ.
-// Журнал тем-касалок uid в записи не держит (только id документов), поэтому он
-// переезжает на ключ по аккаунту.
+// S0-2 перенёс журналы на ключ учётки (`base:<uid>`): свой ключ сносится целиком,
+// чужой защищается по ФОРМЕ (семейства выводятся из объявленного списка). Общие
+// ключи прежней формы живут один релиз — для них остаётся вырезание своих строк.
 import { describe, it, expect, beforeEach } from 'vitest';
 import { accountScopedLocalStorageKeys, clearAccountScopedStorage } from '../services/accountScopedKeys';
 
-// Префикс写在 тесте литералом, а не импортом: тест обязан краснеть на посадке
-// по поведению, а не по несуществующему имени.
+// Префикс записан в тесте литералом, а не импортом: тест обязан краснеть на
+// посадке по поведению, а не по несуществующему имени.
 const THEME_TOUCHES_PREFIX = 'jw_pending_theme_touches_';
 
 const A = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 const B = 'ffffffff-1111-4222-8333-444444444444';
 
-const JOURNALS: Record<string, unknown[]> = {
+const JOURNAL_BASES = [
+  'sync_pending_duration',
+  'ai_sync_pending_deletes',
+  'ai_sync_pending_upserts',
+  'ai_sync_dead_upserts',
+  'ai_sync_pending_analysis_deletes',
+] as const;
+
+/** Строки прежнего общего ключа: по две на аккаунт, у B — с разными полями. */
+const LEGACY: Record<string, unknown[]> = {
   sync_pending_duration: [
     { uid: A, docId: 'doc-a', seconds: 120 },
     { uid: B, docId: 'doc-b', seconds: 340 },
@@ -35,11 +44,17 @@ const JOURNALS: Record<string, unknown[]> = {
     { uid: A, store: 'aiThreads', key: 't-a', lastError: 'x', attempts: 3, timestamp: 1 },
     { uid: B, store: 'aiThreads', key: 't-b', lastError: 'y', attempts: 2, timestamp: 2 },
   ],
+  ai_sync_pending_analysis_deletes: [
+    { uid: A, canonicalId: 'c-a' },
+    { uid: B, canonicalId: 'c-b' },
+  ],
 };
 
-function seed(): void {
-  for (const [key, list] of Object.entries(JOURNALS)) {
-    localStorage.setItem(key, JSON.stringify(list));
+/** Журнал на ключе учётки (S0-2) — те же строки, но по одному аккаунту на ключ. */
+function seedPerAccount(): void {
+  for (const [base, rows] of Object.entries(LEGACY)) {
+    localStorage.setItem(`${base}:${A}`, JSON.stringify(rows.filter(r => (r as { uid: string }).uid === A)));
+    localStorage.setItem(`${base}:${B}`, JSON.stringify(rows.filter(r => (r as { uid: string }).uid === B)));
   }
 }
 
@@ -53,28 +68,40 @@ beforeEach(() => {
   sessionStorage.clear();
 });
 
-describe('R7F-020: общий журнал переживает выход другого аккаунта', () => {
-  it('выход A оставляет записи B во всех четырёх журналах', () => {
-    seed();
+describe('R7F-020 / S0-2: журнал одного аккаунта не трогает выход другого', () => {
+  it('общий журнал прежней формы: выход A оставляет записи B во всех пяти журналах', () => {
+    for (const [key, list] of Object.entries(LEGACY)) localStorage.setItem(key, JSON.stringify(list));
     clearAccountScopedStorage(A);
 
-    for (const key of Object.keys(JOURNALS)) {
+    for (const key of Object.keys(LEGACY)) {
       const rest = read(key);
       expect(rest.map(e => e.uid), `${key}: чужие записи стёрты выходом A`).toEqual([B]);
     }
   });
 
-  it('собственные записи A уходят целиком, и пустой ключ не остаётся', () => {
-    localStorage.setItem('ai_sync_pending_deletes', JSON.stringify([{ uid: A, store: 'aiPortrait', key: 'only-a' }]));
+  it('журнал на ключе учётки: сносится свой, чужой остаётся во всех пяти', () => {
+    seedPerAccount();
+    clearAccountScopedStorage(A);
+
+    for (const base of JOURNAL_BASES) {
+      expect(localStorage.getItem(`${base}:${A}`), `${base}: ключ A не удалён`).toBeNull();
+      const foreign = read(`${base}:${B}`);
+      expect(foreign.map(e => e.uid), `${base}: ключ B задет выходом A`).toEqual([B]);
+    }
+  });
+
+  it('собственный журнал не оставляется пустым ключом', () => {
+    localStorage.setItem(`ai_sync_pending_deletes:${A}`, JSON.stringify([{ uid: A, store: 'aiPortrait', key: 'only-a' }]));
     localStorage.setItem('sync_pending_duration', JSON.stringify([{ uid: A, docId: 'd', seconds: 5 }]));
 
     clearAccountScopedStorage(A);
 
-    expect(localStorage.getItem('ai_sync_pending_deletes'), 'пустой журнал не обязан переживать выход').toBeNull();
+    expect(localStorage.getItem('ai_sync_pending_deletes'), 'пустой общий журнал не обязан переживать выход').toBeNull();
+    expect(localStorage.getItem(`ai_sync_pending_deletes:${A}`)).toBeNull();
     expect(localStorage.getItem('sync_pending_duration')).toBeNull();
   });
 
-  it('нечитаемый журнал — это не чужие данные, он сносится', () => {
+  it('нечитаемый общий журнал — это не чужие данные, он сносится', () => {
     localStorage.setItem('ai_sync_pending_upserts', '{обрывок');
     clearAccountScopedStorage(A);
     expect(localStorage.getItem('ai_sync_pending_upserts')).toBeNull();
@@ -90,6 +117,15 @@ describe('R7F-020: общий журнал переживает выход др�
 
     expect(localStorage.getItem(`${THEME_TOUCHES_PREFIX}${A}`), 'ключ A не стёрт').toBeNull();
     expect(localStorage.getItem(`${THEME_TOUCHES_PREFIX}${B}`), 'ключ B задет выходом A').not.toBeNull();
+  });
+
+  // Флага переноса (прежний `base.scoped.v1:<uid>`) в списке больше нет: SF-8
+  // убрал его из кода — он писался и не читался. Выход аккаунта чистит ключи
+  // учётки, а общий ключ остаётся до следующего переноса.
+  it('журналы учётки объявлены в списке — иначе их не защитит вывод форм', () => {
+    for (const base of JOURNAL_BASES) {
+      expect(accountScopedLocalStorageKeys(A), `${base}: ключ не объявлен`).toContain(`${base}:${A}`);
+    }
   });
 
   it('прочие ключи A по-прежнему уходят, а B остаётся', () => {

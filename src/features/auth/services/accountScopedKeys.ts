@@ -89,6 +89,15 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
     `ai_chat_extras_${uid}`,
     // отметки «слишком большая для облака» запись ИИ-стора — на учётку (L-4, R4-017)
     `ai_sync_oversized_records:${uid}`,
+    // S0-2 (F-3): журналы ИИ-синка переехали на ключ учётки, поэтому СВОЙ ключ
+    // сносится целиком, а чужой защищается по форме: belongsToAnotherAccount
+    // выводит семейства из этого списка. Общие ключи прежней формы живут один
+    // релиз (перенос их не удаляет) — для них остаётся вырезание своих строк.
+    `sync_pending_duration:${uid}`,
+    `ai_sync_pending_deletes:${uid}`,
+    `ai_sync_pending_upserts:${uid}`,
+    `ai_sync_dead_upserts:${uid}`,
+    `ai_sync_pending_analysis_deletes:${uid}`,
     // отметка сознательного выхода — гасит ложное «сессия оборвалась» (N-60)
     `jw_voluntary_signout_at_${uid}`,
     // R7F-020: очередь theme-касалок. Прежний общий ключ подметание сносило
@@ -184,6 +193,7 @@ const UID_JOURNAL_KEYS = [
   'ai_sync_pending_deletes',
   'ai_sync_pending_upserts',
   'ai_sync_dead_upserts',
+  'ai_sync_pending_analysis_deletes',
 ] as const;
 
 function dropOwnJournalEntries(uid: string, key: string): void {

@@ -225,6 +225,10 @@ describe('addCloudCopy — pruned history is not re-uploaded', () => {
     expect(reportErrorSpy).toHaveBeenCalledWith(
       expect.any(Error),
       expect.objectContaining({ action: 'addCloudCopy_markSynced', documentId: 'local_fail_mark' }),
+      // S0-4: обе точки простановки отметки теперь отчитываются одним уровнем —
+      // предупреждением, как это уже делала ветка создания (ряд в облаке есть,
+      // не записалась только отметка «до какой версии»).
+      'warning',
     );
   });
 });

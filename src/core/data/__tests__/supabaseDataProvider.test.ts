@@ -34,7 +34,9 @@ describe('SupabaseDataProvider', () => {
       rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
       insert: vi.fn().mockResolvedValue({ data: null, error: null }),
       update: vi.fn().mockReturnThis(),
-      upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
+      // Настоящий билдер PostgREST возвращает цепочку и из upsert: SF-2 читает
+      // `updated_at` принятой строки через `.upsert(… ).select('updated_at').maybeSingle()`.
+      upsert: vi.fn().mockReturnThis(),
       delete: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       like: vi.fn().mockReturnThis(),

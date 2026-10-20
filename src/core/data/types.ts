@@ -8,6 +8,15 @@ export interface LocalStoreRecordRow {
   stamped_at?: number;
 }
 
+/**
+ * S0-1 (F-1): результат условной записи скаляра. `written: false` — облачная
+ * строка ушла вперёд относительно нашей базы (конфликт); `stampedAt` — отметка,
+ * которую ряд получил после принятия нашей версии (её надо запомнить устройству).
+ */
+export type ConditionalScalarWrite =
+  | { written: true; stampedAt: number | null }
+  | { written: false };
+
 export interface IDataProvider {
   // --- Document Operations ---
   createDocument(userId: string, data: ProviderRecord): Promise<string>;
@@ -33,7 +42,7 @@ export interface IDataProvider {
       sessionsDelta?: number;    // undefined implies incrementing by 1
       lastSessionAt?: Date;      // undefined implies using the current server time
     }
-  ): Promise<void>;
+  ): Promise<number | null>;
   deleteDocument(userId: string, documentId: string): Promise<void>;
   clearLabelFromAllDocs(userId: string, labelId: string): Promise<void>;
   renameTagInAllDocs(userId: string, oldTag: string, newTag: string): Promise<void>;
@@ -57,7 +66,8 @@ export interface IDataProvider {
 
   // --- Writing Draft Operations ---
   getDraft(userId: string): Promise<ProviderRecord | null>;
-  saveDraft(userId: string, data: ProviderRecord): Promise<void>;
+  /** SF-2: метка ряда, поставленная сервером (триггер 0043), в мс; `null` — не прочитали. */
+  saveDraft(userId: string, data: ProviderRecord): Promise<number | null>;
   updateDraft(userId: string, data: ProviderRecord): Promise<void>;
   deleteDraft(userId: string): Promise<void>;
 
@@ -99,6 +109,8 @@ export interface IDataProvider {
   saveLocalStoreRecordPages(userId: string, store: string, pages: Array<{ key: string; payload: ProviderRecord }>): Promise<void>;
   /** S-34: false — облако изменилось с момента чтения (expectedUpdatedAt устарел или строка уже есть). */
   saveLocalStoreRecordIfUnchanged(userId: string, store: string, key: string, payload: ProviderRecord, expectedUpdatedAt: number | null): Promise<boolean>;
+  /** S0-1 (F-1): то же для скалярных сторов, но по серверной отметке `stamped_at`. `null` база — вставка. */
+  saveLocalStoreRecordIfUnstamped(userId: string, store: string, key: string, payload: ProviderRecord, baseStampedAt: number | null): Promise<ConditionalScalarWrite>;
   getLocalStoreRecord(userId: string, store: string, key: string): Promise<LocalStoreRecordRow | null>;
   getLocalStoreRecords(userId: string, store?: string, sinceMs?: number): Promise<LocalStoreRecordRow[]>;
   /** T-8: ключи и серверные отметки без нагрузки («Отправить всё»). Необязателен ради тестовых заглушек. */

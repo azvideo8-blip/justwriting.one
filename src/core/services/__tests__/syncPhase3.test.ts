@@ -210,6 +210,11 @@ describe('Phase 3 Fix Tickets: SYNC-3, SYNC-5, SYNC-6, SYNC-7, SYNC-8', () => {
       await LocalDocumentService.unlinkFromCloud(docId, 'tombstone');
 
       vi.spyOn(DocumentService, 'createDocument').mockResolvedValue('new_cloud_id');
+      // S0-4: после выгрузки отметка «до какой облачной версии» берется с сервера.
+      vi.spyOn(DocumentService, 'getDocument').mockResolvedValue({
+        id: 'new_cloud_id', uuid: 'new_cloud_id', currentVersion: 1,
+        updatedAt: new Date().toISOString(),
+      } as never);
       vi.spyOn(VersionService, 'addVersion').mockResolvedValue('v1_id');
       vi.spyOn(DocumentService, 'updateDocumentAfterSession').mockResolvedValue(undefined as never);
 
