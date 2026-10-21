@@ -9,6 +9,7 @@ import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
 import { maybeDecrypt, DecryptionError } from '../crypto/cryptoHelpers';
 import { VersionService } from './VersionService';
 import { comparableOrUnknown } from '../sync/comparableOrUnknown';
+import { truncateText } from '../../shared/utils/textLimits';
 
 export const ConflictResolver = {
   async resolveConflict(
@@ -24,7 +25,7 @@ export const ConflictResolver = {
     // неразличимыми; превью контента помогает узнать свою заметку.
     const lang = typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEYS.APP_LANGUAGE) === 'en' ? 'en' : 'ru';
     const hhmm = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const preview = (data.content || '').slice(0, 30).replace(/\s+/g, ' ').trim();
+    const preview = truncateText(data.content || '', 30).replace(/\s+/g, ' ').trim();
     const conflictWord = lang === 'ru' ? 'конфликт' : 'conflict';
     const untitledWord = lang === 'ru' ? 'Без названия' : 'Untitled';
     const dateStr = new Date().toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US');

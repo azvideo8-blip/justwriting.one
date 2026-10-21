@@ -43,6 +43,7 @@ export function AIPage() {
 
   const {
     dialogues, archivedDialogues, activeDialogueId, setActiveDialogueId,
+    dialoguesLoading, dialoguesLoadError,
     selectedPersonaId, setSelectedPersonaId,
     showArchived, setShowArchived,
     inputText, setInputText,
@@ -58,6 +59,7 @@ export function AIPage() {
     crisisActive, dismissCrisis,
     dialogue,
     dailyLimit,
+    loadDialogues,
     loadCustomPersonas,
     handleSendMessage, handleNewDialogue, handleArchive, handleUnarchive, handleDelete, handleExport,
     handleDocSelect, handleCopyMessage, handleDeleteMessage, handleFileUpload, triggerForcedSearch,
@@ -106,6 +108,9 @@ export function AIPage() {
           setShowArchived={setShowArchived}
           onNewDialogue={handleNewDialogue}
           onUnarchive={(id) => { void handleUnarchive(id); }}
+          loading={dialoguesLoading}
+          loadError={dialoguesLoadError}
+          onRetry={() => { void loadDialogues(); }}
         />
       )}
 
@@ -235,6 +240,9 @@ export function AIPage() {
           onArchive={(id) => { void handleArchive(id); }}
           onUnarchive={(id) => { void handleUnarchive(id); }}
           onDelete={(id) => { void handleDelete(id); }}
+          loading={dialoguesLoading}
+          loadError={dialoguesLoadError}
+          onRetry={() => { void loadDialogues(); }}
         />
       )}
 

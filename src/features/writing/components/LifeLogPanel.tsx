@@ -5,7 +5,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { useLifeLog } from '../hooks/useLifeLog';
 import { LifeLogDocument } from '../types/lifeLog';
 import { Session } from '../../../types';
-import { CancelConfirmModal } from '../../../shared/components/CancelConfirmModal';
+import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { deleteSession } from '../services/SessionDeleteService';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { useToast } from '../../../shared/components/Toast';
@@ -128,14 +128,40 @@ export function LifeLogPanel({
   renderAiContent,
   renderSettingsContent,
 }: LifeLogPanelProps) {
-  const [deleteTarget, setDeleteTarget] = useState<Session | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   const { t, tp, language } = useLanguage();
+  const { confirm } = useConfirmDialog();
   const { showToast } = useToast();
   const { execute } = useServiceAction();
   const { isGuest } = useAuthStatus();
   const { sessionGroups, summary, loading, cloudUnknown, refresh, unifiedDocuments } = useLifeLog(userId, isGuest);
+
+  const requestDelete = async (target: Session) => {
+    const ok = await confirm({
+      title: t('session_delete_confirm'),
+      message: t('admin_confirm_delete_session'),
+      confirmLabel: t('session_delete'),
+      cancelLabel: t('common_cancel'),
+    });
+    if (!ok || !target.id) return;
+    await execute(
+      () => deleteSession(userId, target),
+      {
+        errorMessage: t('error_delete_failed'),
+        onSuccess: (res) => {
+          if (!res?.applied) {
+            showToast(t('delete_not_applied_uploading'));
+          } else if (res?.cloudSynced) {
+            showToast(t('session_deleted'), 'success');
+          } else {
+            showToast(t('delete_local_only_queued'));
+          }
+        },
+      }
+    );
+    await refresh();
+  };
 
   const sevenDayData = useMemo(() => {
     const today = new Date();
@@ -188,7 +214,7 @@ export function LifeLogPanel({
       exit={{ x: 380, opacity: 0 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
       className={cn(
-        "glass-panel flex flex-col h-full border-l border-white/[0.04] bg-surface-card backdrop-blur-xl custom-scrollbar",
+        "glass-panel flex flex-col h-full border-l border-border-subtle bg-surface-card backdrop-blur-xl custom-scrollbar",
         inGrid ? "w-full" : "fixed top-0 right-0 bottom-0 w-[380px] z-[var(--z-panel)] shadow-2xl"
       )}
     >
@@ -337,7 +363,7 @@ export function LifeLogPanel({
                           doc={docMap.get(session.id)}
                           isActive={false}
                           onClick={() => onContinueSession(docMap.get(session.id) || session)}
-                          onDelete={(s) => setDeleteTarget(s)}
+                          onDelete={(s) => void requestDelete(s)}
                           t={t}
                           tp={tp}
                           language={language}
@@ -377,35 +403,6 @@ export function LifeLogPanel({
         </div>
       )}
 
-      {/* Delete confirm */}
-      <CancelConfirmModal
-        isOpen={!!deleteTarget}
-        title={t('session_delete_confirm')}
-        description={t('admin_confirm_delete_session')}
-        confirmLabel={t('session_delete')}
-        cancelLabel={t('common_cancel')}
-        onConfirm={() => {
-          if (deleteTarget?.id) {
-            void execute(
-              () => deleteSession(userId, deleteTarget),
-              {
-                errorMessage: t('error_delete_failed'),
-                onSuccess: (res) => {
-                  if (!res?.applied) {
-                    showToast(t('delete_not_applied_uploading'));
-                  } else if (res?.cloudSynced) {
-                    showToast(t('session_deleted'), 'success');
-                  } else {
-                    showToast(t('delete_local_only_queued'));
-                  }
-                },
-              }
-            ).then(() => void refresh());
-          }
-          setDeleteTarget(null);
-        }}
-        onCancel={() => setDeleteTarget(null)}
-      />
     </motion.div>
   );
 }

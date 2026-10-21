@@ -46,8 +46,10 @@ export async function withDocumentLock<T>(
       if (options?.onLockHeld) {
         return await options.onLockHeld(existing);
       }
-      // LOCK_HELD is deliberately not a substring of LOCKED; callers match on the prefix
-      throw new Error(`LOCK_HELD: Document ${documentId} is currently locked`);
+      // D1-7: в тексте не должно быть слова LOCKED — правило классификатора
+      // ловит его по границам слов и объявляло «замок занят» отравленной ошибкой.
+      // Читатели ищут префикс LOCK_HELD.
+      throw new Error(`LOCK_HELD: Document ${documentId} is busy (another sync holds the lock)`);
     }
   }
 

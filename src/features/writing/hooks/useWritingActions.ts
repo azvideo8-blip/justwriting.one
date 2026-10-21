@@ -6,11 +6,11 @@ import { resetAndClear, resetSession, loadDraftIntoStore } from '../store/storeA
 import { useWritingSettings } from '../../../core/settings/WritingSettingsContext';
 import { LifeLogDocument } from '../types/lifeLog';
 import { useLifeLog } from './useLifeLog';
-import { useDocuments } from './useDocuments';
 import { StorageService } from '../../../core/services/StorageService';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { useToast } from '../../../shared/components/Toast';
 import { useLanguage } from '../../../shared/i18n';
+import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 
 function isLifeLogDocument(doc: Session | LifeLogDocument): doc is LifeLogDocument {
   return 'totalWords' in doc && 'totalDuration' in doc;
@@ -35,12 +35,12 @@ interface UseWritingActionsParams {
   session: AnySessionReturn;
   flow: {
     setSetupMode: (m: SetupMode | null) => void;
-    setShowCancelConfirm: (v: boolean) => void;
   };
 }
 
 export function useWritingActions({ session, flow }: UseWritingActionsParams) {
   const { t } = useLanguage();
+  const { confirm } = useConfirmDialog();
   const { showToast } = useToast();
   const { setLifeLogVisible } = useWritingSettings();
 
@@ -50,14 +50,19 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
   const { handleStart: hookHandleStart } = session;
   const savingRef = React.useRef(false);
 
-  const { refresh: refreshDocuments } = useDocuments(userId, isGuest);
   const { refresh: refreshLifeLog } = useLifeLog(userId, isGuest);
 
   const handleContinueDocument = React.useCallback(async (doc: LifeLogDocument) => {
     const currentStatus = useTimerStore.getState().status;
     const currentContent = useContentStore.getState().content.trim();
     if (currentStatus === 'writing' || currentStatus === 'paused' || currentContent.length > 0) {
-      flow.setShowCancelConfirm(true);
+      const ok = await confirm({
+        title: t('writing_cancel_confirm'),
+        message: t('writing_cancel_desc'),
+        confirmLabel: t('finish_discard'),
+        cancelLabel: t('writing_back'),
+      });
+      if (ok) await session.handleCancel();
       return;
     }
     try {
@@ -121,7 +126,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
         showToast(t('error_load_failed'), 'error');
       }
     }
-  }, [userId, setLifeLogVisible, showToast, t, flow]);
+  }, [userId, setLifeLogVisible, showToast, t, flow, confirm, session]);
 
   const handleContinueSessionOrDoc = React.useCallback(async (sessionOrDoc: Session | LifeLogDocument) => {
     try {
@@ -234,7 +239,6 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       // to IndexedDB — resurrecting it as a phantom "unsaved draft".
       resetSession();
 
-      await refreshDocuments();
       await refreshLifeLog();
       emitDomainEvent({ type: 'note.saved', documentId: docIdToSync ?? undefined, userId });
 
@@ -245,7 +249,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
     } finally {
       savingRef.current = false;
     }
-  }, [userId, isGuest, refreshDocuments, refreshLifeLog, showToast, t]);
+  }, [userId, isGuest, refreshLifeLog, showToast, t]);
 
   const handlePlay = React.useCallback(() => {
     const currentStatus = useTimerStore.getState().status;
@@ -269,7 +273,13 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
     // менялся после сохранения» в сторе нет (undo-стек заполняется не на каждый
     // символ), поэтому спрашиваем при любом непустом редакторе.
     if (wordCount > 0) {
-      flow.setShowCancelConfirm(true);
+      const ok = await confirm({
+        title: t('writing_cancel_confirm'),
+        message: t('writing_cancel_desc'),
+        confirmLabel: t('finish_discard'),
+        cancelLabel: t('writing_back'),
+      });
+      if (ok) await session.handleCancel();
       return;
     }
     resetAndClear();
@@ -278,7 +288,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
     } catch (e) {
       reportError(e, { action: 'writingActions/new' });
     }
-  }, [flow, isGuest, userId]);
+  }, [isGuest, userId, confirm, session, t]);
 
   const handleFinish = React.useCallback((keystrokeTrackerRef: React.RefObject<{ getStats: () => { kpm: number; ikiMedian: number; ikiCv: number; sampleSize: number; kpmWpmRatio?: number } | null; reset: () => void } | null>) => {
     const { status } = useTimerStore.getState();

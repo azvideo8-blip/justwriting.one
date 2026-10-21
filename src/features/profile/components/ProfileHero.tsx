@@ -8,6 +8,7 @@ import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
+import { firstTextUnit } from '../../../shared/utils/textLimits';
 import { IconButton } from '../../../shared/components/IconButton';
 import { Button } from '../../../shared/components/Button';
 
@@ -48,15 +49,16 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
 
   const handleSaveName = () => {
     setEditingName(false);
-    if (user && name.trim()) {
-      void execute(() => ProfileService.updateNickname(user.uid, name), {
+    const trimmed = name.trim();
+    if (user && trimmed) {
+      void execute(() => ProfileService.updateNickname(user.uid, trimmed), {
         successMessage: t('save_success'),
         errorMessage: t('error_nickname_failed'),
       });
     }
   };
 
-  const initials = (name || 'A').slice(0, 1).toUpperCase();
+  const initials = firstTextUnit(name || 'A').toUpperCase();
   const memberSince = useMemo(() =>
     user?.metadata?.creationTime
       ? new Date(user.metadata.creationTime)
@@ -77,7 +79,7 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
           >
             {user?.photoURL ? (
               <img src={user.photoURL} alt={name}
-                className="w-16 h-16 md:w-24 md:h-24 rounded-full object-cover border border-white/10" />
+                className="w-16 h-16 md:w-24 md:h-24 rounded-full object-cover border border-border-subtle" />
             ) : (
               <div className="w-16 h-16 md:w-24 md:h-24 text-2xl md:text-4xl rounded-full bg-gradient-to-br from-[color-mix(in_srgb,var(--flow-pulse-color)_60%,var(--bg-base))] to-[color-mix(in_srgb,var(--flow-pulse-color)_20%,var(--bg-base))] border border-[var(--border-light)] shadow-[0_0_60px_color-mix(in_srgb,var(--flow-pulse-color)_15%,transparent)] grid place-items-center font-sans font-medium text-[var(--text-main)]"
               >
@@ -92,6 +94,8 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
             {editingName ? (
               <input
                 value={name}
+                dir="auto"
+                maxLength={60}
                 onChange={e => setName(e.target.value)}
                 onBlur={handleSaveName}
                 onKeyDown={e => e.key === 'Enter' && handleSaveName()}

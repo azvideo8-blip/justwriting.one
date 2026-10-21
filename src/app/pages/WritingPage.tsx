@@ -11,7 +11,6 @@ import '../dictationAiWiring';
 import { WritingFinishModal } from '../../features/writing/components/WritingFinishModal';
 import { ShortcutsModal } from '../../features/writing/components/ShortcutsModal';
 import { FlowPulse } from '../../core/theme/FlowPulse';
-import { CancelConfirmModal } from '../../shared/components/CancelConfirmModal';
 
 import { MobileWriteScreen } from '../../features/writing/components/MobileWriteScreen';
 import { MobileSessionSetupSheet } from '../../features/writing/components/MobileSessionSetupSheet';
@@ -82,10 +81,7 @@ const WritingPageUI = React.memo(function WritingPageUI() {
     savedDocumentId,
   } = useWritingSessionContext();
 
-  const {
-    setSetupMode,
-    setShowCancelConfirm,
-  } = flow;
+  const { setSetupMode } = flow;
 
   const {
     handleSave,
@@ -148,11 +144,6 @@ const WritingPageUI = React.memo(function WritingPageUI() {
         } : undefined}
       />
       <GoalToast visible={flow.goalToastVisible} type={flow.goalToastType} />
-      <CancelConfirmModal
-        isOpen={flow.showCancelConfirm}
-        onConfirm={() => { void handleCancel(); setShowCancelConfirm(false); }}
-        onCancel={() => setShowCancelConfirm(false)}
-      />
       <WritingFinishModal
         isOpen={isFinishModalOpen}
         tags={tags} setTags={setTags}

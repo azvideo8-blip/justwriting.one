@@ -11,6 +11,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     <div className="w-full">
       <input
         ref={ref}
+        dir="auto"
         aria-label={ariaLabel}
         className={cn(
           'w-full px-3 py-2 rounded-xl border bg-surface-elevated text-text-main placeholder:text-text-subtle/50',

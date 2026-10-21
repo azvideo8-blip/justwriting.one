@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ModalWrapper } from '../../../shared/components/ModalWrapper';
+import { ModalShell } from '../../../shared/components/ModalShell';
 import { Button } from '../../../shared/components/Button';
 import { Users, Trash2, Loader2 } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
@@ -25,11 +25,12 @@ export function OtherUserDataModal({ open, onClose, onClear }: OtherUserDataModa
   };
 
   return (
-    <ModalWrapper
-      isOpen={open}
+    <ModalShell
+      open={open}
       onClose={() => { if (!clearing) onClose(); }}
-      titleId="other-user-data-title"
-      maxWidth="max-w-md"
+      labelId="other-user-data-title"
+      // A-9b: ModalWrapper рисовал карточку сам, ModalShell — нет.
+      className="max-w-md bg-surface-card border border-border-subtle rounded-2xl p-6 shadow-lg"
     >
       <div className="space-y-4 p-2">
         <div className="flex items-center gap-3">
@@ -74,6 +75,6 @@ export function OtherUserDataModal({ open, onClose, onClear }: OtherUserDataModa
           </Button>
         </div>
       </div>
-    </ModalWrapper>
+    </ModalShell>
   );
 }

@@ -26,11 +26,20 @@ export interface AdminActionItem {
   targetUid: string;
 }
 
+export interface AdminUsersResult {
+  users: AdminUserItem[];
+  /** A-2: статусы приглашений/заметок не прочитались — список есть, пометка обязательна. */
+  statusesFailed: boolean;
+  /** D-11: сервер отдал больше строк, чем показано (limit+1). */
+  truncated: boolean;
+}
+
 export const AdminUserService = {
-  async getUsers(limitCount: number = 50): Promise<AdminUserItem[]> {
+  async getUsers(limitCount: number = 50): Promise<AdminUsersResult> {
     try {
       const docs = await DataProvider.getUsers(limitCount);
-      const profiles = docs.map(d => ({ uid: d.id, ...d })) as AdminUserItem[];
+      const truncated = docs.length > limitCount;
+      const profiles = docs.slice(0, limitCount).map(d => ({ uid: d.id, ...d })) as AdminUserItem[];
 
       try {
         const statuses = await AdminUserService.listUsersWithStatus();
@@ -76,15 +85,16 @@ export const AdminUserService = {
           }
         }
 
-        return enrichedProfiles;
+        return { users: enrichedProfiles.slice(0, limitCount), statusesFailed: false, truncated };
       } catch (e) {
         reportError(e, { action: 'listUsersWithStatus in AdminUserService.getUsers' });
-        return profiles;
+        return { users: profiles, statusesFailed: true, truncated };
       }
     } catch (err) {
       reportError(err, { action: 'getUsers' });
       handleDbError(err, OperationType.LIST, 'users');
-      return [];
+      // A-2: пустая таблица при сбое — ложь. Бросаем, экран покажет ошибку и «Повторить».
+      throw err;
     }
   },
 

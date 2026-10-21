@@ -8,6 +8,7 @@ import { Input } from '../../../shared/components/Input';
 import { Textarea } from '../../../shared/components/Textarea';
 import { ModalShell } from '../../../shared/components/ModalShell';
 import { useLanguage } from '../../../shared/i18n';
+import { textLength, truncateText } from '../../../shared/utils/textLimits';
 
 const SUGGESTED_EMOJIS = [
   '\u{1F9D1}', '\u{1F468}\u200D\u{1F4BC}', '\u{1F469}\u200D\u{1F4BC}',
@@ -98,12 +99,12 @@ export function CreatePersonaModal({ isOpen, onClose, onCreated }: CreatePersona
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-medium text-text-main/60 uppercase tracking-wide">{t('ai_persona_field_name')}</label>
-              <span className="text-[10px] font-mono text-text-main/60">{name.length}/30</span>
+              <span className="text-[10px] font-mono text-text-main/60">{textLength(name)}/30</span>
             </div>
             <Input
               aria-label={t('ai_persona_field_name')}
               value={name}
-              onChange={e => setName(e.target.value.slice(0, 30))}
+              onChange={e => setName(truncateText(e.target.value, 30))}
               placeholder={t('ai_create_persona_name_placeholder')}
               className="px-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/40 outline-none focus:border-brand-soft/40"
             />
@@ -117,7 +118,8 @@ export function CreatePersonaModal({ isOpen, onClose, onCreated }: CreatePersona
             <Textarea
               aria-label={t('ai_persona_field_system_prompt')}
               value={prompt}
-              onChange={e => setPrompt(e.target.value.slice(0, 500))}
+              // Сервер считает предел в UTF-16 (`validateCustomPrompt` max 500): эмодзи — две единицы.
+              onChange={e => setPrompt(truncateText(e.target.value, 500, { maxCodeUnits: 500 }))}
               placeholder={t('ai_create_persona_prompt_placeholder')}
               rows={4}
               className="px-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/40 outline-none focus:border-brand-soft/40 resize-none"

@@ -562,7 +562,7 @@ describe('3.8 stream disconnect', () => {
       // Allow any microtasks to settle
       await new Promise((r) => setTimeout(r, 50));
       expect(unhandledRejections).toHaveLength(0);
-      expect(consoleErrorSpy).toHaveBeenCalledWith('[chat] settle on close', expect.any(Error));
+      expect(consoleErrorSpy).toHaveBeenCalledWith('[chat] settle on close', 'name=Error');
     } finally {
       process.off('unhandledRejection', onUnhandled);
       consoleErrorSpy.mockRestore();

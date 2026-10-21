@@ -34,8 +34,6 @@ export interface WritingSessionContextValue {
     goalToastType: 'time' | 'words' | null;
     sessionStartFlash: boolean;
     totalDurationForDeadline: number | null;
-    showCancelConfirm: boolean;
-    setShowCancelConfirm: (v: boolean) => void;
   };
   actions: {
     handleSave: (data: import('../components/WritingFinishModal').SaveData) => Promise<{ docId: string | null; cloudSynced: boolean } | string | null>;

@@ -102,6 +102,7 @@ export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
         onTouchEnd={handleTouchEnd}
       >
       <textarea
+        dir="auto"
         value={content}
         onChange={e => {
           setContent(e.target.value);

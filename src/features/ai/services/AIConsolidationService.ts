@@ -136,6 +136,9 @@ export const AIConsolidationService = {
         for (const item of oldestToDelete) {
           if (item.id) {
             void tx.store.delete(item.id as string);
+            // D1-4: вытесненная строка обязана исчезнуть и в облаке, иначе
+            // забор вернёт её обратно и журнал будет расти вечно.
+            LocalStoreSyncService.scheduleStoreDelete('aiBeliefRejections', item.id as string);
           }
         }
         await tx.done;
@@ -161,7 +164,13 @@ export const AIConsolidationService = {
   async clearRejections(): Promise<void> {
     try {
       const db = await getLocalDb();
+      // D1-4: id читаются до очистки — только по ним облако узнает, что журнал
+      // стёрт, и забор не вернёт строки на это и другие устройства.
+      const rows = await db.getAll('aiBeliefRejections');
       await db.clear('aiBeliefRejections');
+      for (const row of rows) {
+        if (row.id) LocalStoreSyncService.scheduleStoreDelete('aiBeliefRejections', String(row.id));
+      }
     } catch (e) {
       reportError(e, { action: 'clearRejections' }, 'warning');
     }

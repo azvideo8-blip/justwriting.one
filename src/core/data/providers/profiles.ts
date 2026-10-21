@@ -91,10 +91,12 @@ export function subscribeToProfile(
 }
 
 export async function getUsers(limitCount: number): Promise<ProviderRecord[]> {
+  // D-11: лишняя строка нужна, чтобы отличить «ровно N» от «обрезано на N»;
+  // AdminUserService отбрасывает её и отдаёт флаг truncated.
   const { data, error } = await getSupabase()
     .from('admin_users_view')
     .select(ADMIN_USER_COLUMNS)
-    .limit(limitCount);
+    .limit(limitCount + 1);
   if (error != null) throw error;
   // Список колонок собран строкой, поэтому supabase-js не выводит тип строки.
   return ((data ?? []) as unknown as Record<string, unknown>[]).map(row => fromDb(USER_REV, row));

@@ -19,12 +19,12 @@ describe('AU-6 audit minor issues regression tests', () => {
     }
   });
 
-  it('index.html specifies PNG for twitter:image and apple-touch-icon, and files exist', () => {
+  it('index.html specifies JPEG for twitter:image and PNG apple-touch-icon, and files exist', () => {
     const indexPath = path.resolve(process.cwd(), 'index.html');
     const html = fs.readFileSync(indexPath, 'utf8');
 
-    // twitter:image must point to PNG
-    expect(html).toMatch(/<meta\s+name="twitter:image"\s+content="https:\/\/justwriting\.ru\/og-image\.png"/);
+    // A-13: OG сжата в JPEG (300 КБ PNG → ~30 КБ), но не SVG.
+    expect(html).toMatch(/<meta\s+name="twitter:image"\s+content="https:\/\/justwriting\.ru\/og-image\.jpg"/);
     expect(html).not.toMatch(/<meta\s+name="twitter:image"\s+content="https:\/\/justwriting\.ru\/og-image\.svg"/);
 
     // apple-touch-icon must point to PNG

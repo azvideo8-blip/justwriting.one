@@ -180,8 +180,9 @@ const STAMP_COMPARE_BASELINE: Record<string, string[]> = {
     // величины придуманы прибором (локальная копия и отметка удаления). Облачный
     // штамп с deletedAt больше не сравнивается — различение идёт по хэшу
     // удалённого содержимого (`isDeletedDraft`).
-    "if (deletedAt && (isDeletedDraft(winner) || (toTimestampMs(winner.updatedAt) ?? 0) <= deletedAt)) {",
-    "if (deletedAt && (isDeletedDraft(resolved) || (toTimestampMs(resolved.updatedAt) ?? 0) <= deletedAt)) {",
+    // D1-2: оба входа переехали в один помощник isDeletedByTombstone; сравнение
+    // выполняется только после draftStampFromDevice — метка этого прибора.
+    "return (toTimestampMs(draft.updatedAt) ?? 0) <= deletedAt;",
   ],
 };
 

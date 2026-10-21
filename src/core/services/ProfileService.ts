@@ -14,8 +14,10 @@ import { getCurrentUser } from '../auth';
 
 export const ProfileService = {
   async updateNickname(userId: string, nickname: string) {
+    const trimmed = nickname.trim();
+    if (!trimmed) return;
     try {
-      await DataProvider.updateProfile(userId, { nickname });
+      await DataProvider.updateProfile(userId, { nickname: trimmed });
     } catch (err) {
       handleDbError(err, OperationType.UPDATE, `users/${userId}`);
       throw err;

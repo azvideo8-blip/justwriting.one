@@ -4,19 +4,19 @@ import { useTheme } from './ThemeProvider';
 
 const GRADIENT_THEMES: Record<string, { layers: { gradient: string; origin: string }[]; base: string }> = {
   spotify: {
-    base: '#090C0A',
+    base: 'var(--theme-bg-spotify)',
     layers: [
-      { gradient: 'radial-gradient(ellipse at 30% 40%, #0d2b1a 0%, transparent 65%)', origin: '30% 40%' },
-      { gradient: 'radial-gradient(ellipse at 70% 60%, #0a2416 0%, transparent 65%)', origin: '70% 60%' },
-      { gradient: 'radial-gradient(ellipse at 50% 20%, #0f2e1c 0%, transparent 65%)', origin: '50% 20%' },
+      { gradient: 'radial-gradient(ellipse at 30% 40%, var(--theme-bg-spotify-1) 0%, transparent 65%)', origin: '30% 40%' },
+      { gradient: 'radial-gradient(ellipse at 70% 60%, var(--theme-bg-spotify-2) 0%, transparent 65%)', origin: '70% 60%' },
+      { gradient: 'radial-gradient(ellipse at 50% 20%, var(--theme-bg-spotify-3) 0%, transparent 65%)', origin: '50% 20%' },
     ],
   },
   modern: {
-    base: '#050506',
+    base: 'var(--theme-bg-modern)',
     layers: [
-      { gradient: 'radial-gradient(ellipse at 40% 40%, #1e1e22 0%, transparent 70%)', origin: '40% 40%' },
-      { gradient: 'radial-gradient(ellipse at 60% 60%, #16161a 0%, transparent 70%)', origin: '60% 60%' },
-      { gradient: 'radial-gradient(ellipse at 50% 30%, #1a1a1e 0%, transparent 70%)', origin: '50% 30%' },
+      { gradient: 'radial-gradient(ellipse at 40% 40%, var(--theme-bg-modern-1) 0%, transparent 70%)', origin: '40% 40%' },
+      { gradient: 'radial-gradient(ellipse at 60% 60%, var(--theme-bg-modern-2) 0%, transparent 70%)', origin: '60% 60%' },
+      { gradient: 'radial-gradient(ellipse at 50% 30%, var(--theme-bg-modern-3) 0%, transparent 70%)', origin: '50% 30%' },
     ],
   },
   amethyst: {
@@ -28,17 +28,17 @@ const GRADIENT_THEMES: Record<string, { layers: { gradient: string; origin: stri
     ],
   },
   notion: {
-    base: '#FAF8F5',
+    base: 'var(--theme-bg-notion)',
     layers: [
-      { gradient: 'radial-gradient(ellipse at 40% 40%, rgba(240,237,230,0.6) 0%, transparent 70%)', origin: '40% 40%' },
-      { gradient: 'radial-gradient(ellipse at 60% 60%, rgba(229,225,215,0.4) 0%, transparent 70%)', origin: '60% 60%' },
+      { gradient: 'radial-gradient(ellipse at 40% 40%, color-mix(in srgb, var(--theme-bg-notion-1) 60%, transparent) 0%, transparent 70%)', origin: '40% 40%' },
+      { gradient: 'radial-gradient(ellipse at 60% 60%, color-mix(in srgb, var(--theme-bg-notion-2) 40%, transparent) 0%, transparent 70%)', origin: '60% 60%' },
     ],
   },
   stripe: {
-    base: '#0a0514',
+    base: 'var(--theme-bg-stripe)',
     layers: [
-      { gradient: 'radial-gradient(ellipse at 35% 55%, rgba(125,79,209,0.2) 0%, transparent 65%)', origin: '35% 55%' },
-      { gradient: 'radial-gradient(ellipse at 65% 40%, rgba(74,42,138,0.2) 0%, transparent 65%)', origin: '65% 40%' },
+      { gradient: 'radial-gradient(ellipse at 35% 55%, color-mix(in srgb, var(--theme-bg-stripe-1) 20%, transparent) 0%, transparent 65%)', origin: '35% 55%' },
+      { gradient: 'radial-gradient(ellipse at 65% 40%, color-mix(in srgb, var(--theme-bg-stripe-2) 20%, transparent) 0%, transparent 65%)', origin: '65% 40%' },
     ],
   },
 };

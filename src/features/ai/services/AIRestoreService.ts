@@ -1,7 +1,6 @@
 import { getLocalDb } from '../../../core/storage/localDb';
 import type { AIDocumentSummary, AIDocumentEmbedding, AITimelineEntry, AIProfileFacet, AIDialogue } from '../../../core/storage/localDb';
 import { DataProvider } from '../../../core/data';
-import type { LocalStoreRecordRow } from '../../../core/data/types';
 import { mergeDialogues, dialogueFingerprint, isTombstoned } from '../../../core/storage/dialogueMerge';
 import { contentHash } from '../../../core/utils/contentHash';
 import { pageTextOf, parseLocalStoreKey, selectCloudVersion, PAGE_TEXT_FIELDS, type CloudRow } from '../../../core/services/localStorePages';
@@ -463,11 +462,40 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
     // Строка без серверной отметки (её не ставил триггер 0037) по-прежнему
     // считает курсор часами писателя — и только как базовая строка записи:
     // отметка осиротевшего окна device-ная, ею задирать курсор нельзя.
-    const noteCursor = (rec: LocalStoreRecordRow, isBaseRow: boolean) => {
-      const t = typeof rec.stamped_at === 'number'
+    // D1-5: курсор двигают только применённые группы, и не дальше самой ранней
+    // отвергнутой. Раньше он поднимался для каждой ПРОЧИТАННОЙ строки до решений:
+    // оборванная выгрузка (head без окон) или слишком большая запись отвергались
+    // навсегда — их отметка уже за курсором, и следующий забор их не приносил.
+    const appliedStamps: number[] = [];
+    let refusedMin: number | null = null;
+    const rowCursorStamp = (rec: CloudRow, isBaseRow: boolean): number | null => (
+      typeof rec.stamped_at === 'number'
         ? rec.stamped_at
-        : isBaseRow && typeof rec.payload?.updatedAt === 'number' ? rec.payload.updatedAt : null;
-      if (t !== null && t > result.maxUpdatedAt) result.maxUpdatedAt = t;
+        : isBaseRow && typeof rec.payload?.updatedAt === 'number' ? rec.payload.updatedAt : null
+    );
+    const groupStamp = (rows: CloudRow[], baseKey: string): number | null => {
+      let t: number | null = null;
+      for (const rec of rows) {
+        const v = rowCursorStamp(rec, rec.key === baseKey);
+        if (v !== null && (t === null || v > t)) t = v;
+      }
+      return t;
+    };
+    const markApplied = (rows: CloudRow[], baseKey: string): void => {
+      const t = groupStamp(rows, baseKey);
+      if (t !== null) appliedStamps.push(t);
+    };
+    // Ревью 0.10.7: порог — самая ранняя строка группы, а не самая поздняя:
+    // фильтр забора построчный (`stamped_at > cursor`), и курсор между строками
+    // группы отрезал бы её начало — она снова пришла бы неполной. Отказ навсегда
+    // (слишком большая, битая, чужая контрольная сумма) курсор не держит: повтор
+    // ничего не изменит, а каждый проход заново качал бы всё, что новее неё.
+    const markRefused = (rows: CloudRow[], baseKey: string, permanent = false): void => {
+      if (permanent) return;
+      for (const rec of rows) {
+        const t = rowCursorStamp(rec, rec.key === baseKey);
+        if (t !== null && (refusedMin === null || t < refusedMin)) refusedMin = t;
+      }
     };
 
     for (const rec of cloudRecords) {
@@ -478,7 +506,6 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
       // M-5: сегмент `key@seg…` принадлежит записи `key`, а не себе и не странице.
       // Для остальных хранилищ @seg — обычная часть ключа.
       const baseKey = rec.store === 'aiDialogues' ? headKeyOfRow(pageBase) : pageBase;
-      noteCursor(rec, rec.key === baseKey);
       const groupKey = `${rec.store}:${baseKey}`;
       let grp = grouped.get(groupKey);
       if (!grp) {
@@ -490,7 +517,7 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
 
     // EA-5: запись, облачное удаление которой ещё не дошло, не воскрешаем.
     for (const { store, baseKey, rows } of grouped.values()) {
-      if (pendingDeletes.has(`${store}:${baseKey}`)) continue;
+      if (pendingDeletes.has(`${store}:${baseKey}`)) { markApplied(rows, baseKey); continue; }
       // Спор копий считается отметкой БАЗОВОЙ строки, которую поставил сервер
       // (миграция 0037). Отметку берём не из `rows[0]`, а из строки с ключом
       // `baseKey`: head живёт именно там, и выбор по индексу молча зависел бы от
@@ -530,6 +557,7 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
             if (version && version.kind === 'incomplete' && version.missing.length > 0) {
               LocalStoreSyncService.scheduleStoreSync('aiDialogues', baseKey);
             }
+            markRefused(rows, baseKey);
             result.failed++;
             continue; // Keep local copy intact!
           }
@@ -541,16 +569,27 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
           // прежней, более длинной версии, проигравшая попытка, выгрузка,
           // оборванная на середине. Склеить половинки двух версий нельзя.
           const version = selectCloudVersion(rows, store === 'aiDialogues');
-          if (!version) continue;
+          if (!version) {
+            // Две тихие ветки отказа теперь морозят курсор (D1-5), поэтому молчать
+            // они больше не имеют права: без строки в журнале stall необъясним.
+            logger.warn('AIRestoreService', `${store}/${baseKey}: no single row and no pages. Refusing.`);
+            markRefused(rows, baseKey);
+            continue;
+          }
           if (version.kind === 'refused') {
             logger.warn('AIRestoreService', `${store}/${baseKey}: ${version.reason}. Refusing.`);
+            markRefused(rows, baseKey);
             result.failed++;
             continue; // Keep local copy intact!
           }
 
           if (version.kind === 'single') {
             const decryptedPayload = await maybeDecrypt(version.row.payload, ['data'], []);
-            if (typeof decryptedPayload.data !== 'string') continue;
+            if (typeof decryptedPayload.data !== 'string') {
+              logger.warn('AIRestoreService', `${store}/${baseKey}: single row without text data. Refusing.`);
+              markRefused(rows, baseKey);
+              continue;
+            }
             fullJson = decryptedPayload.data;
             cloudTs = typeof decryptedPayload.updatedAt === 'number' ? decryptedPayload.updatedAt : null;
           } else {
@@ -570,6 +609,7 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
             }
 
             if (decryptFailed) {
+              markRefused(rows, baseKey);
               result.failed++;
               continue;
             }
@@ -600,6 +640,7 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
             'warning',
             'ai'
           );
+          markRefused(rows, baseKey, true);
           continue;
         }
 
@@ -607,20 +648,26 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
         try {
           parsedData = JSON.parse(fullJson);
         } catch {
+          markRefused(rows, baseKey, true);
           result.failed++;
           reportError(new Error('restoreAIData: malformed local_store_record'), { store, key: baseKey });
           continue;
         }
 
         if (parsedData === null || typeof parsedData !== 'object' || Array.isArray(parsedData)) {
+          markRefused(rows, baseKey, true);
           result.failed++;
           reportError(new Error('restoreAIData: malformed local_store_record'), { store, key: baseKey });
           continue;
         }
-        const expectedChecksum = rows[0]?.checksum;
+        // П-3 (D1-7): отметка — базовой строки (одиночная запись) или страницы
+        // `#0` (постраничная); `rows[0]` — произвольная строка группы.
+        const checksumRow = versionRow ?? rows.find(r => parseLocalStoreKey(r.key).pageIndex === 0);
+        const expectedChecksum = checksumRow?.checksum;
         if (expectedChecksum) {
           const computed = await sha256Hex(fullJson);
           if (computed !== expectedChecksum) {
+            markRefused(rows, baseKey, true);
             result.failed++;
             reportError(new Error('restoreAIData: checksum mismatch'), { store, key: baseKey });
             continue;
@@ -661,6 +708,7 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
               await LocalStoreSyncService.flushPending();
             }
           }
+          markApplied(rows, baseKey);
           continue;
         }
 
@@ -713,10 +761,21 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
           await writeLocal(withStamp(parsedData));
           result.localStoreRecords++;
         }
+        markApplied(rows, baseKey);
       } catch (err) {
+        markRefused(rows, baseKey);
         result.failed++;
         reportError(err, { action: 'restoreAIData_local_store_record', store, key: baseKey });
       }
+    }
+
+    // D1-5: за отвергнутую строку курсор не идёт — иначе она не приедет, пока
+    // кто-нибудь не перепишет её. Применённое до неё отмечается как обычно.
+    if (appliedStamps.length > 0) {
+      const floor = refusedMin;
+      let safe = -Infinity;
+      for (const t of appliedStamps) if ((floor === null || t < floor) && t > safe) safe = t;
+      if (Number.isFinite(safe) && safe > result.maxUpdatedAt) result.maxUpdatedAt = safe;
     }
   } catch (e) {
     result.sectionFailed = true;

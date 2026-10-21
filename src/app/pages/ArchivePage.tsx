@@ -10,6 +10,7 @@ import { AdaptiveContainer } from '../../shared/components/Layout/AdaptiveContai
 import { useLanguage } from '../../shared/i18n';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../shared/components/Button';
+import { useConfirmDialog } from '../../shared/components/ConfirmDialog';
 import { useUserId } from '../../shared/hooks/useUserId';
 import { ArchiveHeader, type SortMode } from '../../features/archive/components/ArchiveHeader';
 import { MobileArchiveHeader } from '../../features/archive/components/MobileArchiveHeader';
@@ -22,9 +23,9 @@ import { isSearchShortcut } from '../../features/archive/utils/searchShortcut';
 import { ArchiveNoteList } from '../../features/archive/components/ArchiveNoteList';
 import { ImportDropOverlay } from '../../features/archive/components/ImportDropOverlay';
 import { OnThisDayCard } from '../../features/archive/components/OnThisDayCard';
-import { ArchiveConfirmModals } from '../../features/archive/components/ArchiveConfirmModals';
 import { ArchiveSidebarContent, MobileArchiveSidebarSheet } from '../../features/archive/components/MobileArchiveSidebarSheet';
 import { useArchiveData } from '../../features/archive/hooks/useArchiveData';
+import type { ArchiveSession } from '../../features/archive/types';
 import { useProfileLabels } from '../../features/profile/hooks/useProfileLabels';
 import { useTagEditor } from '../../features/archive/hooks/useTagEditor';
 import { useLabelEditor } from '../../features/archive/hooks/useLabelEditor';
@@ -53,6 +54,7 @@ interface ArchiveViewProps {
 
 export function ArchivePage({ user, profile }: ArchiveViewProps) {
   const { t, tp, language } = useLanguage();
+  const { confirm } = useConfirmDialog();
   const navigate = useNavigate();
   const userId = useUserId(user);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -85,9 +87,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     loading, error, cloudLoadFailed, fetchSessions, sessions, trashedSessions,
     handleTrashSession, handleRestoreSession, handlePermanentDeleteSession, handleEmptyTrash,
     handleTagsChange, handleTitleChange, handleDateChange, handleLabelChange,
-    previewSession, setPreviewSession, openPreview, deleteConfirm, setDeleteConfirm,
-    permanentDeleteConfirm, setPermanentDeleteConfirm,
-    emptyTrashConfirm, setEmptyTrashConfirm,
+    previewSession, setPreviewSession, openPreview,
     allTags, tagCounts, labelCounts, filteredByFilters, filteredSessions, searchQuery, setSearchQuery,
     selectedDate, setSelectedDate, selectedMonth: _selectedMonth, setSelectedMonth,
     selectedTags, setSelectedTags, selectedLabels, toggleLabel,
@@ -105,6 +105,40 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
       (s.tags && s.tags.some(tag => tag.toLowerCase().includes(q)))
     );
   }, [trashedSessions, searchQuery]);
+
+  const requestTrash = async (session: ArchiveSession) => {
+    const ok = await confirm({
+      title: t('archive_delete_confirm'),
+      message: `${session.title ? `«${session.title}»
+
+` : ''}${t('session_delete_confirm_desc')}`,
+      confirmLabel: t('storage_delete_confirm'),
+      cancelLabel: t('common_cancel'),
+    });
+    if (ok) await handleTrashSession(session);
+  };
+
+  const requestPermanentDelete = async (session: ArchiveSession) => {
+    const ok = await confirm({
+      title: t('archive_trash_delete_forever'),
+      message: `${session.title ? `«${session.title}»
+
+` : ''}${t('archive_trash_delete_forever_confirm')}`,
+      confirmLabel: t('storage_delete_confirm'),
+      cancelLabel: t('common_cancel'),
+    });
+    if (ok) await handlePermanentDeleteSession(session);
+  };
+
+  const requestEmptyTrash = async () => {
+    const ok = await confirm({
+      title: t('archive_trash_clear'),
+      message: t('archive_trash_clear_confirm'),
+      confirmLabel: t('storage_delete_confirm'),
+      cancelLabel: t('common_cancel'),
+    });
+    if (ok) await handleEmptyTrash(trashedSessions);
+  };
 
   const previewContext = useMemo(() => {
     const totalActive = selectedLabels.length + selectedTags.length + (selectedDate ? 1 : 0);
@@ -280,7 +314,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                   calendarOpen={calendarOpen}
                   activeTab={activeTab} onTabChange={setActiveTab}
                   trashCount={trashedSessions.length}
-                  onClearTrash={() => setEmptyTrashConfirm(true)}
+                  onClearTrash={() => void requestEmptyTrash()}
                 />
               </>
             ) : (
@@ -333,7 +367,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                       renamingTag={tagEditor.renamingTag} renameTagValue={tagEditor.renameTagValue}
                       setRenameTagValue={tagEditor.setRenameTagValue}
                       onStartRename={(tag) => void tagEditor.startRenameTag(tag)} onRenameSubmit={(tag, newName) => void tagEditor.handleRenameTag(tag, newName)}
-                      onRenameCancel={() => tagEditor.setRenamingTag(null)} onDeleteTag={tagEditor.setTagDeleteConfirm}
+                      onRenameCancel={() => tagEditor.setRenamingTag(null)} onDeleteTag={tag => void tagEditor.requestDeleteTag(tag)}
                       onResetTags={() => setSelectedTags([])} showControls={false} t={t}
                       labelKey="archive_tags_only"
                       variant="sheet"
@@ -348,7 +382,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                       editingLabelId={labelEditor.editingLabelId} setEditingLabelId={labelEditor.setEditingLabelId}
                       editLabelName={labelEditor.editLabelName} setEditLabelName={labelEditor.setEditLabelName}
                       editLabelColor={labelEditor.editLabelColor} setEditLabelColor={labelEditor.setEditLabelColor}
-                      onUpdateLabel={labelEditor.handleUpdateLabel} onDeleteLabel={labelEditor.setLabelDeleteConfirm}
+                      onUpdateLabel={labelEditor.handleUpdateLabel} onDeleteLabel={id => void labelEditor.requestDeleteLabel(id)}
                       showControls={false} t={t}
                       variant="sheet"
                     />
@@ -366,7 +400,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                       renamingTag={tagEditor.renamingTag} renameTagValue={tagEditor.renameTagValue}
                       setRenameTagValue={tagEditor.setRenameTagValue}
                       onStartRename={(tag) => void tagEditor.startRenameTag(tag)} onRenameSubmit={(tag, newName) => void tagEditor.handleRenameTag(tag, newName)}
-                      onRenameCancel={() => tagEditor.setRenamingTag(null)} onDeleteTag={tagEditor.setTagDeleteConfirm}
+                      onRenameCancel={() => tagEditor.setRenamingTag(null)} onDeleteTag={tag => void tagEditor.requestDeleteTag(tag)}
                       onResetTags={() => setSelectedTags([])} showControls={!!user} t={t}
                     />
                     <ArchiveLabelBar
@@ -379,7 +413,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                       editingLabelId={labelEditor.editingLabelId} setEditingLabelId={labelEditor.setEditingLabelId}
                       editLabelName={labelEditor.editLabelName} setEditLabelName={labelEditor.setEditLabelName}
                       editLabelColor={labelEditor.editLabelColor} setEditLabelColor={labelEditor.setEditLabelColor}
-                      onUpdateLabel={labelEditor.handleUpdateLabel} onDeleteLabel={labelEditor.setLabelDeleteConfirm}
+                      onUpdateLabel={labelEditor.handleUpdateLabel} onDeleteLabel={id => void labelEditor.requestDeleteLabel(id)}
                       showControls={!!user} t={t}
                     />
                   </>
@@ -399,8 +433,8 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                 <ArchiveTrashView
                   trashedSessions={filteredTrashedSessions}
                   onRestore={handleRestoreSession}
-                  onDeletePermanently={s => setPermanentDeleteConfirm(s)}
-                  onEmptyTrash={() => setEmptyTrashConfirm(true)}
+                  onDeletePermanently={s => void requestPermanentDelete(s)}
+                  onEmptyTrash={() => void requestEmptyTrash()}
                   onOpenPreview={s => void openPreview(s)}
                   dateLocale={dateLocale}
                   t={t}
@@ -415,7 +449,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                   groupedSessions={groupedSessions} sortedDates={sortedDates} dateLocale={dateLocale}
                   labels={profileLabels} userId={userId} searchQuery={searchQuery}
                   isGroupedByDate={isGroupedByDate}
-                  onOpen={s => void openPreview(s)} onDelete={s => setDeleteConfirm(s)}
+                  onOpen={s => void openPreview(s)} onDelete={s => void requestTrash(s)}
                   onTagsChange={(s, tags) => void handleTagsChange(s, tags)} onTitleChange={(s, title) => void handleTitleChange(s, title)}
                   onDateChange={(s, date) => void handleDateChange(s, date)} onLabelChange={(s, label) => void handleLabelChange(s, label)}
                   onStorageChange={() => void fetchSessions()} t={t} language={language}
@@ -464,7 +498,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                 onTagsChange={(s, tags) => void handleTagsChange(s, tags)} onLabelChange={(s, label) => void handleLabelChange(s, label)}
                 onAddLabel={(label) => void addLabel(label)} labels={profileLabels} allTags={allTags}
                 onTitleChange={(s, title) => void handleTitleChange(s, title)}
-                onDelete={s => setDeleteConfirm(s)} onStorageChange={() => void fetchSessions()}
+                onDelete={s => void requestTrash(s)} onStorageChange={() => void fetchSessions()}
                 onAnalyzeNote={id => NoteAnalysisService.analyze(id)}
                 onClearAnalysis={id => NoteAnalysisService.clear(id)}
                 fetchSummary={async id => (await AISummaryService.get(id)) ?? null}
@@ -473,24 +507,6 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
               </Suspense>
             )}
           </AnimatePresence>
-          <ArchiveConfirmModals
-            tagEditor={tagEditor} labelEditor={labelEditor} deleteConfirm={deleteConfirm}
-            onDeleteConfirm={async () => { await handleTrashSession(deleteConfirm!); setDeleteConfirm(null); }}
-            onDeleteCancel={() => setDeleteConfirm(null)}
-            permanentDeleteConfirm={permanentDeleteConfirm}
-            onPermanentDeleteConfirm={async () => {
-              if (permanentDeleteConfirm) await handlePermanentDeleteSession(permanentDeleteConfirm);
-              setPermanentDeleteConfirm(null);
-            }}
-            onPermanentDeleteCancel={() => setPermanentDeleteConfirm(null)}
-            emptyTrashConfirm={emptyTrashConfirm}
-            onEmptyTrashConfirm={async () => {
-              await handleEmptyTrash(trashedSessions);
-              setEmptyTrashConfirm(false);
-            }}
-            onEmptyTrashCancel={() => setEmptyTrashConfirm(false)}
-            t={t}
-          />
           <AnimatePresence>
             {isFilterOpen && (
               <MobileArchiveSidebarSheet

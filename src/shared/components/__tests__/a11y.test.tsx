@@ -1,35 +1,21 @@
-import { screen } from '@testing-library/react';
+import { screen, act } from '@testing-library/react';
 import { renderWithProviders } from '../../../test/utils/render';
-import { ConfirmModal } from '../ConfirmModal';
+import { ConfirmDialogRenderer, useDialogStore } from '../ConfirmDialog';
 import { LoadingSpinner } from '../LoadingSpinner';
 import { EmptyState } from '../EmptyState';
 import { Toggle } from '../Toggle';
 import { BookOpen } from 'lucide-react';
 
-describe('ConfirmModal a11y', () => {
+describe('ConfirmDialog a11y', () => {
   it('has role=dialog and aria-modal', () => {
-    renderWithProviders(
-      <ConfirmModal
-        isOpen
-        title="Удалить?"
-        message="Нельзя отменить"
-        onConfirm={() => {}}
-        onCancel={() => {}}
-      />
-    );
+    renderWithProviders(<ConfirmDialogRenderer />);
+    act(() => { void useDialogStore.getState().openConfirm({ title: 'Удалить?', message: 'Нельзя отменить' }); });
     expect(screen.getByRole('dialog')).toHaveAttribute('aria-modal', 'true');
   });
 
   it('focus stays inside the modal (focus trap)', () => {
-    renderWithProviders(
-      <ConfirmModal
-        isOpen
-        title="Удалить?"
-        message="Нельзя отменить"
-        onConfirm={() => {}}
-        onCancel={() => {}}
-      />
-    );
+    renderWithProviders(<ConfirmDialogRenderer />);
+    act(() => { void useDialogStore.getState().openConfirm({ title: 'Удалить?', message: 'Нельзя отменить' }); });
     const dialog = screen.getByRole('dialog');
     expect(dialog).toContainElement(document.activeElement as HTMLElement);
   });

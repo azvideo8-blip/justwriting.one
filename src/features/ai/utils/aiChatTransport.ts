@@ -298,8 +298,21 @@ export function pruneMessages(messages: AIMessage[]): AIMessage[] {
  * PROMPT-2: Cap assistant messages older than the last two to ~1500 chars (head).
  * User messages remain intact (up to API_MSG_CAP).
  */
+// DG-1 (живые диалоги 8.2, 8.3, 12.1): ход с прошлой приложенной заметкой
+// уходит в историю маркером без текста и без даты — модель брала свои прошлые
+// ответы о ней за её текст и путала дни. Маркер такой заметки получает дату из
+// шапки и пометку, что текста нет; заметка текущей темы (последняя приложенная)
+// и скрытые — без пометки.
+const STORED_HEAD = /^\[#([^\s\]]+) · (\d{4}-\d{2}-\d{2})\]\n\[Прикреплена заметка: "/;
+const FIRST_MARKER = /^(\[Прикреплена заметка: "[\s\S]*?")\]$/m;
+
 export function prepareApiMessages(messages: AIMessage[], opts?: AttachedParseOptions): AIMessage[] {
   const pruned = pruneMessages(messages.filter(m => m.type !== 'system'));
+  let currentNoteId: string | undefined;
+  for (const m of pruned) {
+    const head = m.role === 'user' ? STORED_HEAD.exec(m.content) : null;
+    if (head) currentNoteId = head[1];
+  }
   const assistantIndices: number[] = [];
   for (let i = 0; i < pruned.length; i++) {
     if (pruned[i]?.role === 'assistant') {
@@ -318,7 +331,12 @@ export function prepareApiMessages(messages: AIMessage[], opts?: AttachedParseOp
     if (m.role === 'assistant' && !lastTwoAssistant.has(idx)) {
       return { ...m, content: toApiContent(m.content, API_ASSISTANT_OLD_CAP, opts) };
     }
-    return { ...m, content: toApiContent(m.content, API_MSG_CAP, opts) };
+    const content = toApiContent(m.content, API_MSG_CAP, opts);
+    const head = m.role === 'user' ? STORED_HEAD.exec(m.content) : null;
+    if (head && head[1] !== currentNoteId && !hiddenIds.has(head[1]!)) {
+      return { ...m, content: content.replace(FIRST_MARKER, `$1 · ${head[2]} · текста этой заметки в этом ходе нет]`) };
+    }
+    return { ...m, content };
   });
 }
 

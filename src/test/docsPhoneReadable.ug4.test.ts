@@ -84,7 +84,7 @@ describe('UG-4: /docs на телефоне', () => {
         ? readdirSync(abs, { recursive: true } as never).map(String).filter(x => (x.endsWith('.tsx') || x.endsWith('.ts')) && !x.includes('__tests__')).map(x => `${rel}/${x}`)
         : [rel];
       for (const f of files) {
-        if (f.endsWith('pages/GuidePage.tsx')) continue;
+        if (f.replace(/\\/g, '/').endsWith('pages/GuidePage.tsx')) continue;
         const src = readFileSync(f, 'utf8');
         expect(src, `${f}: ссылается на /docs/mobile`).not.toMatch(/docs\/mobile/);
       }
@@ -101,7 +101,7 @@ describe('UG-4: /docs на телефоне', () => {
         if (width <= 400) continue;
         const before = html.slice(Math.max(0, (m.index ?? 0) - 300), m.index);
         expect(before, `${f}: <img width="${width}"> вне figure.shot — на телефоне он нечитаем`)
-          .toMatch(/<figure class="shot[^"]*">[^<]*$/);
+          .toMatch(/<figure class="shot[^"]*">\s*(?:<picture>\s*<source[^>]*>\s*)?$/);
       }
     }
   });

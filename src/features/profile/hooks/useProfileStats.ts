@@ -127,6 +127,8 @@ export function useProfileStats(userId: string, user: AppUser | null) {
   const [kpiStats, setKpiStats] = useState<KPIStats>(EMPTY_KPI);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // D-2: облако не прочиталось — статистика считается только по устройству.
+  const [cloudLoadFailed, setCloudLoadFailed] = useState(false);
   const [fetchKey, setFetchKey] = useState(0);
 
   useEffect(() => {
@@ -142,6 +144,7 @@ export function useProfileStats(userId: string, user: AppUser | null) {
         setKpiStats(cached.data.kpiStats);
         setLoading(false);
         setError(null);
+        setCloudLoadFailed(false);
         return;
       }
 
@@ -150,6 +153,7 @@ export function useProfileStats(userId: string, user: AppUser | null) {
       try {
         const result = await loadAllSessions(userId, user);
         if (cancelled) return;
+        setCloudLoadFailed(result.cloudLoadFailed);
         if (user && !userId.startsWith('guest')) {
           try {
             await syncStreakFreezesWithCloud(userId);
@@ -169,7 +173,7 @@ export function useProfileStats(userId: string, user: AppUser | null) {
           streak: streakVal,
           kpiStats: kpi,
         };
-        profileStatsCache.set(userId, { data, timestamp: Date.now() });
+        if (!result.cloudLoadFailed) profileStatsCache.set(userId, { data, timestamp: Date.now() });
         setSessions(data.sessions);
         setStats(data.stats);
         setStreak(data.streak);
@@ -192,5 +196,5 @@ export function useProfileStats(userId: string, user: AppUser | null) {
     setFetchKey(k => k + 1);
   }, [userId]);
 
-  return { sessions, stats, streak, kpiStats, loading, error, refresh };
+  return { sessions, stats, streak, kpiStats, loading, error, cloudLoadFailed, refresh };
 }

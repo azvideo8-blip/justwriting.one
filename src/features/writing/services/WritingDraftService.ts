@@ -92,15 +92,34 @@ function queueDraftRowWrite<T>(fn: () => Promise<T>): Promise<T> {
 // hasOnly(), so only schema fields are sent to the cloud. `updatedAt` is set
 // separately with a server timestamp.
 
-function isDraftExpired(draft: LocalDraft): boolean {
-  const updated = toTimestampMs(draft.updatedAt) ?? 0;
-  return updated > 0 && Date.now() - updated > DRAFT_MAX_AGE_MS;
-}
-
 /** Серверная метка облачной версии, которую устройство видело последней; `null` — не помнит. */
 function draftCloudSeen(draft: LocalDraft): number | null {
   const seen = (draft as unknown as Record<string, unknown>)._cloudUpdatedAt;
   return typeof seen === 'number' && Number.isFinite(seen) ? seen : null;
+}
+
+/**
+ * D1-2: сравнивать метку ряда с `deletedAt` (часы этого прибора) можно, только
+ * если её поставил он же. У облачной строки после 0043 метка серверная; у копии,
+ * принятой из облака, — тоже (она хранит серверный штамп). У правки человека —
+ * `Date.now()` прибора.
+ */
+function draftStampFromDevice(draft: LocalDraft, fromCloud: boolean): boolean {
+  if (fromCloud) return false;
+  const seen = draftCloudSeen(draft);
+  return seen === null || toTimestampMs(draft.updatedAt) !== seen;
+}
+
+/**
+ * D1-6: срок считает прибор (`Date.now()`), значит и метка черновика обязана быть
+ * приборной. У облачной копии после 0043 метку ставит сервер; сравнивать её с
+ * часами устройства нельзя — спешащий прибор объявлял свежий чужой черновик
+ * просроченным и сносил его вместе с облачной копией.
+ */
+function isDraftExpired(draft: LocalDraft, fromCloud: boolean): boolean {
+  if (!draftStampFromDevice(draft, fromCloud)) return false;
+  const updated = toTimestampMs(draft.updatedAt) ?? 0;
+  return updated > 0 && Date.now() - updated > DRAFT_MAX_AGE_MS;
 }
 
 /** Хэш последних отправленных нагрузок; пустой список — не помним ни одной. */
@@ -278,6 +297,18 @@ export const WritingDraftService = {
     /** Черновик, удалённый на этом устройстве: по содержимому, а не по часам. */
     const isDeletedDraft = (draft: LocalDraft): boolean =>
       deletedHashes.includes(draftPayloadHash(draft));
+    /**
+     * D1-2: надгробие судит по хэшу. Временна́я ветка остаётся только для метки,
+     * поставленной этим прибором: серверную метку облачной строки сравнивать с
+     * `deletedAt` нельзя — спешащие часы объявляли чужой свежий черновик «старее
+     * удаления», и он сносился из облака. Не знаем — не удаляем.
+     */
+    const isDeletedByTombstone = (draft: LocalDraft, fromCloud: boolean): boolean => {
+      if (!deletedAt) return false;
+      if (isDeletedDraft(draft)) return true;
+      if (!draftStampFromDevice(draft, fromCloud)) return false;
+      return (toTimestampMs(draft.updatedAt) ?? 0) <= deletedAt;
+    };
 
     await flushPendingCloudDelete(userId, deletedHashes);
 
@@ -361,11 +392,11 @@ export const WritingDraftService = {
         cloudIsOurs: sentHashes.includes(cloudHash),
         localDirty: ackedHash === undefined ? undefined : draftPayloadHash(resolvedLocal) !== ackedHash,
       }) === 'cloud' ? cloudDraft : resolvedLocal;
-      if (deletedAt && (isDeletedDraft(winner) || (toTimestampMs(winner.updatedAt) ?? 0) <= deletedAt)) {
+      if (isDeletedByTombstone(winner, winner === cloudDraft)) {
         await WritingDraftService.deleteDraft(userId); // намеренно: удаление удалённого черновика
         return null;
       }
-      if (isDraftExpired(winner)) {
+      if (isDraftExpired(winner, winner === cloudDraft)) {
         await WritingDraftService.deleteDraft(userId); // намеренно: удаление просроченного черновика
         return null;
       }
@@ -383,11 +414,11 @@ export const WritingDraftService = {
     }
     const resolved = resolvedLocal || cloudDraft;
     if (resolved) {
-      if (deletedAt && (isDeletedDraft(resolved) || (toTimestampMs(resolved.updatedAt) ?? 0) <= deletedAt)) {
+      if (isDeletedByTombstone(resolved, resolved === cloudDraft)) {
         if (!localFailed) await WritingDraftService.deleteDraft(userId); // намеренно: удаление удалённого черновика
         return null;
       }
-      if (isDraftExpired(resolved)) {
+      if (isDraftExpired(resolved, resolved === cloudDraft)) {
         if (!localFailed) await WritingDraftService.deleteDraft(userId); // намеренно: удаление просроченного черновика
         return null;
       }

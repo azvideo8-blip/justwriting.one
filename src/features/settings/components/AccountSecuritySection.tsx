@@ -13,6 +13,7 @@ import { AccountAISection } from './AccountAISection';
 import { Button } from '../../../shared/components/Button';
 import { MIN_PASSWORD_LENGTH } from '../../../shared/constants/passwordPolicy';
 import { Input } from '../../../shared/components/Input';
+import { LoadingSpinner } from '../../../shared/components/LoadingSpinner';
 
 interface AccountSecuritySectionProps {
   userId: string;
@@ -159,7 +160,7 @@ export function AccountSecuritySection({ userId }: AccountSecuritySectionProps) 
                     disabled={passwordLoading}
                     className="flex-1 py-2 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors bg-brand-primary"
                   >
-                    {passwordLoading ? <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/20 border-t-white mx-auto" /> : t('settings_change_password')}
+                    {passwordLoading ? <span className="flex justify-center"><LoadingSpinner size={4} /></span> : t('settings_change_password')}
                   </Button>
                   <Button
                     type="button"
@@ -191,7 +192,7 @@ export function AccountSecuritySection({ userId }: AccountSecuritySectionProps) 
                 className="py-1.5 px-3 rounded-lg border border-border-subtle text-xs text-text-main/70 hover:text-text-main transition-colors self-start sm:self-auto shrink-0"
               >
                 {signingOutOthers ? (
-                  <div className="w-4 h-4 border-2 rounded-full animate-spin border-text-main/20 border-t-text-main mx-auto" />
+                  <LoadingSpinner size={4} />
                 ) : (
                   t('settings_sessions_sign_out_others')
                 )}

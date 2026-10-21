@@ -11,9 +11,9 @@ interface TankLogoProps {
 }
 
 const COLORS: Record<"dark" | "light" | "white", Record<string, string>> = {
-  dark:  { ca:"var(--brand-soft)", inn:"var(--brand-primary)", kf:"#fff", kt:"var(--brand-deep)", rm:"var(--brand-soft)", cr:"var(--brand-soft)", rw:"var(--brand-soft)"},
-  light: { ca:"var(--brand-deep)", inn:"var(--brand-primary)", kf:"var(--brand-primary)", kt:"#fff", rm:"var(--brand-deep)", cr:"var(--brand-primary)", rw:"var(--brand-primary)"},
-  white: { ca:"#fff", inn:"#fff", kf:"#fff", kt:"var(--brand-deep)", rm:"#fff", cr:"#fff", rw:"#fff"},
+  dark:  { ca:"var(--brand-soft)", inn:"var(--brand-primary)", kf:"var(--logo-on-dark)", kt:"var(--brand-deep)", rm:"var(--brand-soft)", cr:"var(--brand-soft)", rw:"var(--brand-soft)"},
+  light: { ca:"var(--brand-deep)", inn:"var(--brand-primary)", kf:"var(--brand-primary)", kt:"var(--logo-on-dark)", rm:"var(--brand-deep)", cr:"var(--brand-primary)", rw:"var(--brand-primary)"},
+  white: { ca:"var(--logo-on-dark)", inn:"var(--logo-on-dark)", kf:"var(--logo-on-dark)", kt:"var(--brand-deep)", rm:"var(--logo-on-dark)", cr:"var(--logo-on-dark)", rw:"var(--logo-on-dark)"},
 };
 
 const RAILWAY_TICKS = Array.from({ length: 28 }, (_, i) => {

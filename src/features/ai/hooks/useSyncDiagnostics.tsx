@@ -304,6 +304,9 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
       const res = await SyncService.syncPending(userId);
       if (res.skippedReason === 'sync_disabled') {
         showToast(t('sync_queue_disabled'), 'error');
+      } else if (res.skippedReason === 'offline') {
+        // D1-3: офлайн — пауза, а не попытка: ничего не ушло, но и «пусто» это не так.
+        showToast(t('admin_queue_toast_offline'), 'error');
       } else if (res.skippedReason === 'vault_locked') {
         // Заметки ждут ключа — это не «очередь пуста».
         showToast(t('settings_sync_vault_locked'), 'error');

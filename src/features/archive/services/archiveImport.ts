@@ -1,6 +1,7 @@
 import { parseNoteMarkdown } from '../../../core/services/noteFormat';
 import { countWords } from '../../../shared/utils/countWords';
 import { SyncService } from '../../../core/services/SyncService';
+import { truncateText } from '../../../shared/utils/textLimits';
 
 export interface ParsedImportFile {
   title: string;
@@ -33,12 +34,12 @@ export function parseImportFile(fileName: string, rawContent: string): ParsedImp
   const parsed = parseNoteMarkdown(rawContent, fallbackTitle);
   const wordCount = countWords(parsed.content);
   return {
-    title: clampUtf8Bytes((parsed.title || '').slice(0, 500), MAX_IMPORT_FIELD_BYTES),
+    title: clampUtf8Bytes(truncateText(parsed.title || '', 500), MAX_IMPORT_FIELD_BYTES),
     content: parsed.content,
-    tags: (parsed.tags ?? []).slice(0, 10).map(t => String(t).slice(0, 50)),
+    tags: (parsed.tags ?? []).slice(0, 10).map(t => truncateText(String(t), 50)),
     wordCount,
     date: parsed.date,
-    mood: parsed.mood != null ? clampUtf8Bytes(parsed.mood.slice(0, 500), MAX_IMPORT_FIELD_BYTES) : undefined,
+    mood: parsed.mood != null ? clampUtf8Bytes(truncateText(parsed.mood, 500), MAX_IMPORT_FIELD_BYTES) : undefined,
   };
 }
 

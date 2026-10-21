@@ -5,8 +5,10 @@
  * на стенде arch-2026-10-11 это S5 — 19 провалов из 24 на v4-flash и 7 из 12 на
  * v4.1-flash, плюс живые находки 1.5, 2.1, 5.5, 6.1. Правило в промпте есть с
  * 0.9.35; два шага и более строгие промпты чисел не сдвинули. Значит — код после
- * ответа: цитата, которой нет в материалах хода, теряет кавычки. Слова остаются,
- * приставка «примерно:» не добавляется.
+ * ответа: цитата, которой нет в материалах хода, теряет кавычки. Слова остаются.
+ * DG-3 (живые 10.7, 11.2, 13.2): у снятой РЕЧИ — после глагола речи или от
+ * первого/второго лица — без кавычек терялось, чья она, и реплика другого
+ * человека читалась как слова автора. Такая цитата получает «по смыслу:».
  *
  * Сверка — по свёрнутому тексту (как `squash()` стенда): регистр, ё/е, любые
  * виды кавычек, пунктуация и пробелы. Урок R-1: цитата, которая в материалах
@@ -35,6 +37,10 @@ const MIN_SPEECH_WORDS = 2;
 // «называешь», «твоими словами». Целым словом: «разговор» — не «говоришь».
 // Окно в 40 знаков до открывающей кавычки.
 const SPEECH_CUE_RE = /(?:^|[^а-яё])(?:пишешь|написала?|писала?|говоришь|сказала?|называешь|назвала?|формулируешь|твоими словами|твои слова)[^.!?«»“”"\n]{0,40}$/;
+
+// DG-3: речь — глагол речи о ком угодно перед цитатой или 1–2 лицо внутри неё.
+const SPEECH_ANY_RE = /(?:^|[^а-яё])(?:пишешь|пишет|написала?|написали|писала?|говоришь|говорит|говорила?|говорили|сказала?|сказали|ответила?|ответили|спросила?|спросили|добавила?|добавили|решила?|решили|заявила?|заявили|назвала?|называешь|формулируешь|произнесла|произн[её]с|твоими словами|твои слова)[^.!?«»“”"\n]{0,40}$/;
+const PERSONAL_RE = /(?:^|[^а-яё])(?:я|мне|меня|мной|мой|моя|мо[её]|мои|моих|ты|тебе|тебя|тобой|твой|твоя|тво[её]|твои|мы|нам|нас|наш|наша)(?=[^а-яё]|$)/;
 
 /** Текст для сверки: регистр, ё/е, кавычки, пунктуация и пробелы свёрнуты. */
 export function normalizeQuoteText(s: string): string {
@@ -85,16 +91,31 @@ export function unquoteAbsent(text: string, materials: string | null | undefined
   const hay = normalizeQuoteText(materials ?? '');
   if (!hay) return { text, stripped: [] };
   const stripped: string[] = [];
-  const out = text.replace(QUOTE_SPAN_RE, (match: string, guillemet: string | undefined, curly: string | undefined, straight: string | undefined, at: number) => {
-    const inner = (guillemet ?? curly ?? straight ?? '').trim();
+  let out = '';
+  let last = 0;
+  for (const m of text.matchAll(QUOTE_SPAN_RE)) {
+    const at = m.index ?? 0;
+    const inner = (m[1] ?? m[2] ?? m[3] ?? '').trim();
+    const window = text.slice(Math.max(0, at - 40), at).toLowerCase();
     const n = words(normalizeQuoteText(inner)).length;
-    const speech = SPEECH_CUE_RE.test(text.slice(Math.max(0, at - 40), at).toLowerCase());
-    if (inner.length < 1 || n < (speech ? MIN_SPEECH_WORDS : MIN_WORDS)) return match;
-    if (hay.includes(normalizeQuoteText(inner))) return match;
+    const speech = SPEECH_CUE_RE.test(window);
+    if (inner.length < 1 || n < (speech ? MIN_SPEECH_WORDS : MIN_WORDS)) continue;
+    if (hay.includes(normalizeQuoteText(inner))) continue;
     stripped.push(inner);
-    return inner;
-  });
-  return { text: out, stripped };
+    let before = text.slice(last, at);
+    let body = inner;
+    if (SPEECH_ANY_RE.test(window) || PERSONAL_RE.test(inner.toLowerCase())) {
+      // «она сказала: «…»» → «она сказала, по смыслу: …»; в начале фразы — «По смыслу: …».
+      before = before.replace(/[\s:,]*$/, '');
+      const sentenceStart = /(?:^|[.!?\n])\s*$/.test(out + before);
+      body = sentenceStart
+        ? `${before ? ' ' : ''}По смыслу: ${inner}`
+        : `, по смыслу: ${inner}`;
+    }
+    out += before + body;
+    last = at + m[0].length;
+  }
+  return { text: out + text.slice(last), stripped };
 }
 
 /** Сколько кавычек правило сняло — счётчик для журнала, без правки текста. */

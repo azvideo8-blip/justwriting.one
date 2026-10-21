@@ -3,6 +3,7 @@ import { AIDialogueService } from '../services/AIDialogueService';
 import type { AIDialogue } from '../../../core/storage/localDb';
 import { useLanguage } from '../../../shared/i18n';
 import { localDayKey } from '../../../core/utils/dateUtils';
+import { reportError } from '../../../shared/errors/reportError';
 
 interface DialogueManagerParams {
   confirmDialog: (options: { title: string; message: string }) => Promise<boolean>;
@@ -14,14 +15,26 @@ export function useDialogueManager({ confirmDialog }: DialogueManagerParams) {
   const [archivedDialogues, setArchivedDialogues] = useState<AIDialogue[]>([]);
   const [activeDialogueId, setActiveDialogueId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [dialoguesLoading, setDialoguesLoading] = useState(true);
+  const [dialoguesLoadError, setDialoguesLoadError] = useState(false);
 
   const loadDialogues = useCallback(async () => {
-    const [active, archived] = await Promise.all([
-      AIDialogueService.list({ includeArchived: false }),
-      AIDialogueService.list({ includeArchived: true }),
-    ]);
-    setDialogues(active);
-    setArchivedDialogues(archived.filter(d => d.archivedAt));
+    setDialoguesLoading(true);
+    try {
+      const [active, archived] = await Promise.all([
+        AIDialogueService.list({ includeArchived: false }),
+        AIDialogueService.list({ includeArchived: true }),
+      ]);
+      setDialogues(active);
+      setArchivedDialogues(archived.filter(d => d.archivedAt));
+      setDialoguesLoadError(false);
+    } catch (error) {
+      // A-1: сбой чтения — не «пусто»: прошлый список остаётся, экран говорит об ошибке.
+      reportError(error, { action: 'loadDialogues', source: 'ai-dialogues' });
+      setDialoguesLoadError(true);
+    } finally {
+      setDialoguesLoading(false);
+    }
   }, []);
 
   const handleRenameDialogue = useCallback(async (id: string, newTitle: string) => {
@@ -85,6 +98,8 @@ export function useDialogueManager({ confirmDialog }: DialogueManagerParams) {
     setActiveDialogueId,
     showArchived,
     setShowArchived,
+    dialoguesLoading,
+    dialoguesLoadError,
     loadDialogues,
     handleRenameDialogue,
     handleArchive,

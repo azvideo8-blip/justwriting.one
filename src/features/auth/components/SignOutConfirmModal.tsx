@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStatus } from '../hooks/useAuthStatus';
 import { countLocalDataInventory, type LocalDataInventory } from '../services/localDataInventory';
-import { ModalWrapper } from '../../../shared/components/ModalWrapper';
+import { ModalShell } from '../../../shared/components/ModalShell';
 import { Button } from '../../../shared/components/Button';
 import { LogOut, Trash2, AlertTriangle, ShieldCheck, Database, Loader2 } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
@@ -65,11 +65,12 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
   };
 
   return (
-    <ModalWrapper
-      isOpen={open}
+    <ModalShell
+      open={open}
       onClose={() => { if (!signingOut) onClose(); }}
-      titleId="signout-modal-title"
-      maxWidth="max-w-md"
+      labelId="signout-modal-title"
+      // A-9b: ModalWrapper рисовал карточку сам, ModalShell — нет.
+      className="max-w-md bg-surface-card border border-border-subtle rounded-2xl p-6 shadow-lg"
     >
       <div className="space-y-4 p-2">
         <div className="flex items-center gap-3">
@@ -196,6 +197,6 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
           </Button>
         </div>
       </div>
-    </ModalWrapper>
+    </ModalShell>
   );
 }

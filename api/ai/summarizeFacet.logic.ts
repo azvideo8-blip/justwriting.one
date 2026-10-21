@@ -60,7 +60,7 @@ export async function summarizeFacetLogic(ctx: AiContext, uid: string, data: unk
   }
   if (!reservation) {
     await callRes.settle('failed');
-    throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
+    throw new AiError('resource-exhausted', 'The app-wide daily AI limit is reached. Try again tomorrow.');
   }
   callRes.attachGlobalReservation(reservation, inputEstimate);
 

@@ -2,7 +2,7 @@ import { Helmet } from 'react-helmet-async';
 import { useLanguage } from '../i18n';
 
 const SITE_URL = import.meta.env.VITE_SITE_URL ?? 'https://justwriting.ru';
-const OG_IMAGE = `${SITE_URL}/og-image.png`;
+const OG_IMAGE = `${SITE_URL}/og-image.jpg`;
 
 interface SeoHeadProps {
   path: string;

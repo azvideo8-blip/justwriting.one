@@ -16,6 +16,7 @@ import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { Input } from '../../../shared/components/Input';
 import { ModalShell } from '../../../shared/components/ModalShell';
+import { LoadingSpinner } from '../../../shared/components/LoadingSpinner';
 
 interface LoginPageProps {
   isModal?: boolean;
@@ -307,7 +308,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
               className="w-full flex items-center justify-center gap-2 py-4 rounded-xl font-bold hover:brightness-110 active:scale-[0.98] transition-colors disabled:opacity-50 text-white bg-[var(--brand-primary)]"
             >
               {loading ? (
-                <div className="w-5 h-5 border-2 rounded-full animate-spin border-white/20 border-t-white" />
+                <LoadingSpinner size={5} />
               ) : (
                 mode === 'login' ? <LogIn size={18} /> : <UserPlus size={18} />
               )}
@@ -413,7 +414,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                       className="w-full py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors bg-[var(--brand-primary)]"
                     >
                       {forgotLoading ? (
-                        <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/20 border-t-white mx-auto" />
+                        <span className="flex justify-center"><LoadingSpinner size={4} /></span>
                       ) : secondsLeft > 0 ? (
                         `${t('auth_forgot_resend')} (${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')})`
                       ) : (
@@ -464,7 +465,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                       disabled={forgotLoading || !forgotEmail}
                       className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors bg-[var(--brand-primary)]"
                     >
-                      {forgotLoading ? <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/20 border-t-white mx-auto" /> : t('auth_forgot_confirm_anyway')}
+                      {forgotLoading ? <span className="flex justify-center"><LoadingSpinner size={4} /></span> : t('auth_forgot_confirm_anyway')}
                     </Button>
                     <Button
                       type="button"

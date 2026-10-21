@@ -61,6 +61,17 @@ export function extractGuideArticle(html: string, base = '/docs/'): string | nul
     const src = img.getAttribute('src') ?? '';
     if (!/^(\/|https?:)/.test(src)) img.setAttribute('src', `${base}${src}`);
   });
+  // A-12: <picture> выбирает WebP по srcset — его URL тоже относительны страницы.
+  article.querySelectorAll('source[srcset]').forEach(source => {
+    const srcset = source.getAttribute('srcset') ?? '';
+    const rewritten = srcset.split(',').map(part => {
+      const [url, ...descriptor] = part.trim().split(/\s+/);
+      if (!url) return '';
+      const absolute = /^(\/|https?:)/.test(url) ? url : `${base}${url}`;
+      return [absolute, ...descriptor].join(' ');
+    }).filter(Boolean).join(', ');
+    source.setAttribute('srcset', rewritten);
+  });
   return article.innerHTML;
 }
 

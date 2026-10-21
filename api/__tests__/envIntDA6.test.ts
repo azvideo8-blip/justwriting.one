@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { envInt } from '../postgresAiContext';
+import { envInt, envPositiveNumber } from '../postgresAiContext';
 
 describe('DA-6: envInt validates integer environment variables against NaN and non-positive numbers', () => {
   const originalEnv = process.env;
@@ -47,5 +47,25 @@ describe('DA-6: envInt validates integer environment variables against NaN and n
   it('throws on floating point numbers', () => {
     process.env.TEST_VAR = '12.34';
     expect(() => envInt('TEST_VAR', 42)).toThrow(/must be a positive integer/);
+  });
+
+  it('C-4: рублёвые значения — положительное конечное число, дроби разрешены', () => {
+    delete process.env.TEST_RUB;
+    expect(envPositiveNumber('TEST_RUB', 30)).toBe(30);
+
+    process.env.TEST_RUB = '12.5';
+    expect(envPositiveNumber('TEST_RUB', 30)).toBe(12.5);
+
+    // Пустое — как незаданное (шаблон .env пишет `AI_DAILY_SPEND_LIMIT_RUB=`).
+    for (const empty of ['', '  ']) {
+      process.env.TEST_RUB = empty;
+      expect(envPositiveNumber('TEST_RUB', 30)).toBe(30);
+      expect(envPositiveNumber('TEST_RUB', null)).toBeNull();
+    }
+
+    for (const bad of ['abc', '-1', '0', 'Infinity', '50 # руб']) {
+      process.env.TEST_RUB = bad;
+      expect(() => envPositiveNumber('TEST_RUB', 30)).toThrow(/Invalid environment variable TEST_RUB/);
+    }
   });
 });

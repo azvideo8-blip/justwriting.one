@@ -40,7 +40,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
   const userId = useUserId(user);
   const navigate = useNavigate();
 
-  const { sessions, kpiStats, loading, error, refresh } = useProfileStats(userId, user);
+  const { sessions, kpiStats, loading, error, cloudLoadFailed, refresh } = useProfileStats(userId, user);
   const [achResetKey, setAchResetKey] = useState(0);
   const { showToast: _showToast } = useToast();
 
@@ -89,7 +89,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
     );
   }
 
-  if (!loading && sessions.length === 0) {
+  if (!loading && sessions.length === 0 && !cloudLoadFailed) {
     return (
       <div className="min-h-screen bg-surface-base flex flex-col items-center justify-center gap-8 px-6 text-center">
         <ProfileHero user={user} profile={profile} isGuest={isGuest} onStartSession={() => void navigate('/')} />
@@ -113,6 +113,14 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
       />
       
       <div className="max-w-screen-2xl mx-auto px-6 md:px-9 space-y-6 pt-6">
+        {cloudLoadFailed && (
+          <div role="alert" className="px-4 py-3 rounded-2xl text-sm bg-accent-danger/10 border border-accent-danger/30 text-accent-danger flex items-center justify-between gap-3">
+            <span>{t('profile_cloud_load_error')}</span>
+            <Button onClick={() => void refresh()} className="shrink-0 underline text-accent-danger/70 hover:text-accent-danger">
+              {t('retry')}
+            </Button>
+          </div>
+        )}
         <CollapsibleSection title={t('profile_sec_how_write')} storageKey="profile_sec_how_write_v2" defaultOpen={true}>
           <div className="flex flex-row md:flex-col overflow-x-auto md:overflow-x-visible scroll-snap-x-container gap-6 md:gap-0 pb-6 md:pb-0">
             <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden animate-none">

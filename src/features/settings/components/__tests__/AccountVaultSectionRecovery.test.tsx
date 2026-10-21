@@ -14,6 +14,11 @@ vi.mock('../../../../shared/i18n', () => ({
   useLanguage: () => ({ t: (k: string) => k }),
 }));
 
+const { confirmMock } = vi.hoisted(() => ({ confirmMock: vi.fn(async () => false) }));
+vi.mock('../../../../shared/components/ConfirmDialog', () => ({
+  useConfirmDialog: () => ({ confirm: confirmMock }),
+}));
+
 vi.mock('../../../../shared/components/Toast', () => ({
   useToast: () => ({ showToast: vi.fn() }),
 }));
@@ -91,20 +96,21 @@ describe('AccountVaultSection: замена кода восстановлени�
     expect(screen.queryByText('enc_recovery_code_missing_title')).toBeNull();
   });
 
-  it('не создаёт новый код без подтверждения', () => {
+  it('не создаёт новый код без подтверждения', async () => {
+    confirmMock.mockResolvedValueOnce(false);
     render(<AccountVaultSection userId="u1" />);
 
     fireEvent.click(screen.getByText('enc_regenerate_recovery_code_btn'));
 
-    expect(screen.getByText('enc_regenerate_recovery_confirm_title')).toBeTruthy();
+    await waitFor(() => expect(confirmMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'enc_regenerate_recovery_confirm_title' })));
     expect(generateRecoveryCodeForExistingVault).not.toHaveBeenCalled();
   });
 
   it('создаёт новый код после подтверждения и показывает его', async () => {
+    confirmMock.mockResolvedValueOnce(true);
     render(<AccountVaultSection userId="u1" />);
 
     fireEvent.click(screen.getByText('enc_regenerate_recovery_code_btn'));
-    fireEvent.click(screen.getByText('enc_regenerate_recovery_confirm_btn'));
 
     await waitFor(() => {
       expect(generateRecoveryCodeForExistingVault).toHaveBeenCalledWith('u1');

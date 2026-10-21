@@ -26,6 +26,22 @@ describe('extractGuideArticle', () => {
     expect(doc.querySelector('p')!.hasAttribute('onclick')).toBe(false);
   });
 
+  // A-12: <picture> выбирает WebP по srcset; без переписывания пути он
+  // останется относительным странице /guide/... и картинка не загрузится.
+  it('переписывает srcset WebP-источников на /docs/', () => {
+    const picturePage = `<html><body><main><article class="doc">
+      <figure class="shot"><picture>
+        <source type="image/webp" srcset="img/n-list-1280.webp 1280w, https://cdn.example.com/x.webp 2560w">
+        <img src="img/n-list-1280.jpg" alt="">
+      </picture></figure>
+    </article></main></body></html>`;
+    const html = extractGuideArticle(picturePage)!;
+    const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html');
+    expect(doc.querySelector('source')!.getAttribute('srcset'))
+      .toBe('/docs/img/n-list-1280.webp 1280w, https://cdn.example.com/x.webp 2560w');
+    expect(doc.querySelector('img')!.getAttribute('src')).toBe('/docs/img/n-list-1280.jpg');
+  });
+
   it('returns null for a page without an article', () => {
     expect(extractGuideArticle('<html><body><p>404</p></body></html>')).toBeNull();
   });

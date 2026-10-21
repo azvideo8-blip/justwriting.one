@@ -11,7 +11,7 @@ import type { AdminActionItem } from '../../../core/services/AdminUserService';
  * админского действия означает терять его вместе с обвинением. Клиентский
  * endpoint тоже read-only, поэтому здесь нет ни одной управляющей кнопки.
  */
-export function AdminActionsTable({ actions }: { actions: AdminActionItem[] }) {
+export function AdminActionsTable({ actions, error = false }: { actions: AdminActionItem[]; error?: boolean }) {
   const { t } = useLanguage();
 
   const actionLabel = (action: string): string =>
@@ -21,6 +21,11 @@ export function AdminActionsTable({ actions }: { actions: AdminActionItem[] }) {
     const d = new Date(iso);
     return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
   };
+
+  // A-2: сбой чтения журнала — «не загрузился», а не «пусто».
+  if (error) {
+    return <p role="alert" className="px-3 py-4 text-sm text-accent-danger">{t('admin_actions_load_error')}</p>;
+  }
 
   if (actions.length === 0) {
     return <p className="px-3 py-4 text-sm text-text-muted">{t('admin_actions_empty')}</p>;

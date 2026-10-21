@@ -35,6 +35,7 @@ vi.mock('../../../../core/services/LocalDocumentService', () => ({
 }));
 
 const mockShowToast = vi.fn();
+vi.mock('../../../../shared/components/ConfirmDialog', () => ({ useConfirmDialog: () => ({ confirm: vi.fn(async () => false) }) }));
 vi.mock('../../../../shared/components/Toast', () => ({
   useToast: () => ({ showToast: mockShowToast }),
 }));
@@ -53,11 +54,6 @@ vi.mock('../../../../core/settings/WritingSettingsContext', () => ({
   }),
 }));
 
-vi.mock('../useDocuments', () => ({
-  useDocuments: () => ({
-    refresh: vi.fn().mockResolvedValue(undefined),
-  }),
-}));
 
 vi.mock('../useLifeLog', () => ({
   useLifeLog: () => ({
@@ -200,7 +196,6 @@ describe('SYNC-D2: Continuing cloud-only notes', () => {
 
   describe('useWritingActions', () => {
     const mockSetSetupMode = vi.fn();
-    const mockSetShowCancelConfirm = vi.fn();
 
     const mockSession = {
       isGuest: false,
@@ -219,7 +214,6 @@ describe('SYNC-D2: Continuing cloud-only notes', () => {
           session: mockSession,
           flow: {
             setSetupMode: mockSetSetupMode,
-            setShowCancelConfirm: mockSetShowCancelConfirm,
           },
         })
       );
@@ -259,7 +253,6 @@ describe('SYNC-D2: Continuing cloud-only notes', () => {
           session: mockSession,
           flow: {
             setSetupMode: mockSetSetupMode,
-            setShowCancelConfirm: mockSetShowCancelConfirm,
           },
         })
       );
@@ -296,7 +289,6 @@ describe('SYNC-D2: Continuing cloud-only notes', () => {
           session: mockSession,
           flow: {
             setSetupMode: mockSetSetupMode,
-            setShowCancelConfirm: mockSetShowCancelConfirm,
           },
         })
       );
@@ -337,7 +329,6 @@ describe('SYNC-D2: Continuing cloud-only notes', () => {
           session: mockSession,
           flow: {
             setSetupMode: mockSetSetupMode,
-            setShowCancelConfirm: mockSetShowCancelConfirm,
           },
         })
       );

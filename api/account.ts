@@ -5,6 +5,7 @@
 import { AiError } from '../src/shared/ai/context.js';
 import type { PoolClient } from 'pg';
 import { pool } from './db';
+import { safeErrorShape } from '../src/shared/ai/errorShape.js';
 
 // ── deleteAccount ───────────────────────────────────────────────────────────
 
@@ -100,7 +101,7 @@ export async function deleteAccountLogic(_ctx: unknown, uid: string): Promise<un
   }
   const client = await pool.connect();
   const onClientError = (err: unknown) => {
-    console.error('[api/account] deleteAccount client error', err);
+    console.error('[api/account] deleteAccount client error', safeErrorShape(err));
   };
   client.on('error', onClientError);
   try {
@@ -112,7 +113,7 @@ export async function deleteAccountLogic(_ctx: unknown, uid: string): Promise<un
     try {
       await client.query('rollback');
     } catch { /* ignore rollback failure */ }
-    console.error('[api/account] deleteAccount failed:', e);
+    console.error('[api/account] deleteAccount failed:', safeErrorShape(e));
     throw new AiError('internal', 'Account deletion failed.');
   } finally {
     client.removeListener('error', onClientError);

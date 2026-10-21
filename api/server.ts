@@ -5,6 +5,9 @@ import { MAX_REQUEST_BODY_BYTES } from './ai/pure';
 import { rateLimited, clientIp, originOnly } from './cspLimiter';
 import { sendError } from './sendError';
 import { pool } from './db';
+import { safeErrorShape } from '../src/shared/ai/errorShape.js';
+import { clientErrorSummary } from './clientError';
+import { requireSession } from './auth';
 
 // ── Helpers ────────────────────────────────────────────────────────────
 function json(res: http.ServerResponse, status: number, body: unknown) {
@@ -132,6 +135,49 @@ const server = http.createServer((req, res) => {
     return res.end();
   }
 
+  // POST /api/client-error — E-7: отчёт об ошибках клиента только по кнопке.
+  // Белый список полей; message/stack/context не принимаются вовсе. В журнал —
+  // одна строка с хэшем uid и счётчиками, без email и без текста.
+  if (method === 'POST' && path === '/api/client-error') {
+    if (rateLimited(clientIp(req as unknown as { headers: Record<string, unknown> }))) {
+      json(res, 429, { error: { code: 'RATE_LIMIT', message: 'Too Many Requests' } });
+      return;
+    }
+    let session = null;
+    try {
+      session = await requireSession(req);
+    } catch {
+      session = null;
+    }
+    if (!session?.uid) {
+      sendError(res, 401, 'UNAUTHENTICATED');
+      return;
+    }
+    let raw: string;
+    try {
+      raw = await readBody(req, 16 * 1024);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message === 'PAYLOAD_TOO_LARGE') {
+        sendError(res, 413, 'PAYLOAD_TOO_LARGE', undefined, { Connection: 'close' });
+        return;
+      }
+      sendError(res, 400, 'INVALID_JSON');
+      return;
+    }
+    let parsed: unknown;
+    try {
+      parsed = raw ? JSON.parse(raw) : {};
+    } catch {
+      sendError(res, 400, 'INVALID_JSON');
+      return;
+    }
+    const summary = clientErrorSummary(session.uid, parsed, String(req.headers['user-agent'] ?? ''));
+    console.warn('[client-error]', JSON.stringify(summary));
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
   // POST /api/chat — streaming chat endpoint (must be above /api/* dispatcher)
   if (method === 'POST' && path === '/api/chat') {
     await handleChat(req, res);
@@ -151,7 +197,7 @@ const server = http.createServer((req, res) => {
     // unhandled rejection, а Node на нём завершает процесс — один кривой
     // запрос ронял бы сервис целиком. Наружу отдаём общий текст: причина
     // уходит в журнал, клиенту причины не сообщаем.
-    console.error('[server] unhandled request error', e);
+    console.error('[server] unhandled request error', safeErrorShape(e));
     if (!res.headersSent) sendError(res, 500, 'INTERNAL');
     else res.end();
   });
@@ -179,11 +225,11 @@ if (process.env.NODE_ENV !== 'test') {
 // Логирование обеспечивает видимость перед падением.
 if (process.env.NODE_ENV !== 'test') {
   process.on('uncaughtException', (err) => {
-    console.error('[server] uncaughtException', err);
+    console.error('[server] uncaughtException', safeErrorShape(err));
     process.exit(1);
   });
   process.on('unhandledRejection', (reason) => {
-    console.error('[server] unhandledRejection', reason);
+    console.error('[server] unhandledRejection', safeErrorShape(reason));
     process.exit(1);
   });
 }

@@ -37,6 +37,21 @@ describe('exportAllAsZip', () => {
     expect([bytes[0], bytes[1]]).toEqual([0x50, 0x4b]);
   });
 
+  // D-2, вопрос отчёта: корзина входит в архив и отдельной пометки не получает.
+  // Поведение зафиксировано тестом, чтобы его нельзя было изменить молча.
+  it('включает заметку из корзины без пометки (ответ для отчёта D-2)', async () => {
+    const trashed = { ...note('t', 'текст из корзины'), trashedAt: Date.now() } as never;
+
+    const res = await exportAllAsZip([trashed], STRINGS);
+
+    expect(res).toEqual({ exported: 1, skipped: 0 });
+    const { default: JSZip } = await import('jszip');
+    const zip = await JSZip.loadAsync(savedAs[0]!.blob as Blob);
+    const names = Object.keys(zip.files);
+    expect(names).toHaveLength(1);
+    expect(names[0]).not.toContain('корзин');
+  });
+
   it('skips a note whose text was never loaded instead of writing it empty', async () => {
     const notLoaded = { ...note('c', ''), _contentNotLoaded: true } as never;
 

@@ -95,8 +95,10 @@ describe('AdminUserService', () => {
       },
     ]);
 
-    const users = await AdminUserService.getUsers(50);
+    const result = await AdminUserService.getUsers(50);
+    const users = result.users;
 
+    expect(result.statusesFailed).toBe(false);
     expect(users).toHaveLength(3);
 
     // Enriched u-1
@@ -125,5 +127,43 @@ describe('AdminUserService', () => {
       noteCount: 0,
       pending: true,
     });
+  });
+
+  it('D-11: лишняя строка от провайдера даёт truncated и ровно N пользователей', async () => {
+    vi.mocked(DataProvider.getUsers).mockResolvedValueOnce(
+      Array.from({ length: 51 }, (_, i) => ({ id: `u-${i}`, email: `u${i}@example.com`, role: 'user' })) as any,
+    );
+    vi.mocked(callAi).mockResolvedValueOnce([]);
+
+    const result = await AdminUserService.getUsers(50);
+    expect(result.truncated).toBe(true);
+    expect(result.users).toHaveLength(50);
+  });
+
+  it('D-11: ровно N строк — не обрезано', async () => {
+    vi.mocked(DataProvider.getUsers).mockResolvedValueOnce(
+      Array.from({ length: 50 }, (_, i) => ({ id: `u-${i}`, email: `u${i}@example.com`, role: 'user' })) as any,
+    );
+    vi.mocked(callAi).mockResolvedValueOnce([]);
+
+    const result = await AdminUserService.getUsers(50);
+    expect(result.truncated).toBe(false);
+    expect(result.users).toHaveLength(50);
+  });
+
+  it('getUsers бросает при сбое DataProvider — иначе экран рисует пустую таблицу', async () => {
+    vi.mocked(DataProvider.getUsers).mockRejectedValueOnce(new Error('MARKER_A2_DB'));
+    await expect(AdminUserService.getUsers(50)).rejects.toThrow('MARKER_A2_DB');
+  });
+
+  it('getUsers отдаёт флаг statusesFailed, если статусы не прочитались', async () => {
+    vi.mocked(DataProvider.getUsers).mockResolvedValueOnce([
+      { id: 'u-1', email: 'user1@example.com', nickname: 'Alice', role: 'user' },
+    ] as any);
+    vi.mocked(callAi).mockRejectedValueOnce(new Error('MARKER_A2_STATUSES'));
+
+    const result = await AdminUserService.getUsers(50);
+    expect(result.statusesFailed).toBe(true);
+    expect(result.users).toHaveLength(1);
   });
 });

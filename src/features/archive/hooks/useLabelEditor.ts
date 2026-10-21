@@ -1,5 +1,7 @@
 import { useState} from 'react';
 import { LABEL_PRESET_COLORS } from '../../../core/constants/labelColors';
+import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
+import { useLanguage } from '../../../shared/i18n';
 
 export function useLabelEditor({
   addLabel,
@@ -10,13 +12,14 @@ export function useLabelEditor({
   updateLabel: (id: string, updates: { name: string; color: string }) => void;
   removeLabel: (id: string) => void;
 }) {
+  const { t } = useLanguage();
+  const { confirm } = useConfirmDialog();
   const [addingLabel, setAddingLabel] = useState(false);
   const [newLabelName, setNewLabelName] = useState('');
   const [newLabelColor, setNewLabelColor] = useState(LABEL_PRESET_COLORS[0] ?? '#7BA9F0');
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
   const [editLabelName, setEditLabelName] = useState('');
   const [editLabelColor, setEditLabelColor] = useState('');
-  const [labelDeleteConfirm, setLabelDeleteConfirm] = useState<string | null>(null);
 
   const handleAddLabel = () => {
     const trimmed = newLabelName.trim();
@@ -36,11 +39,14 @@ export function useLabelEditor({
     setEditingLabelId(null);
   };
 
-  const confirmDeleteLabel = () => {
-    if (labelDeleteConfirm) {
-      removeLabel(labelDeleteConfirm);
-      setLabelDeleteConfirm(null);
-    }
+  const requestDeleteLabel = async (id: string) => {
+    const ok = await confirm({
+      title: t('archive_labels'),
+      message: t('archive_label_delete_confirm'),
+      confirmLabel: t('storage_delete_confirm'),
+      cancelLabel: t('common_cancel'),
+    });
+    if (ok) removeLabel(id);
   };
 
   return {
@@ -50,9 +56,8 @@ export function useLabelEditor({
     editingLabelId, setEditingLabelId,
     editLabelName, setEditLabelName,
     editLabelColor, setEditLabelColor,
-    labelDeleteConfirm, setLabelDeleteConfirm,
     handleAddLabel,
     handleUpdateLabel,
-    confirmDeleteLabel,
+    requestDeleteLabel,
   };
 }

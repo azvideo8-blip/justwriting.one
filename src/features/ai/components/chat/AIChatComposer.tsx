@@ -7,6 +7,7 @@ import { IconButton } from '../../../../shared/components/IconButton';
 import { useLanguage } from '../../../../shared/i18n';
 import { useKeyboardState } from '../../../../shared/hooks/useKeyboardState';
 import { cn } from '../../../../core/utils/utils';
+import { LoadingSpinner } from '../../../../shared/components/LoadingSpinner';
 
 export interface PendingAttachment {
   title: string;
@@ -323,7 +324,7 @@ export function AIChatComposer(props: AIChatComposerProps) {
                   isMobile ? "w-11 h-11 justify-center px-0" : "px-3 py-2.5 md:px-4"
                 )}
               >
-                <span className="w-3.5 h-3.5 rounded-full border-2 border-text-main/30 border-t-text-main/80 animate-spin" />
+                <LoadingSpinner size={4} />
                 <span className="hidden md:inline">{t('ai_processing')}</span>
                 <Square size={13} className="fill-current" />
               </Button>

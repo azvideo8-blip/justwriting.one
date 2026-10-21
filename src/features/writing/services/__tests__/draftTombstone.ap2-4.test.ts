@@ -1,8 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { resetDbInstance, type LocalDraft } from '../../../../core/storage/localDb';
 import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
 import { WritingDraftService } from '../WritingDraftService';
+
+const realNow = Date.now;
 
 const cloud = vi.hoisted(() => ({
   row: null as LocalDraft | null,
@@ -48,8 +50,15 @@ beforeEach(async () => {
   cloud.row = draft();
   cloud.failDeletes = 1;
   cloud.deletes = 0;
+  // Тест зависел от реальных часов: надгробие пишет Date.now(), и после
+  // T0+60s того же дня ветка «удалённое раньше нового облачного» делала
+  // второе удаление — base CI был зелёным только потому, что гонял vitest
+  // в 05:06Z, до 06:01Z. Часы замирают на минуту до T0.
+  Date.now = () => T0 - 60_000;
   await WritingDraftService.saveToLocal(draft());
 });
+
+afterEach(() => { Date.now = realNow; });
 
 describe('AP2-4: удалённый черновик не воскресает в новой вкладке', () => {
   it('облако не приняло удаление — надгробие переживает вкладку, удаление досылается', async () => {

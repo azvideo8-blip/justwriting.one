@@ -103,6 +103,29 @@
     --brand-deep: #4A2A8A;
     --brand-bg: #0E0A18;
     --flow-pulse-color: var(--brand-soft);
+
+    /* A-11: цвета фонов и свотчей тем — здесь, а не hex в компонентах.
+       Значения прежние: вид тем не меняется. */
+    --theme-bg-spotify: #090C0A;
+    --theme-bg-spotify-1: #0d2b1a;
+    --theme-bg-spotify-2: #0a2416;
+    --theme-bg-spotify-3: #0f2e1c;
+    --theme-bg-modern: #050506;
+    --theme-bg-modern-1: #1e1e22;
+    --theme-bg-modern-2: #16161a;
+    --theme-bg-modern-3: #1a1a1e;
+    --theme-bg-amethyst: #0E0A18;
+    --theme-bg-notion: #FAF8F5;
+    --theme-bg-notion-1: #f0ede6;
+    --theme-bg-notion-2: #e5e1d7;
+    --theme-bg-stripe: #0a0514;
+    --theme-bg-stripe-1: #7d4fd1;
+    --theme-bg-stripe-2: #4a2a8a;
+    --theme-accent-modern: #1e1e22;
+    --theme-accent-notion: #e8dfc0;
+    --theme-accent-spotify: #1ed760;
+    --theme-accent-amethyst: #7c3aed;
+    --logo-on-dark: #fff;
   }
 
   /* ─── AMETHYST (Флагманский эталон — глубокий фиолетовый) ─── */

@@ -26,6 +26,8 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [jsonLoading, setJsonLoading] = useState(false);
+  // D-2: сбой облака не должен давать молчаливую неполную GDPR-выгрузку.
+  const [cloudExportError, setCloudExportError] = useState<null | 'zip' | 'json'>(null);
   const [migrationLoading, setMigrationLoading] = useState(false);
   const [migrationResult, setMigrationResult] = useState<{
     documents: number; versions: number; verbatim: number; skipped: number;
@@ -35,10 +37,18 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
 
   const vaultConfigured = hasVault(profile);
 
-  const handleExportAll = async () => {
+  // Ревью 0.10.7: при сбое облака человек может явно выгрузить то, что есть на
+  // устройстве (офлайн или сервер лёг) — неполнота названа на кнопке.
+  const handleExportAll = async (localOnly = false) => {
     setLoading(true);
+    setCloudExportError(null);
     try {
-      const { sessions: listed } = await loadAllSessions(userId, user, { withContent: true });
+      const { sessions: listed, cloudLoadFailed } = await loadAllSessions(userId, user, { withContent: true });
+      if (cloudLoadFailed && !localOnly) {
+        setCloudExportError('zip');
+        showToast(t('settings_export_cloud_failed'), 'error');
+        return;
+      }
       if (listed.length === 0) {
         showToast(t('settings_export_all_empty'), 'error');
         return;
@@ -69,10 +79,20 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
     }
   };
 
-  const handleExportJson = async () => {
+  const handleExportJson = async (localOnly = false) => {
     setJsonLoading(true);
+    setCloudExportError(null);
     try {
-      const { sessions: listed } = await loadAllSessions(userId, user, { withContent: true });
+      const { sessions: listed, cloudLoadFailed } = await loadAllSessions(userId, user, { withContent: true });
+      if (cloudLoadFailed && !localOnly) {
+        setCloudExportError('json');
+        showToast(t('settings_export_cloud_failed'), 'error');
+        return;
+      }
+      if (listed.length === 0) {
+        showToast(t('settings_export_all_empty'), 'error');
+        return;
+      }
       const sessions = await hydrateSessionContent(listed, user?.uid ?? userId);
       const profileData: Record<string, unknown> = {
         nickname: user?.displayName ?? null,
@@ -228,6 +248,25 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
             </>
           )}
         </Button>
+        {cloudExportError && (
+          <div role="alert" className="p-3 rounded-xl bg-accent-danger/10 border border-accent-danger/30 text-xs text-accent-danger flex items-center justify-between gap-2">
+            <span>{t('settings_export_cloud_failed')}</span>
+            <span className="shrink-0 flex gap-3">
+              <Button
+                onClick={() => void (cloudExportError === 'zip' ? handleExportAll() : handleExportJson())}
+                className="underline text-accent-danger/70 hover:text-accent-danger"
+              >
+                {t('retry')}
+              </Button>
+              <Button
+                onClick={() => void (cloudExportError === 'zip' ? handleExportAll(true) : handleExportJson(true))}
+                className="underline text-accent-danger/70 hover:text-accent-danger"
+              >
+                {t('settings_export_local_only')}
+              </Button>
+            </span>
+          </div>
+        )}
         <Button
           onClick={() => void handleMigrationExport()}
           disabled={migrationLoading}

@@ -289,7 +289,7 @@ async function streamOpenRouterReasoning(
   res.on('close', () => {
     clientClosed = true;
     controller.abort();
-    void settlement.settle('closed').catch((e) => console.error('[chat] settle on close', e));
+    void settlement.settle('closed').catch((e) => console.error('[chat] settle on close', safeErrorShape(e)));
   });
 
   let streamFailed = false;
@@ -399,7 +399,7 @@ async function streamOpenRouterReasoning(
     try {
       await settlement.recordUsage(tokensIn, tokensOut, { model, fn: 'chat-stream' });
     } catch (e) {
-      console.error('[api/chat] usage record failed:', e);
+      console.error('[api/chat] usage record failed:', safeErrorShape(e));
     }
   }
   // DR-8: одна строка на ход, ДО res.end(): end() эмитит 'close', и после него
@@ -637,7 +637,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     clientClosed = true;
     clearTimeout(deadlineId);
     controller.abort();
-    void settlement.settle('closed').catch((e) => console.error('[chat] settle on close', e));
+    void settlement.settle('closed').catch((e) => console.error('[chat] settle on close', safeErrorShape(e)));
   });
 
   let streamErrorOccurred: unknown = null;

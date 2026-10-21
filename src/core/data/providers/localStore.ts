@@ -287,25 +287,42 @@ export async function deleteLocalStoreExactRecord(userId: string, store: string,
 export async function deleteLocalStorePagedRecords(userId: string, store: string, key: string, keepPages?: number): Promise<void> {
   let stale: string[] | null = null;
   if (keepPages !== undefined) {
-    const { data, error } = await getSupabase()
+    // D-10: страниц записи бывает больше одной страницы PostgREST; без pageAll
+    // хвост прежней версии оставался в облаке навсегда.
+    // D-10: страниц записи бывает больше одной страницы PostgREST; без pageAll
+    // хвост прежней версии оставался в облаке навсегда.
+    const rows = await pageAll((from, to) => getSupabase()
       .from('local_store_records')
       .select('key')
       .eq('user_id', userId)
       .eq('store', store)
-      .like('key', likePrefix(key));
-    if (error != null) throw error;
-    stale = ((data ?? []) as Array<{ key: string }>)
+      .like('key', likePrefix(key))
+      .order('key', { ascending: true })
+      .range(from, to));
+    stale = (rows as Array<{ key: string }>)
       .map(r => r.key)
       .filter(k => Number(k.slice(key.length + 1)) >= keepPages);
     if (stale.length === 0) return;
   }
-  let q = getSupabase()
+  if (stale) {
+    // Батчами: тысячи ключей в одном `in()` дают URL длиннее лимита nginx.
+    for (let i = 0; i < stale.length; i += 100) {
+      const { error } = await getSupabase()
+        .from('local_store_records')
+        .delete()
+        .eq('user_id', userId)
+        .eq('store', store)
+        .in('key', stale.slice(i, i + 100));
+      if (error != null) throw error;
+    }
+    return;
+  }
+  const { error } = await getSupabase()
     .from('local_store_records')
     .delete()
     .eq('user_id', userId)
-    .eq('store', store);
-  q = stale ? q.in('key', stale) : q.like('key', likePrefix(key));
-  const { error } = await q;
+    .eq('store', store)
+    .like('key', likePrefix(key));
   if (error != null) throw error;
 }
 

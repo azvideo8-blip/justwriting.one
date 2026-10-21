@@ -20,6 +20,13 @@ interface AdminUsersTableProps {
   deletePasswordError?: string | null;
   /** Свою строку удалить нельзя — для этого удаление аккаунта в настройках. */
   currentUid?: string | null;
+  /** A-2: сбой чтения — таблица говорит об ошибке, а не рисует шапку без строк. */
+  error?: boolean;
+  onRetry?: () => void;
+  /** A-2: статусы приглашений/заметок не прочитались — список идёт с пометкой. */
+  statusesFailed?: boolean;
+  /** D-11: список обрезан лимитом — говорим об этом, а не молчим. */
+  truncated?: boolean;
 }
 
 /**
@@ -88,8 +95,14 @@ export function AdminUsersTable({
   onDeleteUserCancel,
   deletePasswordError,
   currentUid,
+  error = false,
+  onRetry,
+  statusesFailed = false,
+  truncated = false,
 }: AdminUsersTableProps) {
   const { t } = useLanguage();
+  const hasActions = Boolean(onSendPasswordReset || onResetLimit || onDeleteUser);
+  const columnCount = hasActions ? 6 : 5;
 
   return (
     <table className="w-full text-left border-collapse">
@@ -106,7 +119,40 @@ export function AdminUsersTable({
         </tr>
       </thead>
       <tbody>
-        {users.map((u) => {
+        {error && (
+          <tr>
+            <td colSpan={columnCount} className="px-6 py-8 text-center text-sm text-accent-danger">
+              <span role="alert">{t('admin_users_load_error')}</span>
+              {onRetry && (
+                <button type="button" onClick={onRetry} className="ml-2 underline text-accent-danger/70 hover:text-accent-danger">
+                  {t('retry')}
+                </button>
+              )}
+            </td>
+          </tr>
+        )}
+        {!error && truncated && (
+          <tr>
+            <td colSpan={columnCount} className="px-6 py-3 text-xs text-text-main/60 bg-surface-base/5 border-b border-border-subtle">
+              {t('admin_users_truncated', { count: users.length })}
+            </td>
+          </tr>
+        )}
+        {!error && statusesFailed && (
+          <tr>
+            <td colSpan={columnCount} className="px-6 py-3 text-xs text-amber-600 bg-amber-500/5 border-b border-border-subtle">
+              {t('admin_users_statuses_failed')}
+            </td>
+          </tr>
+        )}
+        {!error && users.length === 0 && (
+          <tr>
+            <td colSpan={columnCount} className="px-6 py-8 text-center text-sm text-text-main/60">
+              {t('admin_users_empty')}
+            </td>
+          </tr>
+        )}
+        {!error && users.map((u) => {
           const resetting = resettingUid === u.uid;
           const sendingReset = sendingResetEmail === u.email;
           const displayName = u.email || u.nickname || u.uid.slice(0, 8);

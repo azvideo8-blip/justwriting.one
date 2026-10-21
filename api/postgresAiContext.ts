@@ -10,6 +10,7 @@ import { DAILY_LIMIT, ADMIN_DAILY_LIMIT } from './ai/pure';
 import type { PoolClient } from 'pg';
 
 import { pool } from './db';
+import { safeErrorShape } from '../src/shared/ai/errorShape.js';
 
 // N-77: запрос внутри транзакции обязан идти на том же соединении, что держит
 // BEGIN. Иначе это вторая покупка соединения из того же пула, и при полном пуле
@@ -38,14 +39,30 @@ export function envInt(name: string, fallback: number): number {
   return num;
 }
 
+// C-4: значение рублёвого потолка может быть дробным (12.5), поэтому не envInt.
+// Зато мусор обязан падать на старте с именем переменной: parseFloat('abc')
+// давал NaN, и либо весь ИИ отвечал 503, либо потолок молча выключался.
+export function envPositiveNumber(name: string, fallback: number | null): number | null {
+  const raw = process.env[name];
+  // Пустое значение — как незаданное (так пишет шаблон `deploy/.env.example`, и
+  // так же читает соседний envInt): иначе установка по шаблону не стартует.
+  if (raw === undefined || raw.trim() === '') return fallback;
+  const trimmed = raw.trim();
+  const num = Number(trimmed);
+  if (!Number.isFinite(num) || num <= 0) {
+    throw new Error(`Invalid environment variable ${name}="${raw}": must be a positive finite number.`);
+  }
+  return num;
+}
+
 // ── Global daily cap & Spend ceiling in Rubles ───────────────────────────────
 const GLOBAL_DAILY_LIMIT = envInt('AI_TIER_RPD', 10000);
 const GLOBAL_TOKEN_LIMIT = envInt('AI_TIER_TPD', 25000000);
 
 // Hard spend ceiling in Rubles per day (e.g. AI_DAILY_SPEND_LIMIT_RUB=100)
 // Defaults to unlimited/token-capped if not set.
-const RUB_PER_1M_TOKENS = parseFloat(process.env.AI_RUB_PER_1M_TOKENS ?? '30');
-const DAILY_SPEND_LIMIT_RUB = process.env.AI_DAILY_SPEND_LIMIT_RUB ? parseFloat(process.env.AI_DAILY_SPEND_LIMIT_RUB) : null;
+const RUB_PER_1M_TOKENS = envPositiveNumber('AI_RUB_PER_1M_TOKENS', 30)!;
+const DAILY_SPEND_LIMIT_RUB = envPositiveNumber('AI_DAILY_SPEND_LIMIT_RUB', null);
 const EFFECTIVE_TOKEN_LIMIT = DAILY_SPEND_LIMIT_RUB != null && DAILY_SPEND_LIMIT_RUB > 0
   ? Math.min(GLOBAL_TOKEN_LIMIT, Math.floor((DAILY_SPEND_LIMIT_RUB / RUB_PER_1M_TOKENS) * 1_000_000))
   : GLOBAL_TOKEN_LIMIT;
@@ -84,7 +101,7 @@ async function tryReserveGlobalRequest(allowance = 8192): Promise<GlobalReservat
     }
     return { date, shardId: '0', allowance };
   } catch (e) {
-    console.error('[postgresAiContext] tryReserveGlobalRequest error', e);
+    console.error('[postgresAiContext] tryReserveGlobalRequest error', safeErrorShape(e));
     return { error: 'unavailable' };
   }
 }
@@ -105,7 +122,7 @@ async function refundGlobalRequest(res: GlobalReservation | { error: 'unavailabl
       [res.date, res.allowance],
     );
   } catch (e) {
-    console.error('[postgresAiContext] refundGlobalRequest error', e);
+    console.error('[postgresAiContext] refundGlobalRequest error', safeErrorShape(e));
   }
 }
 
@@ -131,7 +148,7 @@ async function getAiConsent(uid: string): Promise<{ granted: boolean; error?: 'u
     // Ошибка чтения — не «согласия нет»: отказ обработки по сбою БД запер бы
     // весь чат. Но и пропустить нельзя, поэтому наружу отдаём отказ со статусом unavailable,
     // а причина уходит в журнал.
-    console.error('[postgresAiContext] getAiConsent error', e);
+    console.error('[postgresAiContext] getAiConsent error', safeErrorShape(e));
     return { granted: false, error: 'unavailable' };
   }
 }
@@ -148,7 +165,7 @@ async function getIndexingConsent(uid: string): Promise<{ granted: boolean; erro
         && (row.indexing_consent_version ?? 0) >= INDEXING_CONSENT_VERSION,
     };
   } catch (e) {
-    console.error('[postgresAiContext] getIndexingConsent error', e);
+    console.error('[postgresAiContext] getIndexingConsent error', safeErrorShape(e));
     return { granted: false, error: 'unavailable' };
   }
 }
@@ -158,7 +175,7 @@ async function isAdmin(uid: string, q: Queryable = pool): Promise<boolean> {
     const { rows } = await q.query('SELECT role FROM public.users WHERE uid = $1', [uid]);
     return rows[0]?.role === 'admin';
   } catch (e) {
-    console.error('[postgresAiContext] isAdmin error', e);
+    console.error('[postgresAiContext] isAdmin error', safeErrorShape(e));
     return false;
   }
 }
@@ -180,7 +197,7 @@ async function checkDailyLimit(uid: string, reasoning?: boolean): Promise<LimitV
   try {
     client = await pool.connect();
   } catch (e: unknown) {
-    console.error('[postgresAiContext] checkDailyLimit pool.connect error', e);
+    console.error('[postgresAiContext] checkDailyLimit pool.connect error', safeErrorShape(e));
     if (pgCode(e) === '23503') {
       return { ok: false, day: today(), reason: 'unauthorized' };
     }
@@ -188,7 +205,7 @@ async function checkDailyLimit(uid: string, reasoning?: boolean): Promise<LimitV
   }
 
   const onClientError = (err: unknown) => {
-    console.error('[postgresAiContext] checkDailyLimit client error', err);
+    console.error('[postgresAiContext] checkDailyLimit client error', safeErrorShape(err));
   };
   client.on('error', onClientError);
 
@@ -218,7 +235,7 @@ async function checkDailyLimit(uid: string, reasoning?: boolean): Promise<LimitV
     try {
       await client.query('ROLLBACK');
     } catch { /* ignore rollback failure */ }
-    console.error('[postgresAiContext] checkDailyLimit error', e);
+    console.error('[postgresAiContext] checkDailyLimit error', safeErrorShape(e));
     if (pgCode(e) === '23503') {
       return { ok: false, day: today(), reason: 'unauthorized' };
     }
@@ -236,7 +253,7 @@ async function refundDailyLimit(uid: string, chargedDay: string, kind: string = 
       [uid, chargedDay, kind],
     );
   } catch (e) {
-    console.error('[postgresAiContext] refundDailyLimit error', e);
+    console.error('[postgresAiContext] refundDailyLimit error', safeErrorShape(e));
   }
 }
 
@@ -287,7 +304,7 @@ async function checkAndIncrementBulkLimit(
   try {
     client = await pool.connect();
   } catch (e: unknown) {
-    console.error('[postgresAiContext] checkAndIncrementBulkLimit pool.connect error', e);
+    console.error('[postgresAiContext] checkAndIncrementBulkLimit pool.connect error', safeErrorShape(e));
     if (pgCode(e) === '23503') {
       return { ok: false, day: today(), reason: 'unauthorized' };
     }
@@ -295,7 +312,7 @@ async function checkAndIncrementBulkLimit(
   }
 
   const onClientError = (err: unknown) => {
-    console.error('[postgresAiContext] checkAndIncrementBulkLimit client error', err);
+    console.error('[postgresAiContext] checkAndIncrementBulkLimit client error', safeErrorShape(err));
   };
   client.on('error', onClientError);
 
@@ -335,7 +352,7 @@ async function checkAndIncrementBulkLimit(
       console.error(
         '[postgresAiContext] AUD-18 bulk window unavailable — rate limiting is OFF, ' +
         'daily cap still applies. Apply supabase/migrations/0022_ai_bulk_cooldown.sql.',
-        e,
+        safeErrorShape(e),
       );
     }
     const date = today();
@@ -359,7 +376,7 @@ async function checkAndIncrementBulkLimit(
     try {
       await client.query('ROLLBACK');
     } catch { /* ignore rollback failure */ }
-    console.error('[postgresAiContext] checkAndIncrementBulkLimit error', e);
+    console.error('[postgresAiContext] checkAndIncrementBulkLimit error', safeErrorShape(e));
     if (pgCode(e) === '23503') {
       return { ok: false, day: today(), reason: 'unauthorized' };
     }
@@ -384,7 +401,7 @@ async function refundBulkLimit(uid: string, chargedDay: string, kind: string = '
       );
     }
   } catch (e) {
-    console.error('[postgresAiContext] refundBulkLimit error', e);
+    console.error('[postgresAiContext] refundBulkLimit error', safeErrorShape(e));
   }
 }
 
@@ -394,7 +411,7 @@ async function resetCooldown(uid: string): Promise<void> {
   try {
     await pool.query('DELETE FROM public.ai_cooldown WHERE uid = $1', [uid]);
   } catch (e) {
-    console.error('[postgresAiContext] resetCooldown error', e);
+    console.error('[postgresAiContext] resetCooldown error', safeErrorShape(e));
   }
 }
 
@@ -425,7 +442,7 @@ async function checkAndIncrementLimit(
     }
   } catch (e: unknown) {
     if (pgCode(e) === '23503') return 'UNAUTHORIZED';
-    console.error('[postgresAiContext] checkAndIncrementLimit cooldown error', e);
+    console.error('[postgresAiContext] checkAndIncrementLimit cooldown error', safeErrorShape(e));
     return 'UNAVAILABLE';
   }
 
@@ -450,7 +467,7 @@ async function recordUsage(
   const date = today();
   const client = await pool.connect();
   const onClientError = (err: unknown) => {
-    console.error('[postgresAiContext] recordUsage client error', err);
+    console.error('[postgresAiContext] recordUsage client error', safeErrorShape(err));
   };
   client.on('error', onClientError);
   try {

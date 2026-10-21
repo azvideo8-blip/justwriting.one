@@ -1840,6 +1840,132 @@ BEGIN
   END LOOP;
 END $$;
 
+-- ============================================================
+-- B-6 (launch-audit 2026-10-21): anon не читает и не пишет клиентские
+-- таблицы. До этого роль anon не проверялась вовсе: политики написаны
+-- под authenticated, а на стенде Supabase anon получает табличные гранты
+-- по умолчанию. Проверяем и чтение, и запись.
+-- ============================================================
+-- Claims как у настоящего anon из PostgREST: без sub, но валидный JSON —
+-- иначе auth.uid() падает на ''::jsonb раньше, чем отработает RLS.
+SET request.jwt.claims = '{"role":"anon"}';
+SET role = 'anon';
+
+DO $$
+DECLARE
+  cnt int;
+  inserted boolean;
+  affected int;
+BEGIN
+  cnt := 0;
+  BEGIN
+    SELECT count(*) INTO cnt FROM public.users;
+  EXCEPTION WHEN OTHERS THEN cnt := 0; -- нет гранта — тоже отказ
+  END;
+  IF cnt <> 0 THEN RAISE EXCEPTION 'FAIL: B-6: anon read % rows of public.users', cnt; END IF;
+
+  cnt := 0;
+  BEGIN
+    SELECT count(*) INTO cnt FROM public.documents;
+  EXCEPTION WHEN OTHERS THEN cnt := 0; -- нет гранта — тоже отказ
+  END;
+  IF cnt <> 0 THEN RAISE EXCEPTION 'FAIL: B-6: anon read % rows of public.documents', cnt; END IF;
+
+  cnt := 0;
+  BEGIN
+    SELECT count(*) INTO cnt FROM public.local_store_records;
+  EXCEPTION WHEN OTHERS THEN cnt := 0; -- нет гранта — тоже отказ
+  END;
+  IF cnt <> 0 THEN RAISE EXCEPTION 'FAIL: B-6: anon read % rows of public.local_store_records', cnt; END IF;
+
+  cnt := 0;
+  BEGIN
+    SELECT count(*) INTO cnt FROM public.ai_usage;
+  EXCEPTION WHEN OTHERS THEN cnt := 0; -- нет гранта — тоже отказ
+  END;
+  IF cnt <> 0 THEN RAISE EXCEPTION 'FAIL: B-6: anon read % rows of public.ai_usage', cnt; END IF;
+
+  inserted := false;
+  BEGIN
+    INSERT INTO public.users (uid, email) VALUES ('00000000-0000-0000-0000-0000000000aa', 'anon@test.com');
+    inserted := true;
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+  IF inserted THEN RAISE EXCEPTION 'FAIL: B-6: anon inserted into public.users'; END IF;
+
+  inserted := false;
+  BEGIN
+    INSERT INTO public.documents (uuid, user_id, title, current_version)
+    VALUES ('anon-doc-001', '00000000-0000-0000-0000-000000000002', 'anon', 1);
+    inserted := true;
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+  IF inserted THEN RAISE EXCEPTION 'FAIL: B-6: anon inserted into public.documents'; END IF;
+
+  inserted := false;
+  BEGIN
+    INSERT INTO public.local_store_records (user_id, store, key, payload)
+    VALUES ('00000000-0000-0000-0000-000000000002', 'aiDialogues', 'anon-key', '{}');
+    inserted := true;
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+  IF inserted THEN RAISE EXCEPTION 'FAIL: B-6: anon inserted into public.local_store_records'; END IF;
+
+  inserted := false;
+  BEGIN
+    INSERT INTO public.ai_usage (uid, date, data)
+    VALUES ('00000000-0000-0000-0000-000000000002', '2026-01-02', '{}');
+    inserted := true;
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+  IF inserted THEN RAISE EXCEPTION 'FAIL: B-6: anon inserted into public.ai_usage'; END IF;
+
+  affected := 0;
+  BEGIN
+    UPDATE public.users SET nickname = 'anon' WHERE uid = '00000000-0000-0000-0000-000000000002';
+    GET DIAGNOSTICS affected = ROW_COUNT;
+  EXCEPTION WHEN OTHERS THEN affected := 0;
+  END;
+  IF affected > 0 THEN RAISE EXCEPTION 'FAIL: B-6: anon updated public.users'; END IF;
+
+  affected := 0;
+  BEGIN
+    DELETE FROM public.documents WHERE user_id = '00000000-0000-0000-0000-000000000002';
+    GET DIAGNOSTICS affected = ROW_COUNT;
+  EXCEPTION WHEN OTHERS THEN affected := 0;
+  END;
+  IF affected > 0 THEN RAISE EXCEPTION 'FAIL: B-6: anon deleted public.documents'; END IF;
+END $$;
+
+RESET role;
+RESET request.jwt.claims;
+
+-- ============================================================
+-- B-7: admin_users_view не отдаёт портрет и ключи шифрования. Изоляция
+-- держится на списке колонок view, а не на правах пользователя, поэтому
+-- проверяем сам список столбцов.
+-- ============================================================
+DO $$
+DECLARE leaked text;
+BEGIN
+  SELECT string_agg(column_name, ', ')
+    INTO leaked
+    FROM information_schema.columns
+   WHERE table_schema = 'public'
+     AND table_name = 'admin_users_view'
+     AND column_name IN ('ai_portrait', 'encrypted_data_key', 'encryption_salt', 'encryption_meta');
+  IF leaked IS NOT NULL THEN
+    RAISE EXCEPTION 'FAIL: B-7: admin_users_view exposes %', leaked;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema = 'public' AND table_name = 'admin_users_view' AND column_name = 'uid'
+  ) THEN
+    RAISE EXCEPTION 'FAIL: B-7: admin_users_view is missing uid (positive control)';
+  END IF;
+END $$;
+
 -- Итоговое сообщение стоит последним не для красоты: до этой правки
 -- «All RLS checks passed» печаталось на 709-й строке, а сто семьдесят восемь
 -- строк проверок из TEST-1 шли после него. Набор при их провале падал (код 3),

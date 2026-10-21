@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.10.7 — 2026-10-21
+
+- **[RU]** ИИ в длинном диалоге не путает дни прошлых заметок и не выдаёт свои прежние ответы за их текст; пересказанная чужая реплика помечается «по смыслу» и не выглядит твоими словами.
+- **[EN]** In a long dialogue the AI no longer mixes up the days of earlier notes or treats its own past answers as their text; a paraphrased remark by someone else is marked «по смыслу» (paraphrased) and no longer reads as your words.
+- **[RU]** Черновик с другого устройства не стирается, если часы этого устройства спешат; без сети несохранённые заметки не уходят в карантин, а ждут связи.
+- **[EN]** A draft from another device is no longer erased when this device's clock runs fast; without a network, unsaved notes no longer go to quarantine but wait for the connection.
+- **[RU]** Если облако не прочиталось, выгрузка не выходит молча неполной: можно повторить или явно выгрузить только с этого устройства. Сбой чтения диалогов ИИ больше не выглядит пустым списком.
+- **[EN]** If the cloud could not be read, an export is no longer silently incomplete: you can retry or explicitly export this device only. A failure to read AI dialogues no longer looks like an empty list.
+- **[RU]** Эмодзи на границе лимитов больше не режутся пополам, окна подтверждения выглядят одинаково.
+- **[EN]** Emoji at the edge of text limits are no longer cut in half, and confirmation dialogs look the same everywhere.
+
 ## 0.10.6 — 2026-10-21
 
 - **[RU]** Скрытая от ИИ заметка не уходит к нему и тогда, когда её скрыли посреди работы ИИ: пока он разбирает заметки, обновляет профиль, память или ищет по архиву. Её текст не отправляется, а результат не сохраняется.

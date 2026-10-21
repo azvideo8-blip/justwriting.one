@@ -67,8 +67,8 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
         setRecords(data as unknown as RecordType[]);
       } else {
         if (selectedTable === 'users') {
-          const data = await AdminUserService.getUsers(150);
-          setRecords(data as unknown as RecordType[]);
+          const { users } = await AdminUserService.getUsers(150);
+          setRecords(users as unknown as RecordType[]);
         } else if (selectedTable === 'user_documents') {
           const data = await DocumentService.getUserDocuments(userId);
           setRecords(data as unknown as RecordType[]);

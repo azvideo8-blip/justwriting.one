@@ -23,6 +23,9 @@ export interface MobileDialogueListSheetProps {
   onArchive: (id: string) => void;
   onUnarchive: (id: string) => void;
   onDelete: (id: string) => void;
+  loading?: boolean;
+  loadError?: boolean;
+  onRetry?: () => void;
 }
 
 const HOLD_MS = 500;
@@ -41,6 +44,7 @@ export function MobileDialogueListSheet(props: MobileDialogueListSheetProps) {
     open, onClose, dialogues, archivedDialogues, activeDialogueId,
     showArchived, setShowArchived, onSelectDialogue,
     onRename, onArchive, onUnarchive, onDelete,
+    loading = false, loadError = false, onRetry,
   } = props;
   const { t } = useLanguage();
   const [query, setQuery] = useState('');
@@ -157,7 +161,20 @@ export function MobileDialogueListSheet(props: MobileDialogueListSheetProps) {
                 })}
               </div>
             ))}
-            {rows.length === 0 && (
+            {loadError && (
+              <div className="mx-2 my-2 px-3 py-3 rounded-xl text-xs bg-accent-danger/10 border border-accent-danger/30 text-accent-danger flex items-center justify-between gap-2">
+                <span>{t('ai_dialogues_load_error')}</span>
+                {onRetry && (
+                  <Button onClick={onRetry} className="shrink-0 underline text-accent-danger/70 hover:text-accent-danger">
+                    {t('retry')}
+                  </Button>
+                )}
+              </div>
+            )}
+            {!loadError && loading && rows.length === 0 && (
+              <div className="py-8 text-center text-xs text-text-main/60">{t('common_loading')}</div>
+            )}
+            {!loadError && !loading && rows.length === 0 && (
               <div className="py-8 text-center text-xs text-text-main/60">{t('ai_no_active_dialogues')}</div>
             )}
             {/* SA-11: «ноль — не показатель»: пустой архив строки не получает, ноль не пишем. */}

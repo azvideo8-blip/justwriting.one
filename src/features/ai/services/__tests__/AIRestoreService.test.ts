@@ -367,7 +367,7 @@ describe('restoreAIDataFromCloud', () => {
     localStoreRecordsDocs.push({
       store: 'aiDialogues', key: 'pair-dlg',
       payload: {
-        head: true, title: 'Т', personaName: 'Коуч', personaEmoji: '🎯', updatedAt: 5000,
+        head: true, id: 'pair-dlg', title: 'Т', personaName: 'Коуч', personaEmoji: '🎯', updatedAt: 5000,
         createdAt: 1000, closingSummary: '',
         segments: [{ key: segKey, firstAt: 1000, lastAt: 1001, updatedAt: 9999, bytes: 10, count: 1 }],
       },

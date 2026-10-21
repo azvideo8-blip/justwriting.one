@@ -4,6 +4,7 @@ import { handleAiEndpoint } from './handlers';
 import { sendError } from './sendError';
 import { MAX_REQUEST_BODY_BYTES, DAILY_LIMIT, ADMIN_DAILY_LIMIT } from './ai/pure';
 import { postgresAiContext } from './postgresAiContext';
+import { safeErrorShape } from '../src/shared/ai/errorShape.js';
 
 /** Simple JSON responder utility */
 function json(res: ServerResponse, status: number, body: unknown, extraHeaders?: Record<string, string>) {
@@ -103,7 +104,7 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
     }
     json(res, status, body, quotaHeaders);
   } catch (err: unknown) {
-    console.error('[dispatcher error]', err);
+    console.error('[dispatcher error]', safeErrorShape(err));
     sendError(res, 500, 'INTERNAL');
   }
 }

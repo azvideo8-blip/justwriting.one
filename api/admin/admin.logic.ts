@@ -4,6 +4,7 @@ import type { postgresAiContext } from '../postgresAiContext';
 import { pool } from '../db';
 import { getSupabaseAdmin } from './supabaseAdmin';
 import { deleteUserRows } from '../account';
+import { safeErrorShape } from '../../src/shared/ai/errorShape.js';
 
 /** R7Q-009: почасовой бюджет админских удалений (считается по admin_actions). */
 export const ADMIN_DELETES_PER_HOUR = 5;
@@ -140,7 +141,7 @@ export async function listUsersWithStatusLogic(
     });
   } catch (err: unknown) {
     if (err instanceof AiError) throw err;
-    console.error('[listUsersWithStatus] error:', err);
+    console.error('[listUsersWithStatus] error:', safeErrorShape(err));
     throw new AiError('internal', 'Failed to retrieve user statuses');
   }
 }

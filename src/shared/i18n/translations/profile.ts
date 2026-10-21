@@ -8,6 +8,7 @@ export const profileTranslations: Translations = {
   profile_words: { ru: 'слов', en: 'words' },
   profile_stat_sessions: { ru: 'сессий', en: 'sessions' },
   profile_load_error:          { ru: 'Ошибка загрузки профиля', en: 'Failed to load profile' },
+  profile_cloud_load_error:    { ru: 'Облако не прочиталось — статистика только по этому устройству.', en: 'The cloud could not be read — stats cover this device only.' },
   profile_member_since:       { ru: 'В практике с',              en: 'Writing since' },
   me_group_practice: { ru: 'Практика', en: 'Practice' },
   me_group_state: { ru: 'Состояние', en: 'State' },

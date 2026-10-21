@@ -2,6 +2,7 @@ import { onDomainEvent } from '../../../core/events/domainEvents';
 import { WritingDraftService } from '../services/WritingDraftService';
 import { useContentStore, clearWordCalcTimer } from './useContentStore';
 import { useTimerStore } from './useTimerStore';
+import { truncateText } from '../../../shared/utils/textLimits';
 import { newDraftNonce, useSessionMetaStore } from './useSessionMetaStore';
 import { TimerStatus, SessionType } from './types';
 import type { ContentStateData } from './useContentStore';
@@ -166,7 +167,7 @@ export function setSessionConfig(config: Record<string, unknown>) {
   if (Object.keys(contentPart).length > 0) {
     if (contentPart.pinnedThoughts && !Array.isArray(contentPart.pinnedThoughts)) contentPart.pinnedThoughts = [];
     if (contentPart.tags && !Array.isArray(contentPart.tags)) contentPart.tags = [];
-    if (Array.isArray(contentPart.tags)) contentPart.tags = contentPart.tags.slice(0, 10).map(t => String(t).slice(0, 50));
+    if (Array.isArray(contentPart.tags)) contentPart.tags = contentPart.tags.slice(0, 10).map(t => truncateText(String(t), 50));
     useContentStore.setState(contentPart);
   }
   if (Object.keys(timerPart).length > 0) useTimerStore.setState(timerPart);

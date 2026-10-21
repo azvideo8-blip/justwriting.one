@@ -68,6 +68,8 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     setActiveDialogueId,
     showArchived,
     setShowArchived,
+    dialoguesLoading,
+    dialoguesLoadError,
     loadDialogues,
     handleRenameDialogue,
     handleArchive,
@@ -606,6 +608,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
 
   return {
     dialogues, archivedDialogues, activeDialogueId, setActiveDialogueId,
+    dialoguesLoading, dialoguesLoadError,
     selectedPersonaId, setSelectedPersonaId,
     showArchived, setShowArchived,
     customPersonas,

@@ -196,6 +196,7 @@ export const WritingEditor = React.memo(function WritingEditor({
 
       <textarea
         ref={textareaRef}
+        dir="auto"
         value={content}
         onChange={handleContentChange}
         onInput={onInput}

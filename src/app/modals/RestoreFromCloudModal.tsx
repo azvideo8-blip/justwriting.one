@@ -5,7 +5,7 @@ import { emitDomainEvent } from '../../core/events/domainEvents';
 import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
 import { setCloudSyncEnabled } from '../../core/sync/cloudSyncEnabled';
 import { useLanguage } from '../../shared/i18n';
-import { ModalWrapper } from '../../shared/components/ModalWrapper';
+import { ModalShell } from '../../shared/components/ModalShell';
 import { Button } from '../../shared/components/Button';
 import { DocumentService } from '../../core/services/DocumentService';
 import { LocalStorageService } from '../../core/services/LocalStorageService';
@@ -259,11 +259,12 @@ export function RestoreFromCloudModal({
   const isAutoSyncAlreadyEnabled = user ? localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid)) === 'true' : false;
 
   return (
-    <ModalWrapper
-      isOpen={open}
+    <ModalShell
+      open={open}
       onClose={() => { if (step !== 'restoring') onClose(); }}
-      titleId="restore-cloud-title"
-      maxWidth="max-w-md"
+      labelId="restore-cloud-title"
+      // A-9b: ModalWrapper рисовал карточку сам, ModalShell — нет.
+      className="max-w-md bg-surface-card border border-border-subtle rounded-2xl p-6 shadow-lg"
     >
       <div className="space-y-4 p-2">
         <div className="flex items-center gap-3">
@@ -518,6 +519,6 @@ export function RestoreFromCloudModal({
           </div>
         )}
       </div>
-    </ModalWrapper>
+    </ModalShell>
   );
 }

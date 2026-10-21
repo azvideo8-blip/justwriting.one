@@ -21,7 +21,7 @@ vi.mock('../../../../app/useAuthStatus', () => ({
 }));
 
 vi.mock('../../../../core/services/UnifiedSessionLoader', () => ({
-  loadAllSessions: vi.fn().mockResolvedValue([]),
+  loadAllSessions: vi.fn().mockResolvedValue({ sessions: [], cloudLoadFailed: false }),
   hydrateSessionContent: vi.fn().mockResolvedValue([]),
 }));
 

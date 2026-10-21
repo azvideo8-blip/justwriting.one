@@ -165,6 +165,8 @@ ol.steps > li::before {
 
 /* Скриншоты */
 figure.shot { margin: 24px 0 28px; }
+/* A-12: <picture> — обёртка выбора WebP; сетку и ширину задаёт по-прежнему img. */
+figure.shot picture { display: block; min-width: 0; }
 figure.shot img {
   display: block; width: 100%; height: auto;
   border-radius: 12px; border: 1px solid var(--border); box-shadow: var(--shadow);
@@ -273,6 +275,7 @@ figure.shot.fit img { width: auto; max-width: 100%; margin: 0 auto; }
    колонки, на телефоне — стопкой; телефонный кадр (390 px) не растянется и не
    поедет в листалку, потому что его ширина меньше 400 px. */
 figure.shot.phone-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+figure.shot.phone-pair picture { max-width: 390px; margin: 0 auto; }
 figure.shot.phone-pair img { width: 100%; max-width: 390px; height: auto; margin: 0 auto; }
 figure.shot.phone-pair figcaption { grid-column: 1 / -1; }
 @media (max-width: 860px) {

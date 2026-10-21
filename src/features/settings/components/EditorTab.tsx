@@ -9,11 +9,11 @@ import { Button } from '../../../shared/components/Button';
 import { Wind, Waves, Keyboard, Focus, MousePointer2, Timer, FileText, BarChart2, Gauge, VolumeX, Quote } from 'lucide-react';
 
 const THEME_ACCENT: Record<string, string> = {
-  modern:    '#1e1e22',
-  notion:    '#e8dfc0',
-  spotify:   '#1ed760',
-  amethyst:  '#7c3aed',
-  system:    'linear-gradient(135deg, #0E0A18 50%, #FAF8F5 50%)',
+  modern:    'var(--theme-accent-modern)',
+  notion:    'var(--theme-accent-notion)',
+  spotify:   'var(--theme-accent-spotify)',
+  amethyst:  'var(--theme-accent-amethyst)',
+  system:    'linear-gradient(135deg, var(--theme-bg-amethyst) 50%, var(--theme-bg-notion) 50%)',
 };
 
 export function EditorTab() {

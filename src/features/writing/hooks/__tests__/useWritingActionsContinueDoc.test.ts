@@ -12,15 +12,14 @@ vi.mock('../useLifeLog', () => ({
   useLifeLog: () => ({ refresh: vi.fn() }),
 }));
 
-vi.mock('../useDocuments', () => ({
-  useDocuments: () => ({ refresh: vi.fn() }),
-}));
 
 vi.mock('../../../../core/settings/WritingSettingsContext', () => ({
   useWritingSettings: () => ({ setLifeLogVisible: vi.fn() }),
 }));
 
 const mockShowToast = vi.fn();
+const { confirm } = vi.hoisted(() => ({ confirm: vi.fn(async () => false) }));
+vi.mock('../../../../shared/components/ConfirmDialog', () => ({ useConfirmDialog: () => ({ confirm }) }));
 vi.mock('../../../../shared/components/Toast', () => ({
   useToast: () => ({ showToast: (...a: unknown[]) => mockShowToast(...a) }),
 }));
@@ -53,14 +52,13 @@ const noteDoc = (extra: Partial<LifeLogDocument> = {}): LifeLogDocument => ({
 });
 
 function renderActions() {
-  const setShowCancelConfirm = vi.fn();
   const { result } = renderHook(() =>
     useWritingActions({
-      session: { isGuest: true, userId: 'guest_1', setStatus: vi.fn(), handleStart: vi.fn() } as never,
-      flow: { setSetupMode: vi.fn(), setShowCancelConfirm },
+      session: { isGuest: true, userId: 'guest_1', setStatus: vi.fn(), handleStart: vi.fn(), handleCancel: vi.fn() } as never,
+      flow: { setSetupMode: vi.fn() },
     })
   );
-  return { result, setShowCancelConfirm };
+  return { result };
 }
 
 describe('useWritingActions.handleContinueDocument (S-8)', () => {
@@ -75,13 +73,13 @@ describe('useWritingActions.handleContinueDocument (S-8)', () => {
     useContentStore.setState({ content: 'unsaved text from paste or dictation' });
     useTimerStore.setState({ status: 'idle' });
 
-    const { result, setShowCancelConfirm } = renderActions();
+    const { result } = renderActions();
 
     await act(async () => {
       await result.current.handleContinueDocument(noteDoc());
     });
 
-    expect(setShowCancelConfirm).toHaveBeenCalledWith(true);
+    expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ title: 'writing_cancel_confirm' }));
   });
 
   // R7Q-001: `total_words` в облаке — наивысшая отметка длины (0039, W-2), и забор

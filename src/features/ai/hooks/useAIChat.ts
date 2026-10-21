@@ -7,6 +7,7 @@ import { AIDialogueService } from '../services/AIDialogueService';
 import { PRESET_PERSONAS, AIPersonaService } from '../services/AIPersonaService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { useLanguage } from '../../../shared/i18n';
+import { truncateText } from '../../../shared/utils/textLimits';
 import { incrementDailyUsage, setDailyLimitExhausted } from './useDailyLimit';
 import { useAiLimitStore } from '../store/useAiLimitStore';
 import type { AIMessage } from '../services/AIService';
@@ -811,7 +812,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           ],
         }).then(res => {
           if (res.ok && res.text) {
-            const cleanTitle = res.text.trim().replace(/^["«]|["»]$/g, '').slice(0, 50);
+            const cleanTitle = truncateText(res.text.trim().replace(/^["«]|["»]$/g, ''), 50);
             if (cleanTitle.length > 0) {
               void AIDialogueService.updateTitle(currentDialogue!.id, cleanTitle);
             }

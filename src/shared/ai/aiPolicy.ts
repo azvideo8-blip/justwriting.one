@@ -315,7 +315,15 @@ export function createCallReservation(
       try {
       if (reason === 'done') {
         if (usage && (!currentGlobal || !currentGlobal.refunded)) {
-          await res.recordUsage(usage.tokensIn ?? 0, usage.tokensOut ?? 0, { fn: 'chat-stream', ...(usage.model ? { model: usage.model } : {}) });
+          // C-2: пустой usage — не «ноль потрачено». Ответ уже тек в потоке,
+          // и recordUsage(0, 0) возвращал весь резерв в котёл. Оцениваем так же,
+          // как ветку failed: вход — замер до запроса, выход — по символам.
+          const measuredIn = usage.tokensIn ?? 0;
+          const measuredOut = usage.tokensOut ?? 0;
+          const emptyUsage = measuredIn + measuredOut === 0 && producedChars > 0;
+          const tokensIn = emptyUsage ? (currentEstimatedInput ?? 0) : measuredIn;
+          const tokensOut = emptyUsage ? Math.ceil(producedChars / 3) : measuredOut;
+          await res.recordUsage(tokensIn, tokensOut, { fn: 'chat-stream', ...(usage.model ? { model: usage.model } : {}) });
         }
         return;
       }

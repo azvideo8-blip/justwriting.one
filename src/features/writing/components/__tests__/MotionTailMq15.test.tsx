@@ -1,14 +1,11 @@
 // MQ-15: хвост по движению (emil-review). Что сделано и проверяется:
 //  W9/N-11 — лист выхода из потока через ModalShell (портал), не внутри панели с backdrop-blur;
-//  N-13 — ConfirmModal/CancelConfirmModal через ModalShell (портал, без blur-2xl);
 //  N-10 — заливка удержания остаётся 3 с под reduced motion; N-12 — GoalToast как Toast;
 //  R1, N-9, N-5, N-7, N-15 — по исходникам.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { render, screen, cleanup, fireEvent, act } from '@testing-library/react';
 import { MobileWriteToolbar } from '../MobileWriteToolbar';
-import { ConfirmModal } from '../../../../shared/components/ConfirmModal';
-import { CancelConfirmModal } from '../../../../shared/components/CancelConfirmModal';
 import { GoalToast } from '../../../../shared/components/GoalToast';
 import { useTimerStore } from '../../store/useTimerStore';
 import { useContentStore } from '../../store/useContentStore';
@@ -51,32 +48,6 @@ describe('MQ-15: лист выхода из потока (W9, N-11)', () => {
   it('заливка удержания под reduced motion не гасится глушителем', () => {
     const css = src('src/index.css');
     expect(css).toMatch(/prefers-reduced-motion: reduce\)[\s\S]*\[data-testid="stream-hold-fill"\]\[data-holding="true"\] \{\s*transition-duration: 3000ms !important/);
-  });
-});
-
-describe('MQ-15: подтверждения через ModalShell (N-13)', () => {
-  beforeEach(() => { cleanup(); layoutMode = 'mobile'; });
-
-  it('ConfirmModal и CancelConfirmModal — портал в body, размытие не 40 px', () => {
-    render(<ConfirmModal isOpen title="t" message="m" onConfirm={vi.fn()} onCancel={vi.fn()} />);
-    let backdrop = screen.getByRole('dialog').parentElement!;
-    expect(backdrop.parentElement).toBe(document.body);
-    expect(backdrop.className).not.toContain('backdrop-blur-2xl ');
-    expect(backdrop.className).toContain('backdrop-blur-sm');
-    cleanup();
-    render(<CancelConfirmModal isOpen onConfirm={vi.fn()} onCancel={vi.fn()} />);
-    backdrop = screen.getByRole('dialog').parentElement!;
-    expect(backdrop.parentElement).toBe(document.body);
-    expect(screen.getByRole('dialog').getAttribute('aria-labelledby')).toBe('cancel-modal-title');
-  });
-
-  it('закрытые — пусты; «Отмена» зовёт onCancel', () => {
-    const onCancel = vi.fn();
-    const { rerender } = render(<ConfirmModal isOpen={false} title="t" message="m" onConfirm={vi.fn()} onCancel={onCancel} />);
-    expect(screen.queryByRole('dialog')).toBeNull();
-    rerender(<ConfirmModal isOpen title="t" message="m" onConfirm={vi.fn()} onCancel={onCancel} />);
-    fireEvent.click(screen.getByRole('button', { name: 'common_cancel' }));
-    expect(onCancel).toHaveBeenCalledTimes(1);
   });
 });
 

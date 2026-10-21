@@ -6,6 +6,14 @@ import { useTimerStore } from '../../store/useTimerStore';
 import { resetAndClear } from '../../store/storeActions';
 import { cleanupDraftsAfterSave } from '../../utils/sessionActions';
 
+const { confirm, handleCancel } = vi.hoisted(() => ({
+  confirm: vi.fn(async () => false),
+  handleCancel: vi.fn(async () => {}),
+}));
+vi.mock('../../../../shared/components/ConfirmDialog', () => ({
+  useConfirmDialog: () => ({ confirm }),
+}));
+
 vi.mock('../../../../core/services/StorageService', () => ({
   StorageService: { addLocalCopy: vi.fn(), saveVersion: vi.fn(), saveNew: vi.fn() },
 }));
@@ -24,7 +32,6 @@ vi.mock('../../../../shared/i18n', () => ({
 vi.mock('../../../../core/settings/WritingSettingsContext', () => ({
   useWritingSettings: () => ({ setLifeLogVisible: vi.fn() }),
 }));
-vi.mock('../useDocuments', () => ({ useDocuments: () => ({ refresh: vi.fn() }) }));
 vi.mock('../useLifeLog', () => ({ useLifeLog: () => ({ refresh: vi.fn() }) }));
 vi.mock('../../store/storeActions', () => ({
   resetAndClear: vi.fn(),
@@ -41,6 +48,7 @@ const session = {
   userId: 'u1',
   setStatus: vi.fn(),
   handleStart: vi.fn(),
+  handleCancel,
 } as never;
 
 // D-3: «Новая заметка» при статусе idle стирала текст и удаляла черновик без
@@ -48,8 +56,6 @@ const session = {
 // больнее всего: продолженная заметка до первого нажатия клавиши и
 // восстановленный черновик.
 describe('useWritingActions.handleNew confirmation (D-3)', () => {
-  const setShowCancelConfirm = vi.fn();
-
   beforeEach(() => {
     vi.clearAllMocks();
     useTimerStore.setState({ status: 'idle' });
@@ -58,7 +64,7 @@ describe('useWritingActions.handleNew confirmation (D-3)', () => {
 
   function mount() {
     const { result } = renderHook(() =>
-      useWritingActions({ session, flow: { setSetupMode: vi.fn(), setShowCancelConfirm } })
+      useWritingActions({ session, flow: { setSetupMode: vi.fn() } })
     );
     return result;
   }
@@ -69,7 +75,8 @@ describe('useWritingActions.handleNew confirmation (D-3)', () => {
     const result = mount();
     await act(async () => { await result.current.handleNew(); });
 
-    expect(setShowCancelConfirm).toHaveBeenCalledWith(true);
+    expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ title: 'writing_cancel_confirm' }));
+    expect(handleCancel).not.toHaveBeenCalled();
     expect(resetAndClear).not.toHaveBeenCalled();
     expect(cleanupDraftsAfterSave).not.toHaveBeenCalled();
     expect(useContentStore.getState().content).toBe('восстановленный черновик');
@@ -82,7 +89,19 @@ describe('useWritingActions.handleNew confirmation (D-3)', () => {
     const result = mount();
     await act(async () => { await result.current.handleNew(); });
 
-    expect(setShowCancelConfirm).toHaveBeenCalledWith(true);
+    expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ title: 'writing_cancel_confirm' }));
+    expect(handleCancel).not.toHaveBeenCalled();
+    expect(resetAndClear).not.toHaveBeenCalled();
+  });
+
+  it('подтверждение → handleCancel, текст не стирается этим хуком', async () => {
+    useContentStore.setState({ content: 'черновик', wordCount: 3 });
+    confirm.mockResolvedValueOnce(true);
+
+    const result = mount();
+    await act(async () => { await result.current.handleNew(); });
+
+    expect(handleCancel).toHaveBeenCalledTimes(1);
     expect(resetAndClear).not.toHaveBeenCalled();
   });
 
@@ -90,7 +109,7 @@ describe('useWritingActions.handleNew confirmation (D-3)', () => {
     const result = mount();
     await act(async () => { await result.current.handleNew(); });
 
-    expect(setShowCancelConfirm).not.toHaveBeenCalled();
+    expect(confirm).not.toHaveBeenCalled();
     expect(resetAndClear).toHaveBeenCalled();
     expect(cleanupDraftsAfterSave).toHaveBeenCalledWith('u1', false, null);
   });

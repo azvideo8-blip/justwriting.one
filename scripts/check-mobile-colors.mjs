@@ -11,7 +11,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { isMainRun, toPosixPath } from './gate-paths.mjs';
 
-const FIXED = ['src/shared/components/ModalShell.tsx', 'src/features/navigation/components/BottomNav.tsx'];
+const FIXED = ['src/shared/components/ModalShell.tsx', 'src/features/navigation/components/BottomNav.tsx', 'src/shared/components/MeScreenHelpers.tsx'];
 const BAD = /\b(?:white|black)\/|rgba\(|#[0-9a-fA-F]{3,8}\b/;
 
 /** Мобильный компонент: имя файла `Mobile….tsx`, не тест и не `__tests__`. */

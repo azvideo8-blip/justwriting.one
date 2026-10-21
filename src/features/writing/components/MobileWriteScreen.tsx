@@ -449,6 +449,7 @@ export function MobileWriteScreen({
         </AnimatePresence>
         <textarea
           ref={textareaRef}
+          dir="auto"
           value={content}
           onChange={e => { setContent(e.target.value); handleType(); }}
           onKeyDown={handleKeyDown}

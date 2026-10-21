@@ -4,14 +4,15 @@ import { LocalDocumentService } from '../../../core/services/LocalDocumentServic
 import { useToast } from '../../../shared/components/Toast';
 import { useLanguage } from '../../../shared/i18n';
 import { reportError } from '../../../shared/errors/reportError';
+import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 
 export function useTagEditor(userId: string, fetchSessions: () => Promise<void>) {
   const { showToast } = useToast();
   const { t } = useLanguage();
+  const { confirm } = useConfirmDialog();
 
   const [renamingTag, setRenamingTag] = useState<string | null>(null);
   const [renameTagValue, setRenameTagValue] = useState('');
-  const [tagDeleteConfirm, setTagDeleteConfirm] = useState<string | null>(null);
 
   const handleRenameTag = useCallback(async (tag: string, newName: string) => {
     const trimmed = newName.trim();
@@ -38,26 +39,30 @@ export function useTagEditor(userId: string, fetchSessions: () => Promise<void>)
     }
   }, [userId, fetchSessions, showToast, t]);
 
-  const handleDeleteTag = useCallback(async () => {
-    if (!tagDeleteConfirm) return;
+  const requestDeleteTag = useCallback(async (tag: string) => {
+    const ok = await confirm({
+      title: t('archive_tags_label'),
+      message: t('archive_tag_delete_confirm', { tag }),
+      confirmLabel: t('storage_delete_confirm'),
+      cancelLabel: t('common_cancel'),
+    });
+    if (!ok) return;
 
     try {
       const promises: Promise<unknown>[] = [
-        LocalDocumentService.removeTagFromAllDocs(userId, tagDeleteConfirm),
+        LocalDocumentService.removeTagFromAllDocs(userId, tag),
       ];
       if (userId && !userId.startsWith('guest')) {
-        promises.push(DocumentService.removeTagFromAllDocs(userId, tagDeleteConfirm));
+        promises.push(DocumentService.removeTagFromAllDocs(userId, tag));
       }
       await Promise.all(promises);
       await fetchSessions();
       showToast(t('tag_deleted'), 'success');
     } catch (err) {
-      reportError(err, { action: 'deleteTag', tag: tagDeleteConfirm });
+      reportError(err, { action: 'deleteTag', tag });
       showToast(t('error_tag_delete_failed'), 'error');
-    } finally {
-      setTagDeleteConfirm(null);
     }
-  }, [userId, tagDeleteConfirm, fetchSessions, showToast, t]);
+  }, [userId, fetchSessions, showToast, t, confirm]);
 
   const startRenameTag = useCallback((tag: string) => {
     setRenamingTag(tag);
@@ -69,10 +74,8 @@ export function useTagEditor(userId: string, fetchSessions: () => Promise<void>)
     setRenamingTag,
     renameTagValue,
     setRenameTagValue,
-    tagDeleteConfirm,
-    setTagDeleteConfirm,
     handleRenameTag,
-    handleDeleteTag,
+    requestDeleteTag,
     startRenameTag,
   };
 }

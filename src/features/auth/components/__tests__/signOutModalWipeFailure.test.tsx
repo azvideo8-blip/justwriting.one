@@ -50,4 +50,9 @@ describe('AUD-11 sign-out modal after a failed local wipe', () => {
     expect(await screen.findByText('network down')).toBeDefined();
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it('ревью 0.10.7 (A-9b): окно рисуется карточкой, а не голым текстом поверх страницы', () => {
+    render(<LanguageProvider><SignOutConfirmModal open onClose={vi.fn()} onConfirm={vi.fn()} /></LanguageProvider>);
+    expect(screen.getByRole('dialog').className).toContain('bg-surface-card');
+  });
 });

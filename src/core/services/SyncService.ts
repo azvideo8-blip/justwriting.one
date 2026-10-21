@@ -65,7 +65,7 @@ export interface SyncUnsyncedSummary {
 export interface SyncPendingResult {
   drained: number;
   failed: number;
-  skippedReason?: 'sync_disabled' | 'in_progress' | 'vault_locked' | undefined;
+  skippedReason?: 'sync_disabled' | 'in_progress' | 'vault_locked' | 'offline' | undefined;
 }
 
 export const SyncService = {
@@ -429,6 +429,11 @@ export const SyncService = {
 };
 
 async function _drainPendingQueue(userId: string): Promise<SyncPendingResult> {
+  // D1-3: офлайн — пауза, а не попытка. Каждый фон 120 с бросал «Not connected
+  // to cloud» (транзиентная), и через 10 проходов задачи уходили в карантин.
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return { drained: 0, failed: 0, skippedReason: 'offline' };
+  }
   const db = await getLocalDb(userId);
   const queue = await db.getAll('syncQueue');
   // SB-1: снимок задач, по которому решается, что снимать с очереди после

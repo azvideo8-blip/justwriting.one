@@ -179,6 +179,8 @@ export const settingsTranslations: Translations = {
   settings_export_all_done: { ru: 'Экспортировано заметок: {count}', en: 'Exported notes: {count}' },
   settings_export_all_skipped: { ru: 'Пропущено (заблокировано): {count}', en: 'Skipped (locked): {count}' },
   settings_export_all_empty: { ru: 'Нет заметок для экспорта', en: 'No notes to export' },
+  settings_export_cloud_failed: { ru: 'Облако не прочиталось — экспорт был бы неполным. Попробуйте ещё раз.', en: 'The cloud could not be read — the export would be incomplete. Try again.' },
+  settings_export_local_only: { ru: 'Только с этого устройства', en: 'This device only' },
   settings_migration_export_button: { ru: 'Выгрузить все данные', en: 'Export all data' },
   settings_migration_export_progress: { ru: 'Готовлю выгрузку...', en: 'Preparing export...' },
   settings_migration_export_done: {

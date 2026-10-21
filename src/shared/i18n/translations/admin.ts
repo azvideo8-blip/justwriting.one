@@ -4,6 +4,12 @@ export const adminTranslations: Translations = {
   // Diagnostics page: header & tabs
   admin_diag_title: { ru: 'Диагностика и администрирование', en: 'Diagnostics & Administration' },
   admin_diag_download: { ru: 'Скачать диагностику', en: 'Download diagnostics' },
+  admin_error_report_desc: { ru: 'Ошибки клиента остаются на устройстве. Можно отправить только их коды, версию и браузер — без текста заметок и сообщений.', en: 'Client errors stay on this device. You can send only their codes, the app version and browser — no note or message text.' },
+  admin_error_report_btn: { ru: 'Отправить журнал ошибок', en: 'Send error log' },
+  admin_error_report_confirm_title: { ru: 'Отправить журнал ошибок?', en: 'Send the error log?' },
+  admin_error_report_confirm: { ru: 'Отправим коды последних ошибок, версию и браузер. Текст заметок и сообщений не отправляется.', en: 'We will send the codes of the latest errors, the app version and browser. Note and message text is not sent.' },
+  admin_error_report_done: { ru: 'Журнал ошибок отправлен', en: 'Error log sent' },
+  admin_error_report_failed: { ru: 'Не удалось отправить журнал ошибок', en: 'Could not send the error log' },
   admin_tab_sync: { ru: 'Синхронизация', en: 'Sync' },
   admin_tab_db: { ru: 'База данных', en: 'Database' },
   admin_tab_users: { ru: 'Пользователи', en: 'Users' },
@@ -36,6 +42,11 @@ export const adminTranslations: Translations = {
 
   // Users tab
   admin_users_registered: { ru: 'Зарегистрированные пользователи', en: 'Registered users' },
+  admin_users_empty: { ru: 'Пользователей пока нет', en: 'No users yet' },
+  admin_users_truncated: { ru: 'Показаны первые {count} — есть ещё', en: 'Showing the first {count} — more exist' },
+  admin_users_load_error: { ru: 'Не удалось загрузить пользователей', en: 'Failed to load users' },
+  admin_users_statuses_failed: { ru: 'Статусы приглашений и число заметок не загрузились — показан только список', en: 'Invitation statuses and note counts failed to load — showing the list only' },
+  admin_actions_load_error: { ru: 'Журнал действий не загрузился', en: 'Admin action trail failed to load' },
   // R7Q-014: след админских действий из public.admin_actions — только чтение.
   admin_actions_title: { ru: 'След админских действий', en: 'Admin action trail' },
   admin_actions_hint: { ru: 'Последние записи таблицы admin_actions. Здесь их можно только прочитать.', en: 'Latest admin_actions rows. Read-only.' },

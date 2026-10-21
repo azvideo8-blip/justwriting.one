@@ -10,14 +10,12 @@ vi.mock('../useLifeLog', () => ({
   useLifeLog: () => ({ refresh: vi.fn() }),
 }));
 
-vi.mock('../useDocuments', () => ({
-  useDocuments: () => ({ refresh: vi.fn() }),
-}));
 
 vi.mock('../../../../core/settings/WritingSettingsContext', () => ({
   useWritingSettings: () => ({ setLifeLogVisible: vi.fn() }),
 }));
 
+vi.mock('../../../../shared/components/ConfirmDialog', () => ({ useConfirmDialog: () => ({ confirm: vi.fn(async () => false) }) }));
 vi.mock('../../../../shared/components/Toast', () => ({
   useToast: () => ({ showToast: vi.fn() }),
 }));
@@ -60,7 +58,6 @@ describe('F-2: useWritingActions.saveWritingSession for too large documents', ()
         session: mockSession,
         flow: {
           setSetupMode: vi.fn(),
-          setShowCancelConfirm: vi.fn(),
         },
       })
     );

@@ -762,8 +762,10 @@ export function getOversizedRecordCount(uid?: string): number {
 }
 
 /** false — отметка не записана: маркер загрузки снимать нельзя (M-11). */
-function setOversizedRecord(store: string, key: string, bytes: number): boolean {
-  const uid = getCurrentUser()?.uid;
+// D1-7 (П-4): журнал пишется по uid прохода, а не по getCurrentUser(): при смене
+// аккаунта посреди дренажа читатель этого прохода (getPendingUpsertKeySet) не
+// увидел бы пометку «слишком большое», и забор решил бы спор в пользу облака.
+function setOversizedRecord(uid: string, store: string, key: string, bytes: number): boolean {
   const list = readOversizedRecords(uid);
   if (list === null) return false;
   const next = list.filter(r => !(r.store === store && r.key === key));
@@ -777,8 +779,7 @@ function setOversizedRecord(store: string, key: string, bytes: number): boolean 
   }
 }
 
-function removeOversizedRecord(store: string, key: string): void {
-  const uid = getCurrentUser()?.uid;
+function removeOversizedRecord(uid: string, store: string, key: string): void {
   const list = readOversizedRecords(uid);
   if (list === null) return;
   const next = list.filter(r => !(r.store === store && r.key === key));
@@ -1830,7 +1831,7 @@ export class LocalStoreSyncManager {
           if (item.isDelete) {
             await DataProvider.deleteLocalStoreRecord(uid, item.store, item.key);
             forgetPersistedDelete(uid, item.store, item.key);
-            removeOversizedRecord(item.store, item.key);
+            removeOversizedRecord(uid, item.store, item.key);
             markerChanges.dropped.add(itemKey);
             result.synced++;
             continue;
@@ -1864,7 +1865,7 @@ export class LocalStoreSyncManager {
             // Для таких записей уже есть своя персистентная отметка — две на
             // одну запись удваивали бы счёт в бейдже. Не записалась — маркер
             // загрузки остаётся, иначе запись не учтена нигде (M-11).
-            if (setOversizedRecord(item.store, item.key, recordBytes)) markerChanges.dropped.add(itemKey);
+            if (setOversizedRecord(uid, item.store, item.key, recordBytes)) markerChanges.dropped.add(itemKey);
             result.skippedOversized++;
             logger.warn('LocalStoreSyncService', `Record too large to sync (${recordBytes} bytes): ${item.store}/${item.key}`);
             useActivityLogStore.getState().addActivity(
@@ -1891,7 +1892,7 @@ export class LocalStoreSyncManager {
               continue;
             }
             if (outcome === 'ok') {
-              removeOversizedRecord(item.store, item.key);
+              removeOversizedRecord(uid, item.store, item.key);
               result.synced++;
               markerChanges.dropped.add(itemKey);
               markerChanges.revived.push({ store: item.store, key: item.key });
@@ -1914,7 +1915,7 @@ export class LocalStoreSyncManager {
             continue;
           }
 
-          removeOversizedRecord(item.store, item.key);
+          removeOversizedRecord(uid, item.store, item.key);
 
           const recordTs = extractRecordTimestamp(record) ?? Date.now();
 

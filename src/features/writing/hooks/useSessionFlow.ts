@@ -14,8 +14,6 @@ interface UseSessionFlowReturn {
   goalToastType: 'time' | 'words' | null;
   sessionStartFlash: boolean;
   totalDurationForDeadline: number | null;
-  showCancelConfirm: boolean;
-  setShowCancelConfirm: (v: boolean) => void;
 }
 
 export function useSessionFlow(
@@ -33,7 +31,6 @@ export function useSessionFlow(
   const [goalToastVisible, setGoalToastVisible] = useState(false);
   const [goalToastType, setGoalToastType] = useState<'time' | 'words' | null>(null);
   const [sessionStartFlash, setSessionStartFlash] = useState(false);
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [totalDurationForDeadline, setTotalDurationForDeadline] = useState<number | null>(null);
 
   const countdownRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
@@ -74,10 +71,6 @@ export function useSessionFlow(
 
   const stableSetSetupMode = useCallback((mode: SetupMode) => {
     setSetupMode(mode);
-  }, []);
-
-  const stableSetShowCancelConfirm = useCallback((v: boolean) => {
-    setShowCancelConfirm(v);
   }, []);
 
   useEffect(() => {
@@ -149,6 +142,5 @@ export function useSessionFlow(
     goalToastVisible, goalToastType,
     sessionStartFlash,
     totalDurationForDeadline,
-    showCancelConfirm, setShowCancelConfirm: stableSetShowCancelConfirm,
-  }), [setupMode, stableSetSetupMode, countdown, startCountdown, goalToastVisible, goalToastType, sessionStartFlash, totalDurationForDeadline, showCancelConfirm, stableSetShowCancelConfirm]);
+  }), [setupMode, stableSetSetupMode, countdown, startCountdown, goalToastVisible, goalToastType, sessionStartFlash, totalDurationForDeadline]);
 }

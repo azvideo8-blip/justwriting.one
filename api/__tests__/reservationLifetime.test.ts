@@ -156,6 +156,22 @@ describe('DUP-1: reservationLifetime', () => {
     );
   });
 
+  // C-2: провайдер отдал текст, но usage пустой. recordUsage(0, 0) списывал
+  // ноль и возвращал весь резерв (allowance) в глобальный котёл.
+  it('exit: done с пустым usage оценивает токены по тексту, а не списывает ноль', async () => {
+    const res = createCallReservation(ctx, 'user_1', 'user', '2026-09-07', mockGlobalRes, 777);
+    res.markProduced(300);
+    await res.settle('done', { tokensIn: 0, tokensOut: 0, model: 'test-model' });
+
+    expect(recordUsageMock).toHaveBeenCalledWith(
+      'user_1',
+      777,
+      100,
+      { fn: 'chat-stream', model: 'test-model' },
+      mockGlobalRes,
+    );
+  });
+
   it('double-settle is an idempotent no-op', async () => {
     const res = createCallReservation(ctx, 'user_1', 'user', '2026-09-07', mockGlobalRes);
     await res.settle('failed');

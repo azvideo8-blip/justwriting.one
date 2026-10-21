@@ -109,7 +109,9 @@ describe('production route smoke (server.ts)', () => {
       expect(e.status).toBe(1);
       const stderr = e.stderr?.toString() ?? '';
       expect(stderr).toContain('[server] uncaughtException');
-      expect(stderr).toContain('narrow-3-test-error');
+      // E-11: в журнал идёт только служебная форма, без текста ошибки.
+      expect(stderr).toContain('name=Error');
+      expect(stderr).not.toContain('narrow-3-test-error');
     }
   }, 15_000);
 });

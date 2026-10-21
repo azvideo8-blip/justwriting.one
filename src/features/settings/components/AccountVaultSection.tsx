@@ -14,9 +14,10 @@ import { useAuthStatus } from '../../../app/useAuthStatus';
 import { EncryptionPasswordModal } from '../../../app/EncryptionPasswordModal';
 import { getCurrentUser, reauthenticate } from '../../../core/auth';
 import { RecoveryCodeDisplayModal } from '../../../shared/components/RecoveryCodeDisplayModal';
-import { ConfirmModal } from '../../../shared/components/ConfirmModal';
+import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { Button } from '../../../shared/components/Button';
 import { Input } from '../../../shared/components/Input';
+import { LoadingSpinner } from '../../../shared/components/LoadingSpinner';
 
 interface AccountVaultSectionProps {
   userId: string;
@@ -24,6 +25,7 @@ interface AccountVaultSectionProps {
 
 export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
   const { t } = useLanguage();
+  const { confirm } = useConfirmDialog();
   const { showToast } = useToast();
   const { profile, refreshProfile } = useAuthStatus();
   const isVaultUnlocked = useEncryptionStore(s => s.isVaultUnlocked);
@@ -41,7 +43,6 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
   const [recoveryPromptError, setRecoveryPromptError] = useState<string | null>(null);
   const [recoveryPromptLoading, setRecoveryPromptLoading] = useState(false);
   // Новый код отменяет прежний. Спрашиваем до, а не сообщаем после.
-  const [regenerateConfirmOpen, setRegenerateConfirmOpen] = useState(false);
 
   const [migrationRunning, setMigrationRunning] = useState(false);
   const [migrationProgress, setMigrationProgress] = useState<MigrationProgress | null>(null);
@@ -249,7 +250,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
               className="w-full py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-brand-primary"
             >
               {vaultLoading ? (
-                <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/20 border-t-white" />
+                <LoadingSpinner size={4} />
               ) : (
                 <>
                   <Shield size={14} />
@@ -312,7 +313,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
               className="w-full py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-brand-primary"
             >
               {vaultLoading ? (
-                <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/20 border-t-white" />
+                <LoadingSpinner size={4} />
               ) : (
                 <>
                   <Lock size={14} />
@@ -357,7 +358,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
                 className="w-full py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-[var(--brand-primary)]"
               >
                 {generatingRecoveryCode ? (
-                  <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/20 border-t-white" />
+                  <LoadingSpinner size={4} />
                 ) : (
                   <>
                     <KeyRound size={14} />
@@ -378,12 +379,21 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
                 </div>
               </div>
               <Button
-                onClick={() => setRegenerateConfirmOpen(true)}
+                onClick={() => {
+                  void (async () => {
+                    const ok = await confirm({
+                      title: t('enc_regenerate_recovery_confirm_title'),
+                      message: t('enc_regenerate_recovery_confirm_desc'),
+                      confirmLabel: t('enc_regenerate_recovery_confirm_btn'),
+                    });
+                    if (ok) void handleGenerateRecoveryCode();
+                  })();
+                }}
                 disabled={generatingRecoveryCode}
                 className="w-full py-2.5 rounded-xl text-sm font-semibold text-text-main/70 hover:text-text-main disabled:opacity-50 transition-colors flex items-center justify-center gap-2 border border-border-subtle"
               >
                 {generatingRecoveryCode ? (
-                  <div className="w-4 h-4 border-2 rounded-full animate-spin border-text-main/20 border-t-text-main/60" />
+                  <LoadingSpinner size={4} />
                 ) : (
                   <>
                     <KeyRound size={14} />
@@ -506,17 +516,6 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
         />
       )}
 
-      <ConfirmModal
-        isOpen={regenerateConfirmOpen}
-        title={t('enc_regenerate_recovery_confirm_title')}
-        message={t('enc_regenerate_recovery_confirm_desc')}
-        confirmLabel={t('enc_regenerate_recovery_confirm_btn')}
-        onConfirm={() => {
-          setRegenerateConfirmOpen(false);
-          void handleGenerateRecoveryCode();
-        }}
-        onCancel={() => setRegenerateConfirmOpen(false)}
-      />
     </Section>
   );
 }

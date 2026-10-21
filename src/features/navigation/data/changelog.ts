@@ -17,6 +17,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.10.7',
+    date: '2026-10-21',
+    items: [
+      { category: 'fix', ru: 'ИИ в длинном диалоге не путает дни прошлых заметок и не выдаёт свои прежние ответы за их текст; пересказанная чужая реплика помечается «по смыслу» и не выглядит твоими словами.', en: 'In a long dialogue the AI no longer mixes up the days of earlier notes or treats its own past answers as their text; a paraphrased remark by someone else is marked «по смыслу» (paraphrased) and no longer reads as your words.' },
+      { category: 'fix', ru: 'Черновик с другого устройства не стирается, если часы этого устройства спешат; без сети несохранённые заметки не уходят в карантин, а ждут связи.', en: 'A draft from another device is no longer erased when this device\'s clock runs fast; without a network, unsaved notes no longer go to quarantine but wait for the connection.' },
+      { category: 'fix', ru: 'Если облако не прочиталось, выгрузка не выходит молча неполной: можно повторить или явно выгрузить только с этого устройства. Сбой чтения диалогов ИИ больше не выглядит пустым списком.', en: 'If the cloud could not be read, an export is no longer silently incomplete: you can retry or explicitly export this device only. A failure to read AI dialogues no longer looks like an empty list.' },
+      { category: 'fix', ru: 'Эмодзи на границе лимитов больше не режутся пополам, окна подтверждения выглядят одинаково.', en: 'Emoji at the edge of text limits are no longer cut in half, and confirmation dialogs look the same everywhere.' },
+    ],
+  },
+  {
     version: '0.10.6',
     date: '2026-10-21',
     items: [

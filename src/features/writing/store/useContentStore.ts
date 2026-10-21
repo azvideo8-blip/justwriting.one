@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { WordSnapshot } from './types';
 import { countWords } from '../../../shared/utils/countWords';
+import { truncateText } from '../../../shared/utils/textLimits';
 import { useTimerStore } from './useTimerStore';
 
 export interface HistoryEntry {
@@ -262,7 +263,7 @@ export const useContentStore = create<ContentState>((set, get) => ({
 
   setTitle: (title) => set({ title }),
   setPinnedThoughts: (pinnedThoughts) => set({ pinnedThoughts }),
-  setTags: (tags) => set({ tags: (tags ?? []).slice(0, 10).map(t => String(t).slice(0, 50)) }),
+  setTags: (tags) => set({ tags: (tags ?? []).slice(0, 10).map(t => truncateText(String(t), 50)) }),
   setLabelId: (labelId) => set({ labelId }),
   setInitialWordCount: (initialWordCount) => set({ initialWordCount }),
   pushWpmHistory: (entry) => set(state => ({ wpmHistory: [...state.wpmHistory.slice(-119), entry] })),

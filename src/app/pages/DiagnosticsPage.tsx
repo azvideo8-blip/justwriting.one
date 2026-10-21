@@ -33,6 +33,9 @@ import { reportError } from '../../shared/errors/reportError';
 import { MAX_AI_CONTENT_LENGTH } from '../../shared/ai/buildChatPrompt';
 import { SyncService } from '../../core/services/SyncService';
 import { useLanguage } from '../../shared/i18n';
+import { useConfirmDialog } from '../../shared/components/ConfirmDialog';
+import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
+import { activityToClientErrorRecords, sendClientErrorReport } from '../../features/settings/services/clientErrorReport';
 
 
 function ReconcileSessionsButton() {
@@ -117,6 +120,11 @@ export function DiagnosticsPage() {
   const {
     loadingData,
     users,
+    usersError,
+    usersStatusesFailed,
+    usersTruncated,
+    adminActionsError,
+    fetchData,
     bulkImporting,
     bulkSyncing,
     aiUsage,
@@ -158,6 +166,32 @@ export function DiagnosticsPage() {
     handleCollapseVersions,
     adminActions,
   } = useDiagnosticsData(profile, authLoading, activeTab);
+
+  const { confirm } = useConfirmDialog();
+  const { showToast } = useToast();
+  const [reportingErrors, setReportingErrors] = useState(false);
+
+  const handleReportClientErrors = async () => {
+    const ok = await confirm({
+      title: t('admin_error_report_confirm_title'),
+      message: t('admin_error_report_confirm'),
+      confirmLabel: t('admin_error_report_btn'),
+      cancelLabel: t('common_cancel'),
+      destructive: false,
+    });
+    if (!ok) return;
+    const records = activityToClientErrorRecords(useActivityLogStore.getState().entries);
+    setReportingErrors(true);
+    try {
+      await sendClientErrorReport(records, APP_VERSION);
+      showToast(t('admin_error_report_done'), 'success');
+    } catch (e) {
+      reportError(e, { action: 'client-error-report' });
+      showToast(t('admin_error_report_failed'), 'error');
+    } finally {
+      setReportingErrors(false);
+    }
+  };
 
   const [inviteEmail, setInviteEmail] = useState('');
 
@@ -225,6 +259,20 @@ export function DiagnosticsPage() {
             icon={<X size={18} />}
           />
         </div>
+      </div>
+
+      {/* E-7: отчёт об ошибках — только по нажатию человека, без фона. */}
+      <div className="p-4 rounded-2xl border border-border-subtle bg-surface-base/50 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+        <div className="text-xs text-text-main/60 leading-relaxed">{t('admin_error_report_desc')}</div>
+        <Button
+          data-testid="client-error-report-btn"
+          onClick={() => void handleReportClientErrors()}
+          disabled={reportingErrors}
+          className="shrink-0 px-3 py-1.5 rounded-xl bg-accent-danger/10 border border-accent-danger/25 text-accent-danger text-xs font-semibold hover:bg-accent-danger/20 transition-colors disabled:opacity-50"
+        >
+          {reportingErrors ? <Loader2 size={13} className="animate-spin" /> : <Bug size={13} />}
+          {t('admin_error_report_btn')}
+        </Button>
       </div>
 
       {/* Tabs list */}
@@ -448,6 +496,10 @@ export function DiagnosticsPage() {
                     onDeleteUserCancel={cancelDeleteUser}
                     deletePasswordError={deletePasswordError}
                     currentUid={profile?.uid ?? null}
+                    error={usersError}
+                    onRetry={() => void fetchData()}
+                    statusesFailed={usersStatusesFailed}
+                    truncated={usersTruncated}
                   />
                 </div>
               )}
@@ -459,7 +511,7 @@ export function DiagnosticsPage() {
               <h3 className="text-sm font-semibold text-text-main">{t('admin_actions_title')}</h3>
               <p className="text-xs text-text-muted">{t('admin_actions_hint')}</p>
               <div className="overflow-x-auto rounded-2xl border border-border-subtle">
-                <AdminActionsTable actions={adminActions} />
+                <AdminActionsTable actions={adminActions} error={adminActionsError} />
               </div>
             </div>
           </div>

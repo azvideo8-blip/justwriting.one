@@ -21,9 +21,6 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
   const [error, setError] = useState<string | null>(null);
   const [cloudLoadFailed, setCloudLoadFailed] = useState(false);
   const [previewSession, setPreviewSession] = useState<ArchiveSession | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<ArchiveSession | null>(null);
-  const [permanentDeleteConfirm, setPermanentDeleteConfirm] = useState<ArchiveSession | null>(null);
-  const [emptyTrashConfirm, setEmptyTrashConfirm] = useState<boolean>(false);
   const mountedRef = useRef(true);
   const isVaultUnlocked = useEncryptionStore(s => s.isVaultUnlocked);
   const prevVaultUnlockedRef = useRef(isVaultUnlocked);
@@ -223,8 +220,5 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
     handleDeleteSession, handleTrashSession, handleRestoreSession, handlePermanentDeleteSession, handleEmptyTrash,
     handleTagsChange, handleTitleChange, handleDateChange, handleLabelChange,
     previewSession, setPreviewSession, openPreview,
-    deleteConfirm, setDeleteConfirm,
-    permanentDeleteConfirm, setPermanentDeleteConfirm,
-    emptyTrashConfirm, setEmptyTrashConfirm,
   };
 }

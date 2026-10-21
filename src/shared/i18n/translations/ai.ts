@@ -15,6 +15,7 @@ export const aiTranslations: Translations = {
   ai_active: { ru: 'Активные', en: 'Active' },
   ai_archive: { ru: 'Архив', en: 'Archive' },
   ai_no_active_dialogues: { ru: 'Нет активных диалогов', en: 'No active dialogues' },
+  ai_dialogues_load_error: { ru: 'Не удалось загрузить диалоги', en: 'Failed to load dialogues' },
   ai_no_archived_dialogues: { ru: 'Нет архивных диалогов', en: 'No archived dialogues' },
   ai_interlocutor: { ru: 'собеседник', en: 'interlocutor' },
   ai_download_md: { ru: 'Скачать как текст', en: 'Download as text' },

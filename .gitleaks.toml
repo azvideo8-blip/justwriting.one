@@ -1,20 +1,24 @@
-# gitleaks: разобранные ложные срабатывания (SO-1, 2026-09-27).
-# Настоящих ключей здесь нет: синтетика в тестах, проза в доке, хеш чанка сборки.
-# Правило одно: сюда — только путь с объяснением, никогда не сам ключ.
+# gitleaks: разобранные ложные срабатывания (SO-1, 2026-09-27; B-3, 2026-10-21).
+# Настоящих ключей здесь нет: синтетика в тестах и хеш чанка сборки.
+#
+# B-3: allowlist по путям глушил будущий настоящий ключ в целом файле. Путь
+# оставлен только для генерируемого bundle-stats.html; остальное — точечные
+# regexes на конкретные синтетические строки (сам ключ сюда не попадает).
 [extend]
 useDefault = true
 
 [allowlist]
 description = "Разобранные ложные срабатывания"
 paths = [
-  # синтетический пароль и адрес example.com для теста deriveAuthSecret
-  '''src/core/auth/__tests__/authSecret\.test\.ts''',
-  # поддельный wrappedDataKey — проверка ошибки расшифровки
-  '''src/core/services/__tests__/encryptionErrorHandling\.test\.ts''',
-  # фраза «auth token refresh, …» в тексте промпта
-  '''docs/fable-prompt-error-surfaces-audit\.md''',
-  # отчёт размеров сборки: хеш имени чанка похож на ключ
+  # отчёт размеров сборки: хеш имени чанка похож на ключ; файл генерируется
   '''bundle-stats\.html''',
-  # синтетический OPENROUTER_API_KEY «test-key-r7q016» в тесте тел ошибок поставщика (R7)
-  '''api/__tests__/providerErrorBody\.r7q016\.test\.ts''',
+]
+regexes = [
+  # синтетический пароль в тесте deriveAuthSecret (EA-15)
+  '''TihoeUtro-2026''',
+  # синтетический OPENROUTER_API_KEY в тесте тел ошибок поставщика (R7)
+  '''test-key-r7q016''',
+  # поддельный wrappedDataKey — проверка ошибки расшифровки
+  '''d3JhcHBlZGRhdGFrZXk=''',
+  '''not-valid-base64''',
 ]

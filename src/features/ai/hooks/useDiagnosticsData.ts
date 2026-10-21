@@ -65,8 +65,13 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
 
   const [loadingData, setLoadingData] = useState(true);
   const [users, setUsers] = useState<AdminUserItem[]>([]);
+  // A-2: «не прочиталось» ≠ «пусто» — у списка и журнала свои состояния ошибки.
+  const [usersError, setUsersError] = useState(false);
+  const [usersStatusesFailed, setUsersStatusesFailed] = useState(false);
+  const [usersTruncated, setUsersTruncated] = useState(false);
   // R7Q-014: след админских действий — последние строки admin_actions, только чтение.
   const [adminActions, setAdminActions] = useState<AdminActionItem[]>([]);
+  const [adminActionsError, setAdminActionsError] = useState(false);
 
   const [bulkImporting, setBulkImporting] = useState(false);
   const [bulkSyncing, setBulkSyncing] = useState(false);
@@ -103,7 +108,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     setAiUsageLoading(true);
     try {
       if (users.length === 0) {
-        const usersData = await AdminUserService.getUsers(ADMIN_AI_USERS_LIMIT);
+        const { users: usersData } = await AdminUserService.getUsers(ADMIN_AI_USERS_LIMIT);
         setUsers(usersData);
       }
       const data = await callAi<AIUsageResponse>('getAIUsageStats', { date: aiUsageDate });
@@ -213,19 +218,25 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     }
     setLoadingData(true);
     try {
-      const usersData = await AdminUserService.getUsers(ADMIN_PAGE_LIMIT);
+      const { users: usersData, statusesFailed, truncated } = await AdminUserService.getUsers(ADMIN_PAGE_LIMIT);
       setUsers(usersData);
+      setUsersStatusesFailed(statusesFailed);
+      setUsersTruncated(truncated);
+      setUsersError(false);
 
       // Отдельно от списка пользователей: без следа админских действий список
       // обязан остаться, а без него — след.
       try {
         setAdminActions(await AdminUserService.listAdminActions());
+        setAdminActionsError(false);
       } catch (actionsErr) {
         reportError(actionsErr, { action: 'listAdminActions in useDiagnosticsData' });
         setAdminActions([]);
+        setAdminActionsError(true);
       }
     } catch (err) {
       reportError(err);
+      setUsersError(true);
       if (isStaleToken && adminError) {
         showToast(adminError, 'error');
       } else {
@@ -558,7 +569,12 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
   return {
     loadingData,
     users,
+    usersError,
+    usersStatusesFailed,
+    usersTruncated,
     adminActions,
+    adminActionsError,
+    fetchData,
     invitingUser,
     sendingResetEmail,
     pendingDeleteUid,

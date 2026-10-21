@@ -2,6 +2,7 @@
 // двойные соединения к Supavisor, два набора idle-timeout и две ручки тюнинга
 // там, где нужна одна.
 import { Pool } from 'pg';
+import { safeErrorShape } from '../src/shared/ai/errorShape.js';
 
 // R4-082: пустой DATABASE_URL в проде — упасть на старте, а не держать сервис,
 // отвечающий ошибкой на каждый вызов; /ready при этом честно отдаёт 503.
@@ -32,5 +33,5 @@ export const pool = new Pool({
 });
 
 pool.on('error', (err) => {
-  console.error('[db] idle client error', err);
+  console.error('[db] idle client error', safeErrorShape(err));
 });

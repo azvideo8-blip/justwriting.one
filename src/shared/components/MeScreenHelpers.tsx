@@ -9,8 +9,8 @@ export function StatCard({ value, label, accent }: {
   return (
     <div className={cn(
       'flex-1 flex flex-col gap-1 p-3.5 px-4 rounded-[14px]',
-      'bg-white/[0.03] border',
-      accent ? 'border-[oklch(0.72_0.13_155/0.3)]' : 'border-white/[0.07]'
+      'bg-text-main/[0.03] border',
+      accent ? 'border-[oklch(0.72_0.13_155/0.3)]' : 'border-border-subtle'
     )}>
       <div className={cn(
         'text-2xl font-medium leading-none tabular-nums',

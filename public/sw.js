@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v0.10.6';
+const CACHE_VERSION = 'v0.10.7';
 const CACHE = `jw-${CACHE_VERSION}`;
 const NAV_CACHE = `jw-nav-${CACHE_VERSION}`;
 
