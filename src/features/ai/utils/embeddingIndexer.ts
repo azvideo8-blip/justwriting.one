@@ -90,6 +90,8 @@ export async function indexDocument(documentId: string, force = false): Promise<
     return 'skip';
   }
 
+  // Ревью AP2: заметку могли скрыть, пока читался текст, — провайдер его не получает.
+  if (isExcludedFromAI(await db.get('documents', documentId))) return 'skip';
   const result = await AIService.embed({ content });
   if (!result.ok) {
     if (isDayLimitError(result.error)) return 'daily';

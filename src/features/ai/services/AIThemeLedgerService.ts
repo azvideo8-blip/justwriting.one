@@ -9,6 +9,7 @@ import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
 import { localDayKey } from '../../../core/utils/dateUtils';
 import { loadVisibleNoteKeys } from '../utils/retrieval/docSnapshot';
+import { hiddenNoteIdsFromDocs } from '../utils/hiddenNoteIds';
 
 
 export const THEME_MATCH_THRESHOLD = 0.82;
@@ -177,6 +178,7 @@ export const AIThemeLedgerService = {
 
     try {
       const db = await getLocalDb();
+      if (!(await loadVisibleNoteKeys()).has(documentId)) return;
 
       // Fetch note content if not directly provided
       let effectiveContent = noteContent ?? '';
@@ -247,7 +249,12 @@ export const AIThemeLedgerService = {
       }
 
       // Pass 2 (IDB transaction ONLY — no non-IDB awaits inside): atomic RMW.
-      const tx = db.transaction('aiThemeLedger', 'readwrite');
+      const tx = db.transaction(['aiThemeLedger', 'documents'], 'readwrite');
+      const hiddenIds = hiddenNoteIdsFromDocs(await tx.objectStore('documents').getAll());
+      if (hiddenIds.has(documentId)) {
+        await tx.done;
+        return;
+      }
       const store = tx.objectStore('aiThemeLedger');
       const allRecords = await store.getAll();
       const activeRecords = allRecords.filter(r => r.tier === 'active');
@@ -356,10 +363,15 @@ export const AIThemeLedgerService = {
 
     try {
       const db = await getLocalDb();
+      const visibleKeys = await loadVisibleNoteKeys();
       const processed: string[] = [];
 
       for (const docId of pending) {
         try {
+          if (!visibleKeys.has(docId)) {
+            processed.push(docId);
+            continue;
+          }
           const summary = await db.get('aiSummaries', docId);
           if (summary && (summary.themes?.length ?? 0) > 0) {
             const themes = summary.themes;

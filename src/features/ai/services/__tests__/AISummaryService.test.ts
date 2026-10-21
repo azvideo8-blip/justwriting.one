@@ -31,6 +31,13 @@ vi.mock('../../../../core/storage/localDb', () => ({
     put: mockPut,
     delete: mockDelete,
     getAll: mockGetAll,
+    transaction: () => ({
+      objectStore: (name: string) => ({
+        get: (id: string) => mockGet(name, id),
+        put: (row: unknown) => mockPut(name, row),
+      }),
+      done: Promise.resolve(),
+    }),
   }),
 }));
 

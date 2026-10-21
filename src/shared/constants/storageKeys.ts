@@ -7,6 +7,9 @@ export const STORAGE_KEYS = {
   GUEST_DRAFT: 'jw_guest_draft',
   DRAFT: (userId: string) => `draft-${userId}`,
   DRAFT_DELETED: (userId: string) => `draft-deleted-${userId}`,
+  /** AP2-4: то же надгробие, но переживает закрытие вкладки (без текста — время и хэши). */
+  DRAFT_DELETED_PERSISTENT: (userId: string) => `draft-deleted-persistent-${userId}`,
+  DRAFT_DELETE_PENDING: (userId: string) => `draft-delete-pending-${userId}`,
   APP_LANGUAGE: 'app_language',
   APP_THEME: 'app-theme',
   FOCUS_SWIPE_HINT_SHOWN: 'focus_swipe_hint_shown',

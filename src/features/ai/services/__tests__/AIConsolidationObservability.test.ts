@@ -12,6 +12,8 @@ describe('AG-MIND-W3-obs AIConsolidationService Observability', { timeout: 60_00
   beforeEach(async () => {
     await clearAllLocalStores();
     vi.clearAllMocks();
+    // Синтетические улики без заметок; видимость проверяют отдельные тесты.
+    vi.spyOn(AIConsolidationService, 'unitsStillVisible').mockResolvedValue(true);
   });
 
   const mockCluster: MemoryClusterCandidate = {

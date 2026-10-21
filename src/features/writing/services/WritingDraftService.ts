@@ -185,6 +185,77 @@ function hasDraftsStore(localDb: { objectStoreNames: DOMStringList }): boolean {
   return localDb.objectStoreNames.contains('drafts');
 }
 
+interface DraftTombstone { deletedAt: number; hashes: string[] }
+
+function parseTombstone(raw: string | null): DraftTombstone | null {
+  if (!raw) return null;
+  const sep = raw.indexOf('|');
+  const deletedAt = parseInt(sep < 0 ? raw : raw.slice(0, sep), 10);
+  if (!Number.isFinite(deletedAt)) return null;
+  const tail = sep < 0 ? '' : raw.slice(sep + 1);
+  return { deletedAt, hashes: tail.split(',').filter(h => HASH_SHAPE.test(h)) };
+}
+
+/**
+ * AP2-4: надгробие в sessionStorage умирало вместе с вкладкой, и удалённый
+ * черновик возвращался из облака. Вторая копия живёт в localStorage: только
+ * время и хэши удалённого содержимого, без текста.
+ */
+function readTombstone(userId: string): DraftTombstone | null {
+  let marks: Array<DraftTombstone | null> = [];
+  try { marks = [parseTombstone(sessionStorage.getItem(STORAGE_KEYS.DRAFT_DELETED(userId)))]; } catch (e) { reportError(e, { action: 'loadDraft_sessionStorageRead', userId }); }
+  try { marks.push(parseTombstone(localStorage.getItem(STORAGE_KEYS.DRAFT_DELETED_PERSISTENT(userId)))); } catch (e) { reportError(e, { action: 'loadDraft_persistentTombstoneRead', userId }); }
+  const found = marks.filter((m): m is DraftTombstone => m !== null);
+  if (found.length === 0) return null;
+  return {
+    deletedAt: Math.max(...found.map(m => m.deletedAt)),
+    hashes: [...new Set(found.flatMap(m => m.hashes))],
+  };
+}
+
+// Ревью AP2: список сливается с прежним — повторное удаление без локальной
+// строки иначе стирало хэши, и оставалось одно правило по часам устройства.
+// ponytail: хвост в 32 хэша; удалённое раньше давно вытеснено из облака.
+const TOMBSTONE_MAX_HASHES = 32;
+
+function writeTombstone(userId: string, deletedAt: number, newHashes: string[]): void {
+  const hashes = [...new Set([...newHashes, ...(readTombstone(userId)?.hashes ?? [])])].slice(0, TOMBSTONE_MAX_HASHES);
+  const value = `${deletedAt}${hashes.length ? `|${hashes.join(',')}` : ''}`;
+  try { sessionStorage.setItem(STORAGE_KEYS.DRAFT_DELETED(userId), value); } catch (e) { reportError(e, { action: 'deleteDraft_sessionStorageWrite', userId }); }
+  try { localStorage.setItem(STORAGE_KEYS.DRAFT_DELETED_PERSISTENT(userId), value); } catch (e) { reportError(e, { action: 'deleteDraft_persistentTombstone', userId }); }
+}
+
+function clearPendingCloudDelete(userId: string): void {
+  try { localStorage.removeItem(STORAGE_KEYS.DRAFT_DELETE_PENDING(userId)); } catch { /* намеренно: отметка — подсказка, не данные */ }
+}
+
+/**
+ * AP2-4: облачное удаление, не дошедшее в прошлый раз, досылается при загрузке.
+ * Приёмка 0.10.6: только если в облаке лежит ИМЕННО удалённое содержимое (хэш из
+ * надгробия). После неудачного удаления в облако мог уехать новый черновик — с
+ * этого устройства или с другого; слепое удаление стёрло бы его облачную копию.
+ * Не прочиталось — ничего не удаляем и отметку держим: «нет ответа» не «можно».
+ */
+async function flushPendingCloudDelete(userId: string, deletedHashes: readonly string[]): Promise<void> {
+  try {
+    if (localStorage.getItem(STORAGE_KEYS.DRAFT_DELETE_PENDING(userId)) === null) return;
+  } catch { return; }
+  try {
+    const row = await DataProvider.getDraft(userId);
+    if (!row) { clearPendingCloudDelete(userId); return; }
+    const parsed = draftDbSchema.safeParse(await maybeDecrypt(row, ['content', 'title'], ['pinnedThoughts', 'tags']));
+    if (!parsed.success) return;
+    if (!deletedHashes.includes(draftPayloadHash(parsed.data as unknown as LocalDraft))) {
+      clearPendingCloudDelete(userId);
+      return;
+    }
+    await DataProvider.deleteDraft(userId);
+    clearPendingCloudDelete(userId);
+  } catch (e) {
+    reportError(e, { action: 'deleteDraft_retry', userId });
+  }
+}
+
 export const WritingDraftService = {
   _cloudDraftLocked: false,
   isCloudDraftLocked: () => WritingDraftService._cloudDraftLocked,
@@ -192,7 +263,6 @@ export const WritingDraftService = {
   bumpDraftGeneration,
 
   loadDraft: async (userId: string): Promise<LocalDraft | null> => {
-    let deletedAt = 0;
     // SF2-6: хэш ТОГО, что удалили. Время здесь не различает воскрешение и
     // новую работу: после 0043 `updated_at` ряда ставят серверные часы, а
     // отметка удаления — часы прибора, и на отстающем устройстве любое
@@ -201,19 +271,15 @@ export const WritingDraftService = {
     // ПОСЛЕДНЯЯ правка, а в облако из полёта доезжает версия, которая была в
     // строке раньше. Её хэш живёт в списке неотправленных (`_cloudSentHashes`)
     // и в хэше принятой, и все они — про то же удалённое содержимое.
-    let deletedHashes: string[] = [];
-    try {
-      const s = sessionStorage.getItem(STORAGE_KEYS.DRAFT_DELETED(userId));
-      if (s) {
-        const sep = s.indexOf('|');
-        deletedAt = parseInt(sep < 0 ? s : s.slice(0, sep), 10);
-        const tail = sep < 0 ? '' : s.slice(sep + 1);
-        deletedHashes = tail.split(',').filter(h => HASH_SHAPE.test(h));
-      }
-    } catch (e) { reportError(e, { action: 'loadDraft_sessionStorageRead', userId }); }
+    // AP2-4: читаются обе копии — вкладки и пережившая её.
+    const tombstone = readTombstone(userId);
+    const deletedAt = tombstone?.deletedAt ?? 0;
+    const deletedHashes = tombstone?.hashes ?? [];
     /** Черновик, удалённый на этом устройстве: по содержимому, а не по часам. */
     const isDeletedDraft = (draft: LocalDraft): boolean =>
       deletedHashes.includes(draftPayloadHash(draft));
+
+    await flushPendingCloudDelete(userId, deletedHashes);
 
     const [localResult, legacyResult, cloudResult] = await Promise.allSettled([
       (async () => {
@@ -473,6 +539,10 @@ export const WritingDraftService = {
       // разрыв ответа — «не знаю», и прежняя метка остаётся: на «не знаю»
       // правило хранит локальную.
       await WritingDraftService.rememberCloudSend(draft.userId, hash, { stampMs: cloudStamp });
+      // Облако держит одну строку черновика: принятая запись нового черновика
+      // заменила удалённый — досылать удаление больше нечего (иначе оно стёрло бы
+      // этот новый черновик при следующей загрузке; приёмка 0.10.6).
+      clearPendingCloudDelete(draft.userId);
       return true;
     } catch (e) {
       if (generation !== undefined && generation !== getDraftGeneration(draft.userId)) {
@@ -483,10 +553,11 @@ export const WritingDraftService = {
     }
   },
 
-  /** true — локальный черновик удалён (или его не было). false — не удалось:
-   *  он может всплыть «несохранённым черновиком» поверх сохранённой заметки. */
-  deleteDraft: async (userId: string): Promise<boolean> => {
-    if (!userId) return true;
+  /** localOk — локальный черновик удалён (или его не было); false — он может
+   *  всплыть «несохранённым». AP2-4: cloudOk — облачная строка снесена; если
+   *  нет, удаление досылается при следующей загрузке. */
+  deleteDraft: async (userId: string): Promise<{ localOk: boolean; cloudOk: boolean }> => {
+    if (!userId) return { localOk: true, cloudOk: true };
     let localOk = true;
     bumpDraftGeneration(userId);
     // The next draft must be written even if it opens with identical text.
@@ -515,10 +586,7 @@ export const WritingDraftService = {
         }
       }
     } catch (e) { reportError(e, { action: 'deleteDraft_readForHash', userId }); }
-    const deletedTail = deletedHashes.join(',');
-    try {
-      sessionStorage.setItem(STORAGE_KEYS.DRAFT_DELETED(userId), `${Date.now()}${deletedTail ? `|${deletedTail}` : ''}`);
-    } catch (e) { reportError(e, { action: 'deleteDraft_sessionStorageWrite', userId }); }
+    writeTombstone(userId, Date.now(), deletedHashes);
     try {
       const localDb = await getLocalDb(userId);
       if (hasDraftsStore(localDb)) {
@@ -531,11 +599,15 @@ export const WritingDraftService = {
     try {
       localStorage.removeItem(STORAGE_KEYS.DRAFT(userId));
     } catch (e) { reportError(e, { action: 'deleteDraft_legacyLocalStorage', userId }); }
+    let cloudOk = true;
     try {
       await DataProvider.deleteDraft(userId);
+      try { localStorage.removeItem(STORAGE_KEYS.DRAFT_DELETE_PENDING(userId)); } catch { /* намеренно: отметка досылки — подсказка, не данные */ }
     } catch (err) {
+      cloudOk = false;
       reportError(err, { action: 'deleteDraft_cloud', userId });
+      try { localStorage.setItem(STORAGE_KEYS.DRAFT_DELETE_PENDING(userId), String(Date.now())); } catch { /* намеренно: без отметки следующий deleteDraft повторит облако */ }
     }
-    return localOk;
+    return { localOk, cloudOk };
   }
 };

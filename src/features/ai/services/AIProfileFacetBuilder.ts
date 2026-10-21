@@ -9,6 +9,7 @@ import { reportError } from '../../../shared/errors/reportError';
 import { reportAIDegradation } from '../utils/aiDegradationReporter';
 import { writeFacetStore } from '../../../core/services/facetLock';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
+import { loadVisibleNoteKeys } from '../utils/retrieval/docSnapshot';
 
 const MIN_FACET_NOTES = 2;
 const MAX_EXCERPTS = 14;
@@ -99,7 +100,8 @@ export const AIProfileFacetBuilder = {
       const dialogueEvents = dialogueInFacetsEnabled ? await db.getAll('aiDialogueEvents') : [];
       const dialogueIdsSet = new Set(dialogueEvents.map(e => e.dialogueId));
 
-      const embeddings = await AIEmbeddingService.getAll();
+      const visibleKeys = await loadVisibleNoteKeys();
+      const embeddings = (await AIEmbeddingService.getAll()).filter(e => visibleKeys.has(e.documentId));
       const chunks: Chunk[] = [];
       let haveTexts = false;
       for (const e of embeddings) {
@@ -284,7 +286,7 @@ export const AIProfileFacetBuilder = {
       const docMap = new Map(docs.map(d => [d.id, d]));
       const totalNotes = new Set(chunks.map(c => c.noteId)).size;
 
-      const summaries = await db.getAll('aiSummaries');
+      const summaries = (await db.getAll('aiSummaries')).filter(s => visibleKeys.has(s.documentId));
       const summaryMap = new Map(summaries.map(s => [s.documentId, s]));
 
       const totalSpecs = specs.length;
@@ -365,6 +367,7 @@ export const AIProfileFacetBuilder = {
       const facets = await db.getAll('aiProfileFacets');
       if (facets.length === 0) return { updated: 0 };
 
+      if (!(await loadVisibleNoteKeys()).has(noteId)) return { updated: 0 };
       const emb = await AIEmbeddingService.get(noteId);
       if (!emb || !emb.vectors?.length) return { updated: 0 };
 

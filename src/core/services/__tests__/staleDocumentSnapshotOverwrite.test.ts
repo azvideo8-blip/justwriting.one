@@ -85,7 +85,10 @@ describe('A-4 (F-032 + F-020): stale document snapshot overwrite', () => {
     // The note must STILL be trashed, not resurrected by stale snapshot
     const finalDoc = await db.get('documents', DOC_ID);
     expect(finalDoc?.trashedAt).toBeDefined();
-    expect(finalDoc?.aiProcessed).toBe(true);
+    // AP2-3: разбор, завершившийся после корзины, не помечает заметку разобранной
+    // и не пишет её сводку — иначе scrubbed-заметка снова давала бы производные.
+    expect(finalDoc?.aiProcessed).toBeUndefined();
+    expect(await db.get('aiSummaries', DOC_ID)).toBeUndefined();
   });
 
   it('save a version during getUnsyncedSummary network call -> currentVersion is not rolled back', async () => {

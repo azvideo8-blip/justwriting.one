@@ -134,6 +134,10 @@ describe('X-5: индекс векторов не перечитывается �
     const warm = await AIEmbeddingService.getAll();
     expect(warm).toHaveLength(NOTE_COUNT);
 
+    await (await getLocalDb()).put('documents', {
+      id: 'doc_x5_new', guestId: USER, title: 'Новая', currentVersion: 1, totalWords: 3,
+      totalDuration: 0, sessionsCount: 1, firstSessionAt: Date.now(), lastSessionAt: Date.now(), tags: [],
+    } as never);
     await AIEmbeddingService.save({
       documentId: 'doc_x5_new', vectors: [VECTOR], chunkTexts: ['Новая заметка про бег'],
       model: 'test', dim: 3, contentHash: 'hash-new', processedAt: Date.now(),

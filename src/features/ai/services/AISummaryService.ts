@@ -9,6 +9,7 @@ import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 import { localDayKey, localMonthKey } from '../../../core/utils/dateUtils';
 import { canonicalDocumentId } from '../utils/canonicalDocumentId';
 import { canUploadDerivatives, LOCAL_ONLY_DOCUMENT } from './derivativeUpload';
+import { isExcludedFromAI } from '../utils/isExcludedFromAI';
 
 // summary стоит первым не случайно: это пересказ заметки своими словами —
 // «автор размышляет о разводе и долгах» — то есть её суть в сжатом виде. Он не
@@ -137,10 +138,14 @@ export const AISummaryService = {
 
   async save(summary: AIDocumentSummary): Promise<void> {
     const db = await getLocalDb();
-    // Populate documentUuid from the document for future reattach by uuid.
-    const doc = await db.get('documents', summary.documentId);
-    const withUuid = doc?.uuid ? { ...summary, documentUuid: doc.uuid } : summary;
-    await db.put('aiSummaries', withUuid);
+    const tx = db.transaction(['documents', 'aiSummaries', 'aiTimeline'], 'readwrite');
+    const doc = await tx.objectStore('documents').get(summary.documentId);
+    if (!doc || isExcludedFromAI(doc)) {
+      await tx.done;
+      return;
+    }
+    const withUuid = doc.uuid ? { ...summary, documentUuid: doc.uuid } : summary;
+    await tx.objectStore('aiSummaries').put(withUuid);
     if (doc?.lastSessionAt) {
       const d = new Date(doc.lastSessionAt);
       if (!isNaN(d.getTime())) {
@@ -167,7 +172,8 @@ export const AISummaryService = {
         if (summary.arousal !== undefined) {
           timelineEntry.arousal = summary.arousal;
         }
-        await db.put('aiTimeline', timelineEntry);
+        await tx.objectStore('aiTimeline').put(timelineEntry);
+        await tx.done;
         LocalStoreSyncService.scheduleStoreSync('aiTimeline', timelineEntry.documentId);
 
         // Очередь тем больше не наполняется: разбирал её фоновый проход, а он
@@ -189,6 +195,9 @@ export const AISummaryService = {
       }
     }
 
+    await tx.done;
+    const fresh = await db.get('documents', summary.documentId);
+    if (!fresh || isExcludedFromAI(fresh)) return;
     const uid = getCurrentUser()?.uid;
     // SEC-8: Background write-time upload respects cloudSyncEnabled switch
     if (uid && cloudSyncEnabled(uid)) {

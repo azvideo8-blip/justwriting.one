@@ -91,6 +91,12 @@ describe('SEC-8: cloudSyncEnabled switch governing all background uploads', () =
     vi.mocked(auth.getCurrentUser).mockReturnValue({ uid: 'user_123' } as unknown as auth.AppUser);
     const db = await getLocalDb();
     await db.put('aiPortrait', { id: 'p1', portrait: 'Портрет', updatedAt: Date.now(), generatedAtDelta: 0 });
+    // AP2-3: сводка пишется только для видимой заметки — у неё есть документ.
+    await db.put('documents', {
+      id: 'doc_1', uuid: 'uuid-doc_1', guestId: 'user_123', title: 'Синтетическая',
+      currentVersion: 1, totalWords: 10, totalDuration: 1, sessionsCount: 1,
+      firstSessionAt: 0, lastSessionAt: 0, tags: [],
+    });
 
     // 1. AISummaryService.save
     await AISummaryService.save({

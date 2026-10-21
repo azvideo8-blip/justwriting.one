@@ -16,6 +16,9 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
     `enc_enabled_${uid}`,
     // черновик письма (STORAGE_KEYS.DRAFT)
     `draft-${uid}`,
+    // AP2-4: надгробие удалённого черновика и недосланное облачное удаление
+    `draft-deleted-persistent-${uid}`,
+    `draft-delete-pending-${uid}`,
     // согласия и версии (PrivacyModal, core/ai/indexingConsent)
     `privacy_accepted_${uid}`,
     `ai_indexing_consent_${uid}`,

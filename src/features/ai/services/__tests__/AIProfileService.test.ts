@@ -39,6 +39,7 @@ vi.mock('../../../../core/storage/localDb', () => ({
     delete: mockDelete,
     getAll: mockGetAll,
     getAllFromIndex: mockGetAllFromIndex,
+    transaction: () => ({ store: { index: () => ({ openCursor: async () => null }) } }),
   }),
 }));
 
@@ -74,6 +75,17 @@ import { AIProfileService } from '../AIProfileService';
 import { AIService } from '../AIService';
 import { invalidatePortrait } from '../../../../core/ai/portraitEpoch';
 import { SYSTEM_TASK_PROMPTS, portraitPromptsVersion } from '../../../../shared/ai/systemTaskPrompts';
+
+function summaryReads(summaries: Array<{ documentId: string }>) {
+  mockGetAll.mockImplementation(async (store: string) => {
+    if (store === 'aiSummaries') return summaries;
+    if (store === 'documents') return summaries.map(s => ({
+      id: s.documentId, guestId: 'test-user-123', title: s.documentId, currentVersion: 1,
+      totalWords: 10, totalDuration: 1, sessionsCount: 1, firstSessionAt: 1, lastSessionAt: 1, tags: [],
+    }));
+    return [];
+  });
+}
 
 describe('AIProfileService', () => {
   beforeEach(() => {
@@ -226,12 +238,7 @@ describe('AIProfileService', () => {
     ];
 
     it('returns error if there are fewer than 3 summaries', async () => {
-      // getAll called for: aiProfileFacets, aiChatMemory, documents, aiSummaries
-      mockGetAll
-        .mockResolvedValueOnce([])  // aiProfileFacets
-        .mockResolvedValueOnce([])  // aiChatMemory
-        .mockResolvedValueOnce([])  // documents
-        .mockResolvedValueOnce([dummySummaries[0]]); // aiSummaries
+      summaryReads(dummySummaries.slice(0, 1));
       mockGetAllFromIndex.mockResolvedValue([]);
 
       const res = await AIProfileService.generate();
@@ -240,11 +247,7 @@ describe('AIProfileService', () => {
     });
 
     it('calls AI to generate portrait if there are 3 or more summaries', async () => {
-      mockGetAll
-        .mockResolvedValueOnce([])  // aiProfileFacets
-        .mockResolvedValueOnce([])  // aiChatMemory
-        .mockResolvedValueOnce([])  // documents
-        .mockResolvedValueOnce(dummySummaries); // aiSummaries
+      summaryReads(dummySummaries);
       mockGetAllFromIndex.mockResolvedValue([]);
       vi.mocked(AIService.chat).mockResolvedValue({
         ok: true,
@@ -275,10 +278,7 @@ describe('AIProfileService', () => {
       localStorage.setItem('ai_portrait_sections_test-user-123', JSON.stringify({
         themes: old, emotional_patterns: old, strengths: old, growth: old, communication_prefs: old,
       }));
-      mockGetAll
-        .mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([])
-        .mockResolvedValueOnce(dummySummaries) // generate: aiSummaries
-        .mockResolvedValue(dummySummaries);    // savePortrait: aiSummaries
+      summaryReads(dummySummaries);
       mockGetAllFromIndex.mockResolvedValue([]);
       vi.mocked(AIService.chat).mockResolvedValue({ ok: false, error: 'provider down' } as never);
 
@@ -290,10 +290,7 @@ describe('AIProfileService', () => {
     });
 
     it('все разделы свежие — портрет сохраняется с текущей версией', async () => {
-      mockGetAll
-        .mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([])
-        .mockResolvedValueOnce(dummySummaries)
-        .mockResolvedValue(dummySummaries);
+      summaryReads(dummySummaries);
       mockGetAllFromIndex.mockResolvedValue([]);
       vi.mocked(AIService.chat).mockResolvedValue({ ok: true, text: 'Свежий текст раздела.' });
 
@@ -305,11 +302,7 @@ describe('AIProfileService', () => {
     // R3-009: удаление заметки посреди прохода сносит портрет; проход, начатый
     // до удаления, не должен дописать его обратно (и увезти в облако).
     it('does not save a portrait when a note was deleted during generation', async () => {
-      mockGetAll
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce(dummySummaries);
+      summaryReads(dummySummaries);
       mockGetAllFromIndex.mockResolvedValue([]);
       vi.mocked(AIService.chat).mockImplementation(async () => {
         invalidatePortrait();
@@ -327,11 +320,7 @@ describe('AIProfileService', () => {
     // four of five places and missed in the fifth is exactly the class of bug
     // this repo keeps finding in review.
     it('sends the character-not-events abstraction rule in every one of the five section prompts', async () => {
-      mockGetAll
-        .mockResolvedValueOnce([])  // aiProfileFacets
-        .mockResolvedValueOnce([])  // aiChatMemory
-        .mockResolvedValueOnce([])  // documents
-        .mockResolvedValueOnce(dummySummaries); // aiSummaries
+      summaryReads(dummySummaries);
       mockGetAllFromIndex.mockResolvedValue([]);
       vi.mocked(AIService.chat).mockResolvedValue({ ok: true, text: 'x' });
 
@@ -346,11 +335,7 @@ describe('AIProfileService', () => {
     });
 
     it('changing a section prompt invalidates its cache even when the underlying input is unchanged', async () => {
-      mockGetAll
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce(dummySummaries);
+      summaryReads(dummySummaries);
       mockGetAllFromIndex.mockResolvedValue([]);
       vi.mocked(AIService.chat).mockResolvedValue({ ok: true, text: 'fresh text' });
 
@@ -392,11 +377,7 @@ describe('AIProfileService', () => {
     ];
 
     const stub = () => {
-      mockGetAll
-        .mockResolvedValueOnce([])          // aiProfileFacets
-        .mockResolvedValueOnce([])          // aiChatMemory
-        .mockResolvedValueOnce([])          // documents
-        .mockResolvedValueOnce(pxSummaries); // aiSummaries
+      summaryReads(pxSummaries);
       mockGetAllFromIndex.mockResolvedValue([]);
     };
     type ChatArg = { customSystemPrompt?: string; messages: Array<{ content: string }> };

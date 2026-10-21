@@ -9,6 +9,8 @@ import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncServ
 import type { CallAiOptions } from '../../../core/ai/callAi';
 import { localDayKey } from '../../../core/utils/dateUtils';
 import { reportError } from '../../../shared/errors/reportError';
+import { usableMemories } from './AIChatMemoryService';
+import { loadVisibleNoteKeys } from '../utils/retrieval/docSnapshot';
 
 
 /**
@@ -225,9 +227,11 @@ export const AIConsolidationService = {
         /* ignore IDB embedding read errors */
       }
 
+      const visibleKeys = await loadVisibleNoteKeys();
+      const docs = await db.getAll('documents');
       // 1. Chat memory units
       const chatMemories = await db.getAll('aiChatMemory');
-      for (const mem of chatMemories as AIChatMemory[]) {
+      for (const mem of usableMemories(chatMemories as AIChatMemory[], docs)) {
         if (consolidatedUnitIds.has(mem.id)) continue;
         const ts = mem.updatedAt ?? now;
         const date = localDayKey(new Date(ts));
@@ -243,7 +247,7 @@ export const AIConsolidationService = {
       // 2. Timeline facts
       const timelineDocs = await db.getAll('aiTimeline');
       for (const t of timelineDocs as Array<{ documentId: string; date?: string; facts?: string[] }>) {
-        if (!t.facts) continue;
+        if (!t.facts || !visibleKeys.has(t.documentId)) continue;
         const date = t.date ?? localDayKey();
         const vec = embeddingsMap.get(t.documentId);
         for (let i = 0; i < t.facts.length; i++) {
@@ -264,7 +268,7 @@ export const AIConsolidationService = {
       // 3. AI Summaries
       const summaries = await db.getAll('aiSummaries');
       for (const s of summaries as AIDocumentSummary[]) {
-        if (!s.summary) continue;
+        if (!s.summary || !visibleKeys.has(s.documentId)) continue;
         const sumId = `summary-${s.documentId}`;
         if (consolidatedUnitIds.has(sumId)) continue;
         // The stored field is processedAt (when we summarised it); the previous
@@ -373,6 +377,15 @@ export const AIConsolidationService = {
     return candidates.sort((a, b) => b.salience - a.salience);
   },
 
+  /** Все улики кластера всё ещё видимы ИИ (заметки и источники памяти). */
+  async unitsStillVisible(units: readonly MemoryUnit[]): Promise<boolean> {
+    const db = await getLocalDb();
+    const visibleKeys = await loadVisibleNoteKeys();
+    const docs = await db.getAll('documents');
+    const usableIds = new Set(usableMemories(await db.getAll('aiChatMemory') as AIChatMemory[], docs).map(m => m.id));
+    return units.every(u => (u.type === 'chat_memory' ? usableIds.has(u.id) : !!u.docId && visibleKeys.has(u.docId)));
+  },
+
   /**
    * Evaluates a candidate belief against evidence using AI Judge before publishing.
    * Enforces fail-open behavior: on failure, 1 rewrite attempt is made. If re-judge fails,
@@ -390,6 +403,10 @@ export const AIConsolidationService = {
 
     let llmCalls = 0;
     let rewriteAttempted = false;
+    // Ревью AP2: до четырёх вызовов ИИ подряд — заметку могут скрыть между ними.
+    // Перед каждым следующим вызовом и перед записью видимость читается заново;
+    // не прочиталось = скрыто.
+    const hiddenNow = async () => !(await this.unitsStillVisible(cluster.units).catch(() => false));
 
     // 1. Initial LLM Summarization into Belief Candidate
     const initialRes = await AIService.summarizeBeliefCluster({
@@ -409,6 +426,7 @@ export const AIConsolidationService = {
     let candidateBeliefText = initialRes.belief;
 
     // 2. Pre-publish AI Judge Evaluation
+    if (await hiddenNow()) return { belief: null, llmCalls };
     const initialJudgeRes = await AIService.judgeBeliefCandidate({
       belief: candidateBeliefText,
       evidence: evidenceList,
@@ -424,6 +442,7 @@ export const AIConsolidationService = {
       finalReason = initialJudgeRes.reason;
     } else if (initialJudgeRes.ok) {
       // Attempt 1 Rewrite with corrective hint
+      if (await hiddenNow()) return { belief: null, llmCalls };
       rewriteAttempted = true;
       const correctiveHint = initialJudgeRes.correctiveHint ?? initialJudgeRes.reason ?? 'Учти все условия и не делай ложных обобщений.';
       rewriteRes = await AIService.summarizeBeliefCluster({
@@ -435,6 +454,7 @@ export const AIConsolidationService = {
       if (rewriteRes.ok && rewriteRes.belief) {
         llmCalls++;
         candidateBeliefText = rewriteRes.belief;
+        if (await hiddenNow()) return { belief: null, llmCalls };
         const recheckRes = await AIService.judgeBeliefCandidate({
           belief: candidateBeliefText,
           evidence: evidenceList,
@@ -454,6 +474,7 @@ export const AIConsolidationService = {
       }
     }
 
+    if (await hiddenNow()) return { belief: null, llmCalls };
     // 3. Fail-Open Enforcement
     if (verdict === 'REJECTED') {
       // Do NOT publish distortion to aiBeliefs. Log to capped rejection store instead.
@@ -532,6 +553,18 @@ export const AIConsolidationService = {
         if (!AIBackgroundBudget.canSpend(2)) {
           break;
         }
+
+        // Приёмка 0.10.6: видимость читается заново перед КАЖДЫМ кластером — заметку
+        // могли скрыть посреди прохода (несколько вызовов ИИ подряд). Кластер со
+        // ставшей скрытой уликой не уходит; сбой чтения — проход останавливается.
+        let clusterVisible = false;
+        try {
+          clusterVisible = await this.unitsStillVisible(cluster.units);
+        } catch (e) {
+          reportError(e, { action: 'consolidation_visibility_recheck' });
+          break;
+        }
+        if (!clusterVisible) continue;
 
         const res = await this.consolidateAndJudgeCluster(cluster, opts);
         if (res.serviceFailed === true) {

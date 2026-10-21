@@ -36,8 +36,12 @@ describe('AG-PROF-1: Portrait Integrity & Service Guards', () => {
   it('Requirement 1: AIProfileService.generate does NOT save degraded placeholder portrait on partial failure with empty cache', async () => {
     const db = await getLocalDb();
 
-    // 3 summaries so inputs exist
+    // 3 summaries so inputs exist; AP2-3: сводка считается, только если её заметка видима.
     for (let i = 1; i <= 3; i++) {
+      await db.put('documents', {
+        id: `doc_${i}`, guestId: 'guest', title: `Заметка ${i}`, currentVersion: 1,
+        totalWords: 10, totalDuration: 1, sessionsCount: 1, firstSessionAt: 1, lastSessionAt: 1, tags: [],
+      });
       await db.put('aiSummaries', {
         documentId: `doc_${i}`,
         summary: `Тестовое саммари ${i}`,
@@ -186,6 +190,7 @@ describe('AG-PROF-1: Portrait Integrity & Service Guards', () => {
       dialogueId: 'd1',
       kind: 'fact',
       text: 'Отклонённая мысль',
+      sourceDocumentIds: [],
       updatedAt: Date.now(),
     } as never);
 
@@ -194,6 +199,7 @@ describe('AG-PROF-1: Portrait Integrity & Service Guards', () => {
       dialogueId: 'd1',
       kind: 'fact',
       text: 'Свежая мысль',
+      sourceDocumentIds: [],
       updatedAt: Date.now(),
     } as never);
 

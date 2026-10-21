@@ -10,6 +10,7 @@ import { CloudSyncService } from '../../../core/services/CloudSyncService';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { analyzeWritingStyle } from '../utils/styleAnalyzer';
 import { isExcludedFromAI } from '../utils/isExcludedFromAI';
+import { loadVisibleNoteKeys } from '../utils/retrieval/docSnapshot';
 import { usableMemories } from './AIChatMemoryService';
 import { AIBackgroundBudget } from './AIBackgroundBudget';
 import { reportError } from '../../../shared/errors/reportError';
@@ -223,14 +224,8 @@ export const AIProfileService = {
       // могла остаться от прежней версии или приехать из облака; summary такой
       // грани дословно пересказывает скрытое, пока её не пересоберут.
       const rawFacets = await db.getAll('aiProfileFacets');
-      const hiddenIds = new Set<string>();
-      for (const id of new Set(rawFacets.flatMap(f => f.noteIds))) {
-        try {
-          const doc = await db.get('documents', id);
-          if (doc && isExcludedFromAI(doc)) hiddenIds.add(id);
-        } catch { /* документ не прочитан — не считаем его скрытым */ }
-      }
-      const facets = rawFacets.filter(f => f.noteIds.every(id => !hiddenIds.has(id)));
+      const visibleKeys = await loadVisibleNoteKeys();
+      const facets = rawFacets.filter(f => f.noteIds.every(id => visibleKeys.has(id)));
 
       // TICKET-053: Compile communication preferences from chat memory
       // Приёмка ai-privacy: портрет — тот же фильтр памяти, что и разговор: источник
@@ -254,7 +249,7 @@ export const AIProfileService = {
       const styleMetrics = analyzeWritingStyle(styleContents);
       const styleBlock = `\n\n[Метрики стиля письма: средняя длина слова ${styleMetrics.avgWordLength.toFixed(1)} симв, средняя длина предложения ${styleMetrics.avgSentenceLength.toFixed(1)} слов, восклицания ${styleMetrics.exclamationRate.toFixed(2)} на предложение, вопросы ${styleMetrics.questionRate.toFixed(2)} на предложение]`;
 
-      const allSummaries = await db.getAll('aiSummaries');
+      const allSummaries = (await db.getAll('aiSummaries')).filter(s => visibleKeys.has(s.documentId));
       let baseInput = '';
       if (facets.length >= 3) {
         baseInput = facets

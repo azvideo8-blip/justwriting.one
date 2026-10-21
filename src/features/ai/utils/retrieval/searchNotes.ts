@@ -1,7 +1,8 @@
 import { AIEmbeddingService } from '../../services/AIEmbeddingService';
 import { AIService } from '../../services/AIService';
 import { getLocalDb } from '../../../../core/storage/localDb';
-import { loadDocumentSnapshot, loadSummarySnapshot } from './docSnapshot';
+import { loadDocumentSnapshot, loadSummarySnapshot, loadVisibleNoteKeys } from './docSnapshot';
+import { hiddenNoteIdsFromDocs } from '../hiddenNoteIds';
 import { LocalVersionService } from '../../../../core/services/LocalVersionService';
 import { topKMultiWithChunkIndex } from '../vectorSearch';
 import { reportError } from '../../../../shared/errors/reportError';
@@ -203,8 +204,10 @@ export async function searchNotes(
   // разбор на каждого кандидата (в замерах аудита 40 + 32 обращения за ход).
   const docsSnap = await loadDocumentSnapshot();
   const summariesSnap = await loadSummarySnapshot();
+  const hiddenIds = hiddenNoteIdsFromDocs([...docsSnap.values()]);
   const cards: { documentId: string; card: string }[] = [];
   for (const id of filteredTopIds) {
+    if (hiddenIds.has(id)) continue;
     let card = '(саммари недоступно)';
     try {
       const doc = docsSnap.get(id);
@@ -220,13 +223,16 @@ export async function searchNotes(
     cards.push({ documentId: id, card });
   }
 
+  const visibleKeys = await loadVisibleNoteKeys();
+  const visibleCards = cards.filter(c => visibleKeys.has(c.documentId));
+  if (visibleCards.length === 0) return [];
   // Rerank via the dedicated rerankNotes endpoint
-  const fallbackIds = filteredTopIds.slice(0, maxResults);
+  const fallbackIds = visibleCards.slice(0, maxResults).map(c => c.documentId);
   setAIStage('rank');
   const rerankStart = performance.now();
   const rr = await AIService.rerank({
     query,
-    candidates: cards,
+    candidates: visibleCards,
     maxResults,
   });
   const rerankLatencyMs = Math.round(performance.now() - rerankStart);
@@ -246,7 +252,7 @@ export async function searchNotes(
   opts?.onRerankMeta?.({
     bypassed: false,
     rerankLatencyMs,
-    cardCount: cards.length,
+    cardCount: visibleCards.length,
     rerankFailed: !rerankOk,
   });
 

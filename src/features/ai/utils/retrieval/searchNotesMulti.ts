@@ -1,7 +1,8 @@
 import { AIEmbeddingService } from '../../services/AIEmbeddingService';
 import { AIService } from '../../services/AIService';
 import { getLocalDb } from '../../../../core/storage/localDb';
-import { loadDocumentSnapshot, loadSummarySnapshot } from './docSnapshot';
+import { loadDocumentSnapshot, loadSummarySnapshot, loadVisibleNoteKeys } from './docSnapshot';
+import { hiddenNoteIdsFromDocs } from '../hiddenNoteIds';
 import { LocalVersionService } from '../../../../core/services/LocalVersionService';
 import { topKMultiWithChunkIndex } from '../vectorSearch';
 import { reportError } from '../../../../shared/errors/reportError';
@@ -235,8 +236,10 @@ export async function searchNotesMulti(
   // разбор на каждого кандидата (в замерах аудита 40 + 32 обращения за ход).
   const docsSnap = await loadDocumentSnapshot();
   const summariesSnap = await loadSummarySnapshot();
+  const hiddenIds = hiddenNoteIdsFromDocs([...docsSnap.values()]);
   const cards: { documentId: string; card: string }[] = [];
   for (const id of filteredTopIds) {
+    if (hiddenIds.has(id)) continue;
     let card = '(саммари недоступно)';
     try {
       const doc = docsSnap.get(id);
@@ -270,12 +273,15 @@ export async function searchNotesMulti(
     cards.push({ documentId: id, card });
   }
 
+  const visibleKeys = await loadVisibleNoteKeys();
+  const visibleCards = cards.filter(c => visibleKeys.has(c.documentId));
+  if (visibleCards.length === 0) return { notes: [], failed: false, degraded: semanticUnavailable };
   // TICKET-044: Single rerank call using original query
-  const fallbackIds = filteredTopIds.slice(0, maxResults);
+  const fallbackIds = visibleCards.slice(0, maxResults).map(c => c.documentId);
   setAIStage('rank');
   const rr = await AIService.rerank({
     query: queries[0]!,
-    candidates: cards,
+    candidates: visibleCards,
     maxResults,
   });
 

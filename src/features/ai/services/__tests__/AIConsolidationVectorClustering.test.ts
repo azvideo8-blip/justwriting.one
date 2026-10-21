@@ -16,6 +16,14 @@ describe('AG-MIND-W3-clustering — Vector-Based Belief Clustering', () => {
       if (db.objectStoreNames.contains('aiEmbeddings')) await db.clear('aiEmbeddings');
       if (db.objectStoreNames.contains('aiChatMemory')) await db.clear('aiChatMemory');
       if (db.objectStoreNames.contains('aiSummaries')) await db.clear('aiSummaries');
+      await db.clear('documents');
+      for (const id of ['doc-100', 'doc-date']) {
+        await db.put('documents', {
+          id, guestId: 'guest-test', title: id, currentVersion: 1,
+          totalWords: 10, totalDuration: 1, sessionsCount: 1,
+          firstSessionAt: 1, lastSessionAt: 1, tags: [],
+        });
+      }
     } catch {
       /* ignore IDB reset */
     }

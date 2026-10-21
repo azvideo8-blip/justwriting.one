@@ -91,7 +91,7 @@ export const AITimelineService = {
 
   async getAffectTrend(nDays = 30): Promise<{ date: string; valence: number; arousal: number }[]> {
     const db = await getLocalDb();
-    const entries = await db.getAll('aiTimeline');
+    const entries = await dropInvisible(await db.getAll('aiTimeline'));
     return entries
       .filter(e => typeof e.valence === 'number' && typeof e.arousal === 'number')
       .sort((a, b) => b.date.localeCompare(a.date))
@@ -119,7 +119,7 @@ export const AITimelineService = {
 
   async getMoodTrend(months = 3): Promise<{ month: string; dominantTone: string; toneDistribution: Record<string, number> }[]> {
     const db = await getLocalDb();
-    const entries = await db.getAll('aiTimeline');
+    const entries = await dropInvisible(await db.getAll('aiTimeline'));
 
     // Group by month
     const monthlyGroups: Record<string, AITimelineEntry[]> = {};

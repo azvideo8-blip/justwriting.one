@@ -104,9 +104,13 @@ async function latestContent(documentId: string): Promise<string | null> {
 async function purgeAnalysisDerivatives(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
   const idSet = new Set(ids);
-  const mine = (unitId: string) => ids.some(id => unitId === `summary-${id}` || unitId.startsWith(`timeline-${id}-`));
   const db = await getLocalDb();
   try {
+    const memoryIds = new Set((await db.getAll('aiChatMemory'))
+      .filter(m => m.sourceDocumentIds?.some(id => idSet.has(id)))
+      .map(m => m.id));
+    const mine = (unitId: string) => memoryIds.has(unitId)
+      || ids.some(id => unitId === `summary-${id}` || unitId.startsWith(`timeline-${id}-`));
     for (const id of ids) {
       if (await db.get('aiTimeline', id)) {
         await db.delete('aiTimeline', id);
@@ -139,15 +143,10 @@ async function purgeAnalysisDerivatives(ids: string[]): Promise<void> {
     }
     for (const raw of await db.getAll('aiBeliefs')) {
       const b = raw as { id: string; evidence?: Array<{ id: string }>; unitIds?: string[] };
-      const evidence = (b.evidence ?? []).filter(e => !mine(e.id));
-      if (evidence.length === (b.evidence ?? []).length) continue;
-      if (evidence.length === 0) {
-        await db.delete('aiBeliefs', b.id);
-        LocalStoreSyncService.scheduleStoreDelete('aiBeliefs', b.id);
-      } else {
-        await db.put('aiBeliefs', { ...raw, evidence, unitIds: (b.unitIds ?? []).filter(u => !mine(u)) });
-        LocalStoreSyncService.scheduleStoreSync('aiBeliefs', b.id);
-      }
+      if (!(b.evidence ?? []).some(e => mine(e.id)) && !(b.unitIds ?? []).some(mine)) continue;
+      // Сам текст убеждения тоже пересказывает удалённую улику.
+      await db.delete('aiBeliefs', b.id);
+      LocalStoreSyncService.scheduleStoreDelete('aiBeliefs', b.id);
     }
   } catch (e) {
     reportError(e, { action: 'noteAnalysis_purgeDerivatives' });
@@ -191,13 +190,17 @@ export const NoteAnalysisService = {
     if (res.summary.arousal !== undefined) summary.arousal = res.summary.arousal;
     if (res.summary.echo !== undefined) summary.echo = res.summary.echo;
     if (res.summary.eventDate !== undefined) summary.eventDate = res.summary.eventDate;
+    const beforeSave = await db.get('documents', documentId);
+    if (!beforeSave || isExcludedFromAI(beforeSave)) return { ok: false, error: 'EXCLUDED' };
     await AISummaryService.save(summary);
 
     const tx = db.transaction('documents', 'readwrite');
     const fresh = await tx.store.get(documentId);
-    if (fresh) {
-      await tx.store.put({ ...fresh, aiProcessed: true });
+    if (!fresh || isExcludedFromAI(fresh)) {
+      await tx.done;
+      return { ok: false, error: 'EXCLUDED' };
     }
+    await tx.store.put({ ...fresh, aiProcessed: true });
     await tx.done;
 
     // Темы заметки складываются в очередь реестра тем. Разбирает очередь

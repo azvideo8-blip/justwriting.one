@@ -5,6 +5,7 @@ import { getCurrentUser } from '../../../../core/auth';
 import { CACHE_TTL_MS } from './types';
 import { searchCache } from './resultCache';
 import { isExcludedFromAI } from '../isExcludedFromAI';
+import { loadVisibleNoteKeys } from './docSnapshot';
 
 interface MiniSearchCacheEntry {
   instance: MiniSearch;
@@ -27,26 +28,33 @@ export function invalidateMiniSearchCache(ownerId?: string): void {
 // rebuild остаётся для импорта, восстановления и выхода (invalidate выше).
 export async function refreshMiniSearchDoc(documentId: string, ownerId?: string): Promise<void> {
   const effectiveOwner = ownerId ?? getCurrentUser()?.uid ?? 'guest';
+  // AP2-2: сборка, начатая до этого изменения, увидит новое поколение и не
+  // ляжет в кэш (getMiniSearch ниже).
+  corpusVersion++;
+  searchCache.length = 0;
   const cached = miniSearchInstances.get(effectiveOwner);
   if (!cached) return;
   const ms = cached.instance;
   // Кэш ответов на запросы жил пять минут и раньше сбрасывался вместе с
   // индексом. Точечное обновление без этого оставляло правку невидимой для
   // повторного запроса: индекс свежий, а отдаётся старый ответ.
-  searchCache.length = 0;
   try {
     if (ms.has(documentId)) ms.discard(documentId);
-    corpusVersion++;
     const db = await getLocalDb(ownerId);
     const doc = await db.get('documents', documentId);
     if (!doc || isExcludedFromAI(doc)) return;
     const content = await LocalVersionService.getLatestContent(documentId);
     if (!content) return;
-    await ms.addAllAsync([{
+    // Заметку могли скрыть, пока читался текст. Общий счётчик здесь не годится:
+    // правка соседней заметки тоже его двигает, и эта выпадала из индекса.
+    const fresh = await db.get('documents', documentId);
+    if (!fresh || isExcludedFromAI(fresh)) return;
+    if (ms.has(documentId)) ms.discard(documentId);
+    ms.add({
       id: documentId,
       title: doc.title ?? '',
       content: content.slice(0, 10_000),
-    }]);
+    });
   } catch {
     // Не смогли обновить точечно — безопасный путь: пересобрать целиком.
     invalidateMiniSearchCache(effectiveOwner);
@@ -89,6 +97,7 @@ export async function getMiniSearch(ownerId?: string): Promise<MiniSearch> {
   const cached = miniSearchInstances.get(effectiveOwner);
   if (cached && Date.now() - cached.builtAt < CACHE_TTL_MS) return cached.instance;
 
+  const generation = corpusVersion;
   const db = await getLocalDb(effectiveOwner);
   const docs = await db.getAll('documents');
 
@@ -113,6 +122,9 @@ export async function getMiniSearch(ownerId?: string): Promise<MiniSearch> {
     },
   });
   await miniSearchInstance.addAllAsync(entries);
+  // Пока собирали, заметку скрыли или правили: отдаём как есть (keywordSearch
+  // фильтрует по видимости), но не кэшируем — следующий запрос соберёт заново.
+  if (generation !== corpusVersion) return miniSearchInstance;
   miniSearchInstances.set(effectiveOwner, { instance: miniSearchInstance, builtAt: Date.now() });
   return miniSearchInstance;
 }
@@ -121,7 +133,8 @@ export async function getMiniSearch(ownerId?: string): Promise<MiniSearch> {
  *  AUD-22: этап размечен — сюда попадает и первая сборка индекса. */
 export async function keywordSearch(query: string, topN: number, ownerId?: string): Promise<{ id: string; score: number }[]> {
   const ms = await timed('index_build_or_get', () => getMiniSearch(ownerId));
-  const results = ms.search(query);
+  const visibleKeys = await loadVisibleNoteKeys();
+  const results = ms.search(query).filter(r => visibleKeys.has(r.id as string));
   return results.slice(0, topN).map(r => ({ id: r.id as string, score: r.score }));
 }
 

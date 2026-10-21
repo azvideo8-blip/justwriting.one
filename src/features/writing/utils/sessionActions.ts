@@ -38,8 +38,12 @@ export async function cleanupDraftsAfterSave(
   } else {
     // N-54: deleteDraft не бросает — результат читается, а не ловится.
     WritingDraftService.bumpDraftGeneration(userId);
-    if (!(await WritingDraftService.deleteDraft(userId))) {
+    const deleted = await WritingDraftService.deleteDraft(userId);
+    if (!deleted.localOk) {
       logger.warn('sessionActions', 'Draft not deleted after save — it may reappear as an unsaved draft');
+    }
+    if (!deleted.cloudOk) {
+      logger.warn('sessionActions', 'Cloud draft not deleted — retry is queued');
     }
     if (docIdToSync) {
       try {

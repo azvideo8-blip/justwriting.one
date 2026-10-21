@@ -17,6 +17,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.10.6',
+    date: '2026-10-21',
+    items: [
+      { category: 'fix', ru: 'Скрытая от ИИ заметка не уходит к нему и тогда, когда её скрыли посреди работы ИИ: пока он разбирает заметки, обновляет профиль, память или ищет по архиву. Её текст не отправляется, а результат не сохраняется.', en: 'A note hidden from the AI no longer reaches it even when hidden while the AI is working: analysing notes, refreshing the profile or memory, or searching the archive. Its text is not sent and the result is not saved.' },
+      { category: 'fix', ru: 'Выводы ИИ о тебе не строятся из скрытых заметок и из старой памяти, которую ты ещё не просмотрел; динамика настроения в подсказках считается только по видимым заметкам.', en: 'The AI\'s conclusions about you are no longer built from hidden notes or from old memory you have not reviewed yet; the mood trend in suggestions counts only visible notes.' },
+      { category: 'fix', ru: 'Удалённый черновик больше не возвращается после закрытия вкладки, даже если облако не сразу приняло удаление.', en: 'A deleted draft no longer comes back after closing the tab, even if the cloud did not accept the deletion right away.' },
+    ],
+  },
+  {
     version: '0.10.5',
     date: '2026-10-20',
     items: [

@@ -5,6 +5,8 @@ import { writeFacetStore } from '../../../core/services/facetLock';
 import type { FacetBuildProgress } from './AIProfileFacetBuilder';
 import { AIBackgroundBudget } from './AIBackgroundBudget';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
+import { loadVisibleNoteKeys } from '../utils/retrieval/docSnapshot';
+import { reportError } from '../../../shared/errors/reportError';
 
 
 import type { CallAiOptions } from '../../../core/ai/callAi';
@@ -21,12 +23,22 @@ export const AIProfileFacetSummarizer = {
       const dirty = facets.filter(f => f.dirty);
       if (dirty.length === 0) return { count: 0 };
 
-      const allEmb = await AIEmbeddingService.getAll();
+      let visibleKeys = await loadVisibleNoteKeys();
+      let allEmb = (await AIEmbeddingService.getAll()).filter(e => visibleKeys.has(e.documentId));
       let done = 0;
       let summarizedCount = 0;
 
       for (const f of dirty) {
         if (!AIBackgroundBudget.canSpend(1)) break;
+        // Приёмка 0.10.6: видимость — заново перед каждой гранью: заметку могли
+        // скрыть посреди прохода. Сбой чтения — проход останавливается.
+        try {
+          visibleKeys = await loadVisibleNoteKeys();
+        } catch (e) {
+          reportError(e, { action: 'facet_summarize_visibility_recheck' });
+          break;
+        }
+        allEmb = allEmb.filter(e => visibleKeys.has(e.documentId));
         onProgress?.({ done: ++done, total: dirty.length });
 
         const texts: string[] = [];
@@ -43,7 +55,7 @@ export const AIProfileFacetSummarizer = {
         // with a summary that no longer reflects its notes.
         let resummarized = excerpts.length === 0;
         if (excerpts.length > 0) {
-          const focus = f.label;
+          const focus = f.noteIds.every(id => visibleKeys.has(id)) ? f.label : undefined;
           let res = await AIService.summarizeFacet({ notes: excerpts, focus }, ...(opts ? [opts] : []));
           if (!res.ok || (!res.label && !res.summary)) {
             await new Promise(r => setTimeout(r, 300));
@@ -76,16 +88,27 @@ export const AIProfileFacetSummarizer = {
       const pending = facets.filter(f => f.pendingSummary === true);
       if (pending.length === 0) return { done: 0 };
 
-      const allEmb = await AIEmbeddingService.getAll();
+      let visibleKeys = await loadVisibleNoteKeys();
+      let allEmb = (await AIEmbeddingService.getAll()).filter(e => visibleKeys.has(e.documentId));
       let done = 0;
       let summarizedCount = 0;
 
       for (const f of pending) {
         if (!AIBackgroundBudget.canSpend(1)) break;
+        // Приёмка 0.10.6: видимость — заново перед каждой гранью: заметку могли
+        // скрыть посреди прохода. Сбой чтения — проход останавливается.
+        try {
+          visibleKeys = await loadVisibleNoteKeys();
+        } catch (e) {
+          reportError(e, { action: 'facet_summarize_visibility_recheck' });
+          break;
+        }
+        allEmb = allEmb.filter(e => visibleKeys.has(e.documentId));
         onProgress?.({ done: ++done, total: pending.length });
 
         let excerpts: { title: string; excerpt: string }[] = [];
-        if (f._excerptSeed && f._excerptSeed.length > 0) {
+        const sourcesVisible = f.noteIds.length > 0 && f.noteIds.every(id => visibleKeys.has(id));
+        if (sourcesVisible && f._excerptSeed && f._excerptSeed.length > 0) {
           excerpts = f._excerptSeed.map(t => ({ title: '(фрагмент)', excerpt: t }));
         } else {
           const texts: string[] = [];
@@ -100,7 +123,7 @@ export const AIProfileFacetSummarizer = {
 
         let summarized = false;
         if (excerpts.length > 0) {
-          const focus = f.fixedLabel ? f.label : undefined;
+          const focus = sourcesVisible && f.fixedLabel ? f.label : undefined;
           let res = await AIService.summarizeFacet({ notes: excerpts, focus }, ...(opts ? [opts] : []));
           if (!res.ok || (!res.label && !res.summary)) {
             await new Promise(r => setTimeout(r, 300));

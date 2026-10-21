@@ -6,6 +6,7 @@ import { AIConsolidationService } from '../AIConsolidationService';
 import { MemoryFlagsService } from '../memoryFlags';
 import { InjectionJournal } from '../injectionJournal';
 import { extractFirstSeenDates } from '../../utils/dateGuard';
+import { getLocalDb } from '../../../../core/storage/localDb';
 
 vi.mock('../AILexiconService', () => ({
   AILexiconService: {
@@ -26,7 +27,12 @@ vi.mock('../AIConsolidationService', () => ({
 }));
 
 describe('AG-MIND-W2 Shadow & Cutover Test Suite', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    const db = await getLocalDb();
+    await db.put('documents', {
+      id: 'doc-shadow', guestId: 'guest-test', title: 'Синтетическая заметка', currentVersion: 1,
+      totalWords: 10, totalDuration: 1, sessionsCount: 1, firstSessionAt: 1, lastSessionAt: 1, tags: [],
+    });
     vi.resetAllMocks();
     vi.mocked(AIConsolidationService.getAllBeliefs).mockResolvedValue([]);
     MemoryFlagsService.resetFlags();
@@ -243,7 +249,7 @@ describe('AG-MIND-W2 Shadow & Cutover Test Suite', () => {
     const highSalienceBeliefs = Array.from({ length: 5 }, (_, i) => ({
       id: `high-belief-${i}`,
       belief: `Убеждение сверхвысокой важности номер ${i}`,
-      evidence: [],
+      evidence: [{ id: 'summary-doc-shadow', date: '2026-07-01' }],
       firstSeenAt: '2026-07-01',
       clusterSize: 100, // Very high salience compared to portrait count 5
       createdAt: now,
@@ -296,7 +302,7 @@ describe('AG-MIND-W2 Shadow & Cutover Test Suite', () => {
     const highSalienceBeliefs = Array.from({ length: 5 }, (_, i) => ({
       id: `shadow-belief-${i}`,
       belief: `Убеждение для проверки теневого скоринга ${i}`,
-      evidence: [],
+      evidence: [{ id: 'summary-doc-shadow', date: '2026-07-01' }],
       firstSeenAt: '2026-07-01',
       clusterSize: 100,
       createdAt: now,

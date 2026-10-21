@@ -18,10 +18,14 @@ export const AICommitmentService = {
       const openCommitments = existing.filter(c => c.status === 'open');
       const uid = getCurrentUser()?.uid;
       const canEmbed = uid ? hasIndexingConsent(uid) : false;
+      // Ревью AP2: заметку могут скрыть посреди цикла — каждый вызов провайдера
+      // и каждая запись идут только после свежей проверки.
+      const stillVisible = async () => !isExcludedFromAI(await db.get('documents', documentId));
 
       for (const text of commitments) {
         if (!text.trim()) continue;
         const trimmed = text.trim();
+        if (!(await stillVisible())) return;
 
         // Get embedding for duplicate checking only if indexing consent is granted
         const embResult = canEmbed ? await AIService.embed({ content: trimmed }) : null;
@@ -45,6 +49,7 @@ export const AICommitmentService = {
         }
 
         if (!isDuplicate) {
+          if (!(await stillVisible())) return;
           const item: {
             id: string;
             text: string;

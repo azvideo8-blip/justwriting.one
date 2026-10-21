@@ -6,6 +6,7 @@ import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
 import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 import { canonicalDocumentId } from '../utils/canonicalDocumentId';
+import { isExcludedFromAI } from '../utils/isExcludedFromAI';
 import { canUploadDerivatives, LOCAL_ONLY_DOCUMENT } from './derivativeUpload';
 import { readEmbeddingIndex, getCachedEmbedding, invalidateEmbeddingIndexCache } from '../../../core/services/embeddingIndexCache';
 
@@ -248,14 +249,21 @@ export const AIEmbeddingService = {
 
   async save(emb: AIDocumentEmbedding): Promise<void> {
     const db = await getLocalDb();
+    // Ревью AP2: проверка видимости и запись — одной транзакцией. Заметку,
+    // скрытую, пока шёл вызов провайдера, clear() уже вычистил; без этого
+    // вектор и чанки её текста ложились бы после него и уходили в облако.
+    const tx = db.transaction(['documents', 'aiEmbeddings'], 'readwrite');
+    const doc = await tx.objectStore('documents').get(emb.documentId);
+    if (isExcludedFromAI(doc)) { await tx.done; return; }
     // Populate documentUuid from the document for future reattach by uuid.
-    const doc = await db.get('documents', emb.documentId);
     const withUuid = doc?.uuid ? { ...emb, documentUuid: doc.uuid } : emb;
-    await db.put('aiEmbeddings', withUuid);
+    await tx.objectStore('aiEmbeddings').put(withUuid);
+    await tx.done;
     // Запись обновилась — старая пометка выгрузки больше не действует.
     markCloudStale(emb.documentId);
     invalidateEmbeddingIndexCache();
 
+    if (isExcludedFromAI(await db.get('documents', emb.documentId))) return;
     const uid = getCurrentUser()?.uid;
     // SEC-8: Background write-time upload respects cloudSyncEnabled switch
     if (uid && cloudSyncEnabled(uid)) {

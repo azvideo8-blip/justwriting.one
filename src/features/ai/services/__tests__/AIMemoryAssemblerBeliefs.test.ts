@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { clearAllLocalStores } from '../../../../core/storage/localDb';
+import { clearAllLocalStores, getLocalDb } from '../../../../core/storage/localDb';
 import { AIMemoryAssembler, MAX_BELIEF_CANDIDATES_PER_TURN } from '../AIMemoryAssembler';
 import { AIConsolidationService, type AIBelief } from '../AIConsolidationService';
 import { MemoryFlagsService } from '../memoryFlags';
@@ -11,6 +11,18 @@ describe('AG-MIND-W3-readpath AIMemoryAssembler Beliefs Integration', () => {
     await clearAllLocalStores();
     MemoryFlagsService.resetFlags();
     vi.clearAllMocks();
+    const db = await getLocalDb();
+    for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30]) {
+      await db.put('documents', {
+        id: `doc${n}`, guestId: 'guest-test', title: `Заметка ${n}`, currentVersion: 1,
+        totalWords: 10, totalDuration: 1, sessionsCount: 1,
+        firstSessionAt: 1, lastSessionAt: 1, tags: [],
+      });
+    }
+    await db.put('aiChatMemory', {
+      id: 'mem-uuid-12345', kind: 'fact', text: 'Гуляю ночью.', sourceDialogueId: 'dialogue-test',
+      sourceDocumentIds: [], createdAt: 1, updatedAt: 1,
+    });
   });
 
   const mockBeliefPassed: AIBelief = {
@@ -259,7 +271,7 @@ describe('AG-MIND-W3-readpath AIMemoryAssembler Beliefs Integration', () => {
     await AIConsolidationService.saveBelief({
       id: 'belief-high-salience',
       belief: 'Общая мысль без совпадения ключевых слов',
-      evidence: [],
+      evidence: [{ id: 'summary-doc1', date: '2026-07-01', snippet: 'Синтетическая улика' }],
       firstSeenAt: '2026-07-01',
       clusterSize: 30,
       createdAt: now,
@@ -272,7 +284,7 @@ describe('AG-MIND-W3-readpath AIMemoryAssembler Beliefs Integration', () => {
     await AIConsolidationService.saveBelief({
       id: 'belief-query-match',
       belief: 'Специфический термин квантовая запутанность в коде',
-      evidence: [],
+      evidence: [{ id: 'summary-doc1', date: '2026-07-01', snippet: 'Синтетическая улика' }],
       firstSeenAt: '2026-07-01',
       clusterSize: 25,
       createdAt: now,
@@ -286,7 +298,7 @@ describe('AG-MIND-W3-readpath AIMemoryAssembler Beliefs Integration', () => {
       await AIConsolidationService.saveBelief({
         id: `belief-filler-${i}`,
         belief: `Наполнитель база ${i}`,
-        evidence: [],
+        evidence: [{ id: 'summary-doc1', date: '2026-07-01', snippet: 'Синтетическая улика' }],
         firstSeenAt: '2026-07-01',
         clusterSize: 2,
         createdAt: now - 50000,

@@ -36,7 +36,8 @@ describe('N-4: a note leaves no derivatives behind', () => {
     expect((await db.get('aiThemeLedger', 't1'))?.evidence.map(e => e.noteId)).toEqual([O]);
     expect(await db.get('aiThemeLedger', 't2')).toBeUndefined();
     expect(await db.get('lifeStory', '2026-09-01')).toBeUndefined();
-    expect((await db.get('aiBeliefs', 'b1')) as unknown).toMatchObject({ evidence: [{ id: 'mem1' }], unitIds: ['mem1'] });
+    expect(await db.get('aiBeliefs', 'b1')).toBeUndefined();
+    expect(del).toHaveBeenCalledWith('aiBeliefs', 'b1');
     expect(del).toHaveBeenCalledWith('aiTimeline', D);
     expect(del).toHaveBeenCalledWith('aiThemeLedger', 't2');
   });

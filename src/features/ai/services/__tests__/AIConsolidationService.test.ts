@@ -15,6 +15,8 @@ vi.mock('../AIService', () => ({
 describe('AG-MIND-W3-consolidation — Episodic to Semantic Belief Consolidation', () => {
   beforeEach(async () => {
     vi.resetAllMocks();
+    // Синтетические улики без заметок; видимость проверяют отдельные тесты.
+    vi.spyOn(AIConsolidationService, 'unitsStillVisible').mockResolvedValue(true);
     if (typeof localStorage !== 'undefined') {
       localStorage.clear();
     }
@@ -160,6 +162,7 @@ describe('AG-MIND-W3-consolidation — Episodic to Semantic Belief Consolidation
       id: 'unit-already-done',
       kind: 'fact',
       text: 'Existing chat memory text',
+      sourceDocumentIds: [],
       sourceDialogueId: 'dlg-1',
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -169,6 +172,7 @@ describe('AG-MIND-W3-consolidation — Episodic to Semantic Belief Consolidation
       id: 'unit-new-item',
       kind: 'insight',
       text: 'New fresh chat memory',
+      sourceDocumentIds: [],
       sourceDialogueId: 'dlg-2',
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -235,6 +239,7 @@ describe('AG-MIND-W3-consolidation — Episodic to Semantic Belief Consolidation
       id: 'unit-x',
       kind: 'fact',
       text: 'Важный факт, чей вызов судьи упал по таймауту',
+      sourceDocumentIds: [],
       sourceDialogueId: 'dlg-x',
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -261,6 +266,7 @@ describe('AG-MIND-W3-consolidation — Episodic to Semantic Belief Consolidation
       id: 'unit-y',
       kind: 'fact',
       text: 'Факт, отвергнутый судьей',
+      sourceDocumentIds: [],
       sourceDialogueId: 'dlg-y',
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -307,6 +313,7 @@ describe('AG-MIND-W3-consolidation — Episodic to Semantic Belief Consolidation
       id: 'unit-timeout-z',
       kind: 'fact',
       text: 'Факт про бег',
+      sourceDocumentIds: [],
       sourceDialogueId: 'dlg-z',
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -335,6 +342,8 @@ describe('AG-MIND-W3-consolidation — Episodic to Semantic Belief Consolidation
   });
 
   it('F-035: DAILY_LIMIT stops consolidation pass immediately', async () => {
+    // Улики здесь выдуманные (их нет в базе) — тест про остановку прохода, не про видимость.
+    vi.spyOn(AIConsolidationService, 'unitsStillVisible').mockResolvedValue(true);
     vi.spyOn(AIConsolidationService, 'gatherMemoryUnits').mockResolvedValue([
       { id: 'u1', type: 'chat_memory', text: '1', date: '2026-05-10', salience: 0.9 },
       { id: 'u2', type: 'chat_memory', text: '2', date: '2026-05-10', salience: 0.9 },
@@ -355,6 +364,8 @@ describe('AG-MIND-W3-consolidation — Episodic to Semantic Belief Consolidation
   });
 
   it('F-035: AI_CONSENT_REQUIRED stops consolidation pass immediately', async () => {
+    // Улики здесь выдуманные (их нет в базе) — тест про остановку прохода, не про видимость.
+    vi.spyOn(AIConsolidationService, 'unitsStillVisible').mockResolvedValue(true);
     vi.spyOn(AIConsolidationService, 'gatherMemoryUnits').mockResolvedValue([
       { id: 'u1', type: 'chat_memory', text: '1', date: '2026-05-10', salience: 0.9 },
       { id: 'u2', type: 'chat_memory', text: '2', date: '2026-05-10', salience: 0.9 },
@@ -373,4 +384,60 @@ describe('AG-MIND-W3-consolidation — Episodic to Semantic Belief Consolidation
     expect(res.serviceFailed).toBe(true);
     expect(AIService.summarizeBeliefCluster).toHaveBeenCalledTimes(1);
   });
+
+  // Приёмка 0.10.6: заметку скрыли посреди прохода — следующий кластер с её уликой
+  // модели не уходит. Мутация: убрать перепроверку перед кластером — красный.
+  it('видимость перепроверяется перед каждым кластером', async () => {
+    vi.spyOn(AIConsolidationService, 'gatherMemoryUnits').mockResolvedValue([
+      { id: 'u1', type: 'summary', text: '1', date: '2026-05-10', salience: 0.9, docId: 'doc_vis' },
+      { id: 'u2', type: 'summary', text: 'МАРКЕР-СКРЫТА-ПОСРЕДИ', date: '2026-05-10', salience: 0.9, docId: 'doc_hid' },
+    ]);
+    vi.spyOn(AIConsolidationService, 'clusterMemoryUnits').mockReturnValue([
+      { clusterId: 'c2', earliestDate: '2026-05-10', salience: 0.9, units: [{ id: 'u2', type: 'summary', text: 'МАРКЕР-СКРЫТА-ПОСРЕДИ', date: '2026-05-10', salience: 0.9, docId: 'doc_hid' }] },
+    ]);
+    vi.spyOn(AIConsolidationService, 'unitsStillVisible').mockResolvedValue(false);
+    vi.mocked(AIService.summarizeBeliefCluster).mockResolvedValue({ ok: false, error: 'DAILY_LIMIT' });
+
+    await AIConsolidationService.processConsolidationPass();
+
+    expect(AIService.summarizeBeliefCluster).not.toHaveBeenCalled();
+  });
+
+  // Ревью AP2 (M4): внутри кластера до четырёх вызовов ИИ — скрытие между ними.
+  it.each(['summarizeBeliefCluster', 'judgeBeliefCandidate'] as const)('скрыли во время %s — дальше ни вызовов, ни убеждения', async stage => {
+    let visible = true;
+    vi.mocked(AIConsolidationService.unitsStillVisible).mockImplementation(async () => visible);
+    vi.mocked(AIService.summarizeBeliefCluster).mockImplementation(async () => {
+      if (stage === 'summarizeBeliefCluster') visible = false;
+      return { ok: true, belief: 'синтетическое убеждение' };
+    });
+    vi.mocked(AIService.judgeBeliefCandidate).mockImplementation(async () => {
+      if (stage === 'judgeBeliefCandidate') visible = false;
+      return { ok: true, passed: true, reason: 'ok' };
+    });
+    const cluster: MemoryClusterCandidate = { clusterId: 'c-mid', earliestDate: '2026-05-10', salience: 0.9,
+      units: [{ id: 'u-mid', type: 'summary', text: 'МАРКЕР-СКРЫТА-ВНУТРИ', date: '2026-05-10', salience: 0.9, docId: 'doc_hid' }] };
+
+    const { belief } = await AIConsolidationService.consolidateAndJudgeCluster(cluster);
+
+    expect(belief).toBeNull();
+    expect(AIService.judgeBeliefCandidate).toHaveBeenCalledTimes(stage === 'summarizeBeliefCluster' ? 0 : 1);
+    expect(await (await getLocalDb()).getAll('aiBeliefs')).toEqual([]);
+  });
+
+  it('unitsStillVisible: скрытая заметка и непросмотренная старая память — не видимы', async () => {
+    vi.mocked(AIConsolidationService.unitsStillVisible).mockRestore();
+    const db = await getLocalDb();
+    const doc = (id: string, extra: Record<string, unknown> = {}) => ({ id, uuid: `uuid_${id}`, guestId: 'guest', title: id, currentVersion: 1, totalWords: 1, totalDuration: 1, ...extra });
+    await db.put('documents', doc('doc_vis') as never);
+    await db.put('documents', doc('doc_hid', { excludedFromAI: true }) as never);
+    await db.put('aiChatMemory', { id: 'm_ok', kind: 'fact', text: 'ok', sourceDialogueId: 'd', createdAt: 1, updatedAt: 1, sourceDocumentIds: [] } as never);
+    await db.put('aiChatMemory', { id: 'm_old', kind: 'fact', text: 'old', sourceDialogueId: 'd', createdAt: 1, updatedAt: 1 } as never);
+    const u = (id: string, type: 'summary' | 'chat_memory', docId?: string) => ({ id, type, text: 't', date: '2026-05-10', salience: 0.5, docId });
+
+    expect(await AIConsolidationService.unitsStillVisible([u('s1', 'summary', 'doc_vis'), u('m_ok', 'chat_memory')])).toBe(true);
+    expect(await AIConsolidationService.unitsStillVisible([u('s2', 'summary', 'doc_hid')])).toBe(false);
+    expect(await AIConsolidationService.unitsStillVisible([u('m_old', 'chat_memory')])).toBe(false);
+  });
 });
+

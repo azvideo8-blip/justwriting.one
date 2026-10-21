@@ -32,6 +32,15 @@ describe('AIThemeLedgerService (C2-scaffold / Theme Ledger)', () => {
       const { getLocalDb } = await import('../../../../core/storage/localDb');
       const db = await getLocalDb();
       await db.clear('aiThemeLedger');
+      await db.clear('documents');
+      for (const id of ['n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8', 'n9', 'n10',
+        'merge-1', 'merge-2', 'doc-cache-1', 'doc-cache-2', 'b1', 'b2', 'b3', 'b4', 'b5',
+        'doc-quote-e2e', 'doc-failed-touch']) {
+        await db.put('documents', {
+          id, guestId: 'ledger_user', title: id, currentVersion: 1, totalWords: 10,
+          totalDuration: 1, sessionsCount: 1, firstSessionAt: 1, lastSessionAt: 1, tags: [],
+        });
+      }
     } catch {
       /* ignore */
     }
@@ -368,7 +377,7 @@ describe('AIThemeLedgerService (C2-scaffold / Theme Ledger)', () => {
 
     const originalTransaction = db.transaction.bind(db);
     vi.spyOn(db, 'transaction').mockImplementation(((storeName: any, mode: any) => {
-      if (storeName === 'aiThemeLedger') {
+      if (storeName === 'aiThemeLedger' || (Array.isArray(storeName) && storeName.includes('aiThemeLedger'))) {
         throw new Error('disk full or tx error');
       }
       return originalTransaction(storeName, mode);

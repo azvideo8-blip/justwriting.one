@@ -29,7 +29,8 @@ vi.mock('../../../../core/storage/localDb', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../../core/storage/localDb')>();
   return {
     ...actual,
-    getLocalDb: vi.fn(async () => ({
+    getLocalDb: vi.fn(async () => {
+      const db = {
       getAllKeys: async (_s: string) => [...embeddingRows.keys()],
       // Заглушка теперь различает сторы. Раньше get() отдавал строку из
       // embeddingRows на ЛЮБОЙ стор, поэтому запрос документа возвращал
@@ -52,7 +53,17 @@ vi.mock('../../../../core/storage/localDb', async (importOriginal) => {
         if (store === 'documents') { documentRows.set(v.id as string, v); return; }
         embeddingRows.set(v.documentId as string, v);
       },
-    })),
+      // save() проверяет видимость заметки и пишет одной транзакцией (ревью AP2).
+      transaction: () => ({
+        objectStore: (store: string) => ({
+          get: (k: string) => db.get(store, k),
+          put: (v: Record<string, unknown>) => db.put(store, v),
+        }),
+        done: Promise.resolve(),
+      }),
+      };
+      return db;
+    }),
   };
 });
 

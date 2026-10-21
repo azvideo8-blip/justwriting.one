@@ -6,6 +6,9 @@ import { selectWithMMR, textJaccardSimilarity } from '../utils/mmr';
 import { MemoryFlagsService, type MemoryFeatureFlags } from './memoryFlags';
 import { InjectionJournal, EvaluatedCandidateRecord, calculateOverlapRatio } from './injectionJournal';
 import { sanitizeAiInputShared } from '../../../shared/ai/buildChatPrompt';
+import { getLocalDb } from '../../../core/storage/localDb';
+import { usableMemories } from './AIChatMemoryService';
+import { loadVisibleNoteKeys } from '../utils/retrieval/docSnapshot';
 
 export interface MemoryCandidateItem {
   id: string;
@@ -220,7 +223,15 @@ export const AIMemoryAssembler = {
     // F. Consolidated Semantic Beliefs (W3) - Floor: 400 chars
     try {
       const allBeliefs = await AIConsolidationService.getAllBeliefs();
-      const validBeliefs = allBeliefs.filter(b => b.judgeVerdict !== 'REJECTED' && !b.isArchived);
+      const db = await getLocalDb();
+      const docs = await db.getAll('documents');
+      const visibleKeys = await loadVisibleNoteKeys();
+      const memoryIds = new Set(usableMemories(await db.getAll('aiChatMemory'), docs).map(m => m.id));
+      const validBeliefs = allBeliefs.filter(b => b.judgeVerdict !== 'REJECTED' && !b.isArchived
+        && b.evidence.length > 0 && b.evidence.every(e => {
+          const docId = extractDocumentIdFromEvidenceId(e.id);
+          return docId ? visibleKeys.has(docId) : memoryIds.has(e.id);
+        }));
 
       const queryText = params?.query ?? '';
       const rankedBeliefs = [...validBeliefs]

@@ -3,7 +3,7 @@ import { cleanupDraftsAfterSave } from '../sessionActions';
 
 vi.mock('../../services/WritingDraftService', () => ({
   WritingDraftService: {
-    deleteDraft: vi.fn().mockResolvedValue(undefined),
+    deleteDraft: vi.fn().mockResolvedValue({ localOk: true, cloudOk: true }),
     bumpDraftGeneration: vi.fn().mockReturnValue(1),
     getDraftGeneration: vi.fn().mockReturnValue(0),
   },

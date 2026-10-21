@@ -30,17 +30,18 @@ export function initAiDomainEvents(): () => void {
           import('./services/NoteAnalysisService'),
           import('./utils/noteRetriever'),
         ]);
-        await NoteAnalysisService.clear(e.documentId);
         invalidateMiniSearchCache();
+        await NoteAnalysisService.clear(e.documentId);
         break;
       }
       case 'note.excludedFromAI': {
         const { refreshMiniSearchDoc } = await import('./utils/noteRetriever');
+        const refreshing = refreshMiniSearchDoc(e.documentId);
         if (e.excluded) {
           const { NoteAnalysisService } = await import('./services/NoteAnalysisService');
           await NoteAnalysisService.clear(e.documentId);
         }
-        void refreshMiniSearchDoc(e.documentId);
+        await refreshing;
         break;
       }
       case 'sync.restoredFromCloud': {
