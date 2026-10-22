@@ -29,6 +29,9 @@ export const aiTranslations: Translations = {
   ai_close: { ru: 'Закрыть', en: 'Close' },
   ai_attach: { ru: 'Прикрепить', en: 'Attach' },
   ai_attach_note: { ru: 'Прикрепить заметку', en: 'Attach note' },
+  // A9 (FN-2б, решение владельца 2026-10-22): подсказка под приложенной заметкой и пометка об обрезке строгого хода.
+  ai_attach_more_hint: { ru: 'Можно приложить ещё заметку — например, ту, о которой здесь речь', en: 'You can attach another note too — for example, the one this is about' },
+  ai_context_cut_notice: { ru: 'Модели ушло около {n} из {m} знаков — начало обрезано', en: 'About {n} of {m} characters reached the model — the beginning was cut' },
   // Пункт меню в AIChatComposer скрыт 2026-09-29; ключ остаётся для возврата.
   ai_upload_file: { ru: 'Загрузить файл', en: 'Upload file' },
   ai_note_what_to_do: { ru: 'Что сделать с заметкой «{title}» от {date}?', en: 'What should I do with «{title}» from {date}?' },

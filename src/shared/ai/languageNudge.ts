@@ -23,13 +23,19 @@ const ATTACHED_MARKER_LINE = /^\[Прикреплена заметка: "[\s\S]*
  * русский ответ.
  */
 export function questionPart(text: string): string {
-  const at = text.lastIndexOf(ATTACHED_QUESTION_SEP);
-  const part = at >= 0
-    ? text.slice(at + ATTACHED_QUESTION_SEP.length)
-    : text.replace(ATTACHED_MARKER_LINE, '');
+  const part = questionOnly(text);
   // Пустой вопрос («только заметка, спрашивать не о чём») не решает язык —
   // возвращаем исходный текст, язык остаётся за его содержимым.
   return part.trim().length === 0 ? text : part;
+}
+
+/** Только вопрос, без запасного «весь текст»: ход «только заметка» даёт пустую
+ *  строку (детектору оценки Редактора название заметки — не вопрос). */
+export function questionOnly(text: string): string {
+  const at = text.lastIndexOf(ATTACHED_QUESTION_SEP);
+  return at >= 0
+    ? text.slice(at + ATTACHED_QUESTION_SEP.length)
+    : text.replace(ATTACHED_MARKER_LINE, '');
 }
 
 // Транслит: русские слова, набранные латиницей. Границы `\b` здесь работают —

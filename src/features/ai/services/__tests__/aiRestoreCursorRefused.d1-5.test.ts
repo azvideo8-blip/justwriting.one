@@ -15,16 +15,20 @@ const SEG = `${DLG}@seg1000-2000`;
 const cloud = vi.hoisted(() => ({
   rows: [] as Array<Record<string, unknown>>,
   segments: new Map<string, Record<string, unknown>>(),
+  fetched: 0,
 }));
 
 vi.mock('../../../../core/auth', () => ({ getCurrentUser: () => ({ uid: 'u_d1_5' }) }));
 vi.mock('../../../../core/data', () => ({
   DataProvider: new Proxy(
     {
-      getLocalStoreRecords: async (_uid: string, _store?: string, sinceMs?: number) =>
-        sinceMs === undefined
+      getLocalStoreRecords: async (_uid: string, _store?: string, sinceMs?: number) => {
+        const rows = sinceMs === undefined
           ? cloud.rows
-          : cloud.rows.filter(r => typeof r.stamped_at === 'number' && r.stamped_at > sinceMs),
+          : cloud.rows.filter(r => typeof r.stamped_at === 'number' && r.stamped_at > sinceMs);
+        cloud.fetched += rows.length;
+        return rows;
+      },
       getLocalStoreRecord: async (_uid: string, _store: string, key: string) => cloud.segments.get(key) ?? null,
     } as Record<string, unknown>,
     { get: (target, prop: string) => (prop in target ? target[prop] : async () => undefined) },
@@ -93,6 +97,7 @@ beforeEach(async () => {
   localStorage.clear();
   cloud.rows = [];
   cloud.segments.clear();
+  cloud.fetched = 0;
   const db = await getLocalDb(UID);
   await db.clear('aiDialogues');
   await db.clear('aiChatMemory');
@@ -151,5 +156,19 @@ describe('D1-5: курсор ИИ не перескакивает отвергн
 
     expect(res.failed, 'битая запись посчитана').toBe(1);
     expect(res.maxUpdatedAt, 'курсор идёт дальше битой записи').toBe(MEMORY_STAMP);
+  });
+
+  it('DE-2: осиротевший head держит курсор не вечно — потом курсор идёт и забор пустеет', async () => {
+    cloud.rows = [headRow(), memoryRow()];
+    let cursor = 1000;
+    for (let pass = 0; pass < 10 && cursor < MEMORY_STAMP; pass++) {
+      const res = await restoreAIDataFromCloud(UID, { sinceMs: pullSince(cursor) });
+      cursor = nextPullCursor(Date.now(), cursor, res.maxUpdatedAt);
+    }
+    expect(cursor, 'курсор ушёл за применённую память').toBeGreaterThanOrEqual(MEMORY_STAMP);
+
+    cloud.fetched = 0;
+    await restoreAIDataFromCloud(UID, { sinceMs: pullSince(cursor) });
+    expect(cloud.fetched, 'следующий проход ничего не перекачивает').toBe(0);
   });
 });

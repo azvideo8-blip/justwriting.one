@@ -10,6 +10,7 @@ import { detectPersonMentions } from '../services/chatContext/personQuotes';
 import { extractCitationIds } from '../services/chatContext/citations';
 import type { HiddenNoteIds } from './hiddenNoteIds';
 import type { getLocalDb } from '../../../core/storage/localDb';
+import { truncateText } from '../../../shared/utils/textLimits';
 
 export let _streamUnavailableUntil = 0;
 export function _resetStreamUnavailable(): void {
@@ -281,7 +282,7 @@ export function toApiContent(content: string, cap = API_MSG_CAP, opts?: Attached
   if (content.length <= cap) return content;
   const noteMatch = content.match(/^\[Прикреплена заметка: "[^"]+"\]/);
   if (noteMatch) return noteMatch[0];
-  return content.slice(0, cap);
+  return truncateText(content, cap, { maxCodeUnits: cap });
 }
 
 export function pruneMessages(messages: AIMessage[]): AIMessage[] {
@@ -303,16 +304,31 @@ export function pruneMessages(messages: AIMessage[]): AIMessage[] {
 // ответы о ней за её текст и путала дни. Маркер такой заметки получает дату из
 // шапки и пометку, что текста нет; заметка текущей темы (последняя приложенная)
 // и скрытые — без пометки.
-const STORED_HEAD = /^\[#([^\s\]]+) · (\d{4}-\d{2}-\d{2})\]\n\[Прикреплена заметка: "/;
-const FIRST_MARKER = /^(\[Прикреплена заметка: "[\s\S]*?")\]$/m;
+// DE-3: размечается КАЖДЫЙ маркер хода своей шапкой (раньше — только первый),
+// текущие — все заметки последнего хода с вложением. Маркер без шапки (ходы до
+// 2026-07-15 и «не влезшие» до 0.10.8) получает пометку без даты.
+const HEAD_LINE = /^\[#([^\s\]]+) · (\d{4}-\d{2}-\d{2})\]$/;
+const API_MARKER = /^(\[Прикреплена заметка: "[\s\S]*?")\]$/gm;
+
+/** Шапка `[#id · дата]` строкой над каждым маркером хода; null — маркер без шапки. */
+function markerHeads(content: string, opts?: AttachedParseOptions): Array<{ id: string; date: string } | null> | null {
+  if (!splitAttachedMessage(content, opts)) return null;
+  const q = content.lastIndexOf(QUESTION_SEP);
+  const head = q === -1 ? content : content.slice(0, q);
+  return [...head.matchAll(ATTACHED_MARKER)].map(m => {
+    const before = head.slice(0, m.index);
+    if (!before.endsWith('\n')) return null;
+    const h = HEAD_LINE.exec(before.slice(before.lastIndexOf('\n', before.length - 2) + 1, -1));
+    return h ? { id: h[1]!, date: h[2]! } : null;
+  });
+}
 
 export function prepareApiMessages(messages: AIMessage[], opts?: AttachedParseOptions): AIMessage[] {
   const pruned = pruneMessages(messages.filter(m => m.type !== 'system'));
-  let currentNoteId: string | undefined;
-  for (const m of pruned) {
-    const head = m.role === 'user' ? STORED_HEAD.exec(m.content) : null;
-    if (head) currentNoteId = head[1];
-  }
+  const heads = pruned.map(m => (m.role === 'user' ? markerHeads(m.content, opts) : null));
+  let currentIdx = -1;
+  heads.forEach((h, i) => { if (h) currentIdx = i; });
+  const currentIds = new Set((heads[currentIdx] ?? []).flatMap(h => (h ? [h.id] : [])));
   const assistantIndices: number[] = [];
   for (let i = 0; i < pruned.length; i++) {
     if (pruned[i]?.role === 'assistant') {
@@ -332,9 +348,18 @@ export function prepareApiMessages(messages: AIMessage[], opts?: AttachedParseOp
       return { ...m, content: toApiContent(m.content, API_ASSISTANT_OLD_CAP, opts) };
     }
     const content = toApiContent(m.content, API_MSG_CAP, opts);
-    const head = m.role === 'user' ? STORED_HEAD.exec(m.content) : null;
-    if (head && head[1] !== currentNoteId && !hiddenIds.has(head[1]!)) {
-      return { ...m, content: content.replace(FIRST_MARKER, `$1 · ${head[2]} · текста этой заметки в этом ходе нет]`) };
+    const turnHeads = heads[idx];
+    if (turnHeads && idx !== currentIdx) {
+      let i = 0;
+      return {
+        ...m,
+        content: content.replace(API_MARKER, (marker, open: string) => {
+          const h = turnHeads[i++];
+          // undefined — строка вопроса, похожая на маркер: маркеры хода идут первыми.
+          if (h === undefined || (h && (currentIds.has(h.id) || hiddenIds.has(h.id)))) return marker;
+          return `${open}${h ? ` · ${h.date}` : ''} · текста этой заметки в этом ходе нет]`;
+        }),
+      };
     }
     return { ...m, content };
   });

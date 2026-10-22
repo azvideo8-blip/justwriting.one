@@ -225,7 +225,7 @@ Read by the API service (`api/`). Defaults are from the code.
 | `SUPABASE_JWT_ISS` | yes (prod) | Must equal GoTrue's `GOTRUE_JWT_ISSUER`; the service refuses to start without it in production |
 | `REQUIRE_JWT_ISSUER` | no | `true`/`false` forces the issuer check on/off; unset = on under `NODE_ENV=production` or with `DATABASE_URL` |
 | `DATABASE_URL` | yes | Postgres connection string (via Supavisor, tenant-qualified user) |
-| `SUPABASE_URL` | no | GoTrue admin API base for invites, default `https://justwriting.ru` |
+| `SUPABASE_URL` | for invites | GoTrue admin API base for invites, internal only (`http://127.0.0.1:8000`, Kong); no default — the public `/auth/v1/admin` is closed in nginx (B-4) |
 | `SUPABASE_SERVICE_ROLE_KEY` | for invites | Service role key (`SERVICE_ROLE_KEY` also accepted) |
 | `OPENROUTER_API_KEY` | yes | AI provider key (RouterAI) |
 | `AI_BASE_URL` | no | Provider base URL, default `https://routerai.ru/api/v1` |

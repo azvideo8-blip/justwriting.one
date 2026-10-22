@@ -31,7 +31,8 @@ describe('R7F-007: неиспользуемые точки GoTrue закрыты
   // обязан стоять раньше общего `^/auth/` (регулярные location — по порядку).
   // Мутация: вернуть `location = /auth/v1/otp` → красный.
   it.each(CLOSED)('%s (и со слешем) отдаёт 404 до проксирования в Kong', path => {
-    const m = /location\s+~\*?\s+(\^\/auth\/v1\/\S+)\s*\{\s*return 404;\s*\}/.exec(nginx);
+    const blocks = [...nginx.matchAll(/location\s+~\*?\s+(\^\/auth\/v1\/\S+)\s*\{\s*return 404;\s*\}/g)];
+    const m = blocks.find(block => /otp/.test(block[1]!));
     expect(m, 'в deploy/nginx.conf нет регулярного location с return 404').not.toBeNull();
     const re = new RegExp(m![1]!, 'i');
     expect(re.test(path)).toBe(true);
@@ -58,5 +59,22 @@ describe('R7F-007: неиспользуемые точки GoTrue закрыты
       if (banned.test(readFileSync(file, 'utf8'))) hits.push(relative(root, file));
     }
     expect(hits, `точек быть не должно, нашлись: ${hits.join(', ')}`).toEqual([]);
+  });
+});
+
+describe('B-4: админ-API GoTrue закрыт снаружи', () => {
+  const nginx = readFileSync(NGINX, 'utf8');
+  const m = /location\s+~\s+(\^\/auth\/v1\/admin\(\/\|\$\))\s*\{\s*return 404;\s*\}/.exec(nginx);
+
+  it('^/auth/v1/admin(/|$) → 404, но /auth/v1/adminfoo — нет', () => {
+    expect(m, 'нет location для /auth/v1/admin').not.toBeNull();
+    const re = new RegExp(m![1]!);
+    expect(re.test('/auth/v1/admin')).toBe(true);
+    expect(re.test('/auth/v1/admin/')).toBe(true);
+    expect(re.test('/auth/v1/adminfoo')).toBe(false);
+  });
+
+  it('блок стоит выше общего ^/auth/', () => {
+    expect(nginx.indexOf(m![0])).toBeLessThan(nginx.search(/location\s+~\s+\^\/auth\/\s*\{/));
   });
 });

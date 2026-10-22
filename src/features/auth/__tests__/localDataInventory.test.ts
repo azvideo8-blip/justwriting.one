@@ -109,10 +109,12 @@ describe('localDataInventory', () => {
   });
 
   it('DEEP-10: counts versions without calling getAll on versions store', async () => {
+    // LG-1: гостевой владелец — заметка аккаунта ушла бы миграцией в его базу, а
+    // шпион и глобальный счёт смотрят в общую.
     const db = await getLocalDb();
     await db.put('documents', {
       id: 'doc_10',
-      guestId: 'user_10',
+      guestId: 'guest_10',
       title: 'Doc 10',
       currentVersion: 5,
       totalWords: 50,
@@ -137,7 +139,7 @@ describe('localDataInventory', () => {
 
     const getAllSpy = vi.spyOn(db, 'getAll');
 
-    const invScoped = await countLocalDataInventory('user_10');
+    const invScoped = await countLocalDataInventory('guest_10');
     expect(invScoped.notesCount).toBe(1);
     expect(invScoped.versionsCount).toBe(5);
 

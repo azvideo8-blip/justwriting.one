@@ -148,6 +148,37 @@ describe('фон из прошлых дней: строгий ход', () => {
     expect(sc).not.toContain('Результаты поиска');
   });
 
+  // FN-1: local_rd_d — пятая по сходству, в четвёрку не входит; дата в тексте
+  // заметки ставит её в фон. Мутация: не передать текст заметки → красный.
+  it('(g) день, названный в тексте приложенной, — в фоне хода', async () => {
+    const d = new Date(T0 - 30 * DAY);
+    const ref = `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
+    const { result } = renderHook(() => useAIChatContext('group_psychology'));
+    const ctx = await result.current.buildContext({
+      text: 'разбери глубоко',
+      attached: { documentId: ATT, content: `на сессии ${ref} говорили про это` },
+      mood: undefined, messageHistory: [], isFirstTurn: true, scope: 'note',
+    });
+    expect(ctx.searchContext ?? '').toContain('СУТЬ_local_rd_d');
+  });
+
+  // FN-2: в documentId только первая приложенная; вторая (local_rd_e — самая
+  // похожая) не должна стоять в фоне «другим днём». Мутация: не передать шапки → красный.
+  it('(h) две приложенные — вторая не в фоне', async () => {
+    const { result } = renderHook(() => useAIChatContext('group_psychology'));
+    const ctx = await result.current.buildContext({
+      text: 'разбери глубоко',
+      attached: {
+        documentId: ATT,
+        content: `[#${ATT} · 2026-10-09]\n[Прикреплена заметка: "a"]\nТЕКСТ_1\n\n---\n\n[#local_rd_e · 2026-10-08]\n[Прикреплена заметка: "e"]\nТЕКСТ_2`,
+      },
+      mood: undefined, messageHistory: [], isFirstTurn: true, scope: 'note',
+    });
+    const sc = ctx.searchContext ?? '';
+    expect(sc).toContain('Другие дни');
+    expect(sc).not.toContain('СУТЬ_local_rd_e');
+  });
+
   it('(f) Редактору фон не даётся', async () => {
     const ctx = await strict('editor');
     expect(ctx.searchContext ?? '').not.toContain('Другие дни');

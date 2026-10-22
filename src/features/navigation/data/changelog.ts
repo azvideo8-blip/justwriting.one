@@ -17,6 +17,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.10.8',
+    date: '2026-10-22',
+    items: [
+      { category: 'new', ru: 'Под приложенной заметкой — подсказка, что можно приложить ещё одну. Если текст был длиннее, чем ИИ может принять, после ответа видно, сколько знаков до него дошло.', en: 'Under an attached note there is now a hint that you can attach another one. If the text was longer than the AI can take, after the answer you can see how many characters reached it.' },
+      { category: 'improvement', ru: 'Если заметка ссылается на прошлый день («на сессии 10.10», «вчера»), ИИ берёт запись этого дня в разговор. Похожие дни подбираются строже, случайные в фон не попадают.', en: 'If a note refers to an earlier day («на сессии 10.10», «вчера»), the AI brings that day\'s entry into the conversation. Similar days are picked more strictly, and random ones no longer get into the background.' },
+      { category: 'improvement', ru: 'Редактор на «как тебе?» и «оцени» отвечает оценкой, а не переписанным постом. Его собственные варианты строк больше не помечаются «по смыслу».', en: 'The Editor answers «how is it?» and «rate it» with an assessment, not a rewritten post. Its own suggested lines are no longer marked «по смыслу» (paraphrased).' },
+      { category: 'fix', ru: 'Если облачная версия заметки не прочиталась при сверке правок, заметка больше не заменяется пустой версией.', en: 'If the cloud version of a note could not be read while reconciling edits, the note is no longer replaced with an empty version.' },
+      { category: 'fix', ru: 'ИИ видит даты всех заметок, приложенных к сообщению, а не только первой.', en: 'The AI sees the dates of all notes attached to a message, not just the first one.' },
+      { category: 'fix', ru: 'Когда сеть есть, а интернета нет (например, Wi-Fi со входом через страницу), несохранённые заметки ждут связи и не тратят попытки отправки.', en: 'When there is a network but no internet (for example, Wi-Fi with a sign-in page), unsaved notes wait for the connection and do not use up upload attempts.' },
+      { category: 'fix', ru: 'На устройстве не остаются старые данные гостевого режима и ИИ из прошлых версий.', en: 'Old guest-mode and AI data from earlier versions no longer stay on the device.' },
+    ],
+  },
+  {
     version: '0.10.7',
     date: '2026-10-21',
     items: [

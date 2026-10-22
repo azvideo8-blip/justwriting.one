@@ -243,6 +243,10 @@ export function AIChatComposer(props: AIChatComposerProps) {
                   </button>
                 </div>
               ))}
+              {/* A9 (FN-2б): под одной приложенной — подсказка приложить и ту, о которой речь. */}
+              {pendingAttachments.length === 1 && (
+                <p className="basis-full text-xs text-text-main/50" data-testid="ai-attach-more-hint">{t('ai_attach_more_hint')}</p>
+              )}
             </div>
           )}
           {outOfQuota && (

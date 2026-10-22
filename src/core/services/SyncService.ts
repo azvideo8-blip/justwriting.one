@@ -22,6 +22,9 @@ const limit = pLimit(5);
 // DEEP-4: LOCKED/ENCRYPT_REQUIRED/SYNC_UNRESOLVED детерминированы или ждут ключа;
 // broadcast-канал vault оживляет задачи (isRevivableOnUnlock), когда сейф открыт.
 const MAX_ATTEMPTS = 10;
+// R-9: задача, которую сеть не пускает дольше суток подряд, — один сигнал в
+// телеметрию (без текста заметки), иначе вечная очередь молчит.
+const NETWORK_STALL_MS = 24 * 60 * 60_000;
 
 // EA-12: чтение и запись счётчика — в одной readwrite-транзакции. Раньше это
 // были две разные: два параллельных сбоя видели одно n и оба писали n+1
@@ -38,14 +41,27 @@ async function bumpAttempts(taskId: string, reason: unknown, ownerId?: string): 
   // F-1: пока сейф заперт, «нужен ключ» — ожидаемое состояние, не поломка:
   // счётчик не растёт, карантина нет, откроют сейф — задача уйдёт сама.
   // Та же ошибка при открытом сейфе детерминирована и карантинится как раньше.
-  if (ownerId && classifySyncError(reason) === 'blocked-until-unlock' && isVaultLocked(ownerId)) {
+  // DE-7: fetch не дошёл до сервера — та же пауза, что офлайн (D1-3).
+  const category = classifySyncError(reason);
+  if (category === 'network') {
+    const networkSince = item.networkSince ?? Date.now();
+    const stalled = !item.networkStallReported && Date.now() - networkSince > NETWORK_STALL_MS;
+    await tx.store.put({ ...item, lastError: reasonStr, networkSince, networkStallReported: item.networkStallReported || stalled });
+    await tx.done;
+    if (stalled) {
+      reportError(new Error('Sync task has waited on the network for over 24h'), { taskId, type: item.type, sinceMs: networkSince }, 'warning');
+    }
+    return;
+  }
+  if (ownerId && category === 'blocked-until-unlock' && isVaultLocked(ownerId)) {
     await tx.store.put({ ...item, lastError: reasonStr });
     await tx.done;
     return;
   }
   const attempts = (item.attempts ?? 0) + 1;
   const dead = isPoisonSyncError(reason) || attempts >= MAX_ATTEMPTS;
-  await tx.store.put({ ...item, attempts, dead, lastError: reasonStr });
+  // Сеть вернулась, сбой другой — отсчёт «в network» начинается заново.
+  await tx.store.put({ ...item, attempts, dead, lastError: reasonStr, networkSince: undefined, networkStallReported: undefined });
   await tx.done;
   if (dead) {
     reportError(new Error('Sync task quarantined'), { taskId, attempts, reason: reasonStr }, 'warning');

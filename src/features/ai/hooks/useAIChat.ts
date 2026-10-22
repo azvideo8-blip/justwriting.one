@@ -112,11 +112,19 @@ const LIST_ITEM_PREFIX = /(?:^|\n)[ \t]*(?:[-*+]\s+|\d+[.)]\s+)$/;
 const KEEP_OPEN = '\uE001';
 const KEEP_CLOSE = '\uE002';
 
+// ED-1 (0.10.7): personaId включает исключение Редактора в страже кавычек;
+// reasoning выключает страж целиком — ход мыслей черновик модели, а не ответ.
+export interface SanitizeCitationsOptions {
+  personaId?: string;
+  reasoning?: boolean;
+}
+
 export function sanitizeCitations(
   text: string,
   injectedIds: string[],
   injectedTitles?: string[],
   materialsText?: string,
+  opts?: SanitizeCitationsOptions,
 ): string {
   const allowed = new Set(injectedIds);
   const UNRECOGNISED_MARKER = '\uE000';
@@ -181,7 +189,11 @@ export function sanitizeCitations(
   // что модель приписала человеку («ты пишешь …»), и щадили гипотезы; на стенде
   // недословной считается любая цитата от 4 слов, и правило в промпте её не
   // держит (S5: 19/24 на базе). Слова остаются, «примерно:» не добавляется.
-  if (materialsText) cleaned = unquoteAbsent(cleaned, materialsText).text;
+  // ED-1: у Редактора «по смыслу» — только по глаголу речи, его предложенные
+  // строки от лица автора — не чужая речь. В ходе мыслей страж молчит вовсе.
+  if (materialsText && !opts?.reasoning) {
+    cleaned = unquoteAbsent(cleaned, materialsText, { markPersonal: opts?.personaId !== 'editor' }).text;
+  }
 
   // Clean up punctuation and whitespace around the removed citation.
   // A list of references ("Источники: [#a], [#b].") loses its separator with the
@@ -600,6 +612,11 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
       // Defensive clamps — never exceed the API schema limits (documentContent
       // 50K, userPortrait 100K), or the request 400s before reaching the model.
+      // A9 (FN-2б): строгий ход режется молча с начала — человеку об этом строка
+      // в чате после ответа (сколько знаков дошло из скольких).
+      const contextCut = turnMode === 'note' && searchContext.length > 49_000
+        ? { n: 49_000, m: searchContext.length }
+        : null;
       if (searchContext && searchContext.length > 49_000) {
         const excess = searchContext.length - 49_000;
         // Контекст без вложения начинается с пустой строки — заголовок ищется с первого непробельного символа.
@@ -646,12 +663,12 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             signal: controller.signal,
             onChunk: (partial, reasoning) => {
               const cleanPartial = sanitizeFirstSeenDates(
-                sanitizeCitations(partial, injectedDocumentIds || [], injectedTitles, materialsText),
+                sanitizeCitations(partial, injectedDocumentIds || [], injectedTitles, materialsText, { personaId: effectivePersonaId }),
                 allowedFirstSeenDates || []
               );
               const cleanReasoning = reasoning
                 ? sanitizeFirstSeenDates(
-                    sanitizeCitations(reasoning, injectedDocumentIds || [], injectedTitles, materialsText),
+                    sanitizeCitations(reasoning, injectedDocumentIds || [], injectedTitles, materialsText, { reasoning: true }),
                     allowedFirstSeenDates || []
                   )
                 : null;
@@ -697,7 +714,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             if (cleanReasoning) {
               setStreamingReasoning(
                 sanitizeFirstSeenDates(
-                  sanitizeCitations(cleanReasoning, injectedDocumentIds || [], injectedTitles, materialsText),
+                  sanitizeCitations(cleanReasoning, injectedDocumentIds || [], injectedTitles, materialsText, { reasoning: true }),
                   allowedFirstSeenDates || []
                 )
               );
@@ -705,7 +722,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             if (cleanAnswer) {
               setStreamingMessage(
                 sanitizeFirstSeenDates(
-                  sanitizeCitations(cleanAnswer, injectedDocumentIds || [], injectedTitles, materialsText),
+                  sanitizeCitations(cleanAnswer, injectedDocumentIds || [], injectedTitles, materialsText, { personaId: effectivePersonaId }),
                   allowedFirstSeenDates || []
                 )
               );
@@ -739,12 +756,16 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // RSN-4: Clean reasoning tags before saving; persist reasoning separately
       // so the collapsible "ход мысли" survives in dialogue history.
       const searchReq = extractSearchRequest(fullText);
-      const sanitizedFullText = sanitizeFirstSeenDates(
-        sanitizeCitations(fullText, injectedDocumentIds || [], injectedTitles, materialsText),
+      // ED-1b: ответ и ход мыслей чистятся порознь, как в стриме. Чистка всего
+      // текста до разбора возвращала в сохранённый ход мыслей «по смыслу», которых
+      // во время стрима не было.
+      const clean = (s: string, reasoningPart: boolean) => sanitizeFirstSeenDates(
+        sanitizeCitations(s, injectedDocumentIds || [], injectedTitles, materialsText, reasoningPart ? { reasoning: true } : { personaId: effectivePersonaId }),
         allowedFirstSeenDates || []
       );
-      let savedText = extractAnswer(sanitizedFullText);
-      let savedReasoning = extractReasoning(sanitizedFullText);
+      let savedText = clean(extractAnswer(fullText), false);
+      const rawReasoning = extractReasoning(fullText);
+      let savedReasoning = rawReasoning ? clean(rawReasoning, true) : rawReasoning;
 
       // Log the mismatch if reasoning markers arrived when reasoning mode was off (once per session)
       if (!effectiveReasoning && savedReasoning) {
@@ -763,9 +784,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // was cut off — publishing that as the reply showed the user a page of
       // "Мы получили два запроса… Я должен…" ending mid-word. Keep the
       // deliberation where it belongs and say plainly that no answer came.
-      const hasAnswerSection = /<answer>|<\/think>|<\/reasoning>|(?:^|\n)ОТВЕТ:\s*/im.test(sanitizedFullText);
-      if (effectiveReasoning && !hasAnswerSection && sanitizedFullText.trim()) {
-        savedReasoning = sanitizedFullText.trim();
+      const hasAnswerSection = /<answer>|<\/think>|<\/reasoning>|(?:^|\n)ОТВЕТ:\s*/im.test(fullText);
+      if (effectiveReasoning && !hasAnswerSection && fullText.trim()) {
+        savedReasoning = clean(fullText, true).trim();
         savedText = 'Ответ не дошёл: я потратил весь лимит на рассуждение и оборвался на полуслове. Ход мысли сохранён ниже. Попробуй переспросить короче или выключить режим рассуждений.';
       }
       if (controller.signal.aborted) {
@@ -775,6 +796,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         await AIDialogueService.replaceLastTurn(currentDialogue.id, options.replaceUserId, text, savedText, savedReasoning, searchReq, degradedReason);
       } else {
         await AIDialogueService.appendMessage(currentDialogue.id, text, savedText, savedReasoning, searchReq, degradedReason);
+      }
+      if (contextCut) {
+        await AIDialogueService.appendSystemMessage(currentDialogue.id, t('ai_context_cut_notice', contextCut), { once: true });
       }
       turnSaved = true;
       setLastTurnScope(turnMode ?? null);

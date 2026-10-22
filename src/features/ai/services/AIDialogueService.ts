@@ -12,6 +12,7 @@ import { hiddenNoteIdsFromDocs } from '../utils/hiddenNoteIds';
 import { isExcludedFromAI, isPastedAttachmentId } from '../utils/isExcludedFromAI';
 
 import { writeFacetStore } from '../../../core/services/facetLock';
+import { truncateText } from '../../../shared/utils/textLimits';
 
 function formatDateYYYYMMDD(timestamp: number): string {
   const date = new Date(timestamp);
@@ -165,7 +166,7 @@ export const AIDialogueService = {
     searchRequest?: string | null,
     degradedReason?: string | null
   ): Promise<void> {
-    const truncate = (s: string) => s.length > MAX_MSG_LENGTH ? s.slice(0, MAX_MSG_LENGTH) + '\n[...truncated]' : s;
+    const truncate = (s: string) => s.length > MAX_MSG_LENGTH ? truncateText(s, MAX_MSG_LENGTH, { maxCodeUnits: MAX_MSG_LENGTH }) + '\n[...truncated]' : s;
     const db = await getLocalDb();
     const tx = db.transaction('aiDialogues', 'readwrite');
     const existing = await tx.store.get(id);
@@ -211,7 +212,7 @@ export const AIDialogueService = {
     searchRequest?: string | null,
     degradedReason?: string | null,
   ): Promise<void> {
-    const truncate = (s: string) => s.length > MAX_MSG_LENGTH ? s.slice(0, MAX_MSG_LENGTH) + '\n[...truncated]' : s;
+    const truncate = (s: string) => s.length > MAX_MSG_LENGTH ? truncateText(s, MAX_MSG_LENGTH, { maxCodeUnits: MAX_MSG_LENGTH }) + '\n[...truncated]' : s;
     const db = await getLocalDb();
     const tx = db.transaction('aiDialogues', 'readwrite');
     const existing = await tx.store.get(id);
@@ -312,6 +313,27 @@ export const AIDialogueService = {
     await tx.done;
     LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
     window.dispatchEvent(new Event('dialogue-updated'));
+  },
+
+  /**
+   * A9 (FN-2б): служебная строка в диалоге — например, что строгий ход обрезан.
+   * Одной транзакцией, надгробие не трогаем; в API такие строки не уходят
+   * (`type: 'system'` отфильтрован в prepareApiMessages).
+   */
+  async appendSystemMessage(id: string, content: string, opts?: { once?: boolean }): Promise<void> {
+    const db = await getLocalDb();
+    const tx = db.transaction('aiDialogues', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (!existing || existing.deletedAt) { await tx.done; return; }
+    // C9: `once` — та же системная строка в диалоге уже есть (приложенная заметка
+    // висит на каждом ходе, повтор хода) — вторую не пишем.
+    if (opts?.once && existing.messages.some(m => m.type === 'system' && m.content === content)) { await tx.done; return; }
+    const fresh = withMessageIds(existing);
+    fresh.messages.push(stampMessage({ role: 'assistant', content, type: 'system' }));
+    fresh.updatedAt = Date.now();
+    await tx.store.put(fresh);
+    await tx.done;
+    LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
   },
 
   /**

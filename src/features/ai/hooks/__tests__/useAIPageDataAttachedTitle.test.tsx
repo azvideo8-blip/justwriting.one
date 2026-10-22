@@ -141,8 +141,8 @@ describe('S-39: сборщик хода с заметкой чистит наз�
 
   it('длинная заметка: показанный ход — только маркер и вопрос, сервер его принимает', async () => {
     const { display } = await sendWith(`${SECRET_BODY}\n${'я'.repeat(9_500)}`);
-    // S-63.2a: вопрос за разделителем и в ветке «не влезает».
-    expect(display).toBe(`${CLEAN_MARKER}\n\n— — —\nВопрос: ${QUESTION}`);
+    // S-63.2a: вопрос за разделителем и в ветке «не влезает». DE-3: и шапка с датой.
+    expect(display).toBe(`[#local_n1 · 2026-09-29]\n${CLEAN_MARKER}\n\n— — —\nВопрос: ${QUESTION}`);
     const api = toApiContent(display);
     expect(api).toBe(`${CLEAN_MARKER}\n\n${QUESTION}`);
     expect(() => assertNoSystemPromptInjection({ messages: [{ role: 'user', content: api }] })).not.toThrow();

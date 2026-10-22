@@ -16,6 +16,13 @@
  * | 22001                    | true   | false               | permanent            |
  * | 22P02                    | true   | false               | permanent            |
  * | SYNC_UNRESOLVED          | false  | true                | transient            |
+ * | Failed to fetch          | false  | false               | network              |
+ * | Load failed              | false  | false               | network              |
+ * | NetworkError when attempting to fetch resource | false | false | network     |
+ *
+ * DE-7: `network` — fetch не дошёл до сервера (Chrome / Safari / Firefox пишут
+ * это по-разному). `navigator.onLine` на captive portal и в сети без интернета
+ * говорит «онлайн», поэтому такая ошибка — пауза, как офлайн (D1-3), а не попытка.
  *
  * F-1: blocked-until-unlock stays poison only while the vault is OPEN (a
  * deterministic failure). While the vault is locked, `bumpAttempts` treats the
@@ -29,7 +36,7 @@
  * are prevented.
  */
 
-export type SyncErrorCategory = 'transient' | 'permanent' | 'blocked-until-unlock';
+export type SyncErrorCategory = 'transient' | 'permanent' | 'blocked-until-unlock' | 'network';
 
 export interface SyncErrorRule {
   readonly code: string;
@@ -52,6 +59,9 @@ export const SYNC_ERROR_RULES: readonly SyncErrorRule[] = [
   { code: '22001',                  poison: true,  revivableOnUnlock: false, category: 'permanent' },
   { code: '22P02',                  poison: true,  revivableOnUnlock: false, category: 'permanent' },
   { code: 'SYNC_UNRESOLVED',        poison: false, revivableOnUnlock: true,  category: 'transient' },
+  { code: 'Failed to fetch',        poison: false, revivableOnUnlock: false, category: 'network' },
+  { code: 'Load failed',            poison: false, revivableOnUnlock: false, category: 'network' },
+  { code: 'NetworkError when attempting to fetch resource', poison: false, revivableOnUnlock: false, category: 'network' },
 ];
 
 function escapeRegex(str: string): string {

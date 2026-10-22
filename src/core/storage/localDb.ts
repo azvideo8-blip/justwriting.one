@@ -440,7 +440,7 @@ export interface JustWritingDB extends DBSchema {
   profile: { key: string; value: LocalProfile; };
   syncQueue: {
     key: string;
-    value: { id: string; documentId: string; type: 'document' | 'version' | 'delete' | 'portrait'; createdAt: number; updatedAt?: number | undefined; ownerId?: string | undefined; attempts?: number | undefined; dead?: boolean | undefined; lastError?: string | undefined; ownerToken?: string | undefined; };
+    value: { id: string; documentId: string; type: 'document' | 'version' | 'delete' | 'portrait'; createdAt: number; updatedAt?: number | undefined; ownerId?: string | undefined; attempts?: number | undefined; dead?: boolean | undefined; lastError?: string | undefined; ownerToken?: string | undefined; networkSince?: number | undefined; networkStallReported?: boolean | undefined; };
   };
   drafts: { key: string; value: LocalDraft; };
   pending_sessions: { key: number; value: PendingSession; autoIncrement: true; };
@@ -927,6 +927,7 @@ export async function clearAllLocalStores(customUid?: string): Promise<void> {
     }
     if (effectiveUid && dbName !== 'justwriting-local') {
       await purgeAccountFromSharedDb(effectiveUid);
+      await cleanLegacySharedDb(effectiveUid);
     }
   } catch (e) {
     console.warn('[localDb] Failed to clear all object stores:', e);
@@ -1106,6 +1107,68 @@ export const LEGACY_WIPE_STORES = [
   'aiDomainVectors',
   'aiInjectionJournal',
 ] as const;
+
+const SHARED_CLEANED_KEY = 'jw_shared_db_cleaned_v1';
+
+/**
+ * LG-1: миграция до 88cbc35b (2026-09-19) уносила из общей базы только документы
+ * аккаунта — версии, профиль и ИИ-хранилища оставались, а к уже мигрировавшим
+ * очистка не возвращается (выход на `docs.length === 0`). Разово чистим остаток.
+ * Гостевое (документы, их версии, черновики) не трогаем. Пока в общей базе есть
+ * документы аккаунта, ещё не входившего после разделения, ИИ-строки без владельца
+ * — его (S-52, их отдаст claimUnowned): тогда чистим только сирот, флаг не ставим.
+ *
+ * R-10: `documents` читаются в той же readwrite-транзакции, что чистит версии.
+ * Отдельным снимком гостевая вкладка успевала сохранить документ+версию между
+ * чтением и курсором, и единственная версия новой заметки уходила как сирота.
+ * Версии гостя не трогаем вовсе — гостевая заметка без версии хуже лишней версии.
+ */
+export async function cleanLegacySharedDb(currentUid?: string): Promise<void> {
+  try {
+    if (localStorage.getItem(SHARED_CLEANED_KEY)) return;
+  } catch { return; }
+  try {
+    // Safari без databases() — список пуст, открываем как миграция выше.
+    const listed = (await indexedDB.databases?.()) ?? [];
+    if (listed.length > 0 && !listed.some(d => d.name === 'justwriting-local')) {
+      localStorage.setItem(SHARED_CLEANED_KEY, '1');
+      return;
+    }
+    const shared = await getLocalDb('justwriting-local');
+    const wipeable = Array.from(shared.objectStoreNames).filter(n => (LEGACY_WIPE_STORES as readonly string[]).includes(n));
+    const tx = shared.transaction([...wipeable, 'documents', 'versions', 'profile'], 'readwrite');
+    // Не прочитали документы — не знаем, чьё здесь лежит: бросаем, ничего не стерев.
+    const docs = await tx.objectStore('documents').getAll();
+    const docIds = new Set(docs.map(d => d.id));
+    const pending = new Set(docs.map(d => d.guestId).filter(o => !isGuestOwner(o)));
+    if (currentUid && pending.has(currentUid) && localStorage.getItem(`jw_legacy_migrated_${currentUid}`)) {
+      // R-11: миграция отмечена сделанной, а документ этого аккаунта всё ещё здесь
+      // (не удалился при переносе) — чистка не наступит никогда. Один сигнал, без
+      // прохода по версиям на каждом открытии базы.
+      const stuckKey = `jw_shared_db_stuck_${currentUid}`;
+      if (!localStorage.getItem(stuckKey)) {
+        localStorage.setItem(stuckKey, '1');
+        reportError(new Error('Legacy shared db still holds documents of a migrated account'), { action: 'cleanLegacySharedDb', uid: currentUid });
+      }
+      return;
+    }
+    if (!pending.size) for (const name of wipeable) void tx.objectStore(name).clear();
+    let v = await tx.objectStore('versions').openCursor();
+    while (v) {
+      if (!isGuestOwner(v.value.guestId) && !docIds.has(v.value.documentId)) void v.delete();
+      v = await v.continue();
+    }
+    let p = await tx.objectStore('profile').openCursor();
+    while (p) {
+      if (!isGuestOwner(p.value.guestId) && !pending.has(p.value.guestId)) void p.delete();
+      p = await p.continue();
+    }
+    await tx.done;
+    if (!pending.size) localStorage.setItem(SHARED_CLEANED_KEY, '1');
+  } catch (e) {
+    reportError(e, { action: 'cleanLegacySharedDb' });
+  }
+}
 
 export async function migrateLegacyIfNeeded(targetDbName: string, targetUid: string): Promise<void> {
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
@@ -1303,6 +1366,7 @@ export async function getLocalDb(customUid?: string): Promise<IDBPDatabase<JustW
   const effectiveUid = customUid ?? getCurrentUser()?.uid;
   if (effectiveUid && dbName !== 'justwriting-local') {
     await migrateLegacyIfNeeded(dbName, effectiveUid);
+    await cleanLegacySharedDb(effectiveUid);
   }
 
   const openPromise = openDB<JustWritingDB>(dbName, DB_VERSION, {

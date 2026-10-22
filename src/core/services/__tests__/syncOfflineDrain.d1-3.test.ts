@@ -4,6 +4,7 @@ import { getLocalDb } from '../../storage/localDb';
 import { SyncService } from '../SyncService';
 import { StorageService } from '../StorageService';
 import { CloudSyncService } from '../CloudSyncService';
+import { reportError } from '../../../shared/errors/reportError';
 
 /**
  * D1-3: в офлайне каждый фоновый проход (120 с) считался попыткой отправки:
@@ -14,6 +15,7 @@ import { CloudSyncService } from '../CloudSyncService';
  */
 
 vi.mock('../../sync/cloudSyncEnabled', () => ({ cloudSyncEnabled: () => true }));
+vi.mock('../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 
 const USER = 'user_d1_3_offline';
 const DOC = 'doc_d1_3';
@@ -29,6 +31,7 @@ beforeEach(async () => {
   await db.clear('documents');
   await db.clear('syncQueue');
   vi.restoreAllMocks();
+  vi.mocked(reportError).mockClear();
   setOnline(false);
   vi.spyOn(CloudSyncService, 'relinkOrphanedDocuments').mockResolvedValue(undefined as never);
   vi.spyOn(CloudSyncService, 'removeCloudCopy').mockResolvedValue(undefined as never);
@@ -74,5 +77,51 @@ describe('D1-3: офлайн не ждёт попыток и не каранти
     expect(CloudSyncService.removeCloudCopy).toHaveBeenCalledTimes(1);
     expect(await task()).toBeUndefined();
     expect(await SyncService.getPendingCount(USER)).toBe(0);
+  });
+
+  // DE-7: `navigator.onLine` врёт «онлайн» (captive portal, сеть без интернета) —
+  // fetch бросает TypeError, и каждый проход съедал попытку, как до D1-3.
+  it('сеть «есть», а fetch падает TypeError — попытка не засчитывается; 503 — засчитывается', async () => {
+    setOnline(true);
+    vi.mocked(StorageService.addCloudCopy).mockRejectedValue(new TypeError('Failed to fetch'));
+    for (let i = 0; i < 10; i++) await SyncService.syncPending(USER);
+
+    const waiting = await task();
+    expect(waiting?.attempts ?? 0).toBe(0);
+    expect(waiting?.dead ?? false).toBe(false);
+
+    vi.mocked(StorageService.addCloudCopy).mockRejectedValue(new Error('HTTP 503 Service Unavailable'));
+    await SyncService.syncPending(USER);
+    expect((await task())?.attempts, 'обычный сбой по-прежнему попытка').toBe(1);
+  });
+
+  // R-9 страж: мутация «любой TypeError — сеть» → красный.
+  it('обычный TypeError (не fetch) — попытка засчитывается', async () => {
+    setOnline(true);
+    vi.mocked(StorageService.addCloudCopy).mockRejectedValue(new TypeError("Cannot read properties of undefined (reading 'id')"));
+    await SyncService.syncPending(USER);
+    expect((await task())?.attempts).toBe(1);
+  });
+
+  // R-9 телеметрия: задача дольше суток подряд в network → один reportError,
+  // без текста заметки. Мутация «без отметки networkStallReported» → красный.
+  it('сутки подряд в network — один reportError, повтор не шумит', async () => {
+    setOnline(true);
+    vi.mocked(StorageService.addCloudCopy).mockRejectedValue(new TypeError('Failed to fetch'));
+    const stallsSoFar = () => vi.mocked(reportError).mock.calls.filter(c => String((c[0] as Error).message).includes('network'));
+    await SyncService.syncPending(USER);
+    expect(stallsSoFar(), 'первый сбой сети — ещё не сутки').toHaveLength(0);
+
+    const db = await getLocalDb(USER);
+    const t = (await task())!;
+    expect(t.networkSince).toBeTypeOf('number');
+    await db.put('syncQueue', { ...t, networkSince: Date.now() - 25 * 60 * 60_000 });
+
+    await SyncService.syncPending(USER);
+    await SyncService.syncPending(USER);
+    const stalls = stallsSoFar();
+    expect(stalls).toHaveLength(1);
+    expect(Object.keys(stalls[0]![1] as object), 'в контексте нет текста заметки').toEqual(['taskId', 'type', 'sinceMs']);
+    expect((await task())?.attempts ?? 0, 'сеть — всё ещё не попытка').toBe(0);
   });
 });

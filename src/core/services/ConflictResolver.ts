@@ -44,6 +44,7 @@ export const ConflictResolver = {
       version: number;
       content?: string | undefined;
       _decryptionError?: boolean | undefined;
+      _degraded?: boolean | undefined;
       wordCount: number;
       duration: number;
       wpm: number;
@@ -79,9 +80,13 @@ export const ConflictResolver = {
           });
           continue;
         }
+        // DE-1: строка, не прошедшая схему (_degraded), или не-строковый текст —
+        // «неизвестно», а не пустая версия: иначе сверка ниже сносит локальную
+        // правку и кладёт на её место ''.
         decryptedCloudVersions.push({
           version: cv.version,
-          content: typeof plain.content === 'string' ? plain.content : '',
+          content: typeof plain.content === 'string' ? plain.content : undefined,
+          ...(cv._degraded ? { _degraded: true } : {}),
           wordCount: cv.wordCount,
           duration: cv.duration,
           wpm: cv.wpm,
@@ -198,7 +203,7 @@ export const ConflictResolver = {
         // Часы устройства здесь запрещены (гейт S0-6): сравнение должно быть по
         // содержимому, а не по времени прибора.
         const comparison = comparableOrUnknown(
-          { content: cv.content, _decryptionError: cv._decryptionError },
+          { content: cv.content, _decryptionError: cv._decryptionError, _degraded: cv._degraded },
           { content: lv.content },
         );
         if (comparison.comparable && !comparison.same) {
@@ -213,7 +218,7 @@ export const ConflictResolver = {
 
       for (const cv of decryptedCloudVersions) {
         if (remainingVerNums.has(cv.version)) continue;
-        if (cv._decryptionError || cv.content === undefined) continue;
+        if (cv._decryptionError || cv._degraded || cv.content === undefined) continue;
 
         await LocalVersionService.addVersion(userId, documentId, {
           content: cv.content,

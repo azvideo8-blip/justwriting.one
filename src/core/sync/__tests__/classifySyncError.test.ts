@@ -43,6 +43,14 @@ describe('DUP-4 / FU-2 / FU-6: classifySyncError, isPoisonSyncError, and isReviv
       expect(classifySyncError(undefined)).toBe('transient');
     });
 
+    it('DE-7: fetch, не дошедший до сервера, — network во всех браузерах', () => {
+      expect(classifySyncError(new TypeError('Failed to fetch'))).toBe('network');
+      expect(classifySyncError({ message: 'TypeError: Failed to fetch', code: '' })).toBe('network');
+      expect(classifySyncError(new TypeError('Load failed'))).toBe('network');
+      expect(classifySyncError(new TypeError('NetworkError when attempting to fetch resource.'))).toBe('network');
+      expect(isPoisonSyncError(new TypeError('Failed to fetch'))).toBe(false);
+    });
+
     it('identifies poison pill errors (quarantined on attempt 1)', () => {
       expect(isPoisonSyncError('LOCKED: vault locked')).toBe(true);
       expect(isPoisonSyncError('ENCRYPT_REQUIRED: key needed')).toBe(true);

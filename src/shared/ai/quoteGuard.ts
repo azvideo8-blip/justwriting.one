@@ -87,7 +87,22 @@ export function quoteSpans(text: string): QuoteSpan[] {
  * Без материалов (`materials` пуст) правило молчит: сверять не с чем, а молча
  * снять кавычки с верной цитаты хуже, чем оставить выдуманные.
  */
-export function unquoteAbsent(text: string, materials: string | null | undefined): { text: string; stripped: string[] } {
+/**
+ * ED-1 (0.10.8): у Редактора предложенная строка написана от лица автора, и
+ * ветка `PERSONAL_RE` вешала на неё «по смыслу» — как будто слова автора
+ * переданы неточно. `markPersonal: false` отключает эту ветку: у Редактора
+ * метка ставится только по глаголу речи перед цитатой. Снятие кавычек с
+ * отсутствующих — прежнее, правило MD-3 не трогается.
+ */
+export interface UnquoteOptions {
+  markPersonal?: boolean;
+}
+
+export function unquoteAbsent(
+  text: string,
+  materials: string | null | undefined,
+  opts?: UnquoteOptions,
+): { text: string; stripped: string[] } {
   const hay = normalizeQuoteText(materials ?? '');
   if (!hay) return { text, stripped: [] };
   const stripped: string[] = [];
@@ -104,12 +119,13 @@ export function unquoteAbsent(text: string, materials: string | null | undefined
     stripped.push(inner);
     let before = text.slice(last, at);
     let body = inner;
-    if (SPEECH_ANY_RE.test(window) || PERSONAL_RE.test(inner.toLowerCase())) {
+    if (SPEECH_ANY_RE.test(window) || (opts?.markPersonal !== false && PERSONAL_RE.test(inner.toLowerCase()))) {
       // «она сказала: «…»» → «она сказала, по смыслу: …»; в начале фразы — «По смыслу: …».
-      before = before.replace(/[\s:,]*$/, '');
+      // DE-5: перевод строки не снимаем — иначе абзац склеивался с предыдущим.
+      before = before.replace(/[ \t:,]*$/, '');
       const sentenceStart = /(?:^|[.!?\n])\s*$/.test(out + before);
       body = sentenceStart
-        ? `${before ? ' ' : ''}По смыслу: ${inner}`
+        ? `${before && !before.endsWith('\n') ? ' ' : ''}По смыслу: ${inner}`
         : `, по смыслу: ${inner}`;
     }
     out += before + body;

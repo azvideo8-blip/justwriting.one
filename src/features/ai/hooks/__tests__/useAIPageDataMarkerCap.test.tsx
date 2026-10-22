@@ -102,7 +102,7 @@ vi.mock('../../../../shared/components/ConfirmDialog', () => ({
 }));
 
 import { useAIPageData } from '../useAIPageData';
-import { toApiContent, splitAttachedMessage } from '../../utils/aiChatTransport';
+import { toApiContent, splitAttachedMessage, prepareApiMessages } from '../../utils/aiChatTransport';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { assertNoSystemPromptInjection, ATTACHED_NOTE_TITLE_MAX } from '../../../../shared/ai/aiPolicy';
 
@@ -127,7 +127,8 @@ describe('S-44.5: название в маркере режется до сер�
 
   it('длинная заметка: маркер в показанном ходе укладывается в предел, сервер принимает', async () => {
     const display = await sendWith('я'.repeat(9_500));
-    const markerLine = display.split('\n')[0]!;
+    // DE-3: и в «не влезает» первая строка — шапка `[#id · дата]`.
+    const markerLine = display.split('\n')[1]!;
     const title = markerLine.match(MARKER_RE)?.[1];
     expect(title).toBeDefined();
     expect(title!.length).toBe(ATTACHED_NOTE_TITLE_MAX);
@@ -164,11 +165,38 @@ describe('S-63: the not-fits turn writes the question behind the separator', () 
     await act(async () => { await result.current.handleSendMessage(question); });
     const display = (sendMessage.mock.calls[0] as [string])[0];
 
-    expect(display.startsWith('[Прикреплена заметка: "Длинная"]\n\n— — —\nВопрос: ')).toBe(true);
+    expect(display.startsWith('[#local_n1 · 2026-09-29]\n[Прикреплена заметка: "Длинная"]\n\n— — —\nВопрос: ')).toBe(true);
     // История: вопрос целиком, не маркер без вопроса.
     expect(toApiContent(display)).toBe(`[Прикреплена заметка: "Длинная"]\n\n${question}`);
     // «Ответить иначе» строит ход по вопросу, а не по «Разбери эту заметку».
     expect(splitAttachedMessage(display)?.question).toBe(question);
+  });
+});
+
+// DE-3: ход с заметками, тела которых не влезли, писался маркерами без шапок —
+// DG-1 не мог поставить прошлой заметке дату. Мутация: вернуть маркеры без шапки.
+describe('DE-3: the not-fits multi-note turn keeps a head per note', () => {
+  it('both notes of a past turn get their dates in the history', async () => {
+    vi.clearAllMocks();
+    sendMessage.mockResolvedValue('dlg_1');
+    pending.length = 0;
+    pending.push(
+      { documentId: 'local_n1', title: 'Первая', content: 'я'.repeat(5_000), lastSessionAt: Date.UTC(2026, 8, 28, 12) },
+      { documentId: 'local_n2', title: 'Вторая', content: 'ю'.repeat(5_000), lastSessionAt: Date.UTC(2026, 8, 29, 12) },
+    );
+    const { result } = renderHook(() => useAIPageData());
+    await act(async () => { await result.current.handleSendMessage('сравни'); });
+    const display = (sendMessage.mock.calls[0] as [string])[0];
+
+    const out = prepareApiMessages([
+      { role: 'user', type: 'chat', content: display },
+      { role: 'assistant', type: 'chat', content: 'ответ' },
+      { role: 'user', type: 'chat', content: '[#local_n3 · 2026-10-01]\n[Прикреплена заметка: "Третья"]\nтело' },
+    ] as never);
+    expect(out[0]!.content).toBe(
+      '[Прикреплена заметка: "Первая" · 2026-09-28 · текста этой заметки в этом ходе нет]\n'
+      + '[Прикреплена заметка: "Вторая" · 2026-09-29 · текста этой заметки в этом ходе нет]\n\nсравни',
+    );
   });
 });
 

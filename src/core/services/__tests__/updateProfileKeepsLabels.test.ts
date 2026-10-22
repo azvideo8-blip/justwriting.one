@@ -7,7 +7,9 @@ import { LocalDocumentService } from '../LocalDocumentService';
 // при каждом удалении заметки — голый put без остальных полей.
 describe('LocalDocumentService._updateProfile (EA-6)', () => {
   it('keeps labels while recomputing totals', async () => {
-    const db = await getLocalDb();
+    // LG-1: база аккаунта, где _updateProfile и читает, — в общей тест проверял
+    // строку, которую никто не трогал, и не краснел.
+    const db = await getLocalDb('u_labels');
     const labels = [{ id: 'l1', name: 'Работа', color: '#3B6BB5' }];
     await db.put('profile', { guestId: 'u_labels', totalWords: 0, sessionsCount: 0, totalDuration: 0, lastSessionAt: 1, labels } as never);
     await LocalDocumentService._updateProfile('u_labels');

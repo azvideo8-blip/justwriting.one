@@ -188,6 +188,33 @@ type EmbeddingCounters = Pick<EmbeddingDownloadOutcome, 'embeddings' | 'failed' 
 const NO_DOWNLOAD: EmbeddingDownloadOutcome = { embeddings: 0, failed: 0, markedSynced: 0, finished: false };
 
 /**
+ * DE-2: сколько проходов head без своих окон держит курсор. Писатель подписывает
+ * head последним, когда все окна уже в облаке, — так что дольше это не выгрузка в
+ * пути, а оборванная копия. Чинит её писатель новым head'ом, и триггер 0037 даёт
+ * строке новую `stamped_at`, новее курсора. Без предела каждый фоновый проход
+ * заново качал и применял всё, что новее осиротевшего head. Считаем проходы, а не
+ * часы устройства: часы в решениях забора запрещены (S0-6).
+ */
+// C7: считают оба прохода — и инкрементальный, и полный. Полный нужен: head старше
+// окна забора видит только он. В одном runPass без суточной отметки идут оба, так
+// что 6 проходов ≈ 3 runPass; с отметкой — 6 инкрементальных.
+const INCOMPLETE_HOLD_PASSES = 6;
+// ponytail: отпущенные head'ы помним последними 200 ключами; новый head = новый
+// ключ (в нём stamped_at), старые выпадают сами — без часов (S0-6).
+const RELEASED_HOLDS_CAP = 200;
+const incompleteHoldsKey = (userId: string): string => `ai_incomplete_holds_${userId}`;
+
+/** Нечитаемый счётчик — заново с нуля: хуже станет только лишний перезабор. */
+function readIncompleteHolds(userId: string): Record<string, number> {
+  try {
+    const v: unknown = JSON.parse(localStorage.getItem(incompleteHoldsKey(userId)) ?? '{}');
+    return v !== null && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, number> : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
  * Local records the cloud already holds, marked so they are not re-uploaded.
  * Anything whose content hash the cloud already holds is present there under SOME
  * key — re-attach re-keys locally and the hash finds it again after a wipe, so
@@ -446,6 +473,10 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
     );
   } else try {
     const cloudRecords = await DataProvider.getLocalStoreRecords(userId, undefined, sinceMs);
+    // DE-2: счётчик переписывается целиком — head, которого проход не увидел
+    // (починен или уже за курсором), из него выпадает.
+    const prevHolds = readIncompleteHolds(userId);
+    const nextHolds: Record<string, number> = {};
 
     // Group cloud records by (store, baseKey). S-49: разбор ключей и выбор
     // версии — общий с выгрузкой (core/services/localStorePages).
@@ -554,11 +585,17 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
               : version.kind === 'refused' ? version.reason
               : `не хватает ${version.missing.length} сегментов: ${version.missing.join(', ')}`;
             logger.warn('AIRestoreService', `${store}/${baseKey}: ${reason}. Refusing.`);
-            if (version && version.kind === 'incomplete' && version.missing.length > 0) {
-              LocalStoreSyncService.scheduleStoreSync('aiDialogues', baseKey);
+            let permanent = false;
+            if (version && version.kind === 'incomplete') {
+              if (version.missing.length > 0) LocalStoreSyncService.scheduleStoreSync('aiDialogues', baseKey);
+              const holdKey = `${store}:${baseKey}:${headRow.stamped_at ?? ''}`;
+              nextHolds[holdKey] = (prevHolds[holdKey] ?? 0) + 1;
+              permanent = nextHolds[holdKey] > INCOMPLETE_HOLD_PASSES;
             }
-            markRefused(rows, baseKey);
-            result.failed++;
+            markRefused(rows, baseKey, permanent);
+            // R-8: отпущенный head — не сбой прохода: иначе `failed > 0` каждые 120 с
+            // снимал суточную отметку, и полный restoreAIDataFromCloud шёл заново.
+            if (!permanent) result.failed++;
             continue; // Keep local copy intact!
           }
           fullJson = JSON.stringify(version.dialogue);
@@ -767,6 +804,24 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
         result.failed++;
         reportError(err, { action: 'restoreAIData_local_store_record', store, key: baseKey });
       }
+    }
+
+    // C7: отпущенный head помним и тогда, когда этот проход его не видел (курсор уже
+    // за ним). Иначе ключ выпадал, следующий полный проход начинал счёт с нуля и
+    // снова давал `failed++` — суточная отметка не ставилась, полный проход шёл
+    // каждые 120 с. Неотпущенный и невиденный — выпадает: его починили.
+    const released = Object.entries(prevHolds)
+      .filter(([k, n]) => !(k in nextHolds) && n > INCOMPLETE_HOLD_PASSES)
+      // Порядок prevHolds: сначала виденные прошлым проходом, потом отпущенные раньше —
+      // начало списка самое свежее, его и держим.
+      .slice(0, RELEASED_HOLDS_CAP);
+    for (const [k, n] of released) nextHolds[k] = n;
+    try {
+      if (Object.keys(nextHolds).length > 0) localStorage.setItem(incompleteHoldsKey(userId), JSON.stringify(nextHolds));
+      else localStorage.removeItem(incompleteHoldsKey(userId));
+    } catch (e) {
+      // Без счётчика — прежнее поведение: осиротевший head держит курсор.
+      reportError(e, { action: 'restoreAIData_incompleteHolds', userId }, 'warning');
     }
 
     // D1-5: за отвергнутую строку курсор не идёт — иначе она не приедет, пока

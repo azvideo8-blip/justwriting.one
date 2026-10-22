@@ -30,6 +30,23 @@ const defaultProps: AIChatComposerProps = {
   dismissCrisis: vi.fn(),
 };
 
+// A9 (FN-2б): под одной приложенной заметкой — подсказка приложить и ту, о которой речь;
+// без вложений и при двух — нет. Мутация «показывать при любом числе» → красный.
+describe('AIChatComposer attach-more hint', () => {
+  const att = (title: string) => ({ title });
+  it('одна приложенная — подсказка видна', () => {
+    renderWithProviders(<AIChatComposer {...defaultProps} pendingAttachments={[att('Сессия')]} />);
+    expect(screen.getByTestId('ai-attach-more-hint')).toHaveTextContent(/приложить ещё заметку|attach another note/i);
+  });
+  it('без вложений и при двух — подсказки нет', () => {
+    const { unmount } = renderWithProviders(<AIChatComposer {...defaultProps} />);
+    expect(screen.queryByTestId('ai-attach-more-hint')).toBeNull();
+    unmount();
+    renderWithProviders(<AIChatComposer {...defaultProps} pendingAttachments={[att('А'), att('Б')]} />);
+    expect(screen.queryByTestId('ai-attach-more-hint')).toBeNull();
+  });
+});
+
 describe('AIChatComposer quota indicator', () => {
   it('disables send button and displays reset text when dailyLimitRemaining is 0', () => {
     renderWithProviders(

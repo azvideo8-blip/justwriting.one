@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.10.8 — 2026-10-22
+
+- **[RU]** Под приложенной заметкой — подсказка, что можно приложить ещё одну. Если текст был длиннее, чем ИИ может принять, после ответа видно, сколько знаков до него дошло.
+- **[EN]** Under an attached note there is now a hint that you can attach another one. If the text was longer than the AI can take, after the answer you can see how many characters reached it.
+- **[RU]** Если заметка ссылается на прошлый день («на сессии 10.10», «вчера»), ИИ берёт запись этого дня в разговор. Похожие дни подбираются строже, случайные в фон не попадают.
+- **[EN]** If a note refers to an earlier day («на сессии 10.10», «вчера»), the AI brings that day's entry into the conversation. Similar days are picked more strictly, and random ones no longer get into the background.
+- **[RU]** Редактор на «как тебе?» и «оцени» отвечает оценкой, а не переписанным постом. Его собственные варианты строк больше не помечаются «по смыслу».
+- **[EN]** The Editor answers «how is it?» and «rate it» with an assessment, not a rewritten post. Its own suggested lines are no longer marked «по смыслу» (paraphrased).
+- **[RU]** Если облачная версия заметки не прочиталась при сверке правок, заметка больше не заменяется пустой версией.
+- **[EN]** If the cloud version of a note could not be read while reconciling edits, the note is no longer replaced with an empty version.
+- **[RU]** ИИ видит даты всех заметок, приложенных к сообщению, а не только первой.
+- **[EN]** The AI sees the dates of all notes attached to a message, not just the first one.
+- **[RU]** Когда сеть есть, а интернета нет (например, Wi-Fi со входом через страницу), несохранённые заметки ждут связи и не тратят попытки отправки.
+- **[EN]** When there is a network but no internet (for example, Wi-Fi with a sign-in page), unsaved notes wait for the connection and do not use up upload attempts.
+- **[RU]** На устройстве не остаются старые данные гостевого режима и ИИ из прошлых версий.
+- **[EN]** Old guest-mode and AI data from earlier versions no longer stay on the device.
+
 ## 0.10.7 — 2026-10-21
 
 - **[RU]** ИИ в длинном диалоге не путает дни прошлых заметок и не выдаёт свои прежние ответы за их текст; пересказанная чужая реплика помечается «по смыслу» и не выглядит твоими словами.

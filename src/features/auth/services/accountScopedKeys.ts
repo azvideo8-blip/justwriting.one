@@ -57,6 +57,8 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
     `ai_restore_done_date_${uid}`,
     // флаг завершения миграции legacy IndexedDB (LS-5)
     `jw_legacy_migrated_${uid}`,
+    // R-11 (LG-1): документ аккаунта застрял в общей базе после миграции — сигнал дан
+    `jw_shared_db_stuck_${uid}`,
     // кэш анализа коммуникативных дверей (LS-5)
     `contact_doors_cache_${uid}`,
     // кэш облака слов архива (LS-5)
@@ -88,6 +90,8 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
 
     // отметка инкрементального забора данных ИИ с других устройств
     `ai_pull_since_${uid}`,
+    // DE-2: сколько проходов осиротевший head диалога уже держит курсор забора
+    `ai_incomplete_holds_${uid}`,
     // выключатель подсказок и памяти ИИ (EA-18)
     `ai_chat_extras_${uid}`,
     // отметки «слишком большая для облака» запись ИИ-стора — на учётку (L-4, R4-017)

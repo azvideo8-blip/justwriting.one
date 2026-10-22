@@ -85,6 +85,23 @@ describe('AUD-13 restore throttle is per-account and only after success', () => 
       .toBe(new Date().toISOString().slice(0, 10));
   });
 
+  // R-8: отпущенный осиротевший head возвращает failed=0 → отметка стоит, и
+  // следующий проход зовёт только инкрементальный забор (с sinceMs), не полный.
+  it('R-8: after a clean pass the next pass does not call the full restore again', async () => {
+    mockRestore.mockResolvedValue({ restored: 0, hasMore: false });
+    mockRestoreAi.mockResolvedValue({ skippedLocked: false, failed: 0, sectionFailed: false });
+
+    renderHook(() => useBackgroundSync());
+    await vi.advanceTimersByTimeAsync(5_100);
+    expect(localStorage.getItem('ai_restore_done_date_u_throttle_1')).toBe(new Date().toISOString().slice(0, 10));
+    expect(mockRestore).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(120_000 + 5_100);
+    expect(mockRestore, 'полный проход за день — один').toHaveBeenCalledTimes(1);
+    const fullCalls = mockRestoreAi.mock.calls.filter(c => c[1] === undefined);
+    expect(fullCalls, 'restoreAIDataFromCloud без sinceMs — один раз').toHaveLength(1);
+  });
+
   it('F-024: does not set the throttle key when aiRestored has failed > 0', async () => {
     mockRestore.mockResolvedValue({ restored: 2, hasMore: false });
     mockRestoreAi.mockResolvedValue({ skippedLocked: false, failed: 1, sectionFailed: false });

@@ -59,6 +59,12 @@ function mockDb() {
   return { db, storeDelete };
 }
 
+function originalTexts() {
+  return vi.mocked(LocalVersionService.addVersion).mock.calls
+    .filter(([, docId]) => docId === LOCAL_DOC)
+    .map(([, , payload]) => (payload as { content: string }).content);
+}
+
 const edit = {
   title: 'Черновик',
   content: MARKER,
@@ -77,7 +83,7 @@ describe('D1-1: нечитаемая облачная версия не унос
   });
 
   it('версия с _degraded и пустым content: локальный текст остаётся в форке', async () => {
-    mockDb();
+    const { storeDelete } = mockDb();
     vi.mocked(LocalVersionService.getVersions).mockResolvedValue([
       { id: 'lv_1', version: 1, content: 'старая версия', sessionStartedAt: 1000 },
       { id: 'lv_2', version: 2, content: MARKER, sessionStartedAt: 2000 },
@@ -93,10 +99,13 @@ describe('D1-1: нечитаемая облачная версия не унос
       .filter(([, docId]) => docId === 'forked_doc_d1_1')
       .map(([, , payload]) => (payload as { content: string }).content);
     expect(forkTexts).toContain(MARKER);
+    // DE-1: и в самой заметке правка не заменяется пустой облачной версией.
+    expect(storeDelete).not.toHaveBeenCalledWith('lv_2');
+    expect(originalTexts()).not.toContain('');
   });
 
   it('не-строковый content после расшифровки: локальный текст остаётся в форке', async () => {
-    mockDb();
+    const { storeDelete } = mockDb();
     vi.mocked(LocalVersionService.getVersions).mockResolvedValue([
       { id: 'lv_1', version: 1, content: MARKER, sessionStartedAt: 1000 },
     ] as never);
@@ -110,5 +119,36 @@ describe('D1-1: нечитаемая облачная версия не унос
       .filter(([, docId]) => docId === 'forked_doc_d1_1')
       .map(([, , payload]) => (payload as { content: string }).content);
     expect(forkTexts).toContain(MARKER);
+    expect(storeDelete).not.toHaveBeenCalledWith('lv_1');
+    expect(originalTexts()).not.toContain('');
+  });
+
+  it('прочитанная зашифрованная версия с другим текстом по-прежнему убирается из заметки', async () => {
+    const { storeDelete } = mockDb();
+    vi.mocked(LocalVersionService.getVersions).mockResolvedValue([
+      { id: 'lv_1', version: 1, content: MARKER, sessionStartedAt: 1000 },
+    ] as never);
+    vi.mocked(VersionService.getVersions).mockResolvedValue([
+      { version: 1, content: 'облачный текст', wordCount: 2, duration: 10, wpm: 12, _encrypted: true },
+    ] as never);
+
+    await ConflictResolver.resolveConflict(UID, LOCAL_DOC, CLOUD_DOC, edit, 1, { currentVersion: 1 });
+
+    expect(storeDelete).toHaveBeenCalledWith('lv_1');
+  });
+
+  it('нечитаемой облачной версии нет локально: в заметку не пишется пустая', async () => {
+    mockDb();
+    vi.mocked(LocalVersionService.getVersions).mockResolvedValue([
+      { id: 'lv_1', version: 1, content: 'старая версия', sessionStartedAt: 1000 },
+    ] as never);
+    vi.mocked(VersionService.getVersions).mockResolvedValue([
+      { version: 1, content: 'старая версия', wordCount: 2, duration: 10, wpm: 12 },
+      { version: 2, content: '', wordCount: 0, duration: 0, wpm: 0, _degraded: true },
+    ] as never);
+
+    await ConflictResolver.resolveConflict(UID, LOCAL_DOC, CLOUD_DOC, edit, 2, { currentVersion: 2 });
+
+    expect(originalTexts()).not.toContain('');
   });
 });

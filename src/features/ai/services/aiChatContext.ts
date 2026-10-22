@@ -451,6 +451,9 @@ export function useAIChatContext(personaId: string): {
             await AIEmbeddingService.getAll(),
             await (docsSnap ??= loadDocumentSnapshot()),
             await (summariesSnap ??= loadSummarySnapshot()),
+            attachedContent,
+            // FN-2: в documentId только первая — остальные приложенные берём из шапок.
+            extractCitationIds(attachedContent),
           );
         } catch (e) {
           reportError(e, { action: '[useAIChatContext] related days failed' });

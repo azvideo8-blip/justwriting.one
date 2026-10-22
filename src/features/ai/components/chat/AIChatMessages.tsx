@@ -71,8 +71,10 @@ export interface AIChatMessagesProps {
 }
 
 const ATTACHED_NOTE_MARKER_RE = /\[Прикреплена заметка: "([^"]+)"\]/g;
+// Шапка следующей заметки (и разделитель блоков перед ней) — не часть тела.
+const NEXT_NOTE_HEAD_RE = /\s*(?:---\s*)?\[#[^\]\n]* · [^\]\n]*\]\s*$/;
 
-function parseAttachedNotes(content: string, defaultTitle: string) {
+export function parseAttachedNotes(content: string, defaultTitle: string) {
   const sepIdx = content.indexOf(ATTACHED_QUESTION_SEP);
   const beforeSep = sepIdx >= 0 ? content.slice(0, sepIdx) : content;
   const question = sepIdx >= 0 ? content.slice(sepIdx + ATTACHED_QUESTION_SEP.length).trim() : '';
@@ -83,7 +85,7 @@ function parseAttachedNotes(content: string, defaultTitle: string) {
   }
   const notes: { title: string; body: string }[] = markers.map((mk, idx) => {
     const nextStart = idx + 1 < markers.length ? markers[idx + 1]!.start : beforeSep.length;
-    const body = beforeSep.slice(mk.end, nextStart).trim();
+    const body = beforeSep.slice(mk.end, nextStart).replace(NEXT_NOTE_HEAD_RE, '').trim();
     return { title: mk.title, body };
   });
 

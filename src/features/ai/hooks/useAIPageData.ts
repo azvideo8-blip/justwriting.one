@@ -302,13 +302,16 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
 
     let id: string | null;
     if (attaches.length > 0) {
-      const markers = attaches.map(a => `[Прикреплена заметка: "${cleanAttachedTitle(a.title)}"]`);
       const firstLocalDocId = attaches.find(a => a.documentId.startsWith('local_'))?.documentId;
 
-      const formatRefTag = (a: { documentId: string; lastSessionAt?: number | undefined; title: string; content: string }) => {
+      // DE-3: шапка `[#id · дата]` стоит над каждым маркером, и в ходе, где тело не
+      // влезло: по ней транспорт ставит прошлой заметке дату (DG-1).
+      const refHead = (a: { documentId: string; lastSessionAt?: number | undefined; title: string }) => {
         const yyyymmdd = localDayKey(a.lastSessionAt ?? Date.now()); // N-17: день по местному времени, как везде
-        return `[#${a.documentId} · ${yyyymmdd}]\n[Прикреплена заметка: "${cleanAttachedTitle(a.title)}"]\n${a.content}`;
+        return `[#${a.documentId} · ${yyyymmdd}]\n[Прикреплена заметка: "${cleanAttachedTitle(a.title)}"]`;
       };
+      const formatRefTag = (a: { documentId: string; lastSessionAt?: number | undefined; title: string; content: string }) =>
+        `${refHead(a)}\n${a.content}`;
       // Вопрос уходит отдельно от текста заметки (режим хода и контекст строятся
       // по нему), название и дата — в правило строгого хода.
       const noteMeta = attaches.length === 1
@@ -322,17 +325,16 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
 
       if (attaches.length === 1) {
         const a = attaches[0]!;
-        const marker = markers[0]!;
         // S-63: и в «не влезает» вопрос идёт за разделителем — иначе ход «маркер +
         // вопрос» неотличим от старого «маркер + тело» (aiChatTransport, порог 1500).
         const display = fits
           ? `${formatRefTag(a)}${text ? `${ATTACHED_QUESTION_SEP}${text}` : ''}`
-          : `${marker}${text ? `${ATTACHED_QUESTION_SEP}${text}` : ''}`;
+          : `${refHead(a)}${text ? `${ATTACHED_QUESTION_SEP}${text}` : ''}`;
         id = await sendMessage(display, { content: formatRefTag(a), ...(firstLocalDocId ? { documentId: firstLocalDocId } : {}), inline: fits }, undefined, undefined, sendOpts);
       } else {
         const display = fits
           ? `${totalContent}${text ? `${ATTACHED_QUESTION_SEP}${text}` : ''}`
-          : `${markers.join('\n')}${text ? `${ATTACHED_QUESTION_SEP}${text}` : ''}`;
+          : `${attaches.map(refHead).join('\n')}${text ? `${ATTACHED_QUESTION_SEP}${text}` : ''}`;
         id = await sendMessage(display, { content: totalContent, ...(firstLocalDocId ? { documentId: firstLocalDocId } : {}), inline: fits }, undefined, undefined, sendOpts);
       }
     } else {

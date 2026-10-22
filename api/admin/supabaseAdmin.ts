@@ -14,9 +14,14 @@ export function getSupabaseAdmin(): SupabaseClient {
     throw new Error('SUPABASE_SERVICE_ROLE_KEY not configured');
   }
 
-  // DA-20: без запасного VITE_SUPABASE_URL — это переменная сборки клиента; подмена
-  // её при сборке увела бы сервисный ключ на чужой адрес.
-  const supabaseUrl = process.env.SUPABASE_URL || 'https://justwriting.ru';
+  // DA-20 / B-4: без запасного публичного адреса. Пока fallback вёл на
+  // justwriting.ru, админ-вызовы ходили в GoTrue через интернет, и закрыть
+  // /auth/v1/admin снаружи было нельзя. Адрес задаёт владелец в
+  // /opt/justwriting/api/.env (шаг 1: http://127.0.0.1:8000).
+  const supabaseUrl = process.env.SUPABASE_URL;
+  if (!supabaseUrl) {
+    throw new Error('SUPABASE_URL not configured for admin calls');
+  }
 
   return createClient(supabaseUrl, serviceRoleKey, {
     auth: {
