@@ -12,8 +12,12 @@ export default [
     // MB-12: после локального e2e в дереве лежат playwright-report/ и test-results/
     // со минифицированными бандлами трассировки — `eslint .` спотыкается о них,
     // а не о код. В CI порядок шагов этого не показывает (lint раньше e2e).
-    ignores: ['dist/**', 'node_modules/**', '.claude/**', '.vercel/**', 'scripts/**', 'deploy/**',
+    ignores: ['dist/**', 'node_modules/**', '.claude/**', '.vercel/**', 'deploy/**',
               'playwright-report/**', 'test-results/**'],
+  },
+  {
+    // LS-1: scripts/stand/dist — собранный стенд (vite build), не исходник.
+    ignores: ['scripts/stand/dist/**'],
   },
   js.configs.recommended,
   // N-59: public/ — загрузочный скрипт и сервис-воркер, выполняются до React;
@@ -102,6 +106,21 @@ export default [
         node: { extensions: ['.js', '.jsx', '.ts', '.tsx'] },
       },
     },
+  },
+  {
+    // LS-1: scripts/ — ворота CI, стенд и разовые замеры. Это CLI, а не src:
+    // Node-глобалы (process, Buffer, __dirname) законны, console — их штатный
+    // вывод. JS-скрипты подчиняются js.configs.recommended; TS-скрипты
+    // дополнительно попадают под блок **/*.ts выше (типизированные правила —
+    // они входят в tsconfig, кроме scripts/stand/dist).
+    files: ['scripts/**/*.{js,mjs,cjs,ts,mts,cts}'],
+    languageOptions: { globals: { ...globals.node, NodeJS: 'readonly' } },
+    rules: { 'no-console': 'off' },
+  },
+  {
+    // LS-1: не модуль, а вставка в консоль браузера — см. шапку файла.
+    files: ['scripts/embed-bench/*.browser.js'],
+    languageOptions: { globals: globals.browser },
   },
   {
     files: ['**/*.test.{ts,tsx}', '**/__tests__/**/*.{ts,tsx}', '**/tests/**/*.{ts,tsx}', 'src/test/**/*.{ts,tsx}'],
