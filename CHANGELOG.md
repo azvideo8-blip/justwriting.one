@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.10.9 — 2026-10-23
+
+- **[RU]** Скрытые от ИИ заметки теперь скрыты полностью — вместе с названием.
+- **[EN]** Notes hidden from AI are now fully hidden, including their titles.
+- **[RU]** «Вчера» и даты без года во второй приложенной заметке ИИ отсчитывает от дня этой заметки, а не первой.
+- **[EN]** «Вчера» (yesterday) and dates without a year in a second attached note are now counted from that note's day, not the first one's.
+- **[RU]** Когда сеть есть, а интернета нет, портрет, память и диалоги ИИ ждут связи и не перестают отправляться в облако. Одна испорченная запись в облаке больше не тормозит загрузку остальных.
+- **[EN]** When there is a network but no internet, the AI portrait, memory and dialogues wait for the connection and do not stop uploading. One damaged record in the cloud no longer slows down loading the rest.
+- **[RU]** В списке диалогов видна последняя реплика, а не служебная строка; ссылка в конце приложенной заметки не пропадает из её карточки.
+- **[EN]** The dialogue list shows the last message, not a service line; a reference at the end of an attached note no longer disappears from its card.
+
 ## 0.10.8 — 2026-10-22
 
 - **[RU]** Под приложенной заметкой — подсказка, что можно приложить ещё одну. Если текст был длиннее, чем ИИ может принять, после ответа видно, сколько знаков до него дошло.

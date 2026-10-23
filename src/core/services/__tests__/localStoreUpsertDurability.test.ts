@@ -51,8 +51,9 @@ describe('SA-1: pending AI-store upserts survive the tab closing', () => {
     expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 0, dead: 0, oversized: 0, unknown: false });
   });
 
+  // Н-4: отказ сервера, не сеть — сетевой сбой попыток не тратит (тест ниже).
   it('counts attempts across instances, so a permanently rejected record still ends up dead', async () => {
-    save.mockRejectedValue(new Error('Failed to fetch'));
+    save.mockRejectedValue(new Error('22P02 invalid input syntax'));
 
     const first = new LocalStoreSyncManager();
     first.scheduleStoreSync('aiPortrait', 'p1');
@@ -65,9 +66,25 @@ describe('SA-1: pending AI-store upserts survive the tab closing', () => {
     expect(save).toHaveBeenCalledTimes(5);
     const dead = getDeadStoreUpserts(USER);
     expect(dead.map(d => `${d.store}/${d.key}`)).toEqual(['aiPortrait/p1']);
-    expect(dead[0]?.lastError).toContain('Failed to fetch');
+    expect(dead[0]?.lastError).toContain('22P02');
     // Мёртвая запись больше не «в очереди»: она в отдельной, видимой отметке.
     expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 0, dead: 1, oversized: 0, unknown: false });
+  });
+
+  // Н-4 (дейлик 2026-10-23): DE-7 («сеть — не попытка») был закрыт только в
+  // очереди заметок; здесь перехватная страница Wi-Fi за 5 проходов хоронила
+  // портрет, память и диалоги. Мутация: убрать ветку `network` → красный.
+  it('a network failure does not spend attempts: the upsert waits and goes once the network is back', async () => {
+    save.mockRejectedValue(new TypeError('Failed to fetch'));
+    const tab = new LocalStoreSyncManager();
+    tab.scheduleStoreSync('aiPortrait', 'p1');
+    for (let i = 0; i < 6; i++) await tab.flushPending(true);
+    expect(getDeadStoreUpserts(USER), 'сеть — не повод хоронить выгрузку').toEqual([]);
+    expect(getLocalStoreSyncSummary(USER).pending).toBe(1);
+
+    save.mockResolvedValue({ written: true, stampedAt: null } as never);
+    expect((await new LocalStoreSyncManager().flushPending(true)).synced).toBe(1);
+    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 0, dead: 0, oversized: 0, unknown: false });
   });
 
   it('a rejected record stays visible as dead after a reload, not silently dropped', async () => {
@@ -87,7 +104,7 @@ describe('SA-1: pending AI-store upserts survive the tab closing', () => {
   });
 
   it('a new local change revives a rejected record and clears its mark', async () => {
-    save.mockRejectedValue(new Error('Failed to fetch'));
+    save.mockRejectedValue(new Error('22P02 invalid input syntax'));
     const tab = new LocalStoreSyncManager();
     tab.scheduleStoreSync('aiPortrait', 'p1');
     for (let i = 0; i < 6; i++) await tab.flushPending(true);

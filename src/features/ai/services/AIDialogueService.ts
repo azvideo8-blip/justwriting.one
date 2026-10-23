@@ -416,7 +416,7 @@ export const AIDialogueService = {
           role: m.role,
           content: m.role === 'assistant' && citesAnyId(m.content, hiddenIds)
             ? HIDDEN_ANSWER_PLACEHOLDER
-            : toApiContent(m.content, undefined, legacyParse),
+            : toApiContent(m.content, undefined, { ...legacyParse, hiddenCitationIds: hiddenIds }),
         })),
       });
 

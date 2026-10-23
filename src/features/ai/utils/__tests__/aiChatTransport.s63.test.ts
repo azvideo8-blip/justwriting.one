@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { toApiContent, prepareApiMessages, splitAttachedMessage, legacyNoteHidden } from '../aiChatTransport';
+import { toApiContent, prepareApiMessages, splitAttachedMessage, legacyNoteHidden, HIDDEN_NOTE_TITLE } from '../aiChatTransport';
 
 // S-63.2b: старый ход без шапки и без разделителя — «маркер + тело» (до
 // 2026-07-15) неотличим от «маркер + вопрос»; S-51 резал хвост только длиннее
@@ -21,8 +21,9 @@ const dlg = (documentId: string | undefined, content = LEGACY) => ({ documentId,
 describe('S-63: a short legacy body of a hidden note is stripped', () => {
   it('1439 chars: hidden note → marker only; open note → the S-51 threshold rule still applies', () => {
     expect(BODY).toHaveLength(1439);
-    expect(toApiContent(LEGACY, undefined, { legacyNoteHidden: true })).toBe('[Прикреплена заметка: "Скрытая"]');
-    expect(splitAttachedMessage(LEGACY, { legacyNoteHidden: true })).toEqual({ markers: '[Прикреплена заметка: "Скрытая"]', question: '' });
+    // Н-1 (дейлик 2026-10-23): у скрытой заметки-темы не уходит и название.
+    expect(toApiContent(LEGACY, undefined, { legacyNoteHidden: true })).toBe(`[Прикреплена заметка: "${HIDDEN_NOTE_TITLE}"]`);
+    expect(splitAttachedMessage(LEGACY, { legacyNoteHidden: true })).toEqual({ markers: `[Прикреплена заметка: "${HIDDEN_NOTE_TITLE}"]`, question: '' });
     expect(toApiContent(LEGACY, undefined, { legacyNoteHidden: false })).toBe(LEGACY);
   });
 

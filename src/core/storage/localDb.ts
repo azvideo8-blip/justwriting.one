@@ -1109,6 +1109,10 @@ export const LEGACY_WIPE_STORES = [
 ] as const;
 
 const SHARED_CLEANED_KEY = 'jw_shared_db_cleaned_v1';
+// А-4 (аддон дейлика 2026-10-23): состав общей базы, на котором проход уже был,
+// а флаг поставить нельзя (документы аккаунта ждут его входа). Не изменился —
+// чистить нечего, readwrite-транзакцию не поднимаем.
+const SHARED_SCANNED_KEY = 'jw_shared_db_scanned_v1';
 
 /**
  * LG-1: миграция до 88cbc35b (2026-09-19) уносила из общей базы только документы
@@ -1135,6 +1139,8 @@ export async function cleanLegacySharedDb(currentUid?: string): Promise<void> {
       return;
     }
     const shared = await getLocalDb('justwriting-local');
+    const shape = async () => (await Promise.all((['documents', 'versions', 'profile'] as const).map(n => shared.count(n)))).join(':');
+    if (localStorage.getItem(SHARED_SCANNED_KEY) === await shape()) return;
     const wipeable = Array.from(shared.objectStoreNames).filter(n => (LEGACY_WIPE_STORES as readonly string[]).includes(n));
     const tx = shared.transaction([...wipeable, 'documents', 'versions', 'profile'], 'readwrite');
     // Не прочитали документы — не знаем, чьё здесь лежит: бросаем, ничего не стерев.
@@ -1165,6 +1171,7 @@ export async function cleanLegacySharedDb(currentUid?: string): Promise<void> {
     }
     await tx.done;
     if (!pending.size) localStorage.setItem(SHARED_CLEANED_KEY, '1');
+    else localStorage.setItem(SHARED_SCANNED_KEY, await shape());
   } catch (e) {
     reportError(e, { action: 'cleanLegacySharedDb' });
   }

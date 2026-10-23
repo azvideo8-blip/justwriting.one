@@ -32,6 +32,22 @@ function centroid(vectors: number[][]): number[] | null {
 
 export interface RelatedDays { block: string; ids: string[] }
 
+// Н-3 (дейлик 2026-10-23): у хода бывает несколько приложенных заметок, каждая
+// со своей шапкой `[#id · yyyy-mm-dd]` (день заметки по местному времени). «Вчера»
+// второй заметки — канун ЕЁ дня, а не первой. Текст до первой шапки — от `noteAt`.
+const BLOCK_SEP = '\n\n---\n\n';
+const BLOCK_HEAD = /^\[#[^\s\]·]+ · (\d{4})-(\d{2})-(\d{2})\]$/gm;
+function daysNamedInBlocks(text: string, noteAt: number | undefined): Set<number> {
+  // Ссылка `[#id · дата]` внутри тела блока не начинает (как в hideExcludedNotes).
+  const heads = [...text.matchAll(BLOCK_HEAD)].filter(h => h.index === 0 || text.slice(0, h.index).endsWith(BLOCK_SEP));
+  const out = referencedDays(text.slice(0, heads[0]?.index ?? text.length), noteAt);
+  heads.forEach((h, i) => {
+    const blockAt = new Date(+h[1]!, +h[2]! - 1, +h[3]!, 12).getTime();
+    for (const d of referencedDays(text.slice(h.index, heads[i + 1]?.index ?? text.length), blockAt)) out.add(d);
+  });
+  return out;
+}
+
 export function relativeDayLabel(noteAt: number | undefined, at: number): string {
   if (!noteAt) return '';
   const diff = Math.round((localDay(at) - localDay(noteAt)) / 86_400_000);
@@ -65,7 +81,7 @@ export function buildRelatedDaysBlock(
     return summary ? { id, at: doc.lastSessionAt ?? 0, summary } : null;
   };
 
-  const days = referencedDays(attachedText, noteAt);
+  const days = daysNamedInBlocks(attachedText, noteAt);
   const onDay = (t: number | undefined) => !!t && days.has(localDay(t));
   // R-13: в строке — тот день, по которому запись найдена (первая сессия, если
   // названа она), а не последняя сессия: иначе «10.10» в тексте и «2026-10-20» у модели.

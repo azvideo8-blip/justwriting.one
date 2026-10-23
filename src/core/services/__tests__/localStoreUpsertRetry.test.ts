@@ -39,7 +39,8 @@ describe('R3-8: a failed upsert stays queued', () => {
     expect((await LocalStoreSyncService.flushPending(true)).synced).toBe(1);
     expect(save).toHaveBeenCalledTimes(2);
 
-    save.mockReset().mockRejectedValue(new Error('Failed to fetch'));
+    // Н-4: потолок — для отказа сервера; сетевой сбой попыток не тратит.
+    save.mockReset().mockRejectedValue(new Error('22P02 invalid input syntax'));
     LocalStoreSyncService.scheduleStoreSync('aiDialogues', 'dlg1');
     for (let i = 0; i < 8; i++) await LocalStoreSyncService.flushPending(true);
     expect(save).toHaveBeenCalledTimes(5);

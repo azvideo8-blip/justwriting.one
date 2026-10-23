@@ -16,6 +16,7 @@ import {
   currentJournalUid,
 } from '../sync/syncJournal';
 import { reportError } from '../../shared/errors/reportError';
+import { classifySyncError } from '../sync/classifySyncError';
 import { logger } from '../../shared/errors/logger';
 import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
 import { pageTextOf, parseLocalStoreKey, selectCloudVersion, PAGE_TEXT_FIELDS, type CloudRow } from './localStorePages';
@@ -1988,6 +1989,12 @@ export class LocalStoreSyncManager {
             result.skippedLocked = true;
             // Re-queue item to retry after vault unlock
             this.pending.set(itemKey, item);
+          } else if (classifySyncError(err) === 'network') {
+            // Н-4: fetch не дошёл до сервера — ждём сеть, попытку не тратим (как
+            // DE-7 в очереди заметок). Иначе перехватная страница Wi-Fi за пять
+            // проходов уводила запись в dead.
+            result.failed++;
+            if (!this.pending.has(itemKey)) this.pending.set(itemKey, item);
           } else {
             result.failed++;
             reportError(err, { action: 'LocalStoreSyncService_item', store: item.store, key: item.key });

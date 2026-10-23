@@ -3,7 +3,7 @@
 // путала дни. Фикстуры синтетические. Мутация: убрать пометку в
 // prepareApiMessages → первый тест красный.
 import { describe, expect, it } from 'vitest';
-import { prepareApiMessages } from '../aiChatTransport';
+import { prepareApiMessages, HIDDEN_NOTE_TITLE } from '../aiChatTransport';
 import type { AIMessage } from '../../services/AIService';
 
 const SEP = '\n\n— — —\nВопрос: ';
@@ -32,11 +32,12 @@ describe('DG-1: прошлая приложенная заметка в исто
     expect(out[0]!.content).toBe('[Прикреплена заметка: "Ящик"]\n\nразбери');
   });
 
-  it('скрытая от ИИ заметка — без даты', () => {
+  // Н-1 (дейлик 2026-10-23): и без названия.
+  it('скрытая от ИИ заметка — без даты и без названия', () => {
     const out = prepareApiMessages([
       turn('local_a', '2026-10-18', 'Ящик', 'разбери'),
       turn('local_b', '2026-10-21', 'Сегодня', 'свяжи'),
     ], { hiddenCitationIds: new Set(['local_a']) });
-    expect(out[0]!.content).toBe('[Прикреплена заметка: "Ящик"]\n\nразбери');
+    expect(out[0]!.content).toBe(`[Прикреплена заметка: "${HIDDEN_NOTE_TITLE}"]\n\nразбери`);
   });
 });

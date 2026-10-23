@@ -31,10 +31,12 @@ import {
   legacyNoteHidden,
   citesAnyId,
   HIDDEN_ANSWER_PLACEHOLDER,
+  HIDDEN_NOTE_TITLE,
   API_MSG_CAP,
   _streamUnavailableUntil
 } from '../utils/aiChatTransport';
 import { hiddenNoteIdsFromDocs } from '../utils/hiddenNoteIds';
+import { isPastedAttachmentId } from '../utils/isExcludedFromAI';
 import { sanitizeFirstSeenDates } from '../utils/dateGuard';
 import { normalizeQuoteText, unquoteAbsent } from '../../../shared/ai/quoteGuard';
 import { CITATION_RE, isRecognisedCitation, extractSearchRequest } from '../shared/citationPatterns';
@@ -563,7 +565,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // AP-2: цитата скрытой заметки в старом ответе — тот же запрет, что и на
       // тело приложенной заметки. Снимок документов один на ход.
       const hiddenCiteIds = hiddenNoteIdsFromDocs(await localDb.getAll('documents'));
-      const apiMessages = prepareApiMessages(sourceForApi, { ...legacyParse, hiddenCitationIds: hiddenCiteIds });
+      // Н-1: тот же разбор (без названий скрытых заметок) — и для извлечения памяти ниже.
+      const parseOpts = { ...legacyParse, hiddenCitationIds: hiddenCiteIds };
+      const apiMessages = prepareApiMessages(sourceForApi, parseOpts);
 
       const isFirstTurn = baseMessages.filter(m => m.type !== 'system').length === 0;
 
@@ -601,7 +605,14 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // с найденными записями). Правило заметки для сервера строится по
       // фактическому режиму, а не по turnScope реплики.
       const turnMode = effectiveScope ?? scope;
-      const noteScope = turnMode ? noteScopeFor(turnMode, subjectNote) : undefined;
+      // Н-1: у скрытой заметки-темы в правило уходит дата, но не название. При
+      // нескольких приложенных название склеено из всех, а documentId — первой:
+      // скрытость смотрим по шапке каждого блока.
+      const subjectIds = subjectNote
+        ? [subjectNote.documentId, ...[...subjectNote.content.matchAll(/^\[#([^\s\]·]+) · /gm)].map(m => m[1])]
+        : [];
+      const subjectHidden = subjectIds.some(id => !!id && !isPastedAttachmentId(id) && hiddenCiteIds.has(id));
+      const noteScope = turnMode ? noteScopeFor(turnMode, subjectHidden ? { title: HIDDEN_NOTE_TITLE, date: subjectNote?.date } : subjectNote) : undefined;
 
       setAIStage('answer');
       // Inject today's date so the model can reason about "вчера", "на этой неделе" etc.
@@ -629,7 +640,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           searchContext = '…' + searchContext.slice(excess + 1);
         }
       }
-      const safePortrait = userPortrait && userPortrait.length > 4_000 ? userPortrait.slice(0, 4_000) : userPortrait;
+      // П-4: по графемам — slice мог разрезать эмодзи пополам.
+      const safePortrait = userPortrait && userPortrait.length > 4_000 ? truncateText(userPortrait, 4_000, { maxCodeUnits: 4_000 }) : userPortrait;
 
       // DLG-Q8: с чем сверять цитаты и названия — с теми же материалами, что
       // ушли модели, плюс реплики человека из этого диалога.
@@ -814,7 +826,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         // the same per-message cap, and raw note text shouldn't be stored anyway.
         // AP-2: ответ с цитатой скрытой заметки в окно извлечения не идёт.
         const memMessages = allMessages.map(m => {
-          const content = toApiContent(m.content, API_MSG_CAP, legacyParse);
+          const content = toApiContent(m.content, API_MSG_CAP, parseOpts);
           return m.role === 'assistant' && citesAnyId(m.content, hiddenCiteIds)
             ? { ...m, content: HIDDEN_ANSWER_PLACEHOLDER }
             : { ...m, content };
@@ -828,11 +840,14 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // OPT-3: Auto-name the dialogue via LLM after the first exchange.
       // callType: 'auto_name' — server skips per-user quota, global guard still applies.
       if (wasNew) {
+        // Н-1: ход — тем же разбором, что история: без тела заметки и без
+        // названия скрытой (сырой `text` нёс и то и другое).
+        const firstTurn = truncateText(toApiContent(text, API_MSG_CAP, parseOpts), 200);
         void AIService.chat({
           personaId: 'coach',
           callType: 'auto_name',
           messages: [
-            { role: 'user', content: `Придумай короткое название (3-5 слов) для диалога на русском языке на основе первого сообщения пользователя: "${text.slice(0, 200)}" и ответа ИИ: "${fullText.slice(0, 200)}". Ответь ТОЛЬКО названием, без кавычек.` },
+            { role: 'user', content: `Придумай короткое название (3-5 слов) для диалога на русском языке на основе первого сообщения пользователя: "${firstTurn}" и ответа ИИ: "${fullText.slice(0, 200)}". Ответь ТОЛЬКО названием, без кавычек.` },
           ],
         }).then(res => {
           if (res.ok && res.text) {

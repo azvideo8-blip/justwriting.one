@@ -181,4 +181,37 @@ describe('фон: явная ссылка гарантированно, стро
     expect(r.ids).not.toContain('session');
     expect(r.ids).not.toContain('sim_99');
   });
+
+  // Н-3 (дейлик 2026-10-23): «вчера» второй приложенной считалось от дня первой.
+  // Мутация: один noteAt на весь текст → красный.
+  it('(j) относительные даты каждой приложенной — от её шапки', () => {
+    const { ATT, docs, embs, sums } = archive();
+    const TWO = at(2026, 10, 5, 9);
+    docs.set('two', doc('two', TWO));
+    docs.set('before_two', doc('before_two', at(2026, 10, 4, 20)));
+    sums.set('before_two', sum('before_two'));
+    docs.set('before_att', doc('before_att', at(2026, 10, 14, 20)));
+    sums.set('before_att', sum('before_att'));
+    const text = `[#${ATT} · 2026-10-15]\n[Прикреплена заметка: "раз"]\nсегодня тихо\n\n---\n\n`
+      + `[#two · 2026-10-05]\n[Прикреплена заметка: "два"]\nвчера чинил ворота`;
+    const r = buildRelatedDaysBlock(ATT, embs, docs, sums, text, ['two'])!;
+    expect(r.ids, 'канун второй заметки').toContain('before_two');
+    expect(r.ids, 'у первой «вчера» нет').not.toContain('before_att');
+  });
+
+  // Ревью 0.10.9: ссылка `[#id · дата]` внутри тела (вставлена из ответа ИИ) —
+  // не шапка блока: «вчера» после неё считается от шапки заметки. Блок начинается
+  // только с начала текста или после разделителя. Мутация: убрать проверку
+  // разделителя → красный.
+  it('(k) ссылка-шапка внутри тела не начинает блок', () => {
+    const { ATT, docs, embs, sums } = archive();
+    docs.set('before_att', doc('before_att', at(2026, 10, 14, 20)));
+    sums.set('before_att', sum('before_att'));
+    docs.set('before_ref', doc('before_ref', at(2026, 9, 30, 20)));
+    sums.set('before_ref', sum('before_ref'));
+    const text = `[#${ATT} · 2026-10-15]\n[Прикреплена заметка: "раз"]\nкак писал\n[#local_x · 2026-10-01]\nвчера не спал`;
+    const r = buildRelatedDaysBlock(ATT, embs, docs, sums, text)!;
+    expect(r.ids).toContain('before_att');
+    expect(r.ids).not.toContain('before_ref');
+  });
 });

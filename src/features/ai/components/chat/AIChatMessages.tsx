@@ -84,8 +84,10 @@ export function parseAttachedNotes(content: string, defaultTitle: string) {
     markers.push({ title: m[1] ?? defaultTitle, start: m.index ?? 0, end: (m.index ?? 0) + m[0].length });
   }
   const notes: { title: string; body: string }[] = markers.map((mk, idx) => {
-    const nextStart = idx + 1 < markers.length ? markers[idx + 1]!.start : beforeSep.length;
-    const body = beforeSep.slice(mk.end, nextStart).replace(NEXT_NOTE_HEAD_RE, '').trim();
+    const hasNext = idx + 1 < markers.length;
+    const raw = beforeSep.slice(mk.end, hasNext ? markers[idx + 1]!.start : beforeSep.length);
+    // П-2: за последней заметкой шапки нет — ссылка `[#id · дата]` в конце её тела остаётся.
+    const body = (hasNext ? raw.replace(NEXT_NOTE_HEAD_RE, '') : raw).trim();
     return { title: mk.title, body };
   });
 

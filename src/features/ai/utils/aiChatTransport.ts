@@ -5,7 +5,7 @@ import { ATTACHED_NOTE_TITLE_MAX } from '../../../shared/ai/aiPolicy';
 import { ATTACHED_QUESTION_SEP } from '../../../shared/ai/languageNudge';
 import { AIService } from '../services/AIService';
 import { useAiLimitStore } from '../store/useAiLimitStore';
-import { isExcludedFromAI } from './isExcludedFromAI';
+import { isExcludedFromAI, isPastedAttachmentId } from './isExcludedFromAI';
 import { detectPersonMentions } from '../services/chatContext/personQuotes';
 import { extractCitationIds } from '../services/chatContext/citations';
 import type { HiddenNoteIds } from './hiddenNoteIds';
@@ -207,6 +207,12 @@ export interface AttachedParseOptions {
   hiddenCitationIds?: HiddenNoteIds | undefined;
 }
 
+/**
+ * Н-1 (дейлик 2026-10-23): название скрытой заметки в маркере хода. Маркер
+ * остаётся (порядок маркеров держит DG-1-разметку), название — нет.
+ */
+export const HIDDEN_NOTE_TITLE = 'заметка скрыта от ИИ';
+
 /** AP-2: чем заменяется в истории ответ, цитировавший скрытую заметку. */
 export const HIDDEN_ANSWER_PLACEHOLDER = '[ответ о скрытой заметке]';
 
@@ -242,6 +248,16 @@ export async function legacyNoteHidden(
   }
 }
 
+const HEAD_LINE = /^\[#([^\s\]]+) · (\d{4}-\d{2}-\d{2})\]$/;
+
+/** Шапка `[#id · дата]` строкой прямо над маркером, который начинается с `index`. */
+function headAbove(head: string, index: number): { id: string; date: string } | null {
+  const before = head.slice(0, index);
+  if (!before.endsWith('\n')) return null;
+  const h = HEAD_LINE.exec(before.slice(before.lastIndexOf('\n', before.length - 2) + 1, -1));
+  return h ? { id: h[1]!, date: h[2]! } : null;
+}
+
 /**
  * Показанный ход с приложенной заметкой (`[#id · дата]` + маркер + тело +
  * «Вопрос: …», см. useAIPageData) → маркеры и вопрос. null — обычное сообщение,
@@ -254,7 +270,15 @@ export function splitAttachedMessage(content: string, opts?: AttachedParseOption
   const head = q === -1 ? content : content.slice(0, q);
   const found = [...head.matchAll(ATTACHED_MARKER)];
   if (found.length === 0) return null;
-  const markers = found.map(m => `[Прикреплена заметка: "${cleanAttachedTitle(m[1]!)}"]`);
+  // Н-1: у маркера с шапкой скрытость — по id (вставленный текст не заметка),
+  // у маркера без шапки id нет — по заметке-теме (legacyNoteHidden).
+  const markers = found.map(m => {
+    const h = headAbove(head, m.index!);
+    const hidden = h
+      ? !isPastedAttachmentId(h.id) && !!opts?.hiddenCitationIds?.has(h.id)
+      : !!opts?.legacyNoteHidden;
+    return `[Прикреплена заметка: "${hidden ? HIDDEN_NOTE_TITLE : cleanAttachedTitle(m[1]!)}"]`;
+  });
   // Без шапки и без «Вопрос:» одна форма на два смысла: старый ход «маркер +
   // тело заметки» (0.7.30–0.7.50) и ход с длинной заметкой «маркер + вопрос»
   // (с 0.7.22 по сей день, тело едет отдельно). ponytail: различаем по длине
@@ -307,7 +331,6 @@ export function pruneMessages(messages: AIMessage[]): AIMessage[] {
 // DE-3: размечается КАЖДЫЙ маркер хода своей шапкой (раньше — только первый),
 // текущие — все заметки последнего хода с вложением. Маркер без шапки (ходы до
 // 2026-07-15 и «не влезшие» до 0.10.8) получает пометку без даты.
-const HEAD_LINE = /^\[#([^\s\]]+) · (\d{4}-\d{2}-\d{2})\]$/;
 const API_MARKER = /^(\[Прикреплена заметка: "[\s\S]*?")\]$/gm;
 
 /** Шапка `[#id · дата]` строкой над каждым маркером хода; null — маркер без шапки. */
@@ -315,12 +338,7 @@ function markerHeads(content: string, opts?: AttachedParseOptions): Array<{ id: 
   if (!splitAttachedMessage(content, opts)) return null;
   const q = content.lastIndexOf(QUESTION_SEP);
   const head = q === -1 ? content : content.slice(0, q);
-  return [...head.matchAll(ATTACHED_MARKER)].map(m => {
-    const before = head.slice(0, m.index);
-    if (!before.endsWith('\n')) return null;
-    const h = HEAD_LINE.exec(before.slice(before.lastIndexOf('\n', before.length - 2) + 1, -1));
-    return h ? { id: h[1]!, date: h[2]! } : null;
-  });
+  return [...head.matchAll(ATTACHED_MARKER)].map(m => headAbove(head, m.index!));
 }
 
 export function prepareApiMessages(messages: AIMessage[], opts?: AttachedParseOptions): AIMessage[] {

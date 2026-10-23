@@ -37,9 +37,9 @@ export function Monogram({ color, mono, size = 36, dim = false }: { color: strin
   );
 }
 
-export function threadPreview(d: { messages: { content: string }[] }): string {
-  if (d.messages.length === 0) return '';
-  const last = d.messages[d.messages.length - 1];
+export function threadPreview(d: { messages: { content: string; type?: string | undefined }[] }): string {
+  // Н-5: служебная строка (обрезка заметки и т. п.) — не реплика диалога.
+  const last = [...d.messages].reverse().find(m => m.type !== 'system');
   if (last == null) return '';
   const c = last.content.replace(/^\[[^\]]*\]\s*/, '').trim();
   return c.length > 64 ? `${c.slice(0, 64)}…` : c;

@@ -140,4 +140,30 @@ describe('LG-1: остаток аккаунта в общей базе устр�
     expect(await s.get('versions', 'gv_lonely')).toBeDefined();
     expect(await s.get('versions', 'v_orphan'), 'сирота аккаунта — уходит').toBeUndefined();
   });
+
+  // А-4 (аддон дейлика 2026-10-23): пока в общей базе лежат документы аккаунта,
+  // который сюда не входил, флаг не ставится — и каждое открытие базы поднимало
+  // readwrite-транзакцию с курсорами по чужим версиям. Мутация: убрать выход по
+  // запомненному составу → красный.
+  it('(g) чистить нечего и состав не менялся → повторные вызовы без readwrite; новая версия → проход', async () => {
+    const shared = await seed();
+    await shared.put('documents', { id: 'b1', guestId: 'u_old', title: 'B', currentVersion: 1 } as never);
+    await cleanLegacySharedDb();
+    const realTx = shared.transaction.bind(shared) as (...a: unknown[]) => ReturnType<typeof shared.transaction>;
+    let rw = 0;
+    vi.spyOn(shared, 'transaction').mockImplementation(((...args: unknown[]) => {
+      if (args[1] === 'readwrite') rw++;
+      return realTx(...args);
+    }) as never);
+
+    await cleanLegacySharedDb();
+    await cleanLegacySharedDb();
+    expect(rw, 'readwrite по общей базе без изменений').toBe(0);
+
+    await shared.put('versions', { id: 'v_orphan2', documentId: 'gone2', guestId: 'u_old', version: 1, content: 'x' } as never);
+    rw = 0;
+    await cleanLegacySharedDb();
+    expect(rw, 'состав изменился — проход').toBeGreaterThan(0);
+    expect(await shared.get('versions', 'v_orphan2')).toBeUndefined();
+  });
 });

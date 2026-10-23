@@ -9,10 +9,13 @@ import { getLocalDb, type AIDialogue } from '../../../../core/storage/localDb';
 import * as transport from '../../utils/aiChatTransport';
 import { assertNoSystemPromptInjection } from '../../../../shared/ai/aiPolicy';
 import { useAiLimitStore } from '../../store/useAiLimitStore';
+import { AIChatMemoryService } from '../../services/AIChatMemoryService';
+import { AIService } from '../../services/AIService';
 
 const h = vi.hoisted(() => ({
   buildContext: vi.fn(),
   attached: null as null | { content: string; documentId?: string },
+  msgCount: 1,
 }));
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
@@ -24,7 +27,7 @@ vi.mock('../../services/aiChatContext', () => ({
     buildContext: h.buildContext,
     getAttachedNote: () => h.attached,
     setAttachedNote: (n: typeof h.attached) => { h.attached = n; },
-    getMessageCount: () => 1,
+    getMessageCount: () => h.msgCount,
     incrementMessageCount: () => {},
     resetSession: () => {},
   }),
@@ -44,12 +47,16 @@ beforeEach(async () => {
   vi.restoreAllMocks();
   h.buildContext.mockReset();
   h.attached = null;
+  h.msgCount = 1;
   localStorage.clear();
   transport._resetStreamUnavailable();
   Object.defineProperty(navigator, 'onLine', { value: true, configurable: true, writable: true });
   useAiLimitStore.setState({ remaining: 10, limit: 10, used: 0, resetsAt: new Date(Date.now() + 100000), loaded: true, isAdmin: false });
   const db = await getLocalDb();
   for (const rec of await db.getAll('aiDialogues')) await db.delete('aiDialogues', rec.id);
+  // Н-1: заметки нет в базе — она «скрыта» (S-51), и её название в модель не идёт.
+  await db.clear('documents');
+  await db.put('documents', { id: 'local_n1', guestId: 'u1', title: 'Утро', currentVersion: 1, totalWords: 1, totalDuration: 0, sessionsCount: 1, firstSessionAt: 1, lastSessionAt: 1, tags: [] } as never);
 });
 
 async function seed(id: string, messages: AIDialogue['messages']) {
@@ -153,7 +160,8 @@ describe('S-63: a legacy turn of a hidden note', () => {
 
     expect(sent.length).toBeGreaterThan(0);
     expect(sent.map(m => m.content).join('\n')).not.toContain('SECRET');
-    expect(sent[0]?.content).toBe('[Прикреплена заметка: "Скрытая"]');
+    // Н-1: и название скрытой заметки-темы не уходит.
+    expect(sent[0]?.content).toBe(`[Прикреплена заметка: "${transport.HIDDEN_NOTE_TITLE}"]`);
   });
 });
 
@@ -172,6 +180,92 @@ describe('S-56 survivors', () => {
 
     expect(scope, 'строгий ход без noteScope').toBeDefined();
     expect(scope!.title).toHaveLength(300);
+  });
+
+  // Н-1 (дейлик 2026-10-23): заметка-тема скрыта от ИИ — её название не уходит
+  // ни в правило строгого хода, ни маркером хода в историю.
+  it('Н-1: hidden subject note — no title in noteScope or in the API history', async () => {
+    const db = await getLocalDb();
+    await db.put('documents', { id: 'local_n1h', guestId: 'u1', title: 'НАЗВАНИЕ_N1H', currentVersion: 1, totalWords: 1, totalDuration: 0, sessionsCount: 1, firstSessionAt: 1, lastSessionAt: 1, tags: [], excludedFromAI: true } as never);
+    await seed('d-n1-hidden', [
+      { role: 'user', content: `[#local_n1h · 2026-09-29]\n[Прикреплена заметка: "НАЗВАНИЕ_N1H"]\nтело\n\n— — —\nВопрос: разбери` },
+      { role: 'assistant', content: 'старый ответ' },
+    ]);
+    h.attached = { content: '[#local_n1h · 2026-09-29]\nтело', documentId: 'local_n1h', title: 'НАЗВАНИЕ_N1H', date: '2026-09-29' } as typeof h.attached;
+    h.buildContext.mockResolvedValue(ctx());
+    h.msgCount = 3; // ход с извлечением памяти (каждый третий)
+    const extract = vi.spyOn(AIChatMemoryService, 'extractFromDialogue').mockResolvedValue(undefined as never);
+    let opts: { messages: { content: string }[]; noteScope?: { title: string } | undefined } | undefined;
+    vi.spyOn(transport, 'streamChat').mockImplementation(async o => { opts = o; o.onChunk('ок', ''); return 'ок'; });
+    const { result } = renderHook(() => useAIChat('d-n1-hidden', 'editor'));
+    await waitFor(() => expect(result.current.dialogue?.messages.length).toBe(2));
+    await act(async () => { await result.current.sendMessage('что скажешь об этом?'); });
+
+    expect(opts?.noteScope, 'строгий ход без noteScope').toBeDefined();
+    expect(JSON.stringify(opts?.noteScope)).not.toContain('НАЗВАНИЕ_N1H');
+    expect(opts!.messages.map(m => m.content).join('\n')).not.toContain('НАЗВАНИЕ_N1H');
+    expect(extract, 'извлечение памяти не вызвано').toHaveBeenCalled();
+    expect(JSON.stringify(extract.mock.calls[0]![1]), 'окно извлечения памяти').not.toContain('НАЗВАНИЕ_N1H');
+  });
+
+  // Н-1 (ревью безопасности 0.10.9): две приложенные — название склеено из обеих,
+  // documentId первой; скрытая вторая не должна уходить названием в noteScope.
+  // Мутация: проверять только subjectNote.documentId → красный.
+  it('Н-1: two attached notes, the second hidden — its title is not in noteScope', async () => {
+    const db = await getLocalDb();
+    await db.put('documents', { id: 'local_n1b', guestId: 'u1', title: 'СКРЫТАЯ_ВТОРАЯ', currentVersion: 1, totalWords: 1, totalDuration: 0, sessionsCount: 1, firstSessionAt: 1, lastSessionAt: 1, tags: [], excludedFromAI: true } as never);
+    await seed('d-n1-two', []);
+    h.attached = {
+      content: '[#local_n1 · 2026-09-29]\n[Прикреплена заметка: "Утро"]\nтело\n\n---\n\n[#local_n1b · 2026-09-30]\n[Прикреплена заметка: "СКРЫТАЯ_ВТОРАЯ"]\nскрытое',
+      documentId: 'local_n1', title: 'Утро», «СКРЫТАЯ_ВТОРАЯ', date: '',
+    } as typeof h.attached;
+    h.buildContext.mockResolvedValue(ctx());
+    let scope: { title: string } | undefined;
+    vi.spyOn(transport, 'streamChat').mockImplementation(async o => { scope = o.noteScope; o.onChunk('ок', ''); return 'ок'; });
+    const { result } = renderHook(() => useAIChat('d-n1-two', 'editor'));
+    await waitFor(() => expect(result.current.dialogue?.id).toBe('d-n1-two'));
+    await act(async () => { await result.current.sendMessage('сравни их'); });
+
+    expect(scope, 'строгий ход без noteScope').toBeDefined();
+    expect(scope!.title).not.toContain('СКРЫТАЯ_ВТОРАЯ');
+  });
+
+  // Н-1 (ревью кода 0.10.9): автоназвание нового диалога брало сырой текст хода —
+  // название скрытой заметки и начало её тела уходили провайдеру. Мутация:
+  // вернуть `text.slice(0, 200)` → красный.
+  it('Н-1: auto-name of a new dialogue gets neither the hidden title nor the body', async () => {
+    const db = await getLocalDb();
+    await db.put('documents', { id: 'local_n1an', guestId: 'u1', title: 'НАЗВАНИЕ_АН', currentVersion: 1, totalWords: 1, totalDuration: 0, sessionsCount: 1, firstSessionAt: 1, lastSessionAt: 1, tags: [], excludedFromAI: true } as never);
+    h.attached = { content: '[#local_n1an · 2026-09-29]\nТЕЛО_АН', documentId: 'local_n1an' };
+    h.buildContext.mockResolvedValue(ctx());
+    vi.spyOn(transport, 'streamChat').mockImplementation(async o => { o.onChunk('ок', ''); return 'ок'; });
+    const chat = vi.spyOn(AIService, 'chat').mockResolvedValue({ ok: true, text: 'Название' } as never);
+    const { result } = renderHook(() => useAIChat(null, 'editor'));
+    await act(async () => {
+      await result.current.sendMessage('[#local_n1an · 2026-09-29]\n[Прикреплена заметка: "НАЗВАНИЕ_АН"]\nТЕЛО_АН\n\n— — —\nВопрос: разбери', undefined, undefined, undefined, { question: 'разбери' });
+    });
+
+    const autoName = chat.mock.calls.find(c => (c[0] as { callType?: string }).callType === 'auto_name');
+    expect(autoName, 'автоназвание не вызвано').toBeDefined();
+    const sent = JSON.stringify(autoName![0]);
+    expect(sent).not.toContain('НАЗВАНИЕ_АН');
+    expect(sent).not.toContain('ТЕЛО_АН');
+  });
+
+  // П-4 (дейлик 2026-10-23): портрет резался `slice(0, 4000)` — эмодзи на
+  // границе давал одиночный суррогат в запросе. Мутация: вернуть slice → красный.
+  it('П-4: the portrait cap does not split a surrogate pair', async () => {
+    await seed('d-p4', []);
+    h.buildContext.mockResolvedValue(ctx({ userPortrait: `${'а'.repeat(3_999)}😀 хвост` }));
+    let portrait: string | null | undefined;
+    vi.spyOn(transport, 'streamChat').mockImplementation(async o => { portrait = o.userPortrait; o.onChunk('ок', ''); return 'ок'; });
+    const { result } = renderHook(() => useAIChat('d-p4', 'editor'));
+    await waitFor(() => expect(result.current.dialogue?.id).toBe('d-p4'));
+    await act(async () => { await result.current.sendMessage('привет'); });
+
+    expect(portrait).toBeDefined();
+    expect(portrait!.length).toBeLessThanOrEqual(4_000);
+    expect(portrait, 'одиночный суррогат').not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/);
   });
 
   it('a consent refusal does not discard a dialogue that existed before this turn (createdThisTurn guard)', async () => {

@@ -529,6 +529,18 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
       }
     };
 
+    // Н-2 (дейлик 2026-10-23): отказ, который повтор без писателя не исправит
+    // (неполный набор, битый сегмент, строка без текста), держит курсор не дольше
+    // INCOMPLETE_HOLD_PASSES проходов — раньше отпуск был только у неполного.
+    // true — отпущен: это уже не сбой прохода (R-8).
+    const holdRefused = (store: string, rows: CloudRow[], baseKey: string, stamp: number | null | undefined): boolean => {
+      const holdKey = `${store}:${baseKey}:${stamp ?? ''}`;
+      nextHolds[holdKey] = (prevHolds[holdKey] ?? 0) + 1;
+      const released = nextHolds[holdKey] > INCOMPLETE_HOLD_PASSES;
+      markRefused(rows, baseKey, released);
+      return released;
+    };
+
     for (const rec of cloudRecords) {
       if (!SUPPORTED_LOCAL_STORES.includes(rec.store as SupportedLocalStoreName)) continue;
       if (!(db.objectStoreNames as unknown as { contains(s: string): boolean }).contains(rec.store)) continue;
@@ -585,14 +597,8 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
               : version.kind === 'refused' ? version.reason
               : `не хватает ${version.missing.length} сегментов: ${version.missing.join(', ')}`;
             logger.warn('AIRestoreService', `${store}/${baseKey}: ${reason}. Refusing.`);
-            let permanent = false;
-            if (version && version.kind === 'incomplete') {
-              if (version.missing.length > 0) LocalStoreSyncService.scheduleStoreSync('aiDialogues', baseKey);
-              const holdKey = `${store}:${baseKey}:${headRow.stamped_at ?? ''}`;
-              nextHolds[holdKey] = (prevHolds[holdKey] ?? 0) + 1;
-              permanent = nextHolds[holdKey] > INCOMPLETE_HOLD_PASSES;
-            }
-            markRefused(rows, baseKey, permanent);
+            if (version?.kind === 'incomplete' && version.missing.length > 0) LocalStoreSyncService.scheduleStoreSync('aiDialogues', baseKey);
+            const permanent = holdRefused(store, rows, baseKey, headRow.stamped_at);
             // R-8: отпущенный head — не сбой прохода: иначе `failed > 0` каждые 120 с
             // снимал суточную отметку, и полный restoreAIDataFromCloud шёл заново.
             if (!permanent) result.failed++;
@@ -610,13 +616,12 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
             // Две тихие ветки отказа теперь морозят курсор (D1-5), поэтому молчать
             // они больше не имеют права: без строки в журнале stall необъясним.
             logger.warn('AIRestoreService', `${store}/${baseKey}: no single row and no pages. Refusing.`);
-            markRefused(rows, baseKey);
+            holdRefused(store, rows, baseKey, groupStamp(rows, baseKey));
             continue;
           }
           if (version.kind === 'refused') {
             logger.warn('AIRestoreService', `${store}/${baseKey}: ${version.reason}. Refusing.`);
-            markRefused(rows, baseKey);
-            result.failed++;
+            if (!holdRefused(store, rows, baseKey, groupStamp(rows, baseKey))) result.failed++;
             continue; // Keep local copy intact!
           }
 
@@ -624,7 +629,7 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
             const decryptedPayload = await maybeDecrypt(version.row.payload, ['data'], []);
             if (typeof decryptedPayload.data !== 'string') {
               logger.warn('AIRestoreService', `${store}/${baseKey}: single row without text data. Refusing.`);
-              markRefused(rows, baseKey);
+              holdRefused(store, rows, baseKey, groupStamp(rows, baseKey));
               continue;
             }
             fullJson = decryptedPayload.data;
@@ -645,9 +650,10 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
               decryptedChunks.push(chunk);
             }
 
+            // Страница без текстового поля — форма, не запертый сейф (LOCKED
+            // бросает maybeDecrypt, его держит общий catch без отпуска).
             if (decryptFailed) {
-              markRefused(rows, baseKey);
-              result.failed++;
+              if (!holdRefused(store, rows, baseKey, groupStamp(rows, baseKey))) result.failed++;
               continue;
             }
 

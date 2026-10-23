@@ -12,7 +12,7 @@ import { AIService } from './AIService';
 import { reportError } from '../../../shared/errors/reportError';
 import { detectRisk } from '../utils/riskDetect';
 import { analyzeDoors, aggregateDoors, doorLabel } from '../utils/contactDoors';
-import { shouldRunFullSearch, asksForSimilarNotes, asksForOtherNotes } from '../utils/aiChatTransport';
+import { shouldRunFullSearch, asksForSimilarNotes, asksForOtherNotes, HIDDEN_NOTE_TITLE } from '../utils/aiChatTransport';
 import { detectPersonMentions, buildPersonQuotesBlock, personQuoteIds, type PersonNote } from './chatContext/personQuotes';
 import { isSmallTalkTurn, PSYCHE_PERSONAS } from '../utils/smallTalk';
 import { cosineSimilarity } from '../utils/vectorSearch';
@@ -83,7 +83,10 @@ export async function hideExcludedNotes(content: string, db: Pick<Awaited<Return
         reportError(e, { action: 'hideExcludedNotes', documentId: h[1] });
       }
     }
-    out += h[0] + (hidden ? '[заметка скрыта от ИИ]\n\n' : body);
+    // Н-1: у скрытой заметки уходит шапка (id и дата), но не название.
+    out += hidden
+      ? `${h[0].slice(0, h[0].indexOf('\n') + 1)}[Прикреплена заметка: "${HIDDEN_NOTE_TITLE}"]\n[заметка скрыта от ИИ]\n\n`
+      : h[0] + body;
   }
   return out;
 }
