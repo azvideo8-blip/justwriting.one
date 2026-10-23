@@ -325,12 +325,12 @@ export async function runLifecycleMatrix(maxUnmeasured = null) {
     return evalResult;
   } finally {
     if (fs.existsSync(tmpOut)) {
-      try { fs.unlinkSync(tmpOut); } catch {}
+      try { fs.unlinkSync(tmpOut); } catch { /* временный файл уже удалён — уборка best-effort */ }
     }
     // Clean default file if created
     const defaultOut = path.join(rootDir, '.postulates-results.json');
     if (fs.existsSync(defaultOut)) {
-      try { fs.unlinkSync(defaultOut); } catch {}
+      try { fs.unlinkSync(defaultOut); } catch { /* временный файл уже удалён — уборка best-effort */ }
     }
   }
 }

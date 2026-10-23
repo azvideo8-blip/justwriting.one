@@ -14,6 +14,7 @@
 // queries.json by hand afterward (real queries + which note ids are relevant
 // to each — see README.md in this folder for the format and the "don't let
 // the answer literally contain the query's words" rule).
+// eslint-disable-next-line no-unused-vars -- LS-1: вызывается вручную из консоли браузера (см. шапку)
 async function exportRealCorpus() {
   const authKey = Object.keys(localStorage).find(k => /^sb-.*-auth-token$/.test(k));
   if (!authKey) { console.error('Не нашёл сессию Supabase — вы точно вошли в аккаунт?'); return; }

@@ -31,10 +31,6 @@ const CHUNK_DELAY_MS = Number(process.env.STAND_AI_STUB_CHUNK_MS ?? 200);
 const SLOW_CHUNK_DELAY_MS = Number(process.env.STAND_AI_STUB_SLOW_CHUNK_MS ?? 2_000);
 const SLOW_PARTS = Number(process.env.STAND_AI_STUB_SLOW_PARTS ?? 8);
 const EMBED_DIM = Number(process.env.STAND_AI_STUB_EMBED_DIM ?? 1024);
-// Задержка ответа на извлечение памяти, если в диалоге есть маркер
-// [memory-delay]. Без неё извлечение занимает ~50 мс и окно «ход удалили, пока
-// память считалась» на стенде поймать невозможно.
-const MEMORY_DELAY_MS = Number(process.env.STAND_AI_STUB_MEMORY_MS ?? 12_000);
 
 function readBody(req) {
   return new Promise((resolve, reject) => {

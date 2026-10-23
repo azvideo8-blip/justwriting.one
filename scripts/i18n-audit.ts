@@ -204,7 +204,7 @@ export function findHardcodedJsxCyrillic(src: string, file: string = ''): JsxCyr
 
     const litVal = literalValue(node);
     if (litVal) {
-      for (let p: ts.Node | undefined = node.parent; p; p = p.parent) {
+      for (let p: ts.Node | undefined = node.parent; p !== undefined; p = p.parent) {
         // Значение атрибута уже учтено выше — не двойным счётом.
         if (ts.isJsxAttribute(p)) break;
         if (ts.isJsxExpression(p)) {
@@ -312,7 +312,7 @@ export function findHardcodedUiText(src: string, file = ''): UiSinkHit[] {
   };
 
   const enclosingCall = (node: ts.Node): ts.CallExpression | null => {
-    for (let p = node.parent; p; p = p.parent) {
+    for (let p: ts.Node | undefined = node.parent; p !== undefined; p = p.parent) {
       if (ts.isCallExpression(p)) return p;
       if (ts.isFunctionDeclaration(p) || ts.isSourceFile(p)) return null;
     }
@@ -377,7 +377,7 @@ function readUiBaseline(): string[] {
     return readFileSync(UI_BASELINE, 'utf8')
       .split('\n')
       .map(line => line.trim())
-      .filter(line => line && !line.startsWith('#'));
+      .filter(line => line.length > 0 && !line.startsWith('#'));
   } catch {
     return [];
   }

@@ -417,7 +417,6 @@ const pct = (arr, p) => {
 
 function analyse(perNote) {
   const by = Object.fromEntries(perNote.map(n => [n.id, n]));
-  const RANDOM = new Set(['decoy_long', 'short_other', 'related_long']);
   const rows = [];
   for (const q of QUERIES) {
     const self = by[q.id];
@@ -523,7 +522,6 @@ function analyse(perNote) {
 
 // ── selftest: математика на синтетических векторах, без сети ─────────────────
 function selftest() {
-  const dim = 8;
   const v = a => a;
   const topicX = v([1, 1, 0, 0, 0, 0, 0, 0]);
   const noise = [[0, 0, 1, 1, 0, 0, 0, 0], [0, 0, 0, 0, 1, 1, 0, 0], [0, 0, 0, 0, 0, 0, 1, 1], [0.1, 0.1, 0.2, 0.2, 0.1, 0.1, 0.2, 0.2]];
@@ -547,6 +545,7 @@ function selftest() {
   for (const variant of VARIANTS) {
     const t0 = performance.now();
     let acc = 0;
+    // eslint-disable-next-line no-unused-vars -- LS-1: аккумулятор нужен, чтобы V8 не выбросил scorePair из замера
     for (const note of big) acc += scorePair(variant, q, note);
     const ms = performance.now() - t0;
     console.log(`  ${variant}: 300 заметок × ${CH} чанков против ${q.length}, dim ${D} — ${ms.toFixed(1)} мс ${ms < 100 ? '(бюджет 100 мс выдержан)' : '(СВЫШЕ бюджета)'}`);

@@ -170,7 +170,7 @@ async function prerenderWithPlaywright(originalHtml: string, spaHtml: string): P
     server.on('error', rej);
     server.listen(0, '127.0.0.1', () => {
       const addr = server.address();
-      if (addr && typeof addr === 'object') res(addr.port);
+      if (typeof addr === 'object' && addr !== null) res(addr.port);
       else rej(new Error('failed to bind'));
     });
   });
@@ -204,9 +204,9 @@ async function prerenderWithPlaywright(originalHtml: string, spaHtml: string): P
     await context.route('**/*', (route) => {
       const url = route.request().url();
       if (BLOCKED_HOSTS.some((h) => url.includes(h))) {
-        route.abort();
+        void route.abort();
       } else {
-        route.continue();
+        void route.continue();
       }
     });
 

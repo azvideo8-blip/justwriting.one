@@ -8,7 +8,6 @@
 // Запуск: node scripts/check-undefined-css-vars.mjs [корень]; выход 1 при находке.
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { isMainRun, toPosixPath } from './gate-paths.mjs';
 
 // Имя → почему его пока не трогаем. Каждое исключение — с причиной.
