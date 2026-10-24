@@ -152,6 +152,8 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
   4. `src/version.ts` `APP_VERSION` — **this is the version the UI displays** (Sidebar, Settings, Diagnostics, export payloads). A release that skips this ships new code while the site still shows the old number.
   5. Журналы изменений — **оба**: `CHANGELOG.md` и `src/features/navigation/data/changelog.ts` (его видят люди в приложении, из него же собирается объявление о выпуске). Строка Version в `README.md`.
   - Before pushing, grep for stragglers: `rg "X\.Y\.<old>" --hidden -g '!node_modules' -g '!.git'` (changelog *history* entries are the expected exception).
+- **Как откатить** — строкой в сообщении выпускного коммита: прошлый `main` + выкатка, и что ещё (миграция, ключи, конфиг nginx — каждое своим шагом). Нечего сказать — значит, откат не продуман.
+- **Здоровье выпусков:** `node scripts/release-health.mjs` — правки кода на `main` между выпусками (хотфиксы), откаты, выпуски через < 24 ч после прошлого. Растёт — экономим на проверках не там.
 - **Справочник:** в закрытом `justwriting-docs/handbook/` обновлён `now.md` (что вошло, что нет, ручные шаги).
 
 Полный порядок выпуска, прод и ручные шаги — в закрытом справочнике владельца (`justwriting-docs/handbook/release.md`, `ops.md`); в этом репо прод-деталей нет — оно станет публичным.

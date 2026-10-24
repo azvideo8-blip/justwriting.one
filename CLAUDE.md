@@ -28,3 +28,5 @@ Rules for `/code-review`, `/security-review`, and any reviewer agent. (`REVIEW.m
 **Do not report:** what CI already enforces (lint, typecheck, i18n audit, ratchets, bundle budget, gitleaks); `dist/`, `coverage/`, `playwright-report/`, `test-results/`, `*.lock`, `.postulates-results-*.json`; in `scripts/` only near-certain and severe.
 
 **Cap:** at most five Nits. **Summary:** starts with the count; says plainly when there is nothing to fix.
+
+**Rounds:** a finding names its bug class, and the fix closes the class, not the one instance (grep every sibling path). If review finds the same class again on the same change, stop patching and rework the approach — on the third round the approach is wrong (0.10.10: four rounds of «forged block head» were each patched in place; the root fix — the composer passes the block list — was visible on the first). Re-reviews after round two read only the new diff and don't repeat findings already raised.
