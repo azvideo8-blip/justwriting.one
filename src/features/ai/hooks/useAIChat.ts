@@ -37,6 +37,8 @@ import {
 } from '../utils/aiChatTransport';
 import { hiddenNoteIdsFromDocs } from '../utils/hiddenNoteIds';
 import { isPastedAttachmentId } from '../utils/isExcludedFromAI';
+import { attachedBlockHeads, blockHeadTitle } from '../utils/attachedNoteFormat';
+import { extractCitationIds } from '../services/chatContext/citations';
 import { sanitizeFirstSeenDates } from '../utils/dateGuard';
 import { normalizeQuoteText, unquoteAbsent } from '../../../shared/ai/quoteGuard';
 import { CITATION_RE, isRecognisedCitation, extractSearchRequest } from '../shared/citationPatterns';
@@ -61,7 +63,7 @@ interface UseAIChatReturn {
   streamingMessage: string | null;
   streamingReasoning: string | null;
   error: string | null;
-  sendMessage: (text: string, attached?: { content: string; documentId?: string; inline?: boolean }, mood?: string, forcedSearchQuery?: string, options?: SendMessageOptions) => Promise<string | null>;
+  sendMessage: (text: string, attached?: { content: string; documentId?: string; blockIds?: string[]; inline?: boolean }, mood?: string, forcedSearchQuery?: string, options?: SendMessageOptions) => Promise<string | null>;
   lastTurnScope: TurnScope | null;
   prepareAttachment: (documentId: string) => Promise<{ title: string; content: string; lastSessionAt?: number | undefined } | null>;
   stop: () => void;
@@ -365,7 +367,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
   // "[Прикреплена заметка: …]" marker plus any text the user typed). The note body
   const sendMessage = useCallback(async (
     text: string,
-    attached?: { content: string; documentId?: string; inline?: boolean },
+    attached?: { content: string; documentId?: string; blockIds?: string[]; inline?: boolean },
     mood?: string,
     forcedSearchQuery?: string,
     options?: SendMessageOptions,
@@ -484,6 +486,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         if (attached.documentId !== undefined) {
           note.documentId = attached.documentId;
         }
+        if (attached.blockIds) note.blockIds = attached.blockIds;
         if (options?.noteMeta) {
           note.title = options.noteMeta.title;
           note.date = options.noteMeta.date;
@@ -585,11 +588,11 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       } = await context.buildContext({
         text: question,
         scope,
-        attached: effectiveAttached ? (
-          effectiveAttached.documentId !== undefined
-            ? { content: effectiveAttached.content, documentId: effectiveAttached.documentId }
-            : { content: effectiveAttached.content }
-        ) : null,
+        attached: effectiveAttached ? {
+          content: effectiveAttached.content,
+          ...(effectiveAttached.documentId !== undefined ? { documentId: effectiveAttached.documentId } : {}),
+          ...(effectiveAttached.blockIds ? { blockIds: effectiveAttached.blockIds } : {}),
+        } : null,
         mood,
         messageHistory: apiMessages,
         isFirstTurn,
@@ -601,18 +604,36 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // Телефоны помощи показывает интерфейс, а не только модель в тексте ответа.
       if (crisis) setCrisisActive(true);
 
+      // DY4-15.8 (владелец 24.10): номер заметки, который модель видела в прошлых
+      // ответах этого диалога (то, что ушло в apiMessages), — тоже ссылка, если
+      // заметка есть на устройстве и не скрыта. Раньше страж его вырезал, и в
+      // ответе оставалось «перекликается с, где…».
+      const citeIds = [
+        ...(injectedDocumentIds ?? []),
+        ...apiMessages.filter(m => m.role === 'assistant').flatMap(m => extractCitationIds(m.content)).filter(id => !hiddenCiteIds.has(id)),
+      ];
+
       // LD-6 (ревью): контекст может расширить ход (согласие после широкого хода
       // с найденными записями). Правило заметки для сервера строится по
       // фактическому режиму, а не по turnScope реплики.
       const turnMode = effectiveScope ?? scope;
-      // Н-1: у скрытой заметки-темы в правило уходит дата, но не название. При
-      // нескольких приложенных название склеено из всех, а documentId — первой:
-      // скрытость смотрим по шапке каждого блока.
-      const subjectIds = subjectNote
-        ? [subjectNote.documentId, ...[...subjectNote.content.matchAll(/^\[#([^\s\]·]+) · /gm)].map(m => m[1])]
-        : [];
-      const subjectHidden = subjectIds.some(id => !!id && !isPastedAttachmentId(id) && hiddenCiteIds.has(id));
-      const noteScope = turnMode ? noteScopeFor(turnMode, subjectHidden ? { title: HIDDEN_NOTE_TITLE, date: subjectNote?.date } : subjectNote) : undefined;
+      // Н-1 + DY4 Н-3: правило называет только видимые заметки хода (название
+      // склеено из всех, documentId — первой, поэтому смотрим по шапке каждого
+      // блока). Скрыты все — заглушка без названия и без даты (владелец 24.10).
+      const isHiddenId = (id: string | undefined) => !!id && !isPastedAttachmentId(id) && hiddenCiteIds.has(id);
+      // Блоки — той же разборкой, что фильтр скрытых (attachedBlockHeads). Скрытая
+      // заметка-тема, которой среди разобранных блоков нет, — весь ход скрыт.
+      // Без списка от сборщика (липкая после перезагрузки, старый ход) шапкам не
+      // верим: скрыто хоть что-то — заглушка, как до 0.10.10.
+      const trusted = !!subjectNote?.blockIds;
+      const blocks = subjectNote ? attachedBlockHeads(subjectNote.content, subjectNote.blockIds) : [];
+      const visibleBlocks = blocks.filter(b => !isHiddenId(b[1]));
+      const subjectLost = !!subjectNote && isHiddenId(subjectNote.documentId) && (!trusted || !blocks.some(b => b[1] === subjectNote.documentId));
+      const scopeNote = !subjectNote ? subjectNote
+        : subjectLost || (blocks.length > 0 && visibleBlocks.length === 0) || (!trusted && visibleBlocks.length < blocks.length) ? { title: HIDDEN_NOTE_TITLE, date: '' }
+        : visibleBlocks.length < blocks.length ? { title: visibleBlocks.map(blockHeadTitle).join('», «'), date: '' }
+        : subjectNote;
+      const noteScope = turnMode ? noteScopeFor(turnMode, scopeNote) : undefined;
 
       setAIStage('answer');
       // Inject today's date so the model can reason about "вчера", "на этой неделе" etc.
@@ -675,12 +696,12 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             signal: controller.signal,
             onChunk: (partial, reasoning) => {
               const cleanPartial = sanitizeFirstSeenDates(
-                sanitizeCitations(partial, injectedDocumentIds || [], injectedTitles, materialsText, { personaId: effectivePersonaId }),
+                sanitizeCitations(partial, citeIds, injectedTitles, materialsText, { personaId: effectivePersonaId }),
                 allowedFirstSeenDates || []
               );
               const cleanReasoning = reasoning
                 ? sanitizeFirstSeenDates(
-                    sanitizeCitations(reasoning, injectedDocumentIds || [], injectedTitles, materialsText, { reasoning: true }),
+                    sanitizeCitations(reasoning, citeIds, injectedTitles, materialsText, { reasoning: true }),
                     allowedFirstSeenDates || []
                   )
                 : null;
@@ -726,7 +747,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             if (cleanReasoning) {
               setStreamingReasoning(
                 sanitizeFirstSeenDates(
-                  sanitizeCitations(cleanReasoning, injectedDocumentIds || [], injectedTitles, materialsText, { reasoning: true }),
+                  sanitizeCitations(cleanReasoning, citeIds, injectedTitles, materialsText, { reasoning: true }),
                   allowedFirstSeenDates || []
                 )
               );
@@ -734,7 +755,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             if (cleanAnswer) {
               setStreamingMessage(
                 sanitizeFirstSeenDates(
-                  sanitizeCitations(cleanAnswer, injectedDocumentIds || [], injectedTitles, materialsText, { personaId: effectivePersonaId }),
+                  sanitizeCitations(cleanAnswer, citeIds, injectedTitles, materialsText, { personaId: effectivePersonaId }),
                   allowedFirstSeenDates || []
                 )
               );
@@ -772,7 +793,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // текста до разбора возвращала в сохранённый ход мыслей «по смыслу», которых
       // во время стрима не было.
       const clean = (s: string, reasoningPart: boolean) => sanitizeFirstSeenDates(
-        sanitizeCitations(s, injectedDocumentIds || [], injectedTitles, materialsText, reasoningPart ? { reasoning: true } : { personaId: effectivePersonaId }),
+        sanitizeCitations(s, citeIds, injectedTitles, materialsText, reasoningPart ? { reasoning: true } : { personaId: effectivePersonaId }),
         allowedFirstSeenDates || []
       );
       let savedText = clean(extractAnswer(fullText), false);
@@ -847,7 +868,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           personaId: 'coach',
           callType: 'auto_name',
           messages: [
-            { role: 'user', content: `Придумай короткое название (3-5 слов) для диалога на русском языке на основе первого сообщения пользователя: "${firstTurn}" и ответа ИИ: "${fullText.slice(0, 200)}". Ответь ТОЛЬКО названием, без кавычек.` },
+            { role: 'user', content: `Придумай короткое название (3-5 слов) для диалога на русском языке на основе первого сообщения пользователя: "${firstTurn}" и ответа ИИ: "${truncateText(fullText, 200)}". Ответь ТОЛЬКО названием, без кавычек.` },
           ],
         }).then(res => {
           if (res.ok && res.text) {

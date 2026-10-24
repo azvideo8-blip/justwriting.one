@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.10.10 — 2026-10-24
+
+- **[RU]** Если к разговору приложено несколько заметок и одна из них скрыта от ИИ, остальные он видит и разбирает. О скрытой заметке ИИ не узнаёт даже дату.
+- **[EN]** If several notes are attached and one of them is hidden from AI, the AI still sees and discusses the others. It no longer learns even the date of the hidden one.
+- **[RU]** Пометка «по смыслу» стоит только там, где ИИ пересказывает ваши или чужие слова, — не на его собственных догадках и не на почти точных цитатах.
+- **[EN]** The «по смыслу» (paraphrased) label now appears only where the AI retells your or someone else's words, not on its own guesses or on near-exact quotes.
+- **[RU]** Ссылки на записи, о которых ИИ уже говорил раньше в этом разговоре, больше не пропадают из ответа.
+- **[EN]** Links to entries the AI already mentioned earlier in this conversation no longer disappear from its answer.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.10.9 — 2026-10-23
 
 - **[RU]** Скрытые от ИИ заметки теперь скрыты полностью — вместе с названием.

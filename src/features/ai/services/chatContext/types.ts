@@ -23,7 +23,8 @@ export interface ChatContextResult {
 
 export interface BuildContextParams {
   text: string;
-  attached: { content: string; documentId?: string } | null;
+  /** blockIds — id приложенных заметок от сборщика хода; без них шапкам в тексте не верим. */
+  attached: { content: string; documentId?: string; blockIds?: string[] } | null;
   mood: string | undefined;
   messageHistory: AIMessage[];
   isFirstTurn: boolean;

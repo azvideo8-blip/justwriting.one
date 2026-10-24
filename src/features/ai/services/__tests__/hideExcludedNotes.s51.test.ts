@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { hideExcludedNotes } from '../aiChatContext';
+import { attachedTurn } from '../../../../test/attachedTurnFixtures';
 
 // S-51 (S-39): тело скрытой заметки вырезается по шапке каждого блока. Сбой
 // чтения заметки читается как «скрыта», а шапка внутри тела (похожая строка в
@@ -18,7 +19,8 @@ function fakeDb(docs: Record<string, Doc | Error>) {
   } as unknown as Parameters<typeof hideExcludedNotes>[1];
 }
 
-const block = (id: string, title: string, body: string) => `[#${id} · 2026-01-01]\n[Прикреплена заметка: "${title}"]\n${body}`;
+const block = (id: string, title: string, body: string) =>
+  attachedTurn([{ documentId: id, title, lastSessionAt: new Date('2026-01-01T12:00:00').getTime(), content: body }]);
 
 describe('S-51: hideExcludedNotes', () => {
   it('survivor: a failed document read hides the body (not «можно»)', async () => {

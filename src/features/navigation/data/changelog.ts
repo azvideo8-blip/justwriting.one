@@ -17,6 +17,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.10.10',
+    date: '2026-10-24',
+    items: [
+      { category: 'fix', ru: 'Если к разговору приложено несколько заметок и одна из них скрыта от ИИ, остальные он видит и разбирает. О скрытой заметке ИИ не узнаёт даже дату.', en: 'If several notes are attached and one of them is hidden from AI, the AI still sees and discusses the others. It no longer learns even the date of the hidden one.' },
+      { category: 'fix', ru: 'Пометка «по смыслу» стоит только там, где ИИ пересказывает ваши или чужие слова, — не на его собственных догадках и не на почти точных цитатах.', en: 'The «по смыслу» (paraphrased) label now appears only where the AI retells your or someone else\'s words, not on its own guesses or on near-exact quotes.' },
+      { category: 'fix', ru: 'Ссылки на записи, о которых ИИ уже говорил раньше в этом разговоре, больше не пропадают из ответа.', en: 'Links to entries the AI already mentioned earlier in this conversation no longer disappear from its answer.' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.10.9',
     date: '2026-10-23',
     items: [

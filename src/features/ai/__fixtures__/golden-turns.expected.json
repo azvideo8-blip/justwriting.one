@@ -1,0 +1,796 @@
+{
+  "_meta": {
+    "generated": "UPDATE_GOLDEN=1",
+    "cases": 51
+  },
+  "records": {
+    "s1-a-a": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Пюпитр и четверг\"]\n\nразбери глубоко"
+      ]
+    },
+    "s1-a-b": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Отчёт для завуча\"]\n\nразбери глубоко"
+      ]
+    },
+    "s1-a-c": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Вторник, после репетиции\"]\n\nразбери глубоко"
+      ]
+    },
+    "s1-a-strict": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Вторник, после репетиции\"]\n\nразбери глубоко и покажи, как это продолжает то, что мы уже обсуждали"
+      ]
+    },
+    "s1-a-wide": {
+      "turnScope": "wide",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Вторник, после репетиции\"]\n\nразбери и свяжи с другими моими заметками"
+      ]
+    },
+    "s1-b-a": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Подмена\"]\n\nразбери глубоко"
+      ]
+    },
+    "s1-b-b": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Соня играет Баха\"]\n\nразбери глубоко"
+      ]
+    },
+    "s1-b-c": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Понедельник у завуча\"]\n\nразбери глубоко"
+      ]
+    },
+    "s1-b-strict": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Понедельник у завуча\"]\n\nразбери глубоко и покажи, как это продолжает то, что мы уже обсуждали"
+      ]
+    },
+    "s1-b-wide": {
+      "turnScope": "wide",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Понедельник у завуча\"]\n\nразбери и свяжи с другими моими заметками"
+      ]
+    },
+    "s1-c-a": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Концерт в доме культуры\"]\n\nразбери глубоко"
+      ]
+    },
+    "s1-c-b": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Бессонница и расписание\"]\n\nразбери глубоко"
+      ]
+    },
+    "s1-c-c": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        [
+          "2026-10-04"
+        ]
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Разговор с Ольгой Петровной\"]\n\nразбери глубоко"
+      ]
+    },
+    "s1-c-strict": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        [
+          "2026-10-04"
+        ]
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Разговор с Ольгой Петровной\"]\n\nразбери глубоко и покажи, как это продолжает то, что мы уже обсуждали"
+      ]
+    },
+    "s1-c-wide": {
+      "turnScope": "wide",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        [
+          "2026-10-04"
+        ]
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Разговор с Ольгой Петровной\"]\n\nразбери и свяжи с другими моими заметками"
+      ]
+    },
+    "s3-a": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Смычок\"]\n\nразбери глубоко: как это развивалось по времени, от первой записи до этой?"
+      ]
+    },
+    "s3-b": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Струна ля\"]\n\nразбери глубоко и расскажи, как эта история шла по дням"
+      ]
+    },
+    "s3-c": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Планёрка\"]\n\nразбери глубоко: как это развивалось по времени?"
+      ]
+    },
+    "s3-d": {
+      "turnScope": "wide",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        [
+          "2026-10-10"
+        ]
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Опять спасала\"]\n\nразбери глубоко: как эта запись связана с тем, что было раньше?"
+      ]
+    },
+    "s4-a": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Уходить ли из школы\"]\n\nразбери эту заметку"
+      ]
+    },
+    "s4-b": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Глеб и переезд\"]\n\nразбери эту заметку"
+      ]
+    },
+    "s4-c": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Четверг\"]\n\nразбери эту заметку"
+      ]
+    },
+    "s5-a": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Лена и суббота\"]\n\nразбери глубоко"
+      ]
+    },
+    "s5-b": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Разговор с мамой Сони\"]\n\nразбери глубоко"
+      ]
+    },
+    "s5-c": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Марат\"]\n\nразбери глубоко"
+      ]
+    },
+    "s6-a": {
+      "turnScope": "note",
+      "evalAskMode": true,
+      "evalAskPrompt": true,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Коридор\"]\n\nкак тебе этот черновик?"
+      ]
+    },
+    "s6-b": {
+      "turnScope": "note",
+      "evalAskMode": true,
+      "evalAskPrompt": true,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Тишина в классе\"]\n\nкак тебе этот черновик?"
+      ]
+    },
+    "s6-c": {
+      "turnScope": "note",
+      "evalAskMode": true,
+      "evalAskPrompt": true,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Среда\"]\n\nкак тебе этот черновик?"
+      ]
+    },
+    "s8-a": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Подмены и ноябрь\"]\n\nразбери эту заметку"
+      ]
+    },
+    "s8-b": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Квартира родителей\"]\n\nразбери эту заметку"
+      ]
+    },
+    "s8-c": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Рваная неделя\"]\n\nразбери эту заметку"
+      ]
+    },
+    "s9-a-a": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Разговор с мамой\"]\n\nразбери глубоко"
+      ]
+    },
+    "s9-a-b": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Репетиция квартета\"]\n\nразбери глубоко"
+      ]
+    },
+    "s9-b-a": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Ученица и фальшивый лад\"]\n\nразбери глубоко"
+      ]
+    },
+    "s9-b-b": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Собрание в школе\"]\n\nразбери глубоко"
+      ]
+    },
+    "s9-c-a": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Мастерская и трещина\"]\n\nразбери глубоко"
+      ]
+    },
+    "s9-c-b": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Заказ для кофейни\"]\n\nразбери глубоко"
+      ]
+    },
+    "s10-a": {
+      "turnScope": "note",
+      "evalAskMode": true,
+      "evalAskPrompt": true,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Черновик поста про дневник\"]\n\nкак тебе этот черновик?"
+      ]
+    },
+    "dg1-single": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Утро на кухне\" · 2026-10-15 · текста этой заметки в этом ходе нет]\n\nразбери глубоко",
+        "Ответ модели 1.",
+        "[Прикреплена заметка: \"Вечерняя прогулка\"]\n\nсвяжи с прошлым"
+      ]
+    },
+    "dg1-two": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Утро на кухне\" · 2026-10-15 · текста этой заметки в этом ходе нет]\n[Прикреплена заметка: \"Вечерняя прогулка\" · 2026-10-14 · текста этой заметки в этом ходе нет]\n\nсравни",
+        "Ответ модели 1.",
+        "[Прикреплена заметка: \"Планы на неделю\"]\n\nчто дальше?"
+      ]
+    },
+    "de3-two-bodies": {
+      "turnScope": "wide",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        [],
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Утро на кухне\"]\n[Прикреплена заметка: \"Вечерняя прогулка\"]\n\nсравни"
+      ]
+    },
+    "de3-two-heads": {
+      "turnScope": "wide",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        [],
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Утро на кухне\"]\n[Прикреплена заметка: \"Вечерняя прогулка\"]\n\nсравни"
+      ]
+    },
+    "ed2-eval": {
+      "turnScope": "note",
+      "evalAskMode": true,
+      "evalAskPrompt": true,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Черновик про осень\"]\n\nкак тебе этот черновик?"
+      ]
+    },
+    "ed2c-title": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Что не так с этой осенью\"]\n\nподробнее примерно на 40 %"
+      ]
+    },
+    "fn1-dates": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        [
+          "2026-10-10",
+          "2026-10-11"
+        ]
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Поездка\"]\n\nразбери глубоко"
+      ]
+    },
+    "fn1-no-dates": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Мысли о работе\"]\n\nчто тут главное?"
+      ]
+    },
+    "n1-current": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"заметка скрыта от ИИ\"]\n\nразбери глубоко"
+      ]
+    },
+    "n1-history": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"заметка скрыта от ИИ\"]\n\nразбери глубоко",
+        "Ответ модели 1.",
+        "[Прикреплена заметка: \"Вечерняя прогулка\"]\n\nа теперь это"
+      ]
+    },
+    "n3-two-notes": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        [],
+        []
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Утро на кухне\"]\n[Прикреплена заметка: \"Вечерняя прогулка\"]\n\nразбери глубоко"
+      ]
+    },
+    "n3-second-relative": {
+      "turnScope": "wide",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        [],
+        [
+          "2026-10-09"
+        ]
+      ],
+      "risk": {
+        "isRisk": false,
+        "severity": "none"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Утро на кухне\"]\n[Прикреплена заметка: \"Вчерашнее\"]\n\nсравни"
+      ]
+    },
+    "risk-acute": {
+      "turnScope": "note",
+      "evalAskMode": false,
+      "evalAskPrompt": false,
+      "referencedDays": [
+        []
+      ],
+      "risk": {
+        "isRisk": true,
+        "severity": "acute"
+      },
+      "api": [
+        "[Прикреплена заметка: \"Тяжёлый вечер\"]\n\nразбери эту заметку"
+      ]
+    }
+  }
+}

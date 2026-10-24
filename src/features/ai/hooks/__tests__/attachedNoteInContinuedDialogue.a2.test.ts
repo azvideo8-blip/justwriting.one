@@ -36,6 +36,8 @@ vi.mock('../../../../shared/i18n', () => ({
 const DOC_A = 'local_a2_note_a';
 const DOC_B = 'local_a2_note_b';
 const DIALOGUE_ID = 'd_a2_continued';
+// форма руками намеренно: ход использует дату без дефисов (20260929), то есть
+// форму, отличную от писателя; тест проверяет продолжение именно такого хода.
 const DAY_A = '20260929';
 const DAY_B = '20261008';
 const TITLE_A = 'Десять тысяч шагов';

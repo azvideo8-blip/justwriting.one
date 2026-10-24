@@ -5,10 +5,14 @@
 import { describe, expect, it } from 'vitest';
 import { prepareApiMessages, HIDDEN_NOTE_TITLE } from '../aiChatTransport';
 import type { AIMessage } from '../../services/AIService';
+import { attachedTurn } from '../../../../test/attachedTurnFixtures';
 
-const SEP = '\n\n— — —\nВопрос: ';
 const turn = (id: string, day: string, title: string, q: string): AIMessage =>
-  ({ role: 'user', type: 'chat', content: `[#${id} · ${day}]\n[Прикреплена заметка: "${title}"]\nТЕЛО_${id}${SEP}${q}` }) as AIMessage;
+  ({
+    role: 'user',
+    type: 'chat',
+    content: attachedTurn([{ documentId: id, title, lastSessionAt: new Date(`${day}T12:00:00`).getTime(), content: `ТЕЛО_${id}` }], q),
+  }) as AIMessage;
 const answer = (text: string): AIMessage => ({ role: 'assistant', type: 'chat', content: text }) as AIMessage;
 
 describe('DG-1: прошлая приложенная заметка в истории', () => {

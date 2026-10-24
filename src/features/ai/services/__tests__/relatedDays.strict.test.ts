@@ -11,6 +11,7 @@ import { buildRelatedDaysBlock } from '../chatContext/relatedDays';
 import { useAIChatContext } from '../aiChatContext';
 import { AIEmbeddingService } from '../AIEmbeddingService';
 import { getLocalDb, type AIDocumentEmbedding, type AIDocumentSummary, type LocalDocument } from '../../../../core/storage/localDb';
+import { attachedTurn } from '../../../../test/attachedTurnFixtures';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../shared/i18n', () => ({ useLanguage: () => ({ language: 'ru', t: (k: string) => k }) }));
@@ -170,7 +171,10 @@ describe('фон из прошлых дней: строгий ход', () => {
       text: 'разбери глубоко',
       attached: {
         documentId: ATT,
-        content: `[#${ATT} · 2026-10-09]\n[Прикреплена заметка: "a"]\nТЕКСТ_1\n\n---\n\n[#local_rd_e · 2026-10-08]\n[Прикреплена заметка: "e"]\nТЕКСТ_2`,
+        content: attachedTurn([
+          { documentId: ATT, title: 'a', lastSessionAt: new Date('2026-10-09T12:00:00').getTime(), content: 'ТЕКСТ_1' },
+          { documentId: 'local_rd_e', title: 'e', lastSessionAt: new Date('2026-10-08T12:00:00').getTime(), content: 'ТЕКСТ_2' },
+        ]),
       },
       mood: undefined, messageHistory: [], isFirstTurn: true, scope: 'note',
     });

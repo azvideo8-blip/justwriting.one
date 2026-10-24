@@ -39,7 +39,10 @@ const MIN_SPEECH_WORDS = 2;
 const SPEECH_CUE_RE = /(?:^|[^а-яё])(?:пишешь|написала?|писала?|говоришь|сказала?|называешь|назвала?|формулируешь|твоими словами|твои слова)[^.!?«»“”"\n]{0,40}$/;
 
 // DG-3: речь — глагол речи о ком угодно перед цитатой или 1–2 лицо внутри неё.
-const SPEECH_ANY_RE = /(?:^|[^а-яё])(?:пишешь|пишет|написала?|написали|писала?|говоришь|говорит|говорила?|говорили|сказала?|сказали|ответила?|ответили|спросила?|спросили|добавила?|добавили|решила?|решили|заявила?|заявили|назвала?|называешь|формулируешь|произнесла|произн[её]с|твоими словами|твои слова)[^.!?«»“”"\n]{0,40}$/;
+const SPEECH_VERBS = 'пишешь|пишет|написала?|написали|писала?|говоришь|говорит|говорила?|говорили|сказала?|сказали|ответила?|ответили|спросила?|спросили|добавила?|добавили|решила?|решили|заявила?|заявили|назвала?|называешь|формулируешь|произнесла|произн[её]с|твоими словами|твои слова';
+const SPEECH_ANY_RE = new RegExp(`(?:^|[^а-яё])(?:${SPEECH_VERBS})[^.!?«»“”"\\n]{0,40}$`);
+// DY4: «…», — решила она. Глагол речи сразу после цитаты (через тире).
+const SPEECH_AFTER_RE = new RegExp(`^[ \\t,]*[—–-][ \\t]*(?:${SPEECH_VERBS})(?:[^а-яё]|$)`);
 const PERSONAL_RE = /(?:^|[^а-яё])(?:я|мне|меня|мной|мой|моя|мо[её]|мои|моих|ты|тебе|тебя|тобой|твой|твоя|тво[её]|твои|мы|нам|нас|наш|наша)(?=[^а-яё]|$)/;
 
 /** Текст для сверки: регистр, ё/е, кавычки, пунктуация и пробелы свёрнуты. */
@@ -98,6 +101,39 @@ export interface UnquoteOptions {
   markPersonal?: boolean;
 }
 
+/**
+ * DY4 (живой 15.1): сколько слов цитаты идут в материалах по порядку в одном
+ * окне — наибольшая общая подпоследовательность с отрезком материалов длиной
+ * `span`, начатым на слове цитаты. Без потерь отрицания: окно, где «не/ни/нет»
+ * больше или меньше, чем в цитате, не считается («я тебя не люблю» ≠ «я тебя
+ * люблю»). ponytail: O(окна·n·span) — поэтому только для цитат до
+ * FUZZY_MAX_WORDS слов (ревью 0.10.10: 60 слов на 9 тыс. слов материалов — 0,65 с
+ * на каждый чанк потока); длиннее — прежнее точное сравнение.
+ */
+const FUZZY_MAX_WORDS = 30;
+const NEGATIONS = new Set(['не', 'ни', 'нет']);
+const negations = (ws: string[]) => ws.filter(w => NEGATIONS.has(w)).length;
+
+function bestInOrder(q: string[], hay: string[], span: number): number {
+  if (q.length > FUZZY_MAX_WORDS) return 0;
+  const qset = new Set(q);
+  const qNeg = negations(q);
+  let best = 0;
+  for (let i = 0; i < hay.length && best < q.length; i++) {
+    if (!qset.has(hay[i]!)) continue;
+    const w = hay.slice(i, i + span);
+    if (negations(w) !== qNeg) continue;
+    let prev = new Array<number>(w.length + 1).fill(0);
+    for (const qw of q) {
+      const cur = new Array<number>(w.length + 1).fill(0);
+      for (let j = 0; j < w.length; j++) cur[j + 1] = qw === w[j] ? prev[j]! + 1 : Math.max(prev[j + 1]!, cur[j]!);
+      prev = cur;
+    }
+    best = Math.max(best, prev[w.length]!);
+  }
+  return best;
+}
+
 export function unquoteAbsent(
   text: string,
   materials: string | null | undefined,
@@ -105,6 +141,7 @@ export function unquoteAbsent(
 ): { text: string; stripped: string[] } {
   const hay = normalizeQuoteText(materials ?? '');
   if (!hay) return { text, stripped: [] };
+  const hayWords = words(hay);
   const stripped: string[] = [];
   let out = '';
   let last = 0;
@@ -116,10 +153,21 @@ export function unquoteAbsent(
     const speech = SPEECH_CUE_RE.test(window);
     if (inner.length < 1 || n < (speech ? MIN_SPEECH_WORDS : MIN_WORDS)) continue;
     if (hay.includes(normalizeQuoteText(inner))) continue;
+    // DY4 (15.1б): почти дословная — одно (от 8 слов — два) слово мимо — кавычки
+    // остаются: это цитата с огрехом, а не пересказ.
+    const qWords = words(normalizeQuoteText(inner));
+    const miss = n >= 8 ? 2 : n >= 4 ? 1 : 0;
+    if (miss > 0 && bestInOrder(qWords, hayWords, n + miss) >= n - miss) continue;
     stripped.push(inner);
     let before = text.slice(last, at);
     let body = inner;
-    if (SPEECH_ANY_RE.test(window) || (opts?.markPersonal !== false && PERSONAL_RE.test(inner.toLowerCase()))) {
+    // DY4 (15.1а): без глагола речи «по смыслу» — только у пересказа, то есть
+    // когда больше половины слов цитаты идут в материалах по порядку. Своё
+    // толкование модели от первого лица теряет кавычки без пометки — иначе оно
+    // читается пересказом слов человека.
+    const personal = opts?.markPersonal !== false && PERSONAL_RE.test(inner.toLowerCase())
+      && bestInOrder(qWords, hayWords, Math.ceil(n * 1.5) + 2) * 5 > n * 3;
+    if (SPEECH_ANY_RE.test(window) || SPEECH_AFTER_RE.test(text.slice(at + m[0].length, at + m[0].length + 40).toLowerCase()) || personal) {
       // «она сказала: «…»» → «она сказала, по смыслу: …»; в начале фразы — «По смыслу: …».
       // DE-5: перевод строки не снимаем — иначе абзац склеивался с предыдущим.
       before = before.replace(/[ \t:,]*$/, '');

@@ -7,6 +7,7 @@ import { toApiContent, prepareApiMessages, splitAttachedMessage, legacyNoteHidde
 // короче порога уходило в историю, память и закрывающую сводку целиком.
 
 const BODY = `SECRET ${'тело скрытой заметки. '.repeat(70)}`.slice(0, 1439);
+// форма руками намеренно: разбор легаси/кривых маркеров — предмет теста.
 const LEGACY = `[Прикреплена заметка: "Скрытая"]\n\n${BODY}`;
 
 type Doc = { id: string; title?: string; excludedFromAI?: boolean; trashedAt?: number };

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import 'fake-indexeddb/auto';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { AIDialogueService } from '../AIDialogueService';
+import { attachedTurn, legacyTurnNoHead } from '../../../../test/attachedTurnFixtures';
 
 // S-51: итоговое резюме при архивации отправляло реплики как есть — вместе с
 // телом приложенной заметки и без проверки «скрыта от ИИ».
@@ -23,9 +24,12 @@ describe('S-51: closing summary goes through the same content filter as the chat
     const d = await AIDialogueService.create({
       title: 'Т', personaId: 'coach', personaName: 'Коуч', personaEmoji: '🎯',
       messages: [
-        { role: 'user', content: '[#local_1 · 2026-01-01]\n[Прикреплена заметка: "Новая"]\nSECRET_NEW\n\n— — —\nВопрос: разбери' },
+        {
+          role: 'user',
+          content: attachedTurn([{ documentId: 'local_1', title: 'Новая', lastSessionAt: new Date('2026-01-01T12:00:00').getTime(), content: 'SECRET_NEW' }], 'разбери'),
+        },
         { role: 'assistant', content: 'Разбор один' },
-        { role: 'user', content: '[Прикреплена заметка: "Старая"]\n\nSECRET_OLD\n\n— — —\nВопрос: и это' },
+        { role: 'user', content: legacyTurnNoHead({ title: 'Старая', body: 'SECRET_OLD', question: 'и это' }) },
         { role: 'assistant', content: 'Разбор два' },
       ],
     });

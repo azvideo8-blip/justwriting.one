@@ -538,6 +538,10 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
       nextHolds[holdKey] = (prevHolds[holdKey] ?? 0) + 1;
       const released = nextHolds[holdKey] > INCOMPLETE_HOLD_PASSES;
       markRefused(rows, baseKey, released);
+      // DY4 П-в: отпущенный — для курсора как применённый, иначе самая свежая
+      // строка облака перекачивалась бы каждым проходом бессрочно. Только здесь:
+      // у прочих «вечных» отказов (сумма, разбор) курсор за строку не идёт.
+      if (released) markApplied(rows, baseKey);
       return released;
     };
 

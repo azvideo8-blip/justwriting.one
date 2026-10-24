@@ -82,3 +82,20 @@ describe('Н-2: любой неисправимый отказ отпускае�
     expect(released.maxUpdatedAt, 'курсор пошёл за отпущенную строку').toBe(3000);
   });
 });
+
+// DY4 П-в (дейлик 2026-10-24): отпущенный отказ — самая свежая строка облака.
+// Курсор за него не шёл (его отметки не было среди применённых), и строку
+// перекачивал каждый проход бессрочно. Мутация: не отмечать отпущенный → красный.
+describe('DY4: отпущенный отказ — самая свежая строка — курсор идёт за неё', () => {
+  const goodOlder = { ...goodNewer, stamped_at: 1500, payload: { ...goodNewer.payload, updatedAt: 1500 } };
+  it.each([
+    ['(a) битый сегмент диалога', brokenSegmentDialogue],
+    ['(b) одиночная строка без текста', singleWithoutText],
+  ])('%s', async (_label, bad) => {
+    cloud.rows = [goodOlder, ...bad()];
+    for (let i = 0; i < HOLD_PASSES; i++) {
+      expect((await incremental()).maxUpdatedAt, `проход ${i + 1}: удержан`).toBeLessThan(BAD_STAMP);
+    }
+    expect((await incremental()).maxUpdatedAt, 'курсор за отпущенной строкой').toBe(BAD_STAMP);
+  });
+});

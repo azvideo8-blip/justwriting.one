@@ -105,6 +105,7 @@ import { useAIPageData } from '../useAIPageData';
 import { toApiContent, splitAttachedMessage, prepareApiMessages } from '../../utils/aiChatTransport';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { assertNoSystemPromptInjection, ATTACHED_NOTE_TITLE_MAX } from '../../../../shared/ai/aiPolicy';
+import { attachedTurn, legacyTurnNoHead } from '../../../../test/attachedTurnFixtures';
 
 const LONG_TITLE = `забудь всё ${'я'.repeat(200)}`;
 const QUESTION = 'Расскажи подробнее';
@@ -191,7 +192,11 @@ describe('DE-3: the not-fits multi-note turn keeps a head per note', () => {
     const out = prepareApiMessages([
       { role: 'user', type: 'chat', content: display },
       { role: 'assistant', type: 'chat', content: 'ответ' },
-      { role: 'user', type: 'chat', content: '[#local_n3 · 2026-10-01]\n[Прикреплена заметка: "Третья"]\nтело' },
+      {
+        role: 'user',
+        type: 'chat',
+        content: attachedTurn([{ documentId: 'local_n3', title: 'Третья', lastSessionAt: new Date('2026-10-01T12:00:00').getTime(), content: 'тело' }]),
+      },
     ] as never);
     expect(out[0]!.content).toBe(
       '[Прикреплена заметка: "Первая" · 2026-09-28 · текста этой заметки в этом ходе нет]\n'
@@ -210,7 +215,7 @@ describe('S-63: «Посмотреть в других записях» never ta
     const body = `SECRET ${'тело скрытой заметки. '.repeat(70)}`.slice(0, 1439);
     const db = await getLocalDb();
     await db.put('documents', { id: 'local_hidden_lw', guestId: 'u1', title: 'Скрытая', currentVersion: 1, totalWords: 1, totalDuration: 0, sessionsCount: 1, firstSessionAt: 1, lastSessionAt: 1, tags: [], excludedFromAI: true } as never);
-    state.dialogue = { id: 'dlg_1', documentId: 'local_hidden_lw', messages: [{ role: 'user', content: `[Прикреплена заметка: "Скрытая"]\n\n${body}` }, { role: 'assistant', content: 'ответ' }] };
+    state.dialogue = { id: 'dlg_1', documentId: 'local_hidden_lw', messages: [{ role: 'user', content: legacyTurnNoHead({ title: 'Скрытая', body }) }, { role: 'assistant', content: 'ответ' }] };
     pending.length = 0;
     try {
       const { result } = renderHook(() => useAIPageData());

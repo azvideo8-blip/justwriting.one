@@ -217,6 +217,7 @@ describe('T-1 (c) AI panel components English localization (no Cyrillic characte
   });
 
   it('Presentational cards and turns have no Cyrillic in English', () => {
+    // форма руками намеренно: карточка получает произвольный текст, её и проверяем.
     const { container: c1 } = render(
       <LanguageProvider>
         <AttachedNoteCard content={'[Прикреплена заметка: "Note title"]\nNote body'} />

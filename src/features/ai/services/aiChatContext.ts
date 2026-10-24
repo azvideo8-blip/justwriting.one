@@ -34,6 +34,7 @@ import { buildTemporalBlocks } from './chatContext/temporalBlocks';
 import { buildAggregateThemeBlock } from './chatContext/aggregateStats';
 import { buildLiteRetrievalBlock } from './chatContext/liteRetrieval';
 import { buildRelatedDaysBlock } from './chatContext/relatedDays';
+import { ATTACHED_BLOCK_SEP, attachedBlockHeads } from '../utils/attachedNoteFormat';
 import { strictTurnPortrait } from '../../../shared/ai/portraitSections';
 import { isExcludedFromAI, isPastedAttachmentId } from '../utils/isExcludedFromAI';
 import { postBody } from '../utils/editorDiff';
@@ -43,20 +44,12 @@ import { nameForms, NEVER_MATCH } from '../utils/nameForms';
 export interface AttachedNoteRef {
   content: string;
   documentId?: string;
+  /** id приложенных заметок от сборщика хода (см. attachedBlockHeads). */
+  blockIds?: string[];
   title?: string;
   date?: string;
 }
 
-// S-39: блок каждой приложенной заметки начинается шапкой `[#id · дата]` +
-// маркер (см. useAIPageData; у старых ходов в названии бывают кавычки и
-// переводы строк — маркер читаем до первого `"]` в конце строки). Тело заметки,
-// скрытой от ИИ, вырезаем перед отправкой; ошибка чтения документа читается
-// как «скрыта», а не как «можно».
-const ATTACHED_BLOCK_HEAD = /^\[#([^\s\]·]+) · [^\]\n]*\]\n\[Прикреплена заметка: "[\s\S]*?"\]\n/gm;
-// S-51: блоки склеивает useAIPageData через этот разделитель; шапка внутри тела
-// заметки (похожая строка в самом тексте) блока не начинает — иначе остаток
-// скрытой заметки за ней уходил в модель.
-const ATTACHED_BLOCK_SEP = '\n\n---\n\n';
 
 /**
  * П-5: сколько заметок без вектора прочитать за ход ради поиска по имени.
@@ -65,9 +58,8 @@ const ATTACHED_BLOCK_SEP = '\n\n---\n\n';
  * IndexedDB (см. X-5 и П-6). Заметки берутся самые свежие.
  */
 const NAME_SCAN_NO_VECTOR_LIMIT = 200;
-export async function hideExcludedNotes(content: string, db: Pick<Awaited<ReturnType<typeof getLocalDb>>, 'get'>): Promise<string> {
-  const heads = [...content.matchAll(ATTACHED_BLOCK_HEAD)]
-    .filter(h => h.index === 0 || content.slice(h.index - ATTACHED_BLOCK_SEP.length, h.index) === ATTACHED_BLOCK_SEP);
+export async function hideExcludedNotes(content: string, db: Pick<Awaited<ReturnType<typeof getLocalDb>>, 'get'>, ids?: readonly string[]): Promise<string> {
+  const heads = attachedBlockHeads(content, ids);
   if (heads.length === 0) return content;
   let out = content.slice(0, heads[0]!.index);
   for (let i = 0; i < heads.length; i++) {
@@ -83,9 +75,11 @@ export async function hideExcludedNotes(content: string, db: Pick<Awaited<Return
         reportError(e, { action: 'hideExcludedNotes', documentId: h[1] });
       }
     }
-    // Н-1: у скрытой заметки уходит шапка (id и дата), но не название.
+    // Н-1 + решение владельца 24.10: от скрытой не уходят ни название, ни шапка
+    // с id и датой. DY4 Н-2: разделитель к следующей заметке жил в конце тела —
+    // без него следующий блок перестаёт быть блоком.
     out += hidden
-      ? `${h[0].slice(0, h[0].indexOf('\n') + 1)}[Прикреплена заметка: "${HIDDEN_NOTE_TITLE}"]\n[заметка скрыта от ИИ]\n\n`
+      ? `[Прикреплена заметка: "${HIDDEN_NOTE_TITLE}"]\n[заметка скрыта от ИИ]${i + 1 < heads.length ? ATTACHED_BLOCK_SEP : '\n\n'}`
       : h[0] + body;
   }
   return out;
@@ -347,9 +341,23 @@ export function useAIChatContext(personaId: string): {
     let isAttachedExcluded = false;
     // S-39: при нескольких заметках в documentId только первая — скрытую от ИИ
     // проверяем по шапке каждого блока в момент отправки, а не при прикреплении.
-    const attachedContent = attached ? await hideExcludedNotes(attached.content, db) : '';
+    const blockIds = attached?.blockIds;
+    const attachedContent = attached ? await hideExcludedNotes(attached.content, db, blockIds) : '';
+    // DY4 Н-1: ход с шапками режет по блокам hideExcludedNotes (сбой чтения = скрыта),
+    // и «скрыт» весь ход, только когда видимых блоков не осталось. Заметка-тема —
+    // первая видимая, а не documentId (первая приложенная): по ней строятся фон и
+    // поиск похожих, и скрытая первая утекла бы в них сутью.
+    // Только ход от сборщика (есть blockIds) и разобранный на блоки с первой
+    // строки. Иначе — старый ход, липкая заметка после перезагрузки (сырой текст),
+    // битая шапка — ворота по documentId, как раньше (fail-closed).
+    const turnHasHeads = !!blockIds && attachedBlockHeads(attached!.content, blockIds)[0]?.index === 0;
+    // Только из шапок блоков: `[#id]` в теле (вставленный старый ответ ИИ) — не тема.
+    const subjectId = turnHasHeads
+      ? attachedBlockHeads(attachedContent, blockIds).map(h => h[1]!).find(id => !isPastedAttachmentId(id))
+      : attached?.documentId;
     if (attached) {
-      if (attached.documentId) {
+      if (turnHasHeads && attachedBlockHeads(attachedContent, blockIds).length === 0) isAttachedExcluded = true;
+      if (attached.documentId && !turnHasHeads) {
         try {
           const doc = await db.get('documents', attached.documentId);
           if (isExcludedFromAI(doc)) {
@@ -374,8 +382,8 @@ export function useAIChatContext(personaId: string): {
         }
         searchContext = attachedBlock;
 
-        if (attached.documentId) {
-          injectedDocumentIds.push(attached.documentId);
+        if (subjectId) {
+          injectedDocumentIds.push(subjectId);
         }
         // AUDIT-M3: `[#id]` в тексте заметки не должен открывать цитирование
         // исключённых из AI или несуществующих документов — валидируем по корпусу.
@@ -406,12 +414,12 @@ export function useAIChatContext(personaId: string): {
         if (fromPost) {
           similarNotesQuery = fromPost;
         } else {
-          const summary = attached.documentId ? await summaryAt(attached.documentId) : undefined;
+          const summary = subjectId ? await summaryAt(subjectId) : undefined;
           const fromSummary = [summary?.summary, ...(summary?.themes ?? [])].filter(Boolean).join('. ');
           if (fromSummary.trim()) {
             similarNotesQuery = fromSummary;
           } else {
-            const title = attached.documentId ? (await docAt(attached.documentId))?.title : undefined;
+            const title = subjectId ? (await docAt(subjectId))?.title : undefined;
             const body = attachedContent.replace(/\s+/g, ' ').trim().slice(0, 600);
             const built = [title, body].filter(Boolean).join('. ');
             if (built.trim()) similarNotesQuery = built;
@@ -447,10 +455,10 @@ export function useAIChatContext(personaId: string): {
       // Не для Редактора — его пост пишется из того, что дал автор, а других
       // заметок он просит явно. Не для скрытой заметки — её вектор не читаем.
       let related: ReturnType<typeof buildRelatedDaysBlock> = null;
-      if (effectivePersonaId !== 'editor' && attached?.documentId && !isAttachedExcluded && attachedBlock) {
+      if (effectivePersonaId !== 'editor' && subjectId && !isAttachedExcluded && attachedBlock) {
         try {
           related = buildRelatedDaysBlock(
-            attached.documentId,
+            subjectId,
             await AIEmbeddingService.getAll(),
             await (docsSnap ??= loadDocumentSnapshot()),
             await (summariesSnap ??= loadSummarySnapshot()),
@@ -774,7 +782,7 @@ export function useAIChatContext(personaId: string): {
             // DLG-Q7: приложенная заметка уже в контексте отдельным блоком —
             // второй раз она в результатах не нужна.
             if (similarNotesQuery && attached?.documentId) {
-              allNotes = allNotes.filter(n => n.documentId !== attached.documentId);
+              allNotes = allNotes.filter(n => n.documentId !== attached.documentId && n.documentId !== subjectId);
             }
           }
 
@@ -1106,7 +1114,7 @@ export function useAIChatContext(personaId: string): {
       setAIStage('memory');
       memoryContext = await AIMemoryAssembler.assembleMemoryContext({
         query: text,
-        attachedDocumentId: isAttachedExcluded ? null : (params.attached?.documentId ?? null),
+        attachedDocumentId: isAttachedExcluded ? null : (subjectId ?? null),
         attachedContent: isAttachedExcluded || !attached ? null : attachedContent,
         userPortrait,
         proactiveBlock: searchContext,

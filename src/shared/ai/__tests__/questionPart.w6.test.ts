@@ -9,6 +9,8 @@ const NOTE_TITLE = 'Кухня и ремонт';
 const NOTE_BODY = 'Отложили кухню на осень, подрядчик обещал в четверг, я не настаивала.';
 const QUESTION = 'what do you think about postponing the kitchen repair?';
 
+// форма руками намеренно: questionPart разбирает и старые ходы без шапки —
+// их форма и есть предмет теста.
 const attached = (title: string, body: string, question: string): string =>
   `[Прикреплена заметка: "${title}"]\n\n${body}${ATTACHED_QUESTION_SEP}${question}`;
 

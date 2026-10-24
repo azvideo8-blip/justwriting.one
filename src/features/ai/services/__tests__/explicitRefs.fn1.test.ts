@@ -12,6 +12,10 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { referencedDays, localDay } from '../chatContext/explicitRefs';
 import { buildRelatedDaysBlock } from '../chatContext/relatedDays';
 import type { AIDocumentEmbedding, AIDocumentSummary, LocalDocument } from '../../../../core/storage/localDb';
+import { attachedTurn } from '../../../../test/attachedTurnFixtures';
+
+// форма руками намеренно: в (k) и в «не даты» шапка/ссылка внутри текста — сам
+// предмет проверки, конструктор её бы разметил как начало блока.
 
 const at = (y: number, m: number, d: number, h = 12) => new Date(y, m - 1, d, h).getTime();
 const day = (y: number, m: number, d: number) => localDay(at(y, m, d));
@@ -192,8 +196,10 @@ describe('фон: явная ссылка гарантированно, стро
     sums.set('before_two', sum('before_two'));
     docs.set('before_att', doc('before_att', at(2026, 10, 14, 20)));
     sums.set('before_att', sum('before_att'));
-    const text = `[#${ATT} · 2026-10-15]\n[Прикреплена заметка: "раз"]\nсегодня тихо\n\n---\n\n`
-      + `[#two · 2026-10-05]\n[Прикреплена заметка: "два"]\nвчера чинил ворота`;
+    const text = attachedTurn([
+      { documentId: ATT, title: 'раз', lastSessionAt: at(2026, 10, 15, 9), content: 'сегодня тихо' },
+      { documentId: 'two', title: 'два', lastSessionAt: at(2026, 10, 5, 9), content: 'вчера чинил ворота' },
+    ]);
     const r = buildRelatedDaysBlock(ATT, embs, docs, sums, text, ['two'])!;
     expect(r.ids, 'канун второй заметки').toContain('before_two');
     expect(r.ids, 'у первой «вчера» нет').not.toContain('before_att');

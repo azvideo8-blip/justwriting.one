@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { ATTACHED_NOTE_RE, ATTACHED_NOTE_SUMMARY_RE, ATTACHED_FILE_RE } from '../AIChatPresentational';
 
+// форма руками намеренно: регулярка ищет маркер в произвольном тексте — форма
+// строки и есть предмет теста.
+
 describe('Attachment Regexes', () => {
   describe('ATTACHED_NOTE_RE', () => {
     it('matches clean note marker', () => {

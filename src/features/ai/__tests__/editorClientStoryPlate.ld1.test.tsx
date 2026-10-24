@@ -4,6 +4,7 @@ import 'fake-indexeddb/auto';
 import { AIChatMessages } from '../components/chat/AIChatMessages';
 import { LanguageProvider } from '../../../shared/i18n';
 import { getLocalDb } from '../../../core/storage/localDb';
+import { attachedTurn } from '../../../test/attachedTurnFixtures';
 
 // LD-1: пост Editor'а, переписанный из дневника про работу с людьми, может
 // пересказать чужую историю. Плашка сверки молчит про такие случаи (имён в посте
@@ -13,7 +14,10 @@ const visual = { color: '#888', mono: 'H', role: { ru: 'Роль', en: 'Role' } 
 
 const NOTE_ID = 'local_ld1_note';
 const NOTE_TEXT = 'Сегодня на сессии клиентка сказала, что не может отказать матери. Я заметил, как сам ушёл в советы.';
-const TURN = `[#${NOTE_ID} · 2026-10-01]\n[Прикреплена заметка: "Сессия"]\n\n${NOTE_TEXT}\n\n— — —\nВопрос: сделай пост`;
+const TURN = attachedTurn(
+  [{ documentId: NOTE_ID, title: 'Сессия', lastSessionAt: new Date('2026-10-01T12:00:00').getTime(), content: NOTE_TEXT }],
+  'сделай пост',
+);
 
 async function seed(content: string = NOTE_TEXT) {
   const db = await getLocalDb();

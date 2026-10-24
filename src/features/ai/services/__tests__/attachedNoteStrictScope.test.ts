@@ -7,6 +7,10 @@ import 'fake-indexeddb/auto';
 import { useAIChatContext } from '../aiChatContext';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { AIMemoryAssembler } from '../AIMemoryAssembler';
+import { attachedTurn } from '../../../../test/attachedTurnFixtures';
+
+// форма руками намеренно: часть фикстур — исторические/сырые ходы (дата без
+// дефисов, кавычки в названии), их и разбирает тест.
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../shared/i18n', () => ({
@@ -129,7 +133,9 @@ describe('R3-004: заметка, скрытая от ИИ, не уходит н
   const HIDDEN_ID = 'doc_hidden_1';
   const BODY = 'Секретный абзац про сестру';
   // Производственная форма из useAIPageData: шапка `[#id · дата]` + маркер + тело.
-  const CONTENT = `[#${HIDDEN_ID} · 2026-09-29]\n[Прикреплена заметка: "Тайна"]\n${BODY}`;
+  const CONTENT = attachedTurn([
+    { documentId: HIDDEN_ID, title: 'Тайна', lastSessionAt: new Date('2026-09-29T12:00:00').getTime(), content: BODY },
+  ]);
 
   beforeEach(async () => {
     const db = await getLocalDb();

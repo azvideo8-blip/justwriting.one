@@ -4,6 +4,7 @@ import 'fake-indexeddb/auto';
 import { AIChatMessages } from '../components/chat/AIChatMessages';
 import { LanguageProvider } from '../../../shared/i18n';
 import { getLocalDb } from '../../../core/storage/localDb';
+import { attachedTurn } from '../../../test/attachedTurnFixtures';
 
 // DLG-Q10 (Fable T-20): строка модели «что изменил» врёт — «ничего не изменено»,
 // хотя имя убрано. Плашку считает код, и она положена только Редактору, только у
@@ -13,7 +14,10 @@ const visual = { color: '#888', mono: 'H', role: { ru: 'Роль', en: 'Role' } 
 const NOTE_ID = 'local_editor_note';
 const NOTE_TEXT = 'Утром позвонил Тимур, а Оля одолжила 54 000 и напомнила про 5:50.';
 const POST = 'Брат позвонил рано утром. Подруга выручила деньгами, и всё это висит над головой.\n\n— — —\nИз заметок: [#local_editor_note]';
-const TURN = `[#${NOTE_ID} · 2026-10-01]\n[Прикреплена заметка: "Утро"]\n\n${NOTE_TEXT}\n\n— — —\nВопрос: сделай пост`;
+const TURN = attachedTurn(
+  [{ documentId: NOTE_ID, title: 'Утро', lastSessionAt: new Date('2026-10-01T12:00:00').getTime(), content: NOTE_TEXT }],
+  'сделай пост',
+);
 
 async function seed(doc: Record<string, unknown> = {}) {
   const db = await getLocalDb();

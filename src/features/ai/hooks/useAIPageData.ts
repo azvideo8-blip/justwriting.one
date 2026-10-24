@@ -17,15 +17,14 @@ import { useDialogueManager } from './useDialogueManager';
 import { usePersonaManager } from './usePersonaManager';
 import { useAttachmentManager } from './useAttachmentManager';
 import { getCurrentUser } from '../../../core/auth';
-import { ATTACHED_QUESTION_SEP } from '../../../shared/ai/languageNudge';
 import { getChatExtrasEnabled } from '../../../core/ai/chatExtrasPreference';
 import { DataProvider } from '../../../core/data';
 import { getIndexingConsent, setIndexingConsent, INDEXING_CONSENT_VERSION } from '../../../core/ai/indexingConsent';
 import { indexPending } from '../utils/embeddingIndexer';
-import { looksLikeNoteSearch, splitAttachedMessage, cleanAttachedTitle, legacyNoteHidden } from '../utils/aiChatTransport';
+import { looksLikeNoteSearch, splitAttachedMessage, legacyNoteHidden } from '../utils/aiChatTransport';
+import { formatRefTag, attachedTurn } from '../utils/attachedNoteFormat';
 import { citesHiddenNote } from '../utils/hiddenNoteIds';
 import { useLanguage } from '../../../shared/i18n';
-import { localDayKey } from '../../../core/utils/dateUtils';
 import { noteMetaFor } from '../utils/noteMeta';
 import { followUpKey } from '../utils/followUpKey';
 import { useChatFollow } from './useChatFollow';
@@ -304,14 +303,6 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     if (attaches.length > 0) {
       const firstLocalDocId = attaches.find(a => a.documentId.startsWith('local_'))?.documentId;
 
-      // DE-3: шапка `[#id · дата]` стоит над каждым маркером, и в ходе, где тело не
-      // влезло: по ней транспорт ставит прошлой заметке дату (DG-1).
-      const refHead = (a: { documentId: string; lastSessionAt?: number | undefined; title: string }) => {
-        const yyyymmdd = localDayKey(a.lastSessionAt ?? Date.now()); // N-17: день по местному времени, как везде
-        return `[#${a.documentId} · ${yyyymmdd}]\n[Прикреплена заметка: "${cleanAttachedTitle(a.title)}"]`;
-      };
-      const formatRefTag = (a: { documentId: string; lastSessionAt?: number | undefined; title: string; content: string }) =>
-        `${refHead(a)}\n${a.content}`;
       // Вопрос уходит отдельно от текста заметки (режим хода и контекст строятся
       // по нему), название и дата — в правило строгого хода.
       const noteMeta = attaches.length === 1
@@ -322,21 +313,15 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
       const totalContent = attaches.map(formatRefTag).join('\n\n---\n\n');
       const totalChars = attaches.reduce((s, a) => s + a.content.length, 0);
       const fits = totalChars <= 9000;
-
-      if (attaches.length === 1) {
-        const a = attaches[0]!;
-        // S-63: и в «не влезает» вопрос идёт за разделителем — иначе ход «маркер +
-        // вопрос» неотличим от старого «маркер + тело» (aiChatTransport, порог 1500).
-        const display = fits
-          ? `${formatRefTag(a)}${text ? `${ATTACHED_QUESTION_SEP}${text}` : ''}`
-          : `${refHead(a)}${text ? `${ATTACHED_QUESTION_SEP}${text}` : ''}`;
-        id = await sendMessage(display, { content: formatRefTag(a), ...(firstLocalDocId ? { documentId: firstLocalDocId } : {}), inline: fits }, undefined, undefined, sendOpts);
-      } else {
-        const display = fits
-          ? `${totalContent}${text ? `${ATTACHED_QUESTION_SEP}${text}` : ''}`
-          : `${attaches.map(refHead).join('\n')}${text ? `${ATTACHED_QUESTION_SEP}${text}` : ''}`;
-        id = await sendMessage(display, { content: totalContent, ...(firstLocalDocId ? { documentId: firstLocalDocId } : {}), inline: fits }, undefined, undefined, sendOpts);
-      }
+      // DE-3: шапка `[#id · дата]` стоит над каждым маркером, и в ходе, где тело
+      // не влезло: по ней транспорт ставит прошлой заметке дату (DG-1). S-63:
+      // вопрос идёт за разделителем и в «не влезает» — иначе ход «маркер +
+      // вопрос» неотличим от старого «маркер + тело».
+      const display = attachedTurn(
+        fits ? attaches : attaches.map(a => ({ documentId: a.documentId, title: a.title, lastSessionAt: a.lastSessionAt })),
+        text,
+      );
+      id = await sendMessage(display, { content: totalContent, ...(firstLocalDocId ? { documentId: firstLocalDocId } : {}), blockIds: attaches.map(a => a.documentId), inline: fits }, undefined, undefined, sendOpts);
     } else {
       id = await sendMessage(text, undefined, undefined, undefined, opts?.forceWide || opts?.question
         ? { ...(opts.forceWide ? { forceWide: true } : {}), ...(opts.question ? { question: opts.question } : {}) }

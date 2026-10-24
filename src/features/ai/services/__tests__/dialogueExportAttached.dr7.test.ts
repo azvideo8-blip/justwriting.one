@@ -5,8 +5,14 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import 'fake-indexeddb/auto';
 import { AIDialogueService } from '../AIDialogueService';
 import { getLocalDb } from '../../../../core/storage/localDb';
+import { attachedTurn } from '../../../../test/attachedTurnFixtures';
 
 const NOTE_ID = 'local_dr7_note';
+const DAY = new Date('2026-10-09T12:00:00').getTime();
+const turn = (title: string, question: string, body?: string) => attachedTurn(
+  [{ documentId: NOTE_ID, title, lastSessionAt: DAY, ...(body === undefined ? {} : { content: body }) }],
+  question,
+);
 const NOTE_TEXT = 'Текст заметки для экспорта: вечер, лампа и три шага на завтра.';
 const LONG_FILLER = 'Длинная строка тела заметки, которая не влезает в ход. '.repeat(200);
 
@@ -48,9 +54,7 @@ describe('DR-7: экспорт диалога с заметкой и ходом 
 
   it('(a) ход с маркером: в экспорт попадает текущий текст заметки', async () => {
     await seedNote();
-    const d = await seedDialogue(
-      `[#${NOTE_ID} · 2026-10-09]\n[Прикреплена заметка: "Заметка для экспорта"]\n\n— — —\nВопрос: разбери глубоко`,
-    );
+    const d = await seedDialogue(turn('Заметка для экспорта', 'разбери глубоко'));
     const md = await AIDialogueService.exportAsMarkdown(d.id);
     expect(md).toContain(NOTE_TEXT);
     expect(md).toContain('> ');
@@ -61,9 +65,7 @@ describe('DR-7: экспорт диалога с заметкой и ходом 
   it('(b) скрытая от ИИ и выброшенная заметка: заглушка вместо текста', async () => {
     for (const doc of [{ excludedFromAI: true }, { trashedAt: new Date().toISOString() }]) {
       await seedNote(doc);
-      const d = await seedDialogue(
-        `[#${NOTE_ID} · 2026-10-09]\n[Прикреплена заметка: "Заметка для экспорта"]\n\n— — —\nВопрос: разбери`,
-      );
+      const d = await seedDialogue(turn('Заметка для экспорта', 'разбери'));
       const md = await AIDialogueService.exportAsMarkdown(d.id);
       expect(md).toContain('[текст заметки не выгружен: скрыта от ИИ]');
       expect(md).not.toContain(NOTE_TEXT);
@@ -75,6 +77,8 @@ describe('DR-7: экспорт диалога с заметкой и ходом 
     // inline). Прежним кодом экспорт при этом печатал и тело, и строку
     // «[текст заметки не выгружен: скрыта от ИИ]» под ним.
     await seedNote({ excludedFromAI: true });
+    // форма руками намеренно: текст стоит после разделителя (испорченный ход),
+    // именно это и проверяет R7F-012.
     const d = await seedDialogue(
       `[#${NOTE_ID} · 2026-10-09]\n[Прикреплена заметка: "Заметка для экспорта"]\n\n— — —\n${NOTE_TEXT}\n\nВопрос: разбери`,
     );
@@ -87,9 +91,7 @@ describe('DR-7: экспорт диалога с заметкой и ходом 
 
   it('R7F-012: длинная скрытая заметка по-прежнему заменяется заглушкой', async () => {
     await seedNote({ excludedFromAI: true }, LONG_FILLER);
-    const d = await seedDialogue(
-      `[#${NOTE_ID} · 2026-10-09]\n[Прикреплена заметка: "Заметка для экспорта"]\n\n— — —\nВопрос: разбери`,
-    );
+    const d = await seedDialogue(turn('Заметка для экспорта', 'разбери'));
     const md = await AIDialogueService.exportAsMarkdown(d.id);
 
     expect(md).toContain('[текст заметки не выгружен: скрыта от ИИ]');
@@ -134,17 +136,16 @@ describe('DR-7: экспорт диалога с заметкой и ходом 
 
   it('(e) тело, которое уже стоит в ходу, не удваивается', async () => {
     await seedNote();
-    const d = await seedDialogue(
-      `[#${NOTE_ID} · 2026-10-09]\n[Прикреплена заметка: "Заметка для экспорта"]\n${NOTE_TEXT}\n\n— — —\nВопрос: разбери`,
-    );
+    const d = await seedDialogue(turn('Заметка для экспорта', 'разбери', NOTE_TEXT));
     const md = await AIDialogueService.exportAsMarkdown(d.id);
     expect(md.split(NOTE_TEXT).length - 1).toBe(1);
   });
 
   it('(f) длинное тело заметки выгружается целиком под маркером', async () => {
     await seedNote({}, LONG_FILLER + NOTE_TEXT);
+    // форма руками намеренно: легаси-ход без шапки и без тела — предмет проверки (f).
     const d = await seedDialogue(
-      `[Прикреплена заметка: "Заметка для экспорта"]\n\n— — —\nВопрос: разбери глубоко`,
+      '[Прикреплена заметка: "Заметка для экспорта"]\n\n— — —\nВопрос: разбери глубоко',
     );
     const md = await AIDialogueService.exportAsMarkdown(d.id);
     expect(md).toContain(NOTE_TEXT);
