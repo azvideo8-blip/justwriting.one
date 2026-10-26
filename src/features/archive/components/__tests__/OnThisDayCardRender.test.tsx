@@ -3,7 +3,7 @@ import { screen } from '@testing-library/react';
 import React from 'react';
 import { subYears } from 'date-fns';
 import { renderWithProviders } from '../../../../test/utils/render';
-import { OnThisDayCard } from '../OnThisDayCard';
+import { OnThisDayCard } from '../../../../core/components/OnThisDayCard';
 import type { ArchiveSession } from '../../types';
 
 describe('OnThisDayCard — excerpt rendering for locked/unloaded/normal sessions (RC-6)', () => {

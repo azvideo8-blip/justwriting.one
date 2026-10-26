@@ -69,6 +69,7 @@ const WritingPageUI = React.memo(function WritingPageUI() {
     actions,
     lifeLogGroups,
     streakDays,
+    streakFreezeUsed,
     streakForModal,
     isFinishModalOpen,
     setIsFinishModalOpen,
@@ -107,7 +108,12 @@ const WritingPageUI = React.memo(function WritingPageUI() {
       return (
         <MobileWriteScreen
           status={sessionStatus}
+          userId={session.userId}
+          isGuest={session.isGuest}
+          onContinueNote={(doc) => void actions.handleContinueDocument(doc)}
+          onOpenMemory={(s) => void actions.handleContinueSessionOrDoc(s)}
           streakDays={streakDays}
+          streakFreezeUsed={streakFreezeUsed}
           sessionType={session.sessionType}
           onOpenSetup={() => setSetupMode('selection')}
           hasDraft={session.hasDraft}

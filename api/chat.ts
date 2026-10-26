@@ -4,13 +4,13 @@ import { streamText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { requireSession } from './auth';
 import { postgresAiContext } from './postgresAiContext';
-import { buildChatSystemPrompt, sanitizeAiInputShared, assembleChatPromptParams, chatInputSchema, withReasoningLanguage, withEnglishNudge, type ReplyLanguage } from '../src/shared/ai/buildChatPrompt.js';
+import { buildChatSystemPrompt, sanitizeAiInputShared, assembleChatPromptParams, isLongNoteTurn, chatInputSchema, withReasoningLanguage, withEnglishNudge, type ReplyLanguage } from '../src/shared/ai/buildChatPrompt.js';
 import { resolveAiChatModel, resolveChatModel } from '../src/shared/ai/requestConfig.js';
 import { logChatShape, chatEndRecorder, type ChatEndSignals } from '../src/shared/ai/chatShape.js';
 import { auditAnswer, type AnswerAudit } from '../src/shared/ai/answerAudit.js';
 import { safeErrorShape } from '../src/shared/ai/errorShape.js';
 import { needsEnglishNudge, questionPart } from '../src/shared/ai/languageNudge.js';
-import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, assertNoSystemPromptInjection, createCallReservation, acquireChatReservation, type CallReservation, type SettleReason, type CallReservationUsage } from '../src/shared/ai/aiPolicy.js';
+import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, assertNoSystemPromptInjection, createCallReservation, acquireChatReservation, ANSWER_CUT_NOTE, type CallReservation, type SettleReason, type CallReservationUsage } from '../src/shared/ai/aiPolicy.js';
 import { AiError, type GlobalReservation } from '../src/shared/ai/context.js';
 import { MAX_REQUEST_BODY_BYTES, DAILY_LIMIT, ADMIN_DAILY_LIMIT } from './ai/pure';
 
@@ -388,6 +388,9 @@ async function streamOpenRouterReasoning(
   }
 
   if (streamFailed && sawUpstreamChunk) write(STREAM_BROKEN_NOTE);
+  // DL-19: ответ упёрся в потолок. Без ответа (весь потолок ушёл на ход мысли)
+  // пометку не ставим — у клиента для этого своё сообщение.
+  else if (!clientClosed && answerText && (providerFinish === 'length' || tokensOut >= REASONING_MAX_TOKENS)) write(ANSWER_CUT_NOTE);
 
   // AUDIT-L3: settle() with measured tokens handles single usage recording and reconciliation.
   await settlement.settle(streamFailed ? 'failed' : 'done', { tokensIn, tokensOut, model });
@@ -516,7 +519,8 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   await attachQuotaHeaders(res, uid);
   const chargedDay = callRes.day;
 
-  const maxOutputTokens = getMaxTokens(isInternalCall, parsed.data.reasoning, parsed.data.callType, parsed.data.responseLength);
+  const maxOutputTokens = getMaxTokens(isInternalCall, parsed.data.reasoning, parsed.data.callType, parsed.data.responseLength,
+    !isInternalCall && isLongNoteTurn(parsed.data));
   // AUD-19 & FU-4: в резерв закладываем и вход — длинная заметка стоит токенов так же,
   // как ответ; иначе потолок защищал меньше, чем обещал.
   // Составная квота: allowance = maxOutputTokens + inputEstimate.
@@ -683,6 +687,20 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     },
   });
 
+/** DL-19: ход кончился на потолке вывода (`finishReason` SDK). Нет ответа — не на потолке. */
+async function finishedOnLength(result: { finishReason?: PromiseLike<string> }): Promise<boolean> {
+  // ponytail: SDK отдаёт причину вместе с концом textStream; секунда — страховка от зависания.
+  let stop = () => {};
+  const timeout = new Promise<undefined>(r => { const t = setTimeout(r, 1_000); stop = () => clearTimeout(t); });
+  try {
+    return (await Promise.race([result.finishReason, timeout])) === 'length';
+  } catch {
+    return false;
+  } finally {
+    stop();
+  }
+}
+
 function waitForNextOrAbort<T>(
   iterator: AsyncIterator<T>,
   signal: AbortSignal,
@@ -792,6 +810,10 @@ function waitForNextOrAbort<T>(
             });
           }
         }
+      }
+      // DL-19: поток кончился штатно, но на потолке вывода — пометка в конце.
+      if (!controller.signal.aborted && !res.destroyed && answerText && await finishedOnLength(result)) {
+        res.write(ANSWER_CUT_NOTE);
       }
     } catch (streamErr) {
       console.error('[api/chat] stream read failed mid-stream:', safeErrorShape(streamErr));

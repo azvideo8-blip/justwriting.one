@@ -10,6 +10,11 @@ import { cleanAttachedTitle } from './aiChatTransport';
 // скрытой от ИИ, вырезаем перед отправкой; ошибка чтения документа читается
 // как «скрыта», а не как «можно».
 const ATTACHED_BLOCK_HEAD = /^\[#([^\s\]·]+) · [^\]\n]*\]\n\[Прикреплена заметка: "[\s\S]*?"\]\n/gm;
+// Шапка от сборщика: название без переводов строк (cleanAttachedTitle), маркер —
+// одна строка. Ревью безопасности DY5-1: маркер «до первого `"]`» в теле заметки
+// тянулся через строки и глотал настоящую шапку следующей заметки, а поддельная
+// шапка рядом возвращала счёт — сверка со списком проходила.
+const BUILDER_BLOCK_HEAD = /^\[#([^\s\]·]+) · [^\]\n]*\]\n\[Прикреплена заметка: "[^\n]*"\]\n/gm;
 // S-51: блоки склеивает useAIPageData через этот разделитель; шапка внутри тела
 // заметки (похожая строка в самом тексте) блока не начинает — иначе остаток
 // скрытой заметки за ней уходил в модель.
@@ -20,13 +25,29 @@ export const ATTACHED_BLOCK_SEP = '\n\n---\n\n';
  * (hideExcludedNotes, ворота хода, правило хода в useAIChat — DY4): разные
  * регулярки давали разные ответы на один и тот же текст.
  */
+function anchoredHeads(content: string, re: RegExp): RegExpExecArray[] {
+  return [...content.matchAll(re)]
+    .filter(h => h.index === 0 || content.slice(h.index - ATTACHED_BLOCK_SEP.length, h.index) === ATTACHED_BLOCK_SEP);
+}
+
 export function attachedBlockHeads(content: string, ids?: readonly string[]): RegExpExecArray[] {
-  return [...content.matchAll(ATTACHED_BLOCK_HEAD)]
-    .filter(h => h.index === 0 || content.slice(h.index - ATTACHED_BLOCK_SEP.length, h.index) === ATTACHED_BLOCK_SEP)
-    // Ревью безопасности 0.10.10: текст заметки вставляется в ход как есть, и
-    // строка «---» + шапка внутри него неотличима от настоящего блока. Список
-    // приложенных знает только сборщик хода (useAIPageData) — шапка с чужим id не блок.
-    .filter(h => !ids || ids.includes(h[1]!));
+  if (!ids) return anchoredHeads(content, ATTACHED_BLOCK_HEAD);
+  const heads = anchoredHeads(content, BUILDER_BLOCK_HEAD);
+  // Ревью безопасности 0.10.10 + DY5-1: текст заметки вставляется в ход как есть,
+  // и «---» + шапка внутри него неотличимы от настоящего блока. Список приложенных
+  // знает только сборщик хода (useAIPageData): шапки обязаны совпасть с ним по
+  // порядку и числу, иначе ход не разобран ([] — вызывающие скрывают его целиком).
+  // Раньше «---» в теле экранировался, и человек видел в карточке и выгрузке не свой текст.
+  return heads.length === ids.length && heads[0]?.index === 0 && heads.every((h, i) => h[1] === ids[i]) ? heads : [];
+}
+
+/**
+ * Шапки хода, уже сверенного attachedBlockHeads со списком и прошедшего
+ * hideExcludedNotes: остаются шапки видимых, читаются той же однострочной
+ * регуляркой — прежняя глотала бы шапку за незакрытым маркером в теле.
+ */
+export function builderBlockHeads(content: string): RegExpExecArray[] {
+  return anchoredHeads(content, BUILDER_BLOCK_HEAD);
 }
 
 /** Название из маркера шапки (`[Прикреплена заметка: "…"]`). */
@@ -51,13 +72,7 @@ export function refHead(a: Pick<AttachedNoteBlock, 'documentId' | 'lastSessionAt
 }
 
 export function formatRefTag(a: FullBlock): string {
-  // Ревью безопасности 0.10.10: «---» с пустыми строками внутри текста заметки
-  // неотличим от границы блока, и шапка за ним (даже с id другой приложенной
-  // заметки) читалась бы отдельным видимым блоком — хвост скрытой ушёл бы в
-  // модель. В ходе от сборщика разделитель стоит только между блоками.
-  // Экранируется весь блок, а не тело: тело с «\n---» в начале складывало
-  // разделитель на стыке с шапкой.
-  return `${refHead(a)}\n${a.content}`.replace(/\n\n---(?=\n\n)/g, '\n\n- - -');
+  return `${refHead(a)}\n${a.content}`;
 }
 
 /**

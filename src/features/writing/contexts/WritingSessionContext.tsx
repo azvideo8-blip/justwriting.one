@@ -50,6 +50,8 @@ export interface WritingSessionContextValue {
   lifeLogSummary: DailySummary;
   refreshLifeLog: () => Promise<void>;
   streakDays: number;
+  /** RA1-6: серия держится на заморозке — на главном это сказано словами. */
+  streakFreezeUsed: boolean;
   streakForModal: number;
   isFinishModalOpen: boolean;
   setIsFinishModalOpen: (v: boolean) => void;
@@ -186,7 +188,9 @@ export const WritingSessionProvider = React.memo(function WritingSessionProvider
   }, [sessionToContinue, actions, navigate, location.pathname]);
 
   const { sessionGroups: lifeLogGroups, summary: lifeLogSummary, refresh: refreshLifeLog } = useLifeLog(userId, isGuest);
-  const streakDays = useStreak(lifeLogGroups);
+  const streakView = useStreak(lifeLogGroups, userId);
+  const streakDays = streakView.days;
+  const streakFreezeUsed = streakView.freezeUsed;
 
   const streakForModal = React.useMemo(() => {
     if (!isFinishModalOpen) return streakDays;
@@ -239,6 +243,7 @@ export const WritingSessionProvider = React.memo(function WritingSessionProvider
     lifeLogSummary,
     refreshLifeLog,
     streakDays,
+    streakFreezeUsed,
     streakForModal,
     isFinishModalOpen,
     setIsFinishModalOpen,
@@ -264,6 +269,7 @@ export const WritingSessionProvider = React.memo(function WritingSessionProvider
     lifeLogSummary,
     refreshLifeLog,
     streakDays,
+    streakFreezeUsed,
     streakForModal,
     isFinishModalOpen,
     isShortcutsModalOpen,

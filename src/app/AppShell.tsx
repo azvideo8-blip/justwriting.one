@@ -33,13 +33,13 @@ import { ActivityLogBadge } from './ActivityLogBadge';
 import { AppRoutes } from './AppRoutes';
 import { ConfirmDialogRenderer, useConfirmDialog } from '../shared/components/ConfirmDialog';
 import { useAdminStatus } from '../features/auth/hooks/useAdminStatus';
-import { useEmptyDeviceDetection } from '../core/sync/useEmptyDeviceDetection';
-const RestoreFromCloudModal = React.lazy(() =>
-  import('./modals/RestoreFromCloudModal').then(m => ({ default: m.RestoreFromCloudModal })),
+// BR-3: окна первого входа (восстановление из облака + «данные другого
+// пользователя») — одним ленивым узлом. Их статические импорты тянули в
+// стартовый кусок `useEmptyDeviceDetection` и `OtherUserDataModal`.
+const FirstEntryModals = React.lazy(() =>
+  import('./FirstEntryModals').then(m => ({ default: m.FirstEntryModals })),
 );
 import { ErrorBoundary } from '../shared/components/ErrorBoundary';
-import { useOtherUserDetection } from '../features/auth/hooks/useOtherUserDetection';
-import { OtherUserDataModal } from '../features/auth/components/OtherUserDataModal';
 // BS (N-2): мост миграции гостя — окно для немногих, а его статический импорт
 // через MigrationPrompt тянул за собой SyncService и LocalDocumentService в
 // стартовый кусок.
@@ -61,10 +61,8 @@ export function AppShell() {
   const { loginModalOpen } = useLoginModal();
   const { openSettings } = useSettings();
   const { mode: encryptionMode, check: recheckEncryption, dismiss: dismissEncryption } = useEncryptionSetup();
-  const { shouldPrompt: shouldPromptEmptyDevice, localCount, cloudCount, dismiss: dismissEmptyDevice } = useEmptyDeviceDetection();
-  const { hasOtherData, dismiss: dismissOtherData, clear: clearOtherData } = useOtherUserDetection();
   // Окна первого входа — по одному: пока открыт вопрос политики или синхронизации,
-  // остальные ждут (onboardingQueue.ts).
+  // остальные ждут (onboardingQueue.ts, `queued` читает сам узел).
   const queued = useContext(EarlierQuestionOpenContext);
 
 
@@ -195,26 +193,13 @@ export function AppShell() {
           />
         </Suspense>
       )}
-      {shouldPromptEmptyDevice && user && !queued && (
+      {/* BR-3: окно восстановления из облака и окно «данные другого пользователя»
+          живут в одном ленивом узле; развязка по `queued` — там же. */}
+      <ErrorBoundary fallback={null}>
         <Suspense fallback={null}>
-          <RestoreFromCloudModal
-            open={shouldPromptEmptyDevice}
-            onClose={dismissEmptyDevice}
-            initialLocalCount={localCount}
-            initialCloudCount={cloudCount}
-            onRestoreAIData={(uid) =>
-              import('../features/ai/services/AIRestoreService').then(m => m.restoreAndReattachAIData(uid))
-            }
-          />
+          <FirstEntryModals />
         </Suspense>
-      )}
-      {hasOtherData && user && !shouldPromptEmptyDevice && !queued && (
-        <OtherUserDataModal
-          open={hasOtherData}
-          onClose={dismissOtherData}
-          onClear={clearOtherData}
-        />
-      )}
+      </ErrorBoundary>
     </AppLayout>
   );
 }

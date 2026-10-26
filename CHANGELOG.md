@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.10.11 — 2026-10-26
+
+- **[RU]** Без сети «Сохранить» больше не ждёт облако: запись сохраняется на устройстве и уходит в облако, как только вернётся связь.
+- **[EN]** Saving without a network no longer waits for the cloud: the entry is saved on the device and uploaded as soon as you are back online.
+- **[RU]** На главном экране — «Продолжить» с датой последней записи и строка «В этот день» с записью месяц, полгода или год назад. Текст записей там не показывается.
+- **[EN]** The home screen now shows «Continue» with the date of your last entry and an «On this day» line with an entry from a month, half a year or a year ago. The text of entries is not shown there.
+- **[RU]** Если заметки не ушли в облако, на главном видно «Не синхронизировано» с кнопкой «Повторить». На новом устройстве главный подсказывает, что в облаке есть ваши заметки.
+- **[EN]** If notes did not reach the cloud, the home screen shows «Not synced» with a «Retry» button. On a new device, the home screen tells you that your notes are in the cloud.
+- **[RU]** Серия записей прощает один пропущенный день в месяц.
+- **[EN]** Your writing streak now forgives one missed day a month.
+- **[RU]** Длинный текст ИИ разбирает по порядку, от начала до конца, и реже обрывает ответ. Если ответ всё же упёрся в предел длины, под ним подсказка написать «продолжи».
+- **[EN]** The AI now goes through a long text in order, from beginning to end, and cuts its answer short less often. If an answer does hit the length limit, a hint below it suggests writing «продолжи» (continue).
+- **[RU]** Склейка из разных фраз больше не подаётся в ответе ИИ как точная цитата, а настоящая цитата из нескольких фраз подряд остаётся в кавычках. Память ИИ складывается только из ваших слов.
+- **[EN]** A stitch of separate phrases is no longer presented in an AI answer as an exact quote, while a real quote of several sentences in a row keeps its quotation marks. The AI's memory is built only from your own words.
+- **[RU]** Разделитель «---» в заметке показывается в чате и в выгрузке так, как написан.
+- **[EN]** A «---» divider in a note now appears in the chat and in exports exactly as written.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.10.10 — 2026-10-24
 
 - **[RU]** Если к разговору приложено несколько заметок и одна из них скрыта от ИИ, остальные он видит и разбирает. О скрытой заметке ИИ не узнаёт даже дату.

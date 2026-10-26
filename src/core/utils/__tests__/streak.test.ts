@@ -46,8 +46,14 @@ describe('calculateStreak', () => {
     expect(calculateStreak([makeSession(0), makeSession(1), makeSession(5)])).toBe(2);
   });
 
-  it('last session 2 days ago → 0 (neither today nor yesterday)', () => {
-    expect(calculateStreak([makeSession(2)])).toBe(0);
+  // RA1-6 (решение владельца 2026-10-24): серия прощает один пропущенный день —
+  // «позавчера писала, вчера пусто» больше не обнуляет её. Раньше ожидание было 0.
+  it('last session 2 days ago → 2 (один пропуск прощён заморозкой; день заморозки считается, как и внутри серии)', () => {
+    expect(calculateStreak([makeSession(2)])).toBe(2);
+  });
+
+  it('last session 3 days ago → 0 (два пропуска подряд)', () => {
+    expect(calculateStreak([makeSession(3)])).toBe(0);
   });
 
   it('multiple sessions same day count as 1', () => {

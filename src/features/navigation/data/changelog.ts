@@ -17,6 +17,20 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.10.11',
+    date: '2026-10-26',
+    items: [
+      { category: 'new', ru: 'Без сети «Сохранить» больше не ждёт облако: запись сохраняется на устройстве и уходит в облако, как только вернётся связь.', en: 'Saving without a network no longer waits for the cloud: the entry is saved on the device and uploaded as soon as you are back online.' },
+      { category: 'new', ru: 'На главном экране — «Продолжить» с датой последней записи и строка «В этот день» с записью месяц, полгода или год назад. Текст записей там не показывается.', en: 'The home screen now shows «Continue» with the date of your last entry and an «On this day» line with an entry from a month, half a year or a year ago. The text of entries is not shown there.' },
+      { category: 'new', ru: 'Если заметки не ушли в облако, на главном видно «Не синхронизировано» с кнопкой «Повторить». На новом устройстве главный подсказывает, что в облаке есть ваши заметки.', en: 'If notes did not reach the cloud, the home screen shows «Not synced» with a «Retry» button. On a new device, the home screen tells you that your notes are in the cloud.' },
+      { category: 'improvement', ru: 'Серия записей прощает один пропущенный день в месяц.', en: 'Your writing streak now forgives one missed day a month.' },
+      { category: 'improvement', ru: 'Длинный текст ИИ разбирает по порядку, от начала до конца, и реже обрывает ответ. Если ответ всё же упёрся в предел длины, под ним подсказка написать «продолжи».', en: 'The AI now goes through a long text in order, from beginning to end, and cuts its answer short less often. If an answer does hit the length limit, a hint below it suggests writing «продолжи» (continue).' },
+      { category: 'fix', ru: 'Склейка из разных фраз больше не подаётся в ответе ИИ как точная цитата, а настоящая цитата из нескольких фраз подряд остаётся в кавычках. Память ИИ складывается только из ваших слов.', en: 'A stitch of separate phrases is no longer presented in an AI answer as an exact quote, while a real quote of several sentences in a row keeps its quotation marks. The AI\'s memory is built only from your own words.' },
+      { category: 'fix', ru: 'Разделитель «---» в заметке показывается в чате и в выгрузке так, как написан.', en: 'A «---» divider in a note now appears in the chat and in exports exactly as written.' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.10.10',
     date: '2026-10-24',
     items: [

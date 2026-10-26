@@ -14,6 +14,7 @@
 - `src/app/` — Каркас приложения: `AppProviders.tsx` (провайдеры), `AppRouter.tsx` / `AppRoutes.tsx` (ленивые маршруты), `AppShell.tsx`, страницы в `pages/` (письмо, архив, ИИ, профиль, настройки, диагностика).
 - `src/core/ai/` — Единая точка вызова сервера `callAi.ts` (согласие, отмена, пул квоты) и флаги согласий и настроек ИИ: `aiConsent.ts`, `indexingConsent.ts`, `portraitEpoch.ts`.
 - `src/core/auth/` — Провайдер авторизации поверх Supabase Auth: `supabaseAuthProvider.ts`, сохранённая сессия `storedSession.ts`, перезагрузка учётки `accountReload.ts`; вход — `index.ts`.
+- `src/core/components/` — Компоненты, нужные нескольким фичам (правила слоёв не дают фиче импортировать фичу): карточка «В этот день» `OnThisDayCard.tsx` и строка синка `SyncUnsyncedBar.tsx`.
 - `src/core/constants/` — Константы ядра: цвета меток `labelColors.ts`, версия политики конфиденциальности `privacyVersion.ts` (переэкспорт из shared/ai).
 - `src/core/crypto/` — Шифрование заметок: `encrypt.ts` и `cryptoHelpers.ts`, кэш ключа сейфа `keyVaultCache.ts`, код восстановления `recoveryCode.ts`, шифрование меток, стор `useEncryptionStore.ts`.
 - `src/core/data/` — Доступ к облачным таблицам: `supabaseDataProvider.ts` и по провайдеру на таблицу в `providers/` (документы, черновики, эмбеддинги, саммари, версии, профили); zod-схемы в `schemas.ts`.

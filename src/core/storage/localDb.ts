@@ -1140,7 +1140,34 @@ export async function cleanLegacySharedDb(currentUid?: string): Promise<void> {
     }
     const shared = await getLocalDb('justwriting-local');
     const shape = async () => (await Promise.all((['documents', 'versions', 'profile'] as const).map(n => shared.count(n)))).join(':');
-    if (localStorage.getItem(SHARED_SCANNED_KEY) === await shape()) return;
+    const unchanged = localStorage.getItem(SHARED_SCANNED_KEY) === await shape();
+    // DY3-3(б): выход по составу — ПОСЛЕ проверки R-11. Состав мог записать
+    // проход другого аккаунта, и тогда застрявший аккаунт молчал бы вечно.
+    // Чтение документов для этой проверки — только readonly: смысл выхода по
+    // составу в том, чтобы не поднимать readwrite на каждом открытии базы.
+    const stuckFor = async (uid: string | undefined): Promise<boolean> => {
+      if (!uid) return false;
+      try {
+        const tx = shared.transaction('documents', 'readonly');
+        const docs = await tx.store.getAll();
+        await tx.done;
+        return docs.some(d => d.guestId === uid && !isGuestOwner(d.guestId))
+          && !!localStorage.getItem(`jw_legacy_migrated_${uid}`);
+      } catch {
+        // Не прочитали — «не знаем», а не «всё хорошо»: сигнал не выдумываем.
+        return false;
+      }
+    };
+    if (unchanged) {
+      if (await stuckFor(currentUid)) {
+        const stuckKey = `jw_shared_db_stuck_${currentUid}`;
+        if (!localStorage.getItem(stuckKey)) {
+          localStorage.setItem(stuckKey, '1');
+          reportError(new Error('Legacy shared db still holds documents of a migrated account'), { action: 'cleanLegacySharedDb', uid: currentUid });
+        }
+      }
+      return;
+    }
     const wipeable = Array.from(shared.objectStoreNames).filter(n => (LEGACY_WIPE_STORES as readonly string[]).includes(n));
     const tx = shared.transaction([...wipeable, 'documents', 'versions', 'profile'], 'readwrite');
     // Не прочитали документы — не знаем, чьё здесь лежит: бросаем, ничего не стерев.

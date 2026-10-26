@@ -1,8 +1,8 @@
 // functions/src/ai/chatWithAI.logic.ts
 import { sanitizeAiInput, sanitizeAiResponse } from './pure';
-import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, assertNoSystemPromptInjection, acquireChatReservation } from '../../src/shared/ai/aiPolicy.js';
+import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, assertNoSystemPromptInjection, acquireChatReservation, ANSWER_CUT_NOTE } from '../../src/shared/ai/aiPolicy.js';
 import { generate } from './provider';
-import { buildChatSystemPrompt, assembleChatPromptParams, chatInputSchema, withReasoningLanguage, withEnglishNudge, type ReplyLanguage } from '../../src/shared/ai/buildChatPrompt.js';
+import { buildChatSystemPrompt, assembleChatPromptParams, isLongNoteTurn, chatInputSchema, withReasoningLanguage, withEnglishNudge, type ReplyLanguage } from '../../src/shared/ai/buildChatPrompt.js';
 import { resolveAiChatModel, resolveChatModel } from '../../src/shared/ai/requestConfig.js';
 import { needsEnglishNudge, questionPart } from '../../src/shared/ai/languageNudge.js';
 import { logChatShape } from '../../src/shared/ai/chatShape.js';
@@ -56,7 +56,8 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
   // DUP-1: Unified reservation lifetime
   const callRes = await acquireChatReservation(ctx, uid, isInternalCall, reasoning === true);
 
-  const maxTokens = getMaxTokens(isInternalCall, reasoning, parsed.data.callType, parsed.data.responseLength);
+  const maxTokens = getMaxTokens(isInternalCall, reasoning, parsed.data.callType, parsed.data.responseLength,
+    !isInternalCall && isLongNoteTurn(parsed.data));
 
   // DUP-2: Single shared prompt assembly
   const INTERNAL_SYSTEM_PROMPT = 'Ты — служебная функция приложения для дневника. Выполни ровно то, что просят, без пояснений.';
@@ -132,7 +133,9 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
   const isReasoningMode = reasoning === true;
   // Same headers the streaming path writes, so the client parser is unchanged.
   const raw = isReasoningMode && gen.reasoning ? `ХОД МЫСЛИ:\n${gen.reasoning}\n\nОТВЕТ:\n${gen.text}` : gen.text;
-  const text = sanitizeAiResponse(raw, { keepReasoning: isReasoningMode });
+  // DL-19: ответ упёрся в потолок — пометка в конце (как в потоковом пути).
+  const cut = !isInternalCall && gen.text.length > 0 && gen.tokensOut >= maxTokens;
+  const text = sanitizeAiResponse(raw, { keepReasoning: isReasoningMode }) + (cut ? ANSWER_CUT_NOTE : '');
 
   callRes.markProduced(gen.text.length);
   await callRes.settle('done');

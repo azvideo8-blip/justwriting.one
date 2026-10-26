@@ -54,7 +54,7 @@ describe('createNoteActions', () => {
         documentId: 'local_abc',
         userId: 'u_test_1',
       });
-      expect(SyncService.addToQueue).toHaveBeenCalledWith('local_abc');
+      expect(SyncService.addToQueue).toHaveBeenCalledWith('local_abc', 'u_test_1');
       expect(SyncService.syncOne).toHaveBeenCalledWith('u_test_1', 'local_abc');
     });
 
@@ -81,7 +81,7 @@ describe('createNoteActions', () => {
 
       await actions.handleCreateNote('Тестовая заметка');
 
-      expect(SyncService.addToQueue).toHaveBeenCalledWith('local_fail');
+      expect(SyncService.addToQueue).toHaveBeenCalledWith('local_fail', 'u_test_1');
       expect(SyncService.syncOne).toHaveBeenCalledWith('u_test_1', 'local_fail');
       expect(showToast).toHaveBeenCalledWith('Заметка успешно создана', 'success');
     });

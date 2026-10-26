@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { reportError } from '../../shared/errors/reportError';
 import { registerVaultLockedChecker } from '../../shared/errors/vaultLockState';
 import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
+import { VAULT_UNLOCKED_EVENT } from './vaultEvents';
+export { VAULT_UNLOCKED_EVENT };
 
 /**
  * Сейф открылся — об этом объявляется событием, а не вызовом синхронизации.
@@ -12,7 +14,7 @@ import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
  * модулей одна из сторон всё равно видит другую недособранной. Слушателя вешает
  * `AppProviders`, который синхронизацией уже владеет.
  */
-export const VAULT_UNLOCKED_EVENT = 'vault-unlocked';
+
 
 const AUTO_LOCK_MS = 15 * 60 * 1000;
 // SEC-5: "Remember on this device" maintains convenience (no password on reload)

@@ -427,7 +427,7 @@ export class LifecycleRunner {
           told = { status: 'synced_to_cloud', cloudSynced: true };
         }
       } catch {
-        await SyncService.addToQueue(localDocId);
+        await SyncService.addToQueue(localDocId, this.userId);
         told = { status: 'saved_local_queued', cloudSynced: false };
       }
     } catch (e: unknown) {
@@ -1010,7 +1010,7 @@ export class LifecycleRunner {
     const leaksBefore = this.interceptor.postgres.plaintextLeaks(markers);
 
     // Enqueue a sync task as normally happens
-    await SyncService.addToQueue(localDocId);
+    await SyncService.addToQueue(localDocId, this.userId);
 
     // Now delete locally
     this.interceptor.setStep(faultStep);

@@ -121,6 +121,24 @@ const KEEP_CLOSE = '\uE002';
 export interface SanitizeCitationsOptions {
   personaId?: string;
   reasoning?: boolean;
+  /**
+   * RA1-8: в строгом ходе кавычки сверяются только с приложенной заметкой и
+   * репликами человека. Фон — пересказ, написанный ИИ, и кавычки в нём
+   * оправдывают выдумку. Ссылки и названия по-прежнему сверяются с полным
+   * набором (`materialsText`).
+   */
+  quoteMaterialsText?: string | undefined;
+}
+
+/** RA1-8: источник кавычек для хода. Строгий ход — заметка + реплики человека;
+ *  широкий/редактор — прежний полный набор (undefined). */
+export function quoteMaterialsForTurn(
+  turnMode: string | undefined,
+  attachedContent: string | undefined,
+  humanTurns: string[],
+): string | undefined {
+  if (turnMode !== 'note') return undefined;
+  return [attachedContent ?? '', ...humanTurns].filter(Boolean).join('\n');
 }
 
 export function sanitizeCitations(
@@ -196,7 +214,10 @@ export function sanitizeCitations(
   // ED-1: у Редактора «по смыслу» — только по глаголу речи, его предложенные
   // строки от лица автора — не чужая речь. В ходе мыслей страж молчит вовсе.
   if (materialsText && !opts?.reasoning) {
-    cleaned = unquoteAbsent(cleaned, materialsText, { markPersonal: opts?.personaId !== 'editor' }).text;
+    // RA1-8: если ход называет источник кавычек, сверяем только с ним; иначе
+    // прежнее поведение — весь набор материалов (редактор, широкий ход).
+    const quoteMaterials = opts?.quoteMaterialsText !== undefined ? opts.quoteMaterialsText : materialsText;
+    cleaned = unquoteAbsent(cleaned, quoteMaterials, { markPersonal: opts?.personaId !== 'editor' }).text;
   }
 
   // Clean up punctuation and whitespace around the removed citation.
@@ -625,12 +646,14 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // заметка-тема, которой среди разобранных блоков нет, — весь ход скрыт.
       // Без списка от сборщика (липкая после перезагрузки, старый ход) шапкам не
       // верим: скрыто хоть что-то — заглушка, как до 0.10.10.
-      const trusted = !!subjectNote?.blockIds;
       const blocks = subjectNote ? attachedBlockHeads(subjectNote.content, subjectNote.blockIds) : [];
+      // DY5-1: шапки не совпали со списком сборщика — ход скрыт целиком (как в buildContext).
+      const broken = !!subjectNote?.blockIds && blocks.length === 0;
+      const trusted = !!subjectNote?.blockIds && !broken;
       const visibleBlocks = blocks.filter(b => !isHiddenId(b[1]));
       const subjectLost = !!subjectNote && isHiddenId(subjectNote.documentId) && (!trusted || !blocks.some(b => b[1] === subjectNote.documentId));
       const scopeNote = !subjectNote ? subjectNote
-        : subjectLost || (blocks.length > 0 && visibleBlocks.length === 0) || (!trusted && visibleBlocks.length < blocks.length) ? { title: HIDDEN_NOTE_TITLE, date: '' }
+        : broken || subjectLost || (blocks.length > 0 && visibleBlocks.length === 0) || (!trusted && visibleBlocks.length < blocks.length) ? { title: HIDDEN_NOTE_TITLE, date: '' }
         : visibleBlocks.length < blocks.length ? { title: visibleBlocks.map(blockHeadTitle).join('», «'), date: '' }
         : subjectNote;
       const noteScope = turnMode ? noteScopeFor(turnMode, scopeNote) : undefined;
@@ -666,9 +689,14 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
       // DLG-Q8: с чем сверять цитаты и названия — с теми же материалами, что
       // ушли модели, плюс реплики человека из этого диалога.
-      const materialsText = [searchContext, memoryContext, ...apiMessages.filter(m => m.role === 'user').map(m => m.content)]
+      const humanTurns = apiMessages.filter(m => m.role === 'user').map(m => m.content);
+      const materialsText = [searchContext, memoryContext, ...humanTurns]
         .filter((x): x is string => !!x)
         .join('\n');
+      // RA1-8: в строгом ходе кавычки — только из приложенной заметки и реплик
+      // человека. Фон и память — пересказ ИИ; ссылки и названия ниже сверяются
+      // с полным набором, как раньше.
+      const quoteMaterialsText = quoteMaterialsForTurn(turnMode, effectiveAttached?.content, humanTurns);
 
       const customSystemPrompt = customPersona;
       const effectivePersonaId = customPersona ? 'custom' : personaId;
@@ -696,7 +724,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             signal: controller.signal,
             onChunk: (partial, reasoning) => {
               const cleanPartial = sanitizeFirstSeenDates(
-                sanitizeCitations(partial, citeIds, injectedTitles, materialsText, { personaId: effectivePersonaId }),
+                sanitizeCitations(partial, citeIds, injectedTitles, materialsText, { personaId: effectivePersonaId, quoteMaterialsText }),
                 allowedFirstSeenDates || []
               );
               const cleanReasoning = reasoning
@@ -755,7 +783,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             if (cleanAnswer) {
               setStreamingMessage(
                 sanitizeFirstSeenDates(
-                  sanitizeCitations(cleanAnswer, citeIds, injectedTitles, materialsText, { personaId: effectivePersonaId }),
+                  sanitizeCitations(cleanAnswer, citeIds, injectedTitles, materialsText, { personaId: effectivePersonaId, quoteMaterialsText }),
                   allowedFirstSeenDates || []
                 )
               );
@@ -793,7 +821,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // текста до разбора возвращала в сохранённый ход мыслей «по смыслу», которых
       // во время стрима не было.
       const clean = (s: string, reasoningPart: boolean) => sanitizeFirstSeenDates(
-        sanitizeCitations(s, citeIds, injectedTitles, materialsText, reasoningPart ? { reasoning: true } : { personaId: effectivePersonaId }),
+        sanitizeCitations(s, citeIds, injectedTitles, materialsText, reasoningPart ? { reasoning: true } : { personaId: effectivePersonaId, quoteMaterialsText }),
         allowedFirstSeenDates || []
       );
       let savedText = clean(extractAnswer(fullText), false);
@@ -852,7 +880,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             ? { ...m, content: HIDDEN_ANSWER_PLACEHOLDER }
             : { ...m, content };
         });
-        void AIChatMemoryService.extractFromDialogue(currentDialogue.id, memMessages);
+        void AIChatMemoryService.extractFromDialogue(currentDialogue.id, memMessages, parseOpts);
       }
       const updated = await AIDialogueService.get(currentDialogue.id);
       setDialogue(updated ?? null);

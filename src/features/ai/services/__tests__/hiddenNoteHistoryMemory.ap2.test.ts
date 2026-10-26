@@ -79,11 +79,15 @@ describe('AP-2: цитаты скрытой заметки не идут из и
     await AIChatMemoryService.extractFromDialogue('d_ap2', messages);
 
     const sent = JSON.stringify(extract.mock.calls[0]?.[0] ?? {});
+    // RA1-13 (осознанно изменено): в окно извлечения больше не входят ответы
+    // ассистента, поэтому цитаты скрытой заметки там нет по построению, а
+    // видимая цитата из ответа ИИ тоже не приезжает. Источники новой памяти
+    // берутся из реплик человека — цитат в них нет, список пуст («источник
+    // известен: их нет»), а не старый «неизвестно».
     expect(sent).not.toContain(MARKER);
-    expect(sent).toContain(VISIBLE_MARKER);
+    expect(sent).not.toContain(VISIBLE_MARKER);
     const memory = (await db.getAll('aiChatMemory'))[0];
-    // M-1 (приёмка ai-privacy): постоянный номер — память узнаёт источник и на другом устройстве.
-    expect(memory?.sourceDocumentIds).toEqual([`uuid_${DOC_OK}`]);
+    expect(memory?.sourceDocumentIds).toEqual([]);
   });
 
   it('getRelevant не отдаёт память, извлечённую из цитаты скрытой или удалённой заметки', async () => {

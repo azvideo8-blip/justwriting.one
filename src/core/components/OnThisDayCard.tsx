@@ -2,16 +2,36 @@ import { useMemo, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { CalendarClock, ArrowRight, ChevronRight, X } from 'lucide-react';
 import { format, subMonths, subYears } from 'date-fns';
-import { getSessionDate, getSessionDates } from '../../../core/utils/utils';
-import { getDateLocale } from '../../../core/utils/dateUtils';
-import { useLanguage } from '../../../shared/i18n';
-import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
-import { ArchiveSession } from '../types';
+import { getSessionDate, getSessionDates } from '../utils/utils';
+import { getDateLocale } from '../utils/dateUtils';
+import { useLanguage } from '../../shared/i18n';
+import { useLayoutMode } from '../../shared/hooks/useLayoutMode';
+import type { ArchiveSession } from '../../shared/types/common';
 
-const DISMISS_KEY = 'onthisday_dismissed';
+/** RA1-7: закрытие — только на сегодня. Хранится дата, а не id заметки. */
+export function onThisDayDismissKey(userId?: string | null): string {
+  return `onthisday_dismissed_${userId || 'guest'}`;
+}
 
-function isSameCalendarDay(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+export function readDismissedDay(userId: string | null | undefined): string | null {
+  try {
+    return localStorage.getItem(onThisDayDismissKey(userId));
+  } catch {
+    return null;
+  }
+}
+
+export function writeDismissedDay(userId: string | null | undefined, today: string): void {
+  try {
+    localStorage.setItem(onThisDayDismissKey(userId), today);
+  } catch { /* ignore */ }
+}
+
+/** RA1-7: окно ±1 день — «в этот день» не должно промахиваться на стыке суток. */
+function dayDistance(a: Date, b: Date): number {
+  const da = new Date(a.getFullYear(), a.getMonth(), a.getDate()).getTime();
+  const db = new Date(b.getFullYear(), b.getMonth(), b.getDate()).getTime();
+  return Math.abs(Math.round((da - db) / 86_400_000));
 }
 
 export function findMatch(
@@ -27,13 +47,25 @@ export function findMatch(
     { label: t('archive_on_this_day_month'), target: subMonths(now, 1) },
   ];
   for (const p of periods) {
+    const candidates: { session: ArchiveSession; date: Date; distance: number }[] = [];
     for (const s of sessions) {
-      const dates = getSessionDates(s);
-      const matched = dates.find(d => isSameCalendarDay(d, p.target));
-      if (matched) {
-        return { session: s, label: p.label, matchedDate: matched };
+      // RA1-7: заметка в корзине — не воспоминание.
+      if (s.trashedAt) continue;
+      for (const d of getSessionDates(s)) {
+        const distance = dayDistance(d, p.target);
+        if (distance <= 1) candidates.push({ session: s, date: d, distance });
       }
     }
+    if (candidates.length === 0) continue;
+    // RA1-7: детерминированно — ближайшая дата; равные — по id, чтобы выбор
+    // не зависел от порядка строк.
+    candidates.sort((a, b) =>
+      a.distance - b.distance
+      || b.date.getTime() - a.date.getTime()
+      || a.session.id.localeCompare(b.session.id)
+    );
+    const best = candidates[0]!;
+    return { session: best.session, label: p.label, matchedDate: best.date };
   }
   return null;
 }
@@ -46,20 +78,27 @@ function trimExcerpt(text: string, max = 120): string {
   return (lastSpace > 0 ? slice.slice(0, lastSpace) : slice) + '\u2026';
 }
 
-export function OnThisDayCard({ sessions, onOpen }: {
+export function OnThisDayCard({ sessions, onOpen, userId, showExcerpt = true }: {
   sessions: ArchiveSession[];
   onOpen: (s: ArchiveSession) => void;
+  userId?: string | null | undefined;
+  /**
+   * BR-7: домашняя карточка — только название, как на телефоне: экран может
+   * быть открыт при ком-то (тот же довод, что у RA1-3 про «Продолжить»).
+   * В архиве выдержка остаётся (RC-6).
+   */
+  showExcerpt?: boolean;
 }) {
   const { t, language } = useLanguage();
   const { layoutMode } = useLayoutMode();
   const isMobile = layoutMode === 'mobile';
   const reducedMotion = useReducedMotion();
-  const [dismissedId, setDismissedId] = useState<string | null>(() => {
-    try { return localStorage.getItem(DISMISS_KEY); } catch { return null; }
-  });
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const [dismissedDay, setDismissedDay] = useState<string | null>(() => readDismissedDay(userId));
+  const dismissedToday = dismissedDay === today;
   const [dismissing, setDismissing] = useState(false);
   const match = useMemo(() => findMatch(sessions, t), [sessions, t]);
-  if (!match || match.session.id === dismissedId) return null;
+  if (!match || dismissedToday) return null;
   const { session, label, matchedDate } = match;
   // A note whose text is locked or not fetched yet still happened on this day —
   // the match stays, the excerpt says why it is empty instead of showing ''.
@@ -72,9 +111,12 @@ export function OnThisDayCard({ sessions, onOpen }: {
   const dateChip = format(date, 'd MMM yy', { locale: getDateLocale(language) });
 
   const dismiss = () => {
-    try { localStorage.setItem(DISMISS_KEY, session.id); } catch { /* ignore */ }
-    if (reducedMotion) {
-      setDismissedId(session.id);
+    // RA1-7: «на сегодня», не навсегда — завтра карточка вернётся.
+    writeDismissedDay(userId, today);
+    // На телефоне уход не анимируется (строка, а не карточка) — прячем сразу;
+    // раньше «×» там не действовал вовсе, если не включено reduced motion.
+    if (isMobile || reducedMotion) {
+      setDismissedDay(today);
     } else {
       setDismissing(true);
     }
@@ -110,7 +152,7 @@ export function OnThisDayCard({ sessions, onOpen }: {
   }
 
   return (
-    <AnimatePresence onExitComplete={() => setDismissedId(session.id)}>
+    <AnimatePresence onExitComplete={() => setDismissedDay(today)}>
       {!dismissing && (
         <motion.div
           key={session.id}
@@ -141,7 +183,7 @@ export function OnThisDayCard({ sessions, onOpen }: {
                 )}
               </div>
               <div className="text-sm font-medium text-text-main truncate mt-1">{session.title || t('archive_untitled')}</div>
-              {excerpt && <div className="text-xs text-text-main/55 mt-0.5 line-clamp-2 leading-relaxed">{excerpt}</div>}
+              {showExcerpt && excerpt && <div className="text-xs text-text-main/55 mt-0.5 line-clamp-2 leading-relaxed">{excerpt}</div>}
             </div>
             <ArrowRight size={14} className="text-text-main/40 group-hover:text-text-main/70 shrink-0 mt-1 transition-colors" />
           </button>

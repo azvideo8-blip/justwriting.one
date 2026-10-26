@@ -23,6 +23,24 @@ const LENGTH = {
 
 const EDITOR_NOTES_RULE = `ДЛЯ РЕДАКТОРА: ссылки [#id] ставь только в блоке «Из заметок:» после поста; внутри текста поста ссылок и квадратных скобок нет.`;
 
+/**
+ * DL-19 (19.1, 19.8): длинный приложенный текст разбирается по частям. Порог
+ * считает код, не модель: на стенде arch-2026-10-11 (семья S11, 30–34 тыс.
+ * знаков, подробный разбор) база в 27 % ответов не называла хотя бы один
+ * участок — начало, первую треть, середину или конец.
+ */
+export const LONG_NOTE_CHARS = 15_000;
+export const LONG_NOTE_RULE = 'РАЗБОР ДЛИННОГО ТЕКСТА: пройди текст по порядку, по частям: начало, середина, конец; ни одну часть не пропускай.';
+
+/** Правило ставится только когда длинный текст реально едет в материалах хода. */
+export function longNoteRule(documentContent?: string | null, personaId?: string, responseLength?: string | null): string | null {
+  if (!documentContent || documentContent.length <= LONG_NOTE_CHARS) return null;
+  // Редактор пишет пост из того, что дал автор, а не пересказывает весь текст;
+  // в коротком ответе весь текст не помещается, и правило противоречило бы длине.
+  if (personaId === 'editor' || responseLength === 'short') return null;
+  return LONG_NOTE_RULE;
+}
+
 export interface ChatPromptParams {
   personaId: string;
   customSystemPrompt?: string | null | undefined;
@@ -172,6 +190,11 @@ export function buildChatSystemPrompt(params: ChatPromptParams): string {
   }
 
   base += `\n\n${FORMAT_LINE}`;
+
+  // DL-19: длинное вложение — строка о проходе по частям. Стоит до подборки
+  // примеров вопросов, чтобы кэш префикса не рвался чаще, чем меняются примеры.
+  const longNote = longNoteRule(documentContent, personaId, responseLength);
+  if (longNote) base += `\n\n${longNote}`;
 
   // AX-11: Strengthen length differences so the user feels them.
   if (responseLength === 'short') {
@@ -388,6 +411,16 @@ export interface ChatPromptInput {
  * DUP-2: Single source of truth for chat prompt parameter assembly and sanitization.
  * Used by streaming, reasoning, and non-streaming endpoints.
  */
+/**
+ * DL-19 (владелец 25.10): ставит ли сервер этому ходу правило длинного текста —
+ * по тем же параметрам, что и промпт. По нему же удваивается потолок ответа
+ * (getMaxTokens) в обоих путях: api/chat.ts и chatWithAI.
+ */
+export function isLongNoteTurn(input: ChatPromptInput): boolean {
+  const p = assembleChatPromptParams(input);
+  return longNoteRule(p.documentContent, p.personaId, p.responseLength) !== null;
+}
+
 export function assembleChatPromptParams(input: ChatPromptInput): ChatPromptParams {
   const lastUser = input.lastUserMessage
     ?? (input.messages ? [...input.messages].reverse().find(m => m.role === 'user')?.content : undefined);

@@ -56,6 +56,7 @@ vi.stubGlobal('fetch', vi.fn(async (_url: unknown, init?: { signal?: AbortSignal
 }));
 
 import { handleChat, STREAM_BROKEN_NOTE } from '../chat';
+import { ANSWER_CUT_NOTE } from '../../src/shared/ai/aiPolicy';
 
 afterEach(() => {
   randomSpy?.mockRestore();
@@ -146,6 +147,23 @@ describe('3.8 stream disconnect', () => {
     await handleChat(req as unknown as IncomingMessage, res as unknown as ServerResponse);
     expect(res.body).toContain('Начало ответа');
     expect(res.body.endsWith(STREAM_BROKEN_NOTE)).toBe(true);
+  });
+
+  // DL-19 (владелец 25.10): ответ упёрся в потолок — пометка в конце; весь потолок
+  // ушёл на ход мысли (ответа нет) — пометки нет, у клиента своё сообщение.
+  // Мутация: убрать запись ANSWER_CUT_NOTE в ветке рассуждений → красный.
+  it('finish=length после ответа дописывает пометку; без ответа и при stop — нет', async () => {
+    const frame = (delta: object, finish?: string) => `data: ${JSON.stringify({ choices: [{ index: 0, delta, ...(finish ? { finish_reason: finish } : {}) }] })}\n\n`;
+    for (const [frames, cut] of [
+      [[frame({ reasoning: 'думаю' }), frame({ content: 'Часть ответа' }, 'length')], true],
+      [[frame({ reasoning: 'думаю' }, 'length')], false],
+      [[frame({ content: 'Весь ответ' }, 'stop')], false],
+    ] as const) {
+      sseBody = sse([...frames]);
+      const res = new FakeRes();
+      await handleChat(new FakeReq(validBody) as unknown as IncomingMessage, res as unknown as ServerResponse);
+      expect(res.body.endsWith(ANSWER_CUT_NOTE)).toBe(cut);
+    }
   });
 
   // Потоковый режим рассуждений включает рассуждение у провайдера — промпт не

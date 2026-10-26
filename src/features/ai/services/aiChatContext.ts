@@ -34,7 +34,7 @@ import { buildTemporalBlocks } from './chatContext/temporalBlocks';
 import { buildAggregateThemeBlock } from './chatContext/aggregateStats';
 import { buildLiteRetrievalBlock } from './chatContext/liteRetrieval';
 import { buildRelatedDaysBlock } from './chatContext/relatedDays';
-import { ATTACHED_BLOCK_SEP, attachedBlockHeads } from '../utils/attachedNoteFormat';
+import { ATTACHED_BLOCK_SEP, attachedBlockHeads, builderBlockHeads } from '../utils/attachedNoteFormat';
 import { strictTurnPortrait } from '../../../shared/ai/portraitSections';
 import { isExcludedFromAI, isPastedAttachmentId } from '../utils/isExcludedFromAI';
 import { postBody } from '../utils/editorDiff';
@@ -60,7 +60,8 @@ export interface AttachedNoteRef {
 const NAME_SCAN_NO_VECTOR_LIMIT = 200;
 export async function hideExcludedNotes(content: string, db: Pick<Awaited<ReturnType<typeof getLocalDb>>, 'get'>, ids?: readonly string[]): Promise<string> {
   const heads = attachedBlockHeads(content, ids);
-  if (heads.length === 0) return content;
+  // DY5-1: шапки не совпали со списком сборщика — ход не разобран, скрыт целиком.
+  if (heads.length === 0) return ids ? `[Прикреплена заметка: "${HIDDEN_NOTE_TITLE}"]\n[заметка скрыта от ИИ]` : content;
   let out = content.slice(0, heads[0]!.index);
   for (let i = 0; i < heads.length; i++) {
     const h = heads[i]!;
@@ -350,13 +351,16 @@ export function useAIChatContext(personaId: string): {
     // Только ход от сборщика (есть blockIds) и разобранный на блоки с первой
     // строки. Иначе — старый ход, липкая заметка после перезагрузки (сырой текст),
     // битая шапка — ворота по documentId, как раньше (fail-closed).
-    const turnHasHeads = !!blockIds && attachedBlockHeads(attached!.content, blockIds)[0]?.index === 0;
+    const turnHasHeads = !!blockIds && attachedBlockHeads(attached!.content, blockIds).length > 0;
     // Только из шапок блоков: `[#id]` в теле (вставленный старый ответ ИИ) — не тема.
     const subjectId = turnHasHeads
-      ? attachedBlockHeads(attachedContent, blockIds).map(h => h[1]!).find(id => !isPastedAttachmentId(id))
+      ? builderBlockHeads(attachedContent).map(h => h[1]!).find(id => !isPastedAttachmentId(id))
       : attached?.documentId;
     if (attached) {
-      if (turnHasHeads && attachedBlockHeads(attachedContent, blockIds).length === 0) isAttachedExcluded = true;
+      // DY5-1: список от сборщика есть, а шапки с ним не совпали — ход скрыт целиком.
+      // После hideExcludedNotes шапки уже свои (сверены по списку), список не нужен.
+      if (blockIds && !turnHasHeads) isAttachedExcluded = true;
+      if (turnHasHeads && builderBlockHeads(attachedContent).length === 0) isAttachedExcluded = true;
       if (attached.documentId && !turnHasHeads) {
         try {
           const doc = await db.get('documents', attached.documentId);

@@ -125,6 +125,23 @@ describe('W-2: потолок ответа на сервере следует з
     expect(sent.maxOutputTokens).toBe(256);
   });
 
+  // DL-19 (владелец 25.10): длинное вложение — потолок вдвое и в резерве, в обоих путях.
+  // Мутация: не передавать isLongNoteTurn в getMaxTokens (любой из двух путей) → красный.
+  it('поточный ход с длинным вложением: 6 000 и резерв = вход + 6 000; у Редактора — нет', async () => {
+    const sent = await sendStream({ documentContent: 'вечер у окна. '.repeat(1200) });
+    expect(sent.maxOutputTokens).toBe(6000);
+    const estimate = estimateInputTokens([sent.system ?? '', ...(sent.messages ?? []).map(m => m.content)]);
+    expect(tryReserve.mock.calls.at(-1)?.[0]).toBe(6000 + estimate);
+    expect((await sendStream({ personaId: 'editor', documentContent: 'вечер у окна. '.repeat(1200) })).maxOutputTokens).toBe(3000);
+  });
+
+  it('ход без потока с длинным вложением: generate получает 6 000', async () => {
+    const ctx = logicCtx();
+    await chatWithAILogic(ctx, 'u_w2', { personaId: 'coach', messages: TURN, documentContent: 'вечер у окна. '.repeat(1200) });
+    expect((generateMock.mock.calls.at(-1)?.[0] as { maxTokens?: number }).maxTokens).toBe(6000);
+    generateMock.mockClear();
+  });
+
   it('обычный ход: generate получает 700, резерв = вход + 700', async () => {
     const ctx = logicCtx();
     await chatWithAILogic(ctx, 'u_w2', { personaId: 'coach', messages: TURN, responseLength: 'short' });

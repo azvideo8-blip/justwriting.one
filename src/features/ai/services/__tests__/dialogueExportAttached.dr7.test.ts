@@ -141,6 +141,18 @@ describe('DR-7: экспорт диалога с заметкой и ходом 
     expect(md.split(NOTE_TEXT).length - 1).toBe(1);
   });
 
+  // DY5-1 (дейлик 2026-10-25): «---» в теле заметки ход не переписывает — иначе
+  // тело в ходе не узнаётся и выгрузка печатает заметку дважды. Мутация: вернуть
+  // экранирование в formatRefTag → красный.
+  it('(e2) тело с «---» между абзацами не удваивается и выгружается как написано', async () => {
+    const body = 'ВЕРХ_DY5 — вечер.\n\n---\n\nНИЗ_DY5 — утро.';
+    await seedNote({}, body);
+    const d = await seedDialogue(turn('Заметка для экспорта', 'разбери', body));
+    const md = await AIDialogueService.exportAsMarkdown(d.id);
+    expect(md.split('ВЕРХ_DY5').length - 1).toBe(1);
+    expect(md).toContain(body);
+  });
+
   it('(f) длинное тело заметки выгружается целиком под маркером', async () => {
     await seedNote({}, LONG_FILLER + NOTE_TEXT);
     // форма руками намеренно: легаси-ход без шапки и без тела — предмет проверки (f).

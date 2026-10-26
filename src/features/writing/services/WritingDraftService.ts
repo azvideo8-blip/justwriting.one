@@ -275,6 +275,71 @@ async function flushPendingCloudDelete(userId: string, deletedHashes: readonly s
   }
 }
 
+async function deleteDraftLocalPart(userId: string): Promise<{ localOk: boolean }> {
+  let localOk = true;
+  bumpDraftGeneration(userId);
+  // The next draft must be written even if it opens with identical text.
+  _lastCloudSignature.delete(userId);
+  // SF2-6: над отметкой удаления — хэш удалённого содержимого. Различает
+  // «приехло то, что я удалил» от «приехло новый черновик», когда сравнивать
+  // часы нельзя (метка ряда после 0043 серверная, отметка — приборная).
+  // SF3-4: версий такой хэш несколько. В момент удаления локальная строка —
+  // это ПОСЛЕДНЯЯ правка, а из полёта в облако доезжает та, что была в строке
+  // раньше (её след живёт в `_cloudSentHashes`), плюс ранее принятая. Все они —
+  // про одно и то же удалённое содержимое, и ни одна не имеет права воскреснуть.
+  // Прочитать не удалось (сейф заперт, база сломана, локальной копии нет) —
+  // отметка остаётся временной: прежняя сверка, а не «удаления не было».
+  let deletedHashes: string[] = [];
+  try {
+    const localDb = await getLocalDb(userId);
+    if (hasDraftsStore(localDb)) {
+      const row = await localDb.get('drafts', userId);
+      if (row) {
+        const acked = draftAckedHash(row);
+        deletedHashes = [...new Set([
+          draftPayloadHash(row),
+          ...(acked !== undefined ? [acked] : []),
+          ...draftSentHashes(row),
+        ])].filter(h => HASH_SHAPE.test(h));
+      }
+    }
+  } catch (e) { reportError(e, { action: 'deleteDraft_readForHash', userId }); }
+  writeTombstone(userId, Date.now(), deletedHashes);
+  // BR-1 (а): отметка досылки ставится здесь, а не в облачной половине. Офлайн-
+  // финиш (`cleanupDraftsAfterSave` без сети) зовёт только эту функцию, и без
+  // отметки старая облачная строка оставалась живой до следующего удаления —
+  // а при следующей загрузке спор копий решался в её пользу.
+  try {
+    localStorage.setItem(STORAGE_KEYS.DRAFT_DELETE_PENDING(userId), String(Date.now()));
+  } catch { /* намеренно: без отметки облако снесёт обычная ветка удаления */ }
+  try {
+    const localDb = await getLocalDb(userId);
+    if (hasDraftsStore(localDb)) {
+      await localDb.delete('drafts', userId);
+    }
+  } catch (err) {
+    localOk = false;
+    reportError(err, { action: 'deleteDraft_local', userId });
+  }
+  try {
+    localStorage.removeItem(STORAGE_KEYS.DRAFT(userId));
+  } catch (e) { reportError(e, { action: 'deleteDraft_legacyLocalStorage', userId }); }
+  return { localOk };
+}
+
+async function deleteDraftCloudPart(userId: string): Promise<{ cloudOk: boolean }> {
+  let cloudOk = true;
+  try {
+    await DataProvider.deleteDraft(userId);
+    try { localStorage.removeItem(STORAGE_KEYS.DRAFT_DELETE_PENDING(userId)); } catch { /* намеренно: отметка досылки — подсказка, не данные */ }
+  } catch (err) {
+    cloudOk = false;
+    reportError(err, { action: 'deleteDraft_cloud', userId });
+    try { localStorage.setItem(STORAGE_KEYS.DRAFT_DELETE_PENDING(userId), String(Date.now())); } catch { /* намеренно: без отметки следующий deleteDraft повторит облако */ }
+  }
+  return { cloudOk };
+}
+
 export const WritingDraftService = {
   _cloudDraftLocked: false,
   isCloudDraftLocked: () => WritingDraftService._cloudDraftLocked,
@@ -393,6 +458,14 @@ export const WritingDraftService = {
         localDirty: ackedHash === undefined ? undefined : draftPayloadHash(resolvedLocal) !== ackedHash,
       }) === 'cloud' ? cloudDraft : resolvedLocal;
       if (isDeletedByTombstone(winner, winner === cloudDraft)) {
+        // BR-1 (б): надгробие догнало облачный победитель — это та строка, что
+        // удалили на этом приборе. Локальная копия при этом своя, новая работа, и
+        // `deleteDraft` снёс бы её вместе с облаком. Удаляем только облачную
+        // половину и отдаём локальную.
+        if (winner === cloudDraft && !isDeletedByTombstone(resolvedLocal, false) && !isDraftExpired(resolvedLocal, false)) {
+          await deleteDraftCloudPart(userId); // намеренно: исход облака не меняет ответ — при отказе половина сама держит отметку досылки
+          return resolvedLocal;
+        }
         await WritingDraftService.deleteDraft(userId); // намеренно: удаление удалённого черновика
         return null;
       }
@@ -589,56 +662,21 @@ export const WritingDraftService = {
    *  нет, удаление досылается при следующей загрузке. */
   deleteDraft: async (userId: string): Promise<{ localOk: boolean; cloudOk: boolean }> => {
     if (!userId) return { localOk: true, cloudOk: true };
-    let localOk = true;
-    bumpDraftGeneration(userId);
-    // The next draft must be written even if it opens with identical text.
-    _lastCloudSignature.delete(userId);
-    // SF2-6: над отметкой удаления — хэш удалённого содержимого. Различает
-    // «приехло то, что я удалил» от «приехло новый черновик», когда сравнивать
-    // часы нельзя (метка ряда после 0043 серверная, отметка — приборная).
-    // SF3-4: версий такой хэш несколько. В момент удаления локальная строка —
-    // это ПОСЛЕДНЯЯ правка, а из полёта в облако доезжает та, что была в строке
-    // раньше (её след живёт в `_cloudSentHashes`), плюс ранее принятая. Все они —
-    // про одно и то же удалённое содержимое, и ни одна не имеет права воскреснуть.
-    // Прочитать не удалось (сейф заперт, база сломана, локальной копии нет) —
-    // отметка остаётся временной: прежняя сверка, а не «удаления не было».
-    let deletedHashes: string[] = [];
-    try {
-      const localDb = await getLocalDb(userId);
-      if (hasDraftsStore(localDb)) {
-        const row = await localDb.get('drafts', userId);
-        if (row) {
-          const acked = draftAckedHash(row);
-          deletedHashes = [...new Set([
-            draftPayloadHash(row),
-            ...(acked !== undefined ? [acked] : []),
-            ...draftSentHashes(row),
-          ])].filter(h => HASH_SHAPE.test(h));
-        }
-      }
-    } catch (e) { reportError(e, { action: 'deleteDraft_readForHash', userId }); }
-    writeTombstone(userId, Date.now(), deletedHashes);
-    try {
-      const localDb = await getLocalDb(userId);
-      if (hasDraftsStore(localDb)) {
-        await localDb.delete('drafts', userId);
-      }
-    } catch (err) {
-      localOk = false;
-      reportError(err, { action: 'deleteDraft_local', userId });
-    }
-    try {
-      localStorage.removeItem(STORAGE_KEYS.DRAFT(userId));
-    } catch (e) { reportError(e, { action: 'deleteDraft_legacyLocalStorage', userId }); }
-    let cloudOk = true;
-    try {
-      await DataProvider.deleteDraft(userId);
-      try { localStorage.removeItem(STORAGE_KEYS.DRAFT_DELETE_PENDING(userId)); } catch { /* намеренно: отметка досылки — подсказка, не данные */ }
-    } catch (err) {
-      cloudOk = false;
-      reportError(err, { action: 'deleteDraft_cloud', userId });
-      try { localStorage.setItem(STORAGE_KEYS.DRAFT_DELETE_PENDING(userId), String(Date.now())); } catch { /* намеренно: без отметки следующий deleteDraft повторит облако */ }
-    }
+    const { localOk } = await deleteDraftLocalPart(userId);
+    const { cloudOk } = await deleteDraftCloudPart(userId);
     return { localOk, cloudOk };
+  },
+
+  /** RA1-2: локальная половина удаления — то, без чего «сохранено» неправда.
+   *  Облачную строку сносит deleteDraftCloud, и её можно не ждать: надгробие
+   *  (пишется здесь) снесёт облачную копию при следующей загрузке. */
+  deleteDraftLocal: async (userId: string): Promise<{ localOk: boolean }> => {
+    if (!userId) return { localOk: true };
+    return deleteDraftLocalPart(userId);
+  },
+
+  deleteDraftCloud: async (userId: string): Promise<{ cloudOk: boolean }> => {
+    if (!userId) return { cloudOk: true };
+    return deleteDraftCloudPart(userId);
   }
 };

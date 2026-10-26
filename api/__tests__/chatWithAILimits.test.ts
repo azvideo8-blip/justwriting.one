@@ -4,6 +4,7 @@ import { generate } from '../ai/provider';
 import type { AiContext } from '../../src/shared/ai/context.js';
 import { SYSTEM_TASK_PROMPTS } from '../../src/shared/ai/systemTaskPrompts.js';
 import { REASONING_LANGUAGE_RULE } from '../../src/shared/ai/buildChatPrompt.js';
+import { ANSWER_CUT_NOTE } from '../../src/shared/ai/aiPolicy.js';
 
 vi.mock('../ai/provider', () => ({
   generate: vi.fn(),
@@ -128,5 +129,17 @@ describe('chatWithAI: режим рассуждений в запасном пу
     const call = vi.mocked(generate).mock.calls[0]![0];
     expect(call.reasoningEffort).toBeUndefined();
     expect(call.system).not.toContain(REASONING_LANGUAGE_RULE);
+  });
+
+  // DL-19 (владелец 25.10): без потока — та же пометка, признак — выданные токены
+  // на потолке. Мутация: убрать `cut` → красный.
+  it('ответ на потолке вывода получает пометку, обычный — нет', async () => {
+    const ctx = ctxSpy();
+    vi.mocked(generate).mockResolvedValue({ text: 'Оборванный ответ', tokensIn: 10, tokensOut: 3000, model: 'test-model' });
+    const cut = await chatWithAILogic(ctx, 'u1', payload()) as { result: string };
+    expect(cut.result.endsWith(ANSWER_CUT_NOTE)).toBe(true);
+    vi.mocked(generate).mockResolvedValue({ text: 'Целый ответ', tokensIn: 10, tokensOut: 900, model: 'test-model' });
+    const whole = await chatWithAILogic(ctx, 'u1', payload()) as { result: string };
+    expect(whole.result).not.toContain(ANSWER_CUT_NOTE);
   });
 });

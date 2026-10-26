@@ -22,6 +22,10 @@ export const lifelogTranslations: Translations = {
   home_streak_days_one:  { ru: 'день', en: 'day' },
   home_streak_days_few:  { ru: 'дня',  en: 'days' },
   home_streak_days_many: { ru: 'дней', en: 'days' },
+  home_streak_start:     { ru: 'Начнём новую серию', en: 'Start a new streak' },
+  home_streak_frozen:    { ru: 'Серия сохранена: пропуск закрыт заморозкой', en: 'Streak kept: a missed day was covered by a freeze' },
+  home_return_last_note: { ru: 'Последняя запись — {date}', en: 'Last note — {date}' },
+  home_return_continue:  { ru: 'Продолжить', en: 'Continue' },
   profile_cta:        { ru: 'Написать сейчас', en: 'Write now' },
 
   focus_exit_hint:   { ru: 'свайп вверх — выйти', en: 'swipe up to exit' },

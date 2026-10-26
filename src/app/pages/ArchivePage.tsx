@@ -22,7 +22,7 @@ import { ArchiveLabelBar } from '../../features/archive/components/ArchiveLabelB
 import { isSearchShortcut } from '../../features/archive/utils/searchShortcut';
 import { ArchiveNoteList } from '../../features/archive/components/ArchiveNoteList';
 import { ImportDropOverlay } from '../../features/archive/components/ImportDropOverlay';
-import { OnThisDayCard } from '../../features/archive/components/OnThisDayCard';
+import { OnThisDayCard } from '../../core/components/OnThisDayCard';
 import { ArchiveSidebarContent, MobileArchiveSidebarSheet } from '../../features/archive/components/MobileArchiveSidebarSheet';
 import { useArchiveData } from '../../features/archive/hooks/useArchiveData';
 import type { ArchiveSession } from '../../features/archive/types';
@@ -426,7 +426,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                 <Button onClick={() => void fetchSessions()} className="underline text-accent-danger/70 hover:text-accent-danger">{t('retry')}</Button>
               </div>
             )}
-            {activeTab === 'notes' && !searchQuery && <OnThisDayCard sessions={filteredByFilters} onOpen={s => void openPreview(s)} />}
+            {activeTab === 'notes' && !searchQuery && <OnThisDayCard sessions={filteredByFilters} userId={userId} onOpen={s => void openPreview(s)} />}
             </div>
             {activeTab === 'trash' ? (
               <div className="mt-4 flex-1 min-h-0 pr-1">

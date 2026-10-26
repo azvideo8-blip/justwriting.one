@@ -38,21 +38,29 @@ export async function cleanupDraftsAfterSave(
   } else {
     // N-54: deleteDraft не бросает — результат читается, а не ловится.
     WritingDraftService.bumpDraftGeneration(userId);
-    const deleted = await WritingDraftService.deleteDraft(userId);
+    // RA1-2: ждём только локальную половину. Облачное удаление черновика —
+    // отдельно и только при связи; без сети надгробие снесёт его при
+    // следующей загрузке, а кнопка «Сохранить» не держит человека 5–10 с.
+    const deleted = await WritingDraftService.deleteDraftLocal(userId);
     if (!deleted.localOk) {
       logger.warn('sessionActions', 'Draft not deleted after save — it may reappear as an unsaved draft');
     }
-    if (!deleted.cloudOk) {
-      logger.warn('sessionActions', 'Cloud draft not deleted — retry is queued');
-    }
     if (docIdToSync) {
       try {
-        await SyncService.addToQueue(docIdToSync);
+        await SyncService.addToQueue(docIdToSync, userId);
       } catch (queueErr) {
         logger.error('sessionActions', 'Failed to add to syncQueue before sync', {
           error: String(queueErr),
         });
       }
+    }
+    const online = typeof navigator === 'undefined' || navigator.onLine;
+    if (!online) return { cloudSynced: false };
+    const cloudDeleted = await WritingDraftService.deleteDraftCloud(userId);
+    if (!cloudDeleted.cloudOk) {
+      logger.warn('sessionActions', 'Cloud draft not deleted — retry is queued');
+    }
+    if (docIdToSync) {
       try {
         const cloudId = await SyncService.syncOne(userId, docIdToSync);
         cloudSynced = Boolean(cloudId);

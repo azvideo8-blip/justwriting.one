@@ -26,6 +26,7 @@ vi.mock('../auth', () => ({
 }));
 
 let mockStreamTextFailImmediately = false;
+let mockFinish: string | undefined;
 
 vi.mock('ai', async (importOriginal) => {
   const actual = await importOriginal<typeof import('ai')>();
@@ -48,6 +49,7 @@ vi.mock('ai', async (importOriginal) => {
         };
       }
       return {
+        ...(mockFinish ? { finishReason: Promise.resolve(mockFinish) } : {}),
         textStream: (async function* () {
           await new Promise((r) => setTimeout(r, 10));
           yield 'Привет! ';
@@ -62,6 +64,7 @@ vi.mock('ai', async (importOriginal) => {
 process.env.OPENROUTER_API_KEY = 'test-key';
 
 import { handleChat } from '../chat';
+import { ANSWER_CUT_NOTE } from '../../src/shared/ai/aiPolicy';
 
 class FakeReq extends EventEmitter {
   method = 'POST';
@@ -128,5 +131,17 @@ describe('ERR-1: upstream failure before first chunk returns non-200', () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.body).toBe('Привет! Как дела?');
+  });
+
+  // DL-19 (владелец 25.10): ответ упёрся в потолок — пометка в конце. Мутация:
+  // убрать запись ANSWER_CUT_NOTE в потоковом пути → красный.
+  it('на потолке вывода дописывает пометку, на штатном конце — нет', async () => {
+    for (const [finish, cut] of [['length', true], ['stop', false]] as const) {
+      mockFinish = finish;
+      const res = new FakeRes();
+      await handleChat(new FakeReq({ personaId: 'cbt', messages: [{ role: 'user', content: 'Привет' }] }) as unknown as IncomingMessage, res as unknown as ServerResponse);
+      expect(res.body).toBe(cut ? `Привет! Как дела?${ANSWER_CUT_NOTE}` : 'Привет! Как дела?');
+    }
+    mockFinish = undefined;
   });
 });

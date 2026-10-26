@@ -8,10 +8,10 @@ import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncServ
 import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
 import { withMessageIds } from '../../../core/storage/dialogueMerge';
-import { toApiContent, citesAnyId, HIDDEN_ANSWER_PLACEHOLDER } from '../utils/aiChatTransport';
+import { toApiContent, API_MSG_CAP, type AttachedParseOptions } from '../utils/aiChatTransport';
 import { extractCitationIds } from './chatContext/citations';
 import { isExcludedFromAI } from '../utils/isExcludedFromAI';
-import { hiddenNoteIdsFromDocs, type CitableNoteDoc } from '../utils/hiddenNoteIds';
+import { type CitableNoteDoc } from '../utils/hiddenNoteIds';
 
 
 type MemoryKind = 'fact' | 'insight' | 'commitment' | 'preference';
@@ -60,14 +60,13 @@ export function usableMemories(memories: ReadonlyArray<AIChatMemory>, docs: Read
 }
 
 export const AIChatMemoryService = {
-  async extractFromDialogue(dialogueId: string, messages: { role: string; content: string; type?: string | undefined; id?: string | undefined }[]): Promise<void> {
+  async extractFromDialogue(dialogueId: string, messages: { role: string; content: string; type?: string | undefined; id?: string | undefined }[], parseOpts?: AttachedParseOptions): Promise<void> {
     const userMessages = messages.filter(m => m.role === 'user' && m.content.trim().length > 10);
     if (userMessages.length < 2) return;
 
     try {
       const db = await getLocalDb();
       const docs = await db.getAll('documents');
-      const hiddenIds = hiddenNoteIdsFromDocs(docs);
       const byId = docsById(docs);
       let dialogue: AIDialogue | undefined;
       try {
@@ -99,33 +98,25 @@ export const AIChatMemoryService = {
           : Math.max(0, legacyIdx - OVERLAP);
 
       const candidateMessages = messages.slice(startIdx);
-      const bounded = candidateMessages.length > MEMORY_EXTRACT_MAX_MESSAGES
-        ? candidateMessages.slice(-MEMORY_EXTRACT_MAX_MESSAGES)
-        : candidateMessages;
-
       // Пределы берутся из общей константы, а не переписываются здесь руками:
       // раньше схема на сервере разрешала 30, срез брал 40, а комментарий
       // обещал 50 — разговор длиннее тридцати реплик отлетал с «Invalid
       // payload», и память переставала извлекаться у тех, кто говорит много.
+      const bounded = candidateMessages.length > MEMORY_EXTRACT_MAX_MESSAGES
+        ? candidateMessages.slice(-MEMORY_EXTRACT_MAX_MESSAGES)
+        : candidateMessages;
+
+      // RA1-13 (п.10 отчёта RA-1): окно извлечения — только реплики человека.
+      // Ответы ассистента раньше ехали сюда (600 знаков) и становились «фактом
+      // о человеке» (живые 8.2, 9.1→10.3): модель пересказывает чужое как
+      // своё, и отличить её вывод от слов человека после ответа уже нельзя.
+      // Ответ ИИ не идёт даже как контекст — именно он и был источником.
       //
-      // Отбор по role, а не по type: схема проверяет именно role, и сообщение
-      // с role:'system' проходило фильтр по type и валило запрос целиком.
+      // Отбор по role: схема проверяет именно role, и сообщение с role:'system'
+      // раньше проходило фильтр по type и валило запрос целиком.
       const recent = bounded
-        .filter(m => m.role === 'user' || m.role === 'assistant')
-        .map(m => {
-          // Ответы ассистента обрезаются до 600 символов, пользовательские до MEMORY_EXTRACT_MAX_MESSAGE_CHARS
-          const content = m.role === 'assistant'
-            ? m.content.slice(0, 600)
-            : m.content.slice(0, MEMORY_EXTRACT_MAX_MESSAGE_CHARS);
-          // AP-2: цитата скрытой заметки не уходит в извлечение памяти — ни
-          // текстом ответа, ни как повод вывести «факт» из скрытого.
-          return {
-            role: m.role,
-            content: m.role === 'assistant' && citesAnyId(m.content, hiddenIds)
-              ? HIDDEN_ANSWER_PLACEHOLDER
-              : content,
-          };
-        });
+        .filter(m => m.role === 'user')
+        .map(m => ({ role: 'user' as const, content: m.content.slice(0, MEMORY_EXTRACT_MAX_MESSAGE_CHARS) }));
       if (recent.length === 0) return;
 
       // DA-2: ограничить суммарный вход памяти до INTERNAL_CALL_MAX_INPUT_CHARS (4000)
@@ -147,7 +138,9 @@ export const AIChatMemoryService = {
       if (cappedRecent.length === 0) return;
 
       // AP-2: источники новой памяти — видимые заметки, на которые ссылается
-      // окно извлечения. Скрытые цитаты уже заменены заглушкой выше.
+      // окно извлечения: скрытые от ИИ отсекаются фильтром ниже, заглушки в
+      // тексте уже нет (BR-14: комментарий про «заменены заглушкой выше»
+      // устарел со времён RA1-13).
       const sourceDocumentIds = [...new Set(cappedRecent.flatMap(m => extractCitationIds(m.content)))]
         .filter(id => {
           const doc = byId.get(id);
@@ -184,7 +177,7 @@ export const AIChatMemoryService = {
           const fresh = withMessageIds(stored);
           const byId = lastSent.id && fresh.messages.some(m => m.id === lastSent.id) ? lastSent.id : undefined;
           const cursor = byId ?? [...fresh.messages].reverse().find(m =>
-            m.role === lastSent.role && (m.content === lastSent.content || toApiContent(m.content) === lastSent.content))?.id;
+            m.role === lastSent.role && (m.content === lastSent.content || toApiContent(m.content, API_MSG_CAP, parseOpts) === lastSent.content))?.id;
           if (cursor) {
             fresh.lastExtractedMessageId = cursor;
             delete fresh.lastExtractedIdx;

@@ -78,8 +78,11 @@ describe('MC-1: экран письма в idle', () => {
     useTimerStore.setState({ status: 'idle', sessionType: 'free', wordGoal: 0, timerDuration: 0, sessionStartWords: 0, sessionStartSeconds: 0 } as Partial<ReturnType<typeof useTimerStore.getState>>);
   });
 
-  it('серии нет, если дней ноль', () => {
+  // RA1-6 (решение владельца 2026-10-24; осознанно изменено): при нуле серия не
+  // прячется — чип зовёт начать новую. Раньше ожидалось пустое место.
+  it('серия 0 — чип есть, но числом не показана', () => {
     renderScreen();
+    expect(screen.getByText('home_streak_start')).toBeInTheDocument();
     expect(screen.queryByText(/home_streak_days/), 'пустая серия показана числом').toBeNull();
   });
 

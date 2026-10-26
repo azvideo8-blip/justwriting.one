@@ -64,7 +64,10 @@ describe('извлечение памяти укладывается в конт
       .toBeLessThanOrEqual(MEMORY_EXTRACT_MAX_MESSAGE_CHARS);
   });
 
-  it('ответы ассистента обрезаются до 600 символов', async () => {
+  // RA1-13 (осознанно изменено): ответы ассистента больше не уходят в
+  // извлечение памяти вовсе — ни целиком, ни обрезанными. Раньше здесь
+  // проверялось, что они обрезаны до 600 знаков.
+  it('ответы ассистента не уходят в извлечение памяти', async () => {
     const hugeAssistant = 'а'.repeat(2000);
     await AIChatMemoryService.extractFromDialogue('d1', [
       msg('user', 'первая реплика человека достаточной длины'),
@@ -73,9 +76,8 @@ describe('извлечение памяти укладывается в конт
     ]);
 
     const sent = extractChatMemory.mock.calls[0]![0] as { messages: { role: string; content: string }[] };
-    const assistantMsg = sent.messages.find(m => m.role === 'assistant');
-    expect(assistantMsg).toBeDefined();
-    expect(assistantMsg!.content.length).toBe(600);
+    expect(sent.messages.some(m => m.role === 'assistant')).toBe(false);
+    expect(JSON.stringify(sent)).not.toContain('аааа');
   });
 
   it('использует lastExtractedIdx с нахлёстом в 2 сообщения и обновляет курсор', async () => {
@@ -98,9 +100,11 @@ describe('извлечение памяти укладывается в конт
 
     await AIChatMemoryService.extractFromDialogue('d-cursor', messages);
 
-    const sent = extractChatMemory.mock.calls[0]![0] as { messages: { content: string }[] };
-    // starting from index 4 (6 - 2 overlap) to 11 = 8 messages
-    expect(sent.messages.length).toBe(8);
+    const sent = extractChatMemory.mock.calls[0]![0] as { messages: { role: string; content: string }[] };
+    // RA1-13 (осознанно изменено): из окна 4..11 (8 сообщений) в извлечение идут
+    // только реплики человека — 4 из них. Раньше ожидалось 8 вместе с ответами ИИ.
+    expect(sent.messages.length).toBe(4);
+    expect(sent.messages.every(m => m.role === 'user')).toBe(true);
     expect(sent.messages[0]!.content).toContain('реплика 4');
 
     const updated = await db.get('aiDialogues', 'd-cursor');

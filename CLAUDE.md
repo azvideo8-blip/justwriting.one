@@ -18,12 +18,12 @@ Rules for `/code-review`, `/security-review`, and any reviewer agent. (`REVIEW.m
 - A failed read treated as "nothing there" — "no" vs "no answer" must stay distinct; same on writes.
 - A fix in one of two entry points while prod goes through the other — grep callers before accepting a fix.
 - A new test that was never red — ask what mutation would make it fail.
-- A mock whose insertion order hides a real `order by` dependency.
-- Background/infra AI calls spending the user's chat quota; new error codes without consumers.
+- A mock whose insertion order hides a real `order by` dependency — when the reader sorts by key, the mock must return rows out of insertion order.
+- Background/infra AI calls spending the user's chat quota; a refund that returns to a different pool than the one charged (`internal_chat` vs `bulk`); new error codes without consumers.
 - Client code reading a `VITE_` var that the build doesn't set.
 - A gate tightened without checking the real account state (it once removed the owner's admin tab).
 
-**Evidence:** every finding cites `file:line` from the source, not an inference from a name. A "missing handling" claim names the caller path that reaches it. A "pre-existing" bug is marked as such, not blamed on the diff.
+**Evidence:** every finding cites `file:line` from the source, not an inference from a name. A defect next to the target is not the finding until it is followed to the place that actually reads or writes the data. A "missing handling" claim names the caller path that reaches it. A "pre-existing" bug is marked as such, not blamed on the diff.
 
 **Do not report:** what CI already enforces (lint, typecheck, i18n audit, ratchets, bundle budget, gitleaks); `dist/`, `coverage/`, `playwright-report/`, `test-results/`, `*.lock`, `.postulates-results-*.json`; in `scripts/` only near-certain and severe.
 

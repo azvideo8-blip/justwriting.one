@@ -11,7 +11,7 @@ import { format, subDays, subMonths } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { renderWithProviders } from '../../../../test/utils/render';
 import { ArchiveNoteList } from '../ArchiveNoteList';
-import { OnThisDayCard } from '../OnThisDayCard';
+import { OnThisDayCard } from '../../../../core/components/OnThisDayCard';
 import type { ArchiveSession } from '../../types';
 
 let layoutMode: 'desktop' | 'mobile' = 'mobile';

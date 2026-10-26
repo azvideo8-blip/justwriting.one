@@ -54,31 +54,67 @@ export function getSessionDates(session: Session): Date[] {
   return single ? [single] : [];
 }
 
+export interface StreakInfo {
+  days: number;
+  /** Пропуск закрыт заморозкой в этом расчёте — интерфейс говорит об этом. */
+  freezeUsed: boolean;
+  /**
+   * BR-11 (б): какие именно дни закрыты мостом. Нужен, чтобы отличить
+   * «расчёт предположил прощение» от «прощение записано»: строка
+   * «Серия сохранена…» имеет право появляться только по второму.
+   */
+  freezeDays: string[];
+}
+
 export function calculateStreak(sessions: Session[], frozen?: Set<string>, userId?: string | null): number {
-  if (sessions.length === 0) return 0;
-  
+  return calculateStreakInfo(sessions, frozen, userId).days;
+}
+
+export function calculateStreakInfo(sessions: Session[], frozen?: Set<string>, userId?: string | null): StreakInfo {
+  if (sessions.length === 0) return { days: 0, freezeUsed: false, freezeDays: [] };
+
   const dates = sessions
     .flatMap(s => getSessionDates(s))
     .map(d => format(d, 'yyyy-MM-dd'));
-  if (dates.length === 0) return 0;
+  if (dates.length === 0) return { days: 0, freezeUsed: false, freezeDays: [] };
   const today = format(new Date(), 'yyyy-MM-dd');
   const uniqueDates = Array.from(new Set(dates))
     .filter(d => d <= today)
     .sort((a, b) => b.localeCompare(a));
-  
+
   const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
-  
-  if (uniqueDates[0] !== today && uniqueDates[0] !== yesterday) {
-    return 0;
-  }
-  
   const frozenDates = frozen ? new Set(frozen) : getFrozenDates(userId);
   const frozenMonths = new Set<string>();
   for (const d of frozenDates) frozenMonths.add(d.substring(0, 7));
-  
+  let freezeUsed = false;
+  const freezeDaySet = new Set<string>();
+
+  let checkDate: Date;
+  if (uniqueDates[0] === today) {
+    checkDate = new Date();
+  } else if (uniqueDates[0] === yesterday) {
+    checkDate = subDays(new Date(), 1);
+  } else if (uniqueDates[0] === format(subDays(new Date(), 2), 'yyyy-MM-dd')) {
+    // RA1-6: один пустой день (вчера) прощается, если заморозка на этот месяц
+    // ещё свободна. Цикл ниже посчитает вчерашний день как мост — так же, как
+    // считает дырку внутри серии.
+    const missedMonth = yesterday.substring(0, 7);
+    if (!frozenDates.has(yesterday) && frozenMonths.has(missedMonth)) {
+      return { days: 0, freezeUsed: false, freezeDays: [] };
+    }
+    if (!frozenDates.has(yesterday)) {
+      frozenDates.add(yesterday);
+      frozenMonths.add(missedMonth);
+      freezeUsed = true;
+    }
+    freezeDaySet.add(yesterday);
+    checkDate = subDays(new Date(), 1);
+  } else {
+    return { days: 0, freezeUsed: false, freezeDays: [] };
+  }
+
   let streak = 0;
-  let checkDate = uniqueDates[0] === today ? new Date() : subDays(new Date(), 1);
-  
+
   let i = 0;
   while (i < uniqueDates.length) {
     if (uniqueDates[i] === format(checkDate, 'yyyy-MM-dd')) {
@@ -95,7 +131,9 @@ export function calculateStreak(sessions: Session[], frozen?: Set<string>, userI
           if (!alreadyFrozen) {
             frozenDates.add(missedDay);
             frozenMonths.add(missedMonth);
+            freezeUsed = true;
           }
+          freezeDaySet.add(missedDay);
           streak++;
           checkDate = subDays(checkDate, 1);
           continue;
@@ -104,13 +142,13 @@ export function calculateStreak(sessions: Session[], frozen?: Set<string>, userI
       break;
     }
   }
-  
-  return streak;
+
+  return { days: streak, freezeUsed, freezeDays: [...freezeDaySet] };
 }
 
 export function consumeStreakFreezes(sessions: Session[], userId?: string | null): Set<string> {
   if (sessions.length === 0) return getFrozenDates(userId);
-  
+
   const dates = sessions
     .flatMap(s => getSessionDates(s))
     .map(d => format(d, 'yyyy-MM-dd'));
@@ -119,19 +157,39 @@ export function consumeStreakFreezes(sessions: Session[], userId?: string | null
   const uniqueDates = Array.from(new Set(dates))
     .filter(d => d <= today)
     .sort((a, b) => b.localeCompare(a));
-  
+
   const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
-  
-  if (uniqueDates[0] !== today && uniqueDates[0] !== yesterday) {
-    return getFrozenDates(userId);
-  }
-  
+  const twoDaysAgo = format(subDays(new Date(), 2), 'yyyy-MM-dd');
+
   const frozenDates = getFrozenDates(userId);
   const frozenMonths = new Set<string>();
   for (const d of frozenDates) frozenMonths.add(d.substring(0, 7));
   let freezesChanged = false;
-  
-  let checkDate = uniqueDates[0] === today ? new Date() : subDays(new Date(), 1);
+
+  let checkDate: Date;
+  if (uniqueDates[0] === today) {
+    checkDate = new Date();
+  } else if (uniqueDates[0] === yesterday) {
+    checkDate = subDays(new Date(), 1);
+  } else if (uniqueDates[0] === twoDaysAgo) {
+    // BR-11 (а): RA1-6 прощает вчерашний день и `calculateStreak` считает
+    // серию с этим мостом — значит, и сохранение обязано его записать.
+    // Раньше функция выхода не доходила до этого случая, прощение оставалось
+    // несчитанным, а месяц можно было морозить повторно.
+    const missedMonth = yesterday.substring(0, 7);
+    if (!frozenDates.has(yesterday) && frozenMonths.has(missedMonth)) {
+      // Права на мост нет: серия нулевая, сохранять нечего.
+      return frozenDates;
+    }
+    if (!frozenDates.has(yesterday)) {
+      frozenDates.add(yesterday);
+      frozenMonths.add(missedMonth);
+      freezesChanged = true;
+    }
+    checkDate = subDays(new Date(), 1);
+  } else {
+    return frozenDates;
+  }
   
   let i = 0;
   while (i < uniqueDates.length) {

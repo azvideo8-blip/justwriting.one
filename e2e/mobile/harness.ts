@@ -19,12 +19,14 @@ export type Account = StandAccount;
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 /**
- * Куда класть снимки: по умолчанию в приватный docs-репозиторий, вне кода.
- * Папка своя на каждый пакет: снимки предыдущего пакета — это улики «до», и
- * переснимать их поверх нельзя.
+ * Куда класть снимки: по умолчанию в `test-results/` (вне git). Аудит, которому
+ * нужны улики, задаёт JW_MOBILE_SHOTS — свою папку в docs на пакет: снимки
+ * предыдущего пакета — это улики «до», и переснимать их поверх нельзя. Раньше
+ * путь по умолчанию вёл в папку пакета 13.10, и каждый прогон перед выпуском
+ * перезаписывал её снимки (104 файла, блокировали rebase docs).
  */
 export const SHOTS = process.env.JW_MOBILE_SHOTS
-  ?? resolve(HERE, '..', '..', '..', 'justwriting-docs', 'audit-evidence', 'qoder-mobile-redesign-2026-10-13', 'shots');
+  ?? resolve(HERE, '..', '..', 'test-results', 'mobile-shots');
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

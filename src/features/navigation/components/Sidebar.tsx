@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, lazy, Suspense, type ReactNode } from 'react';
 import { PenLine, History, User as UserIcon, LogIn, Settings, Sparkles, Bug, CloudOff, AlertCircle, AlertTriangle, CheckCircle2, Activity } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'motion/react';
 import { useLanguage } from '../../../shared/i18n';
@@ -10,6 +10,12 @@ import { useLoginModal } from '../../../app/useLoginModal';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { APP_VERSION } from '../../../version';
 import { useSyncStatus } from '../../../core/sync/useSyncStatus';
+// BR-3: строка «Не синхронизировано» в рейке — по требованию. Статический
+// импорт тянул компонент и его хуки в стартовый кусок; внутри самой строки
+// движок синка уже подгружается динамически (N-2).
+const SyncUnsyncedBar = lazy(() =>
+  import('../../../core/components/SyncUnsyncedBar').then(m => ({ default: m.SyncUnsyncedBar })),
+);
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
 import { useChangelogSeenStore } from '../../../shared/changelog/useChangelogSeenStore';
 
@@ -248,7 +254,13 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
 
       {/* Bottom section */}
       <div className="flex flex-col gap-1 px-2 mt-auto">
-        {showSyncIndicator && (
+        {showSyncIndicator && syncStatus.status === 'unsynced' && expanded ? (
+          /* RA1-4: та же строка, что на главном, — со счётчиком и «Повторить».
+             В свёрнутой рейке остаётся прежний значок: строка не помещается. */
+          <Suspense fallback={null}>
+            <SyncUnsyncedBar userId={user?.uid ?? null} />
+          </Suspense>
+        ) : showSyncIndicator && (
           <button
             onClick={() => void navigate('/settings')}
             className={cn(

@@ -4,6 +4,8 @@ import { cleanupDraftsAfterSave } from '../sessionActions';
 vi.mock('../../services/WritingDraftService', () => ({
   WritingDraftService: {
     deleteDraft: vi.fn().mockResolvedValue({ localOk: true, cloudOk: true }),
+    deleteDraftLocal: vi.fn().mockResolvedValue({ localOk: true }),
+    deleteDraftCloud: vi.fn().mockResolvedValue({ cloudOk: true }),
     bumpDraftGeneration: vi.fn().mockReturnValue(1),
     getDraftGeneration: vi.fn().mockReturnValue(0),
   },
@@ -29,15 +31,15 @@ describe('cleanupDraftsAfterSave', () => {
   it('deletes draft and performs sync for registered users when docIdToSync is provided', async () => {
     await cleanupDraftsAfterSave('user123', false, 'doc456');
 
-    expect(WritingDraftService.deleteDraft).toHaveBeenCalledWith('user123');
-    expect(SyncService.addToQueue).toHaveBeenCalledWith('doc456');
+    expect(WritingDraftService.deleteDraftLocal).toHaveBeenCalledWith('user123');
+    expect(SyncService.addToQueue).toHaveBeenCalledWith('doc456', 'user123');
     expect(SyncService.syncOne).toHaveBeenCalledWith('user123', 'doc456');
   });
 
   it('deletes draft but does not perform sync if docIdToSync is null', async () => {
     await cleanupDraftsAfterSave('user123', false, null);
 
-    expect(WritingDraftService.deleteDraft).toHaveBeenCalledWith('user123');
+    expect(WritingDraftService.deleteDraftLocal).toHaveBeenCalledWith('user123');
     expect(SyncService.syncOne).not.toHaveBeenCalled();
   });
 
@@ -47,7 +49,7 @@ describe('cleanupDraftsAfterSave', () => {
     await cleanupDraftsAfterSave('user123', false, 'doc456');
 
     await vi.waitFor(() => {
-      expect(SyncService.addToQueue).toHaveBeenCalledWith('doc456');
+      expect(SyncService.addToQueue).toHaveBeenCalledWith('doc456', 'user123');
     });
   });
 
@@ -59,7 +61,7 @@ describe('cleanupDraftsAfterSave', () => {
     await expect(cleanupDraftsAfterSave('user123', false, 'doc456')).resolves.not.toThrow();
 
     await vi.waitFor(() => {
-      expect(SyncService.addToQueue).toHaveBeenCalledWith('doc456');
+      expect(SyncService.addToQueue).toHaveBeenCalledWith('doc456', 'user123');
     });
   });
 

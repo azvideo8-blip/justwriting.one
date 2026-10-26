@@ -736,6 +736,14 @@ export const authScreensTranslations: Translations = {
     ru: 'Не сейчас',
     en: 'Not now',
   },
+  restore_cloud_banner: {
+    ru: 'В облаке есть заметки: {count}',
+    en: 'Notes in the cloud: {count}',
+  },
+  restore_cloud_banner_action: {
+    ru: 'Загрузить',
+    en: 'Download',
+  },
   restore_cloud_btn_start: {
     ru: 'Начать загрузку',
     en: 'Start download',

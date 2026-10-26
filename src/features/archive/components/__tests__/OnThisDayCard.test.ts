@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { findMatch } from "../OnThisDayCard";
-import { ArchiveSession } from "../../types";
+import { findMatch } from "../../../../core/components/OnThisDayCard";
+import type { ArchiveSession } from "../../../../shared/types/common";
 
 describe("DEEP-12: OnThisDay month boundary clamping", () => {
   const t = (k: string) => k;

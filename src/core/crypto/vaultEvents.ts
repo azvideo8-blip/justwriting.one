@@ -2,3 +2,6 @@
 // слушает «пароль сошёлся» на каждом входе, а тянуть из-за строки весь сервис
 // шифрования (и его рёбра в SyncService) в стартовый кусок незачем.
 export const VAULT_PASSWORD_CONVERGED_EVENT = 'vault-password-converged';
+// Имя события сейфа без импорта стора: слушателю нужна строка, а не весь
+// EncryptionService с его рёбрами в синхронизацию.
+export const VAULT_UNLOCKED_EVENT = 'vault-unlocked';

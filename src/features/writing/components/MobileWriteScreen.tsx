@@ -20,8 +20,17 @@ import { cn } from '../../../core/utils/utils';
 import { SlidersHorizontal } from 'lucide-react';
 import { IconButton } from '../../../shared/components/IconButton';
 import { SaveStatus } from './SaveStatus';
+import { ReturnToWritingCard } from './ReturnToWritingCard';
+import { SyncUnsyncedBar } from '../../../core/components/SyncUnsyncedBar';
+import { CloudNotesBanner } from './CloudNotesBanner';
+import { StreakChip } from './StreakChip';
+import { OnThisDayCard } from '../../../core/components/OnThisDayCard';
+import { useReturnNote } from '../hooks/useReturnNote';
+import { useOnThisDayHome } from '../hooks/useOnThisDayHome';
 import { useAutoHideCursor } from '../hooks/useAutoHideCursor';
 import type { SessionType } from '../store/types';
+import type { LifeLogDocument } from '../types/lifeLog';
+import type { ArchiveSession } from '../../../shared/types/common';
 
 // Ревью 0.9.39: жетон всегда говорил «Поток», хотя первая буква запускает
 // режим, оставшийся от прошлой сессии (таймер, цель по словам, дедлайн).
@@ -35,6 +44,8 @@ interface MobileWriteScreenProps {
   /** MR-6: «Писать» открывает редактор — экран-заглушка больше не нужен. */
   status?: string;
   streakDays?: number;
+  /** RA1-6: серия держится на заморозке — сказать об этом, а не молчать. */
+  streakFreezeUsed?: boolean;
   /** Режим, с которым стартует сессия по первой букве (может остаться от прошлой). */
   sessionType?: SessionType;
   onOpenSetup?: () => void;
@@ -45,13 +56,23 @@ interface MobileWriteScreenProps {
   discardDraft?: () => void;
   /** MQ-3: «Убрать» — стереть и черновик, и текст в редакторе. */
   removeDraft?: () => void;
+  /** RA1-3: карточка «Продолжить» на пустом главном. */
+  userId?: string;
+  /** BR-5: гость пишет в своей локальной базе; облачных строк ему нет.
+   *  Гостевой id — настоящий id, поэтому `!userId` его не отсекает. */
+  isGuest?: boolean;
+  onContinueNote?: (doc: LifeLogDocument) => void;
+  /** RA1-7: открыть воспоминание «В этот день» (та же дорога, что из архива). */
+  onOpenMemory?: (s: ArchiveSession) => void;
 }
 
 export function MobileWriteScreen({
   onPlay, onStop, saveStatus, saveErrorKind, keystrokeTrackerRef, renderAiPanel,
-  status: statusProp, streakDays = 0, sessionType = 'free', onOpenSetup, hasDraft, draftInEditor, restoreDraft, discardDraft, removeDraft,
+  status: statusProp, streakDays = 0, streakFreezeUsed = false, sessionType = 'free', onOpenSetup, hasDraft, draftInEditor, restoreDraft, discardDraft, removeDraft,
+  userId, isGuest, onContinueNote, onOpenMemory,
 }: MobileWriteScreenProps) {
   const { t, tp, language } = useLanguage();
+  const returnNote = useReturnNote(userId ?? '');
   const { openSettings } = useSettings();
   const { content, setContent, title, setTitle, wordCount } = useContentStore(
     useShallow(s => ({
@@ -92,6 +113,11 @@ export function MobileWriteScreen({
   const isRunning = status === 'writing';
   const isPaused = status === 'paused';
   const showZen = isZenActive && zenModeEnabled;
+  // BR-7 (предложение ревьюера; решение за владельцем): «В этот день» больше не
+  // ждёт, пока исчезнет карточка возврата, — она строкой под «Продолжить».
+  // `enabled` = то же условие, по которому строка реально рисуется.
+  const homeStripVisible = !showZen && isIdleState && !hasDraft;
+  const onThisDay = useOnThisDayHome(userId ?? '', homeStripVisible);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     startOnKey(e);
@@ -284,13 +310,9 @@ export function MobileWriteScreen({
                 {saveMomentLine}
               </span>
             ) : isIdleState ? (
-              streakDays >= 1 ? (
-                <div className="flex items-center gap-1.5 py-1 px-3 rounded-full border border-[var(--border-light)] bg-[var(--surface-card)]">
-                  <span className="text-[13px] font-medium text-[var(--text-main)] tabular-nums">
-                    {streakShown} {tp('home_streak_days', streakDays)}
-                  </span>
-                </div>
-              ) : <span className="min-w-11" aria-hidden="true" />
+              /* RA1-6 (решение владельца 2026-10-24): серия не исчезает при 0 —
+                 чип зовёт начать новую, а не оставляет пустое место. */
+              <StreakChip days={streakDays} displayDays={streakShown} />
             ) : (
             /* U-2, U-17: время — Inter tabular-nums без плашки и свечения, как на десктопе;
                точка остаётся только сигналом паузы. */
@@ -390,7 +412,44 @@ export function MobileWriteScreen({
       </div>
 
       {/* MC-1: второй строки в idle больше нет — токен режима уехал в панель
-        письма. Здесь остаются только баннер черновика и его подтверждение. */}
+        письма. Здесь остаются только строка синка, баннер возврата, баннер
+        черновика и его подтверждение. */}
+      {!showZen && userId && !isGuest && (
+        <div className="px-5 pb-2">
+          <SyncUnsyncedBar userId={userId} />
+        </div>
+      )}
+      {!showZen && isIdleState && streakFreezeUsed && (
+        <div className="px-5 pb-1 text-[12px] leading-snug text-text-main/60" data-testid="streak-freeze-note">
+          {t('home_streak_frozen')}
+        </div>
+      )}
+      {!showZen && isIdleState && userId && !isGuest && (
+        <div className="px-5 pb-2">
+          <CloudNotesBanner />
+        </div>
+      )}
+      {!showZen && isIdleState && userId && onContinueNote && (
+        <div className="px-5 pb-2">
+          <ReturnToWritingCard
+            note={returnNote}
+            hidden={Boolean(hasDraft)}
+            className="flex items-center justify-between gap-2 rounded-xl border border-[var(--border-light)] bg-[var(--surface-card)] px-3 py-1 text-[13px] leading-snug text-text-main/60"
+            onContinue={onContinueNote}
+          />
+        </div>
+      )}
+      {/* BR-7: напоминание — строкой под «Продолжить», тем же списком. */}
+      {homeStripVisible && onThisDay && (
+        <div className="px-5 pb-2">
+          <OnThisDayCard
+            sessions={[onThisDay]}
+            userId={userId}
+            showExcerpt={false}
+            onOpen={(s) => onOpenMemory?.(s)}
+          />
+        </div>
+      )}
       {!showZen && isIdleState && (hasDraft || discardConfirm) && (
         <div className="px-5 pb-2 flex flex-col gap-2">
           {hasDraft && (

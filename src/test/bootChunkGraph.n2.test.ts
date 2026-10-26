@@ -33,6 +33,17 @@ const MUST_BE_LAZY = [
   'features/settings/components/SettingsPanel.tsx',
 ];
 
+// BR-3 (ревью 25.10): пакет добавил на главный полосу синка, баннер «в облаке
+// есть заметки» и хук пустого устройства — все три вошли в стартовый кусок, и
+// `index-*.js` перешагнул порог 100 000 gzip (CI 40167198606). Строки показаны
+// по требованию: в рейке и под баннером — ленивый импорт, как `SyncService`
+// внутри самой полосы.
+const HOME_STRIP_MUST_BE_LAZY = [
+  'core/components/SyncUnsyncedBar.tsx',
+  'features/writing/components/CloudNotesBanner.tsx',
+  'core/sync/useEmptyDeviceDetection.ts',
+];
+
 function asPosix(p: string) { return p.split(sep).join('/'); }
 /** Ключи графа — всегда относительные «src/…»: с абсолютными путями проверка
  *  «модуля нет в множестве» зелёная всегда, и тест ничего не сверяет. */
@@ -110,6 +121,14 @@ describe('BS (N-2): движок синхронизации не в старто
 
   for (const mod of MUST_BE_LAZY) {
     it(`src/${mod} недостижим статически из main.tsx`, () => {
+      expect(boot.has(`src/${mod}`), `статическая цепочка: ${chain(`src/${mod}`, parent)}`).toBe(false);
+    });
+  }
+
+  // BR-3: полоська/баннер/хук пустого устройства — вне старта; сам тест
+  // краснеет, если кто-то вернёт в AppShell или рейку статический импорт.
+  for (const mod of HOME_STRIP_MUST_BE_LAZY) {
+    it(`src/${mod} (BR-3) недостижим статически из main.tsx`, () => {
       expect(boot.has(`src/${mod}`), `статическая цепочка: ${chain(`src/${mod}`, parent)}`).toBe(false);
     });
   }

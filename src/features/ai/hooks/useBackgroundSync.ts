@@ -37,9 +37,19 @@ export function useBackgroundSync(): void {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const runningRef = useRef(false);
+  // BR-10: возврат сети во время идущего прохода раньше молча отбрасывался, и
+  // заметка ждала опроса (≤120 с) с порогом возраста 5 мин. Флаг догоняет
+  // ссып сразу после того прохода.
+  const pendingSweepRef = useRef(false);
+  const runPassRef = useRef<((sweepNow?: boolean) => Promise<void>) | null>(null);
+  // Жив ли ещё хук: догон в `finally` обязан молчать после unmount.
+  const aliveRef = useRef(true);
 
-  const runPass = useCallback(async () => {
-    if (runningRef.current) return;
+  const runPass = useCallback(async (sweepNow = false) => {
+    if (runningRef.current) {
+      if (sweepNow) pendingSweepRef.current = true;
+      return;
+    }
     const uid = getCurrentUser()?.uid;
     if (!uid) return;
 
@@ -134,8 +144,10 @@ export function useBackgroundSync(): void {
 
       // Защитный обход: найти и поставить в очередь заметки, оставшиеся без облачной копии
       // и очереди (например, созданные в оффлайне или при сбое процесса).
+      // RA1-1: по возврату сети порог возраста не нужен — заметка, сохранённая
+      // только что без связи, и есть та, которую человек может потерять.
       try {
-        await SyncService.sweepOrphanedDocuments(uid);
+        await SyncService.sweepOrphanedDocuments(uid, sweepNow ? 0 : undefined);
         await SyncService.syncPending(uid);
       } catch (e) {
         reportError(e, { action: 'backgroundSync_sweepOrphanedDocuments' });
@@ -162,8 +174,18 @@ export function useBackgroundSync(): void {
       reportError(e, { action: 'backgroundSync_pass' });
     } finally {
       runningRef.current = false;
+      // BR-10: если во время этого прохода сеть «моргнула» ещё раз — догоняем
+      // ссыпом сразу, не дожидаясь опроса. Самопроверка 25.10: когда хук уже
+      // размонтирован (человек вышел с экрана), догон запускать нельзя —
+      // подписки и таймеры сняты, а проход от этого продолжился бы.
+      if (pendingSweepRef.current) {
+        pendingSweepRef.current = false;
+        if (aliveRef.current) void runPassRef.current?.(true);
+      }
     }
   }, []);
+
+  useEffect(() => { runPassRef.current = runPass; }, [runPass]);
 
   const scheduleIdle = useCallback(() => {
     if (typeof window === 'undefined' || !('requestIdleCallback' in window)) {
@@ -175,6 +197,7 @@ export function useBackgroundSync(): void {
   }, [runPass]);
 
   useEffect(() => {
+    aliveRef.current = true;
     scheduleIdle();
 
     const onVisibility = () => {
@@ -182,12 +205,19 @@ export function useBackgroundSync(): void {
     };
     document.addEventListener('visibilitychange', onVisibility);
 
+    // RA1-1: сеть вернулась — ссып сразу, а не через опрос 120 с. Без порога
+    // возраста: заметка, сохранённая офлайн минуту назад, ещё не «старая».
+    const onOnline = () => { void runPass(true); };
+    window.addEventListener('online', onOnline);
+
     pollRef.current = setInterval(scheduleIdle, POLL_INTERVAL_MS);
 
     return () => {
+      aliveRef.current = false;
       document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('online', onOnline);
       if (timerRef.current) clearTimeout(timerRef.current);
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [scheduleIdle]);
+  }, [scheduleIdle, runPass]);
 }

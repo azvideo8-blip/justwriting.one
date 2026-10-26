@@ -32,7 +32,7 @@ export function createNoteActions({ userId, showToast }: NoteActionsDeps) {
 
       if (!userId.startsWith('guest')) {
         try {
-          await SyncService.addToQueue(localId);
+          await SyncService.addToQueue(localId, userId);
           void SyncService.syncOne(userId, localId).catch((syncErr) => {
             console.warn('AI note create: cloud sync failed, task remains in syncQueue', syncErr);
           });

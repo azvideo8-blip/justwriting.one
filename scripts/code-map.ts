@@ -30,6 +30,8 @@ export const DESCRIPTIONS: Record<string, string> = {
     'Провайдер авторизации поверх Supabase Auth: `supabaseAuthProvider.ts`, сохранённая сессия `storedSession.ts`, перезагрузка учётки `accountReload.ts`; вход — `index.ts`.',
   'src/core/constants':
     'Константы ядра: цвета меток `labelColors.ts`, версия политики конфиденциальности `privacyVersion.ts` (переэкспорт из shared/ai).',
+  'src/core/components':
+    'Компоненты, нужные нескольким фичам (правила слоёв не дают фиче импортировать фичу): карточка «В этот день» `OnThisDayCard.tsx` и строка синка `SyncUnsyncedBar.tsx`.',
   'src/core/crypto':
     'Шифрование заметок: `encrypt.ts` и `cryptoHelpers.ts`, кэш ключа сейфа `keyVaultCache.ts`, код восстановления `recoveryCode.ts`, шифрование меток, стор `useEncryptionStore.ts`.',
   'src/core/data':

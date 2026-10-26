@@ -114,6 +114,70 @@ const FUZZY_MAX_WORDS = 30;
 const NEGATIONS = new Set(['не', 'ни', 'нет']);
 const negations = (ws: string[]) => ws.filter(w => NEGATIONS.has(w)).length;
 
+/**
+ * DL-19 (19.3): граница фразы в материалах. Раньше сверка шла по всему свёрнутому
+ * тексту, а пунктуация при сворачивании исчезает — и цитата, собранная из хвоста
+ * одной фразы и начала следующей, находилась в материалах целиком и проходила
+ * страж как дословная. На стенде arch-2026-10-11 (семья S11, расшифровка 30–34 тыс.
+ * знаков) так прошло 12 цитат в 9 ответах из 30. Теперь и точное, и «почти
+ * дословно» сравнивается внутри одной фразы: слова остаются, кавычки снимаются.
+ *
+ * Фраза — от точки/вопроса/восклицания/многоточия до неё, а также от пустой строки.
+ * Одиночный перенос строки фразу НЕ заканчивает: цитата, в которой материал
+ * перенесён по ширине, обязана пережить правку (урок R-1).
+ */
+const PHRASE_SPLIT = /\n[ \t]*\n|(?<=[.!?…])[ \t\n]+/;
+
+interface Phrase {
+  /** Свёрнутый текст фразы — по нему точное сравнение. */
+  text: string;
+  /** Те же слова массивом — для порядка. */
+  words: string[];
+}
+
+function phrasesOf(materials: string): Phrase[] {
+  const out: Phrase[] = [];
+  for (const raw of materials.split(PHRASE_SPLIT)) {
+    const text = normalizeQuoteText(raw);
+    if (text) out.push({ text, words: words(text) });
+  }
+  return out;
+}
+
+// Граница фраз в свёрнутом тексте: нормализация её не пропустит (знаки → пробел).
+const PHRASE_JOIN = ' \u0000 ';
+
+/**
+ * DY5-2 (дейлик 2026-10-25): страж зовётся на каждый чанк потока по всему ответу,
+ * и материалы хода резались на фразы, а цитаты сверялись заново каждый раз — до
+ * 0,1 с на чанк. Материалы одни на ход: фразы и вердикты по цитате живут, пока
+ * не сменился текст материалов. ponytail: одна запись — ход идёт по одному.
+ */
+let memo: { materials: string; phrases: Phrase[]; joined: string; verdicts: Map<string, number> } | null = null;
+function memoFor(materials: string) {
+  if (memo?.materials !== materials) {
+    const phrases = phrasesOf(materials);
+    memo = { materials, phrases, joined: phrases.map(p => p.text).join(PHRASE_JOIN), verdicts: new Map() };
+  }
+  return memo;
+}
+function cached(m: NonNullable<typeof memo>, key: string, f: () => number): number {
+  let v = m.verdicts.get(key);
+  if (v === undefined) m.verdicts.set(key, v = f());
+  return v;
+}
+
+/** Наибольшее число слов цитаты, идущих по порядку внутри ОДНОЙ фразы материалов. */
+function bestInPhrases(qWords: string[], phrases: Phrase[], span: number): number {
+  let best = 0;
+  for (const p of phrases) {
+    if (p.words.length <= best) continue;
+    const got = bestInOrder(qWords, p.words, span);
+    if (got > best) best = got;
+  }
+  return best;
+}
+
 function bestInOrder(q: string[], hay: string[], span: number): number {
   if (q.length > FUZZY_MAX_WORDS) return 0;
   const qset = new Set(q);
@@ -139,9 +203,8 @@ export function unquoteAbsent(
   materials: string | null | undefined,
   opts?: UnquoteOptions,
 ): { text: string; stripped: string[] } {
-  const hay = normalizeQuoteText(materials ?? '');
-  if (!hay) return { text, stripped: [] };
-  const hayWords = words(hay);
+  if (!materials || !normalizeQuoteText(materials)) return { text, stripped: [] };
+  const mm = memoFor(materials);
   const stripped: string[] = [];
   let out = '';
   let last = 0;
@@ -152,12 +215,19 @@ export function unquoteAbsent(
     const n = words(normalizeQuoteText(inner)).length;
     const speech = SPEECH_CUE_RE.test(window);
     if (inner.length < 1 || n < (speech ? MIN_SPEECH_WORDS : MIN_WORDS)) continue;
-    if (hay.includes(normalizeQuoteText(inner))) continue;
+    const nq = normalizeQuoteText(inner);
+    // DL-19 (19.3) + DY5: дословная цитата из нескольких фраз проходит, только если
+    // сама держит их границы там же, где они в материалах («…почему. А если…»).
+    // Склейка, где граница съедена (точка → тире, запятая), кавычки теряет.
+    const nqPhrases = phrasesOf(inner).map(p => p.text).join(PHRASE_JOIN);
+    if (cached(mm, `=${nqPhrases}`, () => Number(mm.joined.includes(nqPhrases)))) continue;
     // DY4 (15.1б): почти дословная — одно (от 8 слов — два) слово мимо — кавычки
-    // остаются: это цитата с огрехом, а не пересказ.
-    const qWords = words(normalizeQuoteText(inner));
+    // остаются: это цитата с огрехом, а не пересказ. DL-19 (19.3): сверка идёт
+    // внутри одной фразы материалов, склейка хвоста одной фразы с началом другой
+    // кавычки теряет.
+    const qWords = words(nq);
     const miss = n >= 8 ? 2 : n >= 4 ? 1 : 0;
-    if (miss > 0 && bestInOrder(qWords, hayWords, n + miss) >= n - miss) continue;
+    if (miss > 0 && cached(mm, `~${nq}`, () => bestInPhrases(qWords, mm.phrases, n + miss)) >= n - miss) continue;
     stripped.push(inner);
     let before = text.slice(last, at);
     let body = inner;
@@ -166,7 +236,7 @@ export function unquoteAbsent(
     // толкование модели от первого лица теряет кавычки без пометки — иначе оно
     // читается пересказом слов человека.
     const personal = opts?.markPersonal !== false && PERSONAL_RE.test(inner.toLowerCase())
-      && bestInOrder(qWords, hayWords, Math.ceil(n * 1.5) + 2) * 5 > n * 3;
+      && cached(mm, `p${nq}`, () => bestInPhrases(qWords, mm.phrases, Math.ceil(n * 1.5) + 2)) * 5 > n * 3;
     if (SPEECH_ANY_RE.test(window) || SPEECH_AFTER_RE.test(text.slice(at + m[0].length, at + m[0].length + 40).toLowerCase()) || personal) {
       // «она сказала: «…»» → «она сказала, по смыслу: …»; в начале фразы — «По смыслу: …».
       // DE-5: перевод строки не снимаем — иначе абзац склеивался с предыдущим.

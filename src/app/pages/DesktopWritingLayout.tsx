@@ -16,6 +16,13 @@ import { LifeLogPanel } from '../../features/writing/components/LifeLogPanel';
 import { BottomStats } from '../../features/writing/components/BottomStats';
 import { DictationChrome } from '../../features/writing/components/DictationBar';
 import { SessionGlow } from '../../features/writing/components/SessionGlow';
+import { ReturnToWritingCard } from '../../features/writing/components/ReturnToWritingCard';
+import { SyncUnsyncedBar } from '../../core/components/SyncUnsyncedBar';
+import { CloudNotesBanner } from '../../features/writing/components/CloudNotesBanner';
+import { StreakChip } from '../../features/writing/components/StreakChip';
+import { OnThisDayCard } from '../../core/components/OnThisDayCard';
+import { useReturnNote } from '../../features/writing/hooks/useReturnNote';
+import { useOnThisDayHome } from '../../features/writing/hooks/useOnThisDayHome';
 import { hasOnlyTouchPointer } from '../../shared/utils/touchPointer';
 import { useStartOnFirstInput } from '../../features/writing/hooks/useStartOnFirstInput';
 // Текст нужен только ИИ-панели: подписка здесь, а не в раскладке, иначе на
@@ -38,6 +45,7 @@ export function DesktopWritingLayout() {
     actions,
     session,
     streakDays,
+    streakFreezeUsed,
     handlePlayRef,
     keystrokeTrackerRef,
     showZen,
@@ -52,6 +60,13 @@ export function DesktopWritingLayout() {
   } = flow;
 
   const { onFinishClick } = useWritingSessionContext();
+
+  const returnNote = useReturnNote(session.userId);
+  // BR-7 (предложение ревьюера; решение за владельцем): карточка больше не
+  // waits на «нет карточки возврата» — она строкой под «Продолжить». `enabled`
+  // = реальное условие показа: пока пишешь, напоминания на экране нет.
+  const homeIdle = !setupMode && session.status === 'idle' && !session.hasDraft;
+  const onThisDay = useOnThisDayHome(session.userId, homeIdle);
 
   const onNew = actions.handleNew;
   const onOpenLog = actions.handleOpen;
@@ -156,6 +171,40 @@ export function DesktopWritingLayout() {
               </motion.div>
             )}
           </AnimatePresence>
+          {/* RA1-6: серия была только на телефоне; на десктопе её не было вовсе. */}
+          {!setupMode && session.status === 'idle' && (
+            <div className="shrink-0 mx-auto mb-2 flex flex-col items-center gap-1">
+              <StreakChip days={streakDays} />
+              {streakFreezeUsed && (
+                <span className="text-xs text-text-main/60" data-testid="streak-freeze-note">
+                  {t('home_streak_frozen')}
+                </span>
+              )}
+            </div>
+          )}
+          <SyncUnsyncedBar
+            userId={session.isGuest ? null : session.userId}
+            className="shrink-0 mx-auto mb-2"
+          />
+          <CloudNotesBanner className="shrink-0 mx-auto mb-2 flex items-center gap-3 rounded-xl border border-text-main/10 bg-surface-card/90 px-4 py-2 text-sm text-text-main/70" />
+          <ReturnToWritingCard
+            note={returnNote}
+            hidden={Boolean(setupMode) || session.hasDraft}
+            className="shrink-0 mx-auto mb-2 flex items-center gap-3 rounded-xl border border-text-main/10 bg-surface-card/90 backdrop-blur-xl px-4 py-2 text-sm text-text-main/60"
+            onContinue={(doc) => void actions.handleContinueDocument(doc)}
+          />
+          {/* BR-7: «В этот день» — строкой под «Продолжить», а не вместо него,
+              и без текста заметки (экран может быть открыт при ком-то). */}
+          {onThisDay && homeIdle && (
+            <div className="shrink-0 mx-auto mb-2 w-full max-w-xl">
+              <OnThisDayCard
+                sessions={[onThisDay]}
+                userId={session.userId}
+                showExcerpt={false}
+                onOpen={(s) => void actions.handleContinueSessionOrDoc(s)}
+              />
+            </div>
+          )}
           <div style={{
             width: editorWidth < 100 ? `${editorWidth}%` : '100%',
             flex: '1 1 0',

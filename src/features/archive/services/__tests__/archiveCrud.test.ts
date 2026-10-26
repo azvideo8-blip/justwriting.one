@@ -73,28 +73,28 @@ describe('updateArchiveField — local session', () => {
 
   it('tags → LocalDocumentService.updateTags', async () => {
     await updateArchiveField(makeSession({ _isLocal: true }), 'tags', ['t1'], mockUser, 'user1');
-    expect(LocalDocumentService.updateTags).toHaveBeenCalledWith('s1', ['t1']);
+    expect(LocalDocumentService.updateTags).toHaveBeenCalledWith('s1', ['t1'], 'user1');
   });
 
   it('title → LocalDocumentService.updateTitle', async () => {
     await updateArchiveField(makeSession({ _isLocal: true }), 'title', 'New Title', mockUser, 'user1');
-    expect(LocalDocumentService.updateTitle).toHaveBeenCalledWith('s1', 'New Title');
+    expect(LocalDocumentService.updateTitle).toHaveBeenCalledWith('s1', 'New Title', 'user1');
   });
 
   it('date → LocalDocumentService.updateDate with timestamp', async () => {
     const d = new Date(2024, 0, 1);
     await updateArchiveField(makeSession({ _isLocal: true }), 'date', d, mockUser, 'user1');
-    expect(LocalDocumentService.updateDate).toHaveBeenCalledWith('s1', { lastSessionAt: d.getTime() });
+    expect(LocalDocumentService.updateDate).toHaveBeenCalledWith('s1', { lastSessionAt: d.getTime() }, 'user1');
   });
 
   it('labelId → LocalDocumentService.updateLabelId', async () => {
     await updateArchiveField(makeSession({ _isLocal: true }), 'labelId', 'label1', mockUser, 'user1');
-    expect(LocalDocumentService.updateLabelId).toHaveBeenCalledWith('s1', 'label1');
+    expect(LocalDocumentService.updateLabelId).toHaveBeenCalledWith('s1', 'label1', 'user1');
   });
 
   it('labelId undefined → LocalDocumentService.updateLabelId with undefined', async () => {
     await updateArchiveField(makeSession({ _isLocal: true }), 'labelId', undefined, mockUser, 'user1');
-    expect(LocalDocumentService.updateLabelId).toHaveBeenCalledWith('s1', undefined);
+    expect(LocalDocumentService.updateLabelId).toHaveBeenCalledWith('s1', undefined, 'user1');
   });
 
   it('also syncs to cloud if linkedCloudId present', async () => {
@@ -130,7 +130,7 @@ describe('updateArchiveField — local session', () => {
       makeSession({ _isLocal: true, _linkedCloudId: 'cloud1' }),
       'title', 'New Title', mockUser, 'user1'
     );
-    expect(SyncService.addToQueue).toHaveBeenCalledWith('s1');
+    expect(SyncService.addToQueue).toHaveBeenCalledWith('s1', 'user1');
   });
 });
 
@@ -187,10 +187,10 @@ describe('updateArchiveField — cloud-only offline fallback (SYNC-1)', () => {
     // addLocalCopy (not a hand-rolled createDocument here) pulls the real
     // content/versions from the cloud and handles create-or-reuse itself.
     expect(CloudSyncService.addLocalCopy).toHaveBeenCalledWith('user1', 's1');
-    expect(LocalDocumentService.updateTitle).toHaveBeenCalledWith('new_local_id', 'New Title');
+    expect(LocalDocumentService.updateTitle).toHaveBeenCalledWith('new_local_id', 'New Title', 'user1');
     // Must queue the NEW LOCAL id, not the cloud id ('s1') — the drain looks
     // up a local IndexedDB document by this id.
-    expect(SyncService.addToQueue).toHaveBeenCalledWith('new_local_id');
+    expect(SyncService.addToQueue).toHaveBeenCalledWith('new_local_id', 'user1');
   });
 
   it('rejects when both cloud and the local fallback (addLocalCopy) fail — must not report false success', async () => {

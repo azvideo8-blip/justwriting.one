@@ -15,33 +15,36 @@ type ArchiveFieldValue = string[] | string | Date | undefined;
 // R3-1: правка метаданных не дошла до облака. Одной постановки в очередь мало:
 // дренаж по связанной заметке шлёт только счётчики, и правка терялась с
 // пометкой «сохранено». Флаг говорит дренажу дослать метаданные целиком.
-async function queueMetadataRetry(localId: string): Promise<void> {
+// BR-9 (класс RA1-1): владелец нужен обоим вызовам — без него база резолвится
+// через `getCurrentUser()`, а в окне восстановления сессии это гостевая база:
+// флаг и задача оставались в `justwriting-local`, заметка — в базе аккаунта.
+async function queueMetadataRetry(localId: string, userId: string): Promise<void> {
   try {
-    await LocalDocumentService.setMetadataDirty(localId, true);
+    await LocalDocumentService.setMetadataDirty(localId, true, userId);
   } catch (e) {
     reportError(e, { action: 'queueMetadataRetry_flag', documentId: localId });
   }
-  await SyncService.addToQueue(localId);
+  await SyncService.addToQueue(localId, userId);
 }
 
 export async function toggleAIExclusion(
   session: ArchiveSession,
   excluded: boolean,
   user: AppUser | null,
-  _userId: string
+  userId: string
 ): Promise<{ success: boolean; cloudSyncFailed?: boolean }> {
   if (session._locked) throw new Error('LOCKED: cannot modify locked session');
   if (session._decryptionError) throw new Error('DECRYPTION_ERROR: cannot modify unreadable session');
   let cloudSyncFailed = false;
 
   if (session._isLocal) {
-    await LocalDocumentService.updateExcludedFromAI(session.id, excluded);
+    await LocalDocumentService.updateExcludedFromAI(session.id, excluded, userId);
     emitDomainEvent({ type: 'note.excludedFromAI', documentId: session.id, excluded });
     if (session._linkedCloudId && user) {
       await DocumentService.updateExcludedFromAI(user.uid, session._linkedCloudId, excluded).catch(e => {
         cloudSyncFailed = true;
         reportError(e, { action: 'toggleAIExclusion_cloud', documentId: session._linkedCloudId });
-        void queueMetadataRetry(session.id);
+        void queueMetadataRetry(session.id, userId);
       });
     }
     return cloudSyncFailed ? { success: true, cloudSyncFailed } : { success: true };
@@ -57,9 +60,9 @@ export async function toggleAIExclusion(
       cloudSyncFailed = true;
       try {
         const localId = await CloudSyncService.addLocalCopy(user.uid, session.id);
-        await LocalDocumentService.updateExcludedFromAI(localId, excluded);
+        await LocalDocumentService.updateExcludedFromAI(localId, excluded, userId);
         emitDomainEvent({ type: 'note.excludedFromAI', documentId: localId, excluded });
-        void queueMetadataRetry(localId);
+        void queueMetadataRetry(localId, userId);
       } catch (localErr) {
         reportError(localErr, { action: 'toggleAIExclusion_localFallback', documentId: session.id });
         throw localErr;
@@ -74,7 +77,7 @@ export async function updateArchiveField(
   field: ArchiveField,
   value: ArchiveFieldValue,
   user: AppUser | null,
-  _userId: string
+  userId: string
 ): Promise<{ success: boolean; cloudSyncFailed?: boolean }> {
   if (session._locked) throw new Error('LOCKED: cannot modify locked session');
   if (session._decryptionError) throw new Error('DECRYPTION_ERROR: cannot modify unreadable session');
@@ -83,51 +86,51 @@ export async function updateArchiveField(
   if (session._isLocal) {
     if (field === 'tags') {
       const tags = Array.isArray(value) ? value : [];
-      await LocalDocumentService.updateTags(session.id, tags);
+      await LocalDocumentService.updateTags(session.id, tags, userId);
       if (session._linkedCloudId && user) {
         await DocumentService.updateTags(user.uid, session._linkedCloudId, tags).catch(e => {
           cloudSyncFailed = true;
           reportError(e, { action: 'updateArchiveField_tags', documentId: session._linkedCloudId });
           // Queue the LOCAL id — the drain (_drainPendingQueue -> addCloudCopy)
           // looks up a local IndexedDB document by this id, not a cloud one.
-          void queueMetadataRetry(session.id);
+          void queueMetadataRetry(session.id, userId);
         });
       }
     } else if (field === 'title') {
       const title = typeof value === 'string' ? value : '';
-      await LocalDocumentService.updateTitle(session.id, title);
+      await LocalDocumentService.updateTitle(session.id, title, userId);
       if (session._linkedCloudId && user) {
         await DocumentService.updateTitle(user.uid, session._linkedCloudId, title).catch(e => {
           cloudSyncFailed = true;
           reportError(e, { action: 'updateArchiveField_title', documentId: session._linkedCloudId });
           // Queue the LOCAL id — the drain (_drainPendingQueue -> addCloudCopy)
           // looks up a local IndexedDB document by this id, not a cloud one.
-          void queueMetadataRetry(session.id);
+          void queueMetadataRetry(session.id, userId);
         });
       }
     } else if (field === 'date') {
       if (!(value instanceof Date)) throw new Error('Expected Date for date field');
       const ts = value.getTime();
-      await LocalDocumentService.updateDate(session.id, { lastSessionAt: ts });
+      await LocalDocumentService.updateDate(session.id, { lastSessionAt: ts }, userId);
       if (session._linkedCloudId && user) {
         await DocumentService.updateDate(user.uid, session._linkedCloudId, { lastSessionAt: value }).catch(e => {
           cloudSyncFailed = true;
           reportError(e, { action: 'updateArchiveField_date', documentId: session._linkedCloudId });
           // Queue the LOCAL id — the drain (_drainPendingQueue -> addCloudCopy)
           // looks up a local IndexedDB document by this id, not a cloud one.
-          void queueMetadataRetry(session.id);
+          void queueMetadataRetry(session.id, userId);
         });
       }
     } else if (field === 'labelId') {
       const labelId = typeof value === 'string' || value === undefined ? value : undefined;
-      await LocalDocumentService.updateLabelId(session.id, labelId);
+      await LocalDocumentService.updateLabelId(session.id, labelId, userId);
       if (session._linkedCloudId && user) {
         await DocumentService.updateLabelId(user.uid, session._linkedCloudId, labelId).catch(e => {
           cloudSyncFailed = true;
           reportError(e, { action: 'updateArchiveField_labelId', documentId: session._linkedCloudId });
           // Queue the LOCAL id — the drain (_drainPendingQueue -> addCloudCopy)
           // looks up a local IndexedDB document by this id, not a cloud one.
-          void queueMetadataRetry(session.id);
+          void queueMetadataRetry(session.id, userId);
         });
       }
     }
@@ -165,8 +168,8 @@ export async function updateArchiveField(
       // expects a local id, so the sync would never actually complete).
       try {
         const localId = await CloudSyncService.addLocalCopy(user.uid, session.id);
-        await _applyLocalFieldEdit(localId, field, value);
-        void queueMetadataRetry(localId);
+        await _applyLocalFieldEdit(localId, field, value, userId);
+        void queueMetadataRetry(localId, userId);
       } catch (localErr) {
         reportError(localErr, { action: `updateArchiveField_${field}_localFallback`, documentId: session.id });
         // Both cloud AND the local fallback failed — nothing was persisted
@@ -182,18 +185,19 @@ export async function updateArchiveField(
 async function _applyLocalFieldEdit(
   localId: string,
   field: ArchiveField,
-  value: ArchiveFieldValue
+  value: ArchiveFieldValue,
+  ownerId: string
 ): Promise<void> {
   if (field === 'tags') {
-    await LocalDocumentService.updateTags(localId, Array.isArray(value) ? value : []);
+    await LocalDocumentService.updateTags(localId, Array.isArray(value) ? value : [], ownerId);
   } else if (field === 'title') {
-    await LocalDocumentService.updateTitle(localId, typeof value === 'string' ? value : '');
+    await LocalDocumentService.updateTitle(localId, typeof value === 'string' ? value : '', ownerId);
   } else if (field === 'date') {
     if (value instanceof Date) {
-      await LocalDocumentService.updateDate(localId, { lastSessionAt: value.getTime() });
+      await LocalDocumentService.updateDate(localId, { lastSessionAt: value.getTime() }, ownerId);
     }
   } else if (field === 'labelId') {
-    await LocalDocumentService.updateLabelId(localId, typeof value === 'string' || value === undefined ? value : undefined);
+    await LocalDocumentService.updateLabelId(localId, typeof value === 'string' || value === undefined ? value : undefined, ownerId);
   }
 }
 
