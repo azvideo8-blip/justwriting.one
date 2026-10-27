@@ -1,4 +1,5 @@
 import React from 'react';
+import { X } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
@@ -7,6 +8,8 @@ import type { LifeLogDocument } from '../types/lifeLog';
 interface ReturnToWritingCardProps {
   note: LifeLogDocument | null;
   onContinue: (doc: LifeLogDocument) => void;
+  /** Крестик: скрыть до завтра (владелец 26.10). */
+  onDismiss?: () => void;
   /** Черновик, дзен, окно настройки — карточке там не место. */
   hidden?: boolean;
   className?: string;
@@ -17,7 +20,7 @@ interface ReturnToWritingCardProps {
  * показывает дату последней записи и «Продолжить». Текста заметки здесь нет —
  * решение владельца 2026-10-24: экран может быть открыт при ком-то.
  */
-export function ReturnToWritingCard({ note, onContinue, hidden = false, className }: ReturnToWritingCardProps) {
+export function ReturnToWritingCard({ note, onContinue, onDismiss, hidden = false, className }: ReturnToWritingCardProps) {
   const { t, language } = useLanguage();
   const content = useContentStore(s => s.content);
   const status = useTimerStore(s => s.status);
@@ -42,6 +45,17 @@ export function ReturnToWritingCard({ note, onContinue, hidden = false, classNam
       >
         {t('home_return_continue')}
       </button>
+      {onDismiss && (
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label={t('home_return_dismiss')}
+          title={t('home_return_dismiss')}
+          className="press -mr-2 w-11 h-11 shrink-0 flex items-center justify-center text-text-main/40 hover:text-text-main"
+        >
+          <X size={15} aria-hidden="true" />
+        </button>
+      )}
     </div>
   );
 }

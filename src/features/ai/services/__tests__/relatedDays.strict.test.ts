@@ -11,7 +11,7 @@ import { buildRelatedDaysBlock } from '../chatContext/relatedDays';
 import { useAIChatContext } from '../aiChatContext';
 import { AIEmbeddingService } from '../AIEmbeddingService';
 import { getLocalDb, type AIDocumentEmbedding, type AIDocumentSummary, type LocalDocument } from '../../../../core/storage/localDb';
-import { attachedTurn } from '../../../../test/attachedTurnFixtures';
+import { linkedNote } from '../../../../test/attachedTurnFixtures';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../shared/i18n', () => ({ useLanguage: () => ({ language: 'ru', t: (k: string) => k }) }));
@@ -132,7 +132,7 @@ describe('фон из прошлых дней: строгий ход', () => {
     const { result } = renderHook(() => useAIChatContext(personaId));
     return result.current.buildContext({
       text: 'разбери глубоко',
-      attached: { documentId: ATT, content: 'ТЕКСТ_ПРИЛОЖЕННОЙ_ЗАМЕТКИ' },
+      attached: linkedNote(ATT, 'ТЕКСТ_ПРИЛОЖЕННОЙ_ЗАМЕТКИ'),
       mood: undefined,
       messageHistory: [],
       isFirstTurn: true,
@@ -157,25 +157,22 @@ describe('фон из прошлых дней: строгий ход', () => {
     const { result } = renderHook(() => useAIChatContext('group_psychology'));
     const ctx = await result.current.buildContext({
       text: 'разбери глубоко',
-      attached: { documentId: ATT, content: `на сессии ${ref} говорили про это` },
+      attached: linkedNote(ATT, `на сессии ${ref} говорили про это`),
       mood: undefined, messageHistory: [], isFirstTurn: true, scope: 'note',
     });
     expect(ctx.searchContext ?? '').toContain('СУТЬ_local_rd_d');
   });
 
-  // FN-2: в documentId только первая приложенная; вторая (local_rd_e — самая
-  // похожая) не должна стоять в фоне «другим днём». Мутация: не передать шапки → красный.
+  // FN-2: вторая приложенная (local_rd_e — самая похожая) не должна стоять в фоне
+  // «другим днём». Мутация: не передать список блоков в фон → красный.
   it('(h) две приложенные — вторая не в фоне', async () => {
     const { result } = renderHook(() => useAIChatContext('group_psychology'));
     const ctx = await result.current.buildContext({
       text: 'разбери глубоко',
-      attached: {
-        documentId: ATT,
-        content: attachedTurn([
-          { documentId: ATT, title: 'a', lastSessionAt: new Date('2026-10-09T12:00:00').getTime(), content: 'ТЕКСТ_1' },
-          { documentId: 'local_rd_e', title: 'e', lastSessionAt: new Date('2026-10-08T12:00:00').getTime(), content: 'ТЕКСТ_2' },
-        ]),
-      },
+      attached: { blocks: [
+        { documentId: ATT, title: 'a', lastSessionAt: new Date('2026-10-09T12:00:00').getTime(), content: 'ТЕКСТ_1' },
+        { documentId: 'local_rd_e', title: 'e', lastSessionAt: new Date('2026-10-08T12:00:00').getTime(), content: 'ТЕКСТ_2' },
+      ] },
       mood: undefined, messageHistory: [], isFirstTurn: true, scope: 'note',
     });
     const sc = ctx.searchContext ?? '';

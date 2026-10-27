@@ -56,7 +56,7 @@ describe('Н-1: название скрытой заметки не уходит
 
   it('блок заметки в контексте хода: у скрытой нет ни тела, ни названия', async () => {
     const db = { get: async (_s: string, id: string) => (id === HIDDEN ? { id, excludedFromAI: true } : { id }) } as unknown as Parameters<typeof hideExcludedNotes>[1];
-    const out = await hideExcludedNotes(attachedTurn([note(OPEN, 'Открытая', 'ТЕЛО_О'), note(HIDDEN, TITLE, 'ТЕЛО_С')]), db);
+    const out = (await hideExcludedNotes([note(OPEN, 'Открытая', 'ТЕЛО_О'), note(HIDDEN, TITLE, 'ТЕЛО_С')], db)).text;
     expect(out).not.toContain(TITLE);
     expect(out).not.toContain('ТЕЛО_С');
     expect(out).toContain('ТЕЛО_О');

@@ -7,7 +7,7 @@ import 'fake-indexeddb/auto';
 import { useAIChatContext } from '../aiChatContext';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { AIMemoryAssembler } from '../AIMemoryAssembler';
-import { attachedTurn } from '../../../../test/attachedTurnFixtures';
+import { linkedNote } from '../../../../test/attachedTurnFixtures';
 
 // форма руками намеренно: часть фикстур — исторические/сырые ходы (дата без
 // дефисов, кавычки в названии), их и разбирает тест.
@@ -24,7 +24,7 @@ async function build(scope: 'note' | 'wide') {
   const { result } = renderHook(() => useAIChatContext('coach'));
   return result.current.buildContext({
     text: 'сравни январь и февраль',
-    attached: { documentId: ATTACHED_ID, content: ATTACHED_CONTENT },
+    attached: linkedNote(ATTACHED_ID, ATTACHED_CONTENT),
     mood: undefined,
     messageHistory: [],
     isFirstTurn: true,
@@ -62,7 +62,7 @@ describe('приложенная заметка: строгий и широки�
     const { result } = renderHook(() => useAIChatContext('coach'));
     const ctx = await result.current.buildContext({
       text: 'сделай пост',
-      attached: { documentId: ATTACHED_ID, content: ATTACHED_CONTENT },
+      attached: linkedNote(ATTACHED_ID, ATTACHED_CONTENT),
       mood: undefined,
       messageHistory: [
         { role: 'user', content: `[#${ATTACHED_ID} · 20261006]\n[Прикреплена заметка: "Бег по утрам"]\n\n${ATTACHED_CONTENT}`, type: 'chat' },
@@ -81,7 +81,7 @@ describe('приложенная заметка: строгий и широки�
 const CRISIS_MARKERS = /Интегрируй|кризисном состоянии/i;
 
 describe('кризис в приложенной заметке', () => {
-  async function crisisTurn(scope: 'note' | 'wide', text: string, attached?: { documentId: string; content: string }) {
+  async function crisisTurn(scope: 'note' | 'wide', text: string, attached?: ReturnType<typeof linkedNote>) {
     const db = await getLocalDb();
     await db.put('documents', { id: 'doc_risk', title: 'Ночь', currentVersion: 1, lastSessionAt: Date.now() } as never);
     const { result } = renderHook(() => useAIChatContext('coach'));
@@ -96,7 +96,7 @@ describe('кризис в приложенной заметке', () => {
   }
 
   it('строгий ход: флаг есть, инструкции о кризисе в контексте нет', async () => {
-    const ctx = await crisisTurn('note', 'Разбери эту заметку', { documentId: 'doc_risk', content: 'Каждую ночь думаю про суицид.' });
+    const ctx = await crisisTurn('note', 'Разбери эту заметку', linkedNote('doc_risk', 'Каждую ночь думаю про суицид.'));
     expect(ctx.crisis).toBe(true);
     expect(ctx.searchContext).toContain('Каждую ночь думаю про суицид.');
     expect(ctx.searchContext).not.toMatch(CRISIS_MARKERS);
@@ -132,10 +132,8 @@ describe('R3-001: кризис поднимает флаг для интерфе
 describe('R3-004: заметка, скрытая от ИИ, не уходит ни одним каналом', () => {
   const HIDDEN_ID = 'doc_hidden_1';
   const BODY = 'Секретный абзац про сестру';
-  // Производственная форма из useAIPageData: шапка `[#id · дата]` + маркер + тело.
-  const CONTENT = attachedTurn([
-    { documentId: HIDDEN_ID, title: 'Тайна', lastSessionAt: new Date('2026-09-29T12:00:00').getTime(), content: BODY },
-  ]);
+  // Производственная форма из useAIPageData: список заметок (DY5).
+  const BLOCKS = [{ documentId: HIDDEN_ID, title: 'Тайна', lastSessionAt: new Date('2026-09-29T12:00:00').getTime(), content: BODY }];
 
   beforeEach(async () => {
     const db = await getLocalDb();
@@ -147,7 +145,7 @@ describe('R3-004: заметка, скрытая от ИИ, не уходит н
     const { result } = renderHook(() => useAIChatContext('coach'));
     const ctx = await result.current.buildContext({
       text: 'Разбери эту заметку',
-      attached: { documentId: HIDDEN_ID, content: CONTENT },
+      attached: { blocks: BLOCKS },
       mood: undefined,
       messageHistory: [],
       isFirstTurn: true,
@@ -170,8 +168,11 @@ describe('S-39: скрытая заметка среди нескольких п
   const HIDDEN_ID = 'doc_s39_hidden';
   const OPEN_BODY = 'Открытый текст про утро';
   const HIDDEN_BODY = 'Секретный абзац, скрытый после прикрепления';
-  // Производственная форма из useAIPageData для двух заметок.
-  const CONTENT = `[#${OPEN_ID} · 2026-09-29]\n[Прикреплена заметка: "Утро"]\n${OPEN_BODY}\n\n---\n\n[#${HIDDEN_ID} · 2026-09-28]\n[Прикреплена заметка: "Мой "дневник""]\n${HIDDEN_BODY}`;
+  // Производственная форма из useAIPageData для двух заметок (DY5: список).
+  const BLOCKS = [
+    { documentId: OPEN_ID, title: 'Утро', lastSessionAt: new Date('2026-09-29T12:00:00').getTime(), content: OPEN_BODY },
+    { documentId: HIDDEN_ID, title: 'Мой "дневник"', lastSessionAt: new Date('2026-09-28T12:00:00').getTime(), content: HIDDEN_BODY },
+  ];
 
   beforeEach(async () => {
     const db = await getLocalDb();
@@ -184,7 +185,7 @@ describe('S-39: скрытая заметка среди нескольких п
     const { result } = renderHook(() => useAIChatContext('coach'));
     const ctx = await result.current.buildContext({
       text: 'Разбери эти заметки',
-      attached: { documentId: OPEN_ID, content: CONTENT },
+      attached: { blocks: BLOCKS },
       mood: undefined,
       messageHistory: [],
       isFirstTurn: true,
@@ -203,7 +204,7 @@ describe('S-39: скрытая заметка среди нескольких п
 describe('R3-005: новый диалог не наследует заметку-тему', () => {
   it('resetSession снимает приложенную заметку', () => {
     const { result } = renderHook(() => useAIChatContext('coach'));
-    result.current.setAttachedNote({ content: 'A', documentId: 'doc_a' });
+    result.current.setAttachedNote(linkedNote('doc_a', 'A'));
     result.current.resetSession();
     expect(result.current.getAttachedNote()).toBeNull();
   });

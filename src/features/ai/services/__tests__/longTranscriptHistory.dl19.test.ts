@@ -151,7 +151,7 @@ describe('DL-19 19.10: ход 2 после разбора длинной рас�
     const ctx = await result.current.buildContext({
       text: TURN2,
       scope: turnScope(TURN2),
-      attached: { content: formatRefTag(NOTE), documentId: NOTE.documentId, blockIds: [NOTE.documentId] },
+      attached: { blocks: [NOTE] },
       mood: undefined,
       messageHistory: apiHistory,
       isFirstTurn: false,

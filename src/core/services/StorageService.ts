@@ -1,5 +1,6 @@
 import { withDocumentLock, LOCK_TTL_MS } from '../sync/withDocumentLock';
 import { getLocalDb } from '../storage/localDb';
+import { emitDomainEvent } from '../events/domainEvents';
 import { LocalStorageService } from './LocalStorageService';
 import { LocalDocumentService } from './LocalDocumentService';
 import { DocumentService, UnreadableCloudRowError } from './DocumentService';
@@ -111,6 +112,10 @@ async function deleteDocumentUnlocked(userId: string, localId?: string, cloudId?
       await queueCloudRemoval(userId, targetCloudId);
     }
   }
+  // DY6-5 (приёмка 26.10, Н-1): сигнал живёт в ядре — любое применённое удаление
+  // чистит производные (разбор, MiniSearch, кэш лексикона DY6-1), а не только
+  // путь из архива. applied=false (замок/нет ряда) — события нет.
+  emitDomainEvent({ type: 'note.deleted', documentId: localId ?? targetCloudId ?? '' });
   return { cloudSynced, derivativesOk, applied: true };
 }
 
@@ -221,6 +226,8 @@ export const StorageService = {
       return { cloudSynced: false, derivativesOk: false, applied: false };
     }
     const derivativesOk = await LocalStorageService.deleteDocument(localId, userId, { remove: true, cloudId: targetCloudId });
+    // DY6-5: применённое удаление (см. выше) — сигнал из ядра и здесь.
+    emitDomainEvent({ type: 'note.deleted', documentId: localId });
     return { cloudSynced: false, derivativesOk, applied: true };
   },
 

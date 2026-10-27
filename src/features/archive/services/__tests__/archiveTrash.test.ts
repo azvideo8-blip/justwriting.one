@@ -111,7 +111,9 @@ describe('FEAT-5 Archive Trash Service', () => {
 
     expect(result).toEqual({ cloudSynced: true, derivativesOk: true, applied: true });
     expect(StorageService.deleteDocument).toHaveBeenCalledWith('u1', 's1', 'c1');
-    expect(domainEvents).toContainEqual({ type: 'note.deleted', documentId: 's1' });
+    // DY6-5: note.deleted эмитит ядро StorageService.deleteDocument (здесь оно замотано)
+    // — фича больше не добавляет своё событие: иначе двойная очистка.
+    expect(domainEvents).toEqual([]);
     expect(addActivitySpy).toHaveBeenCalledWith('activity_note_deleted', undefined, 'info', 'archive');
 
     unsub();

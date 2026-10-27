@@ -34,18 +34,20 @@ import { buildTemporalBlocks } from './chatContext/temporalBlocks';
 import { buildAggregateThemeBlock } from './chatContext/aggregateStats';
 import { buildLiteRetrievalBlock } from './chatContext/liteRetrieval';
 import { buildRelatedDaysBlock } from './chatContext/relatedDays';
-import { ATTACHED_BLOCK_SEP, attachedBlockHeads, builderBlockHeads } from '../utils/attachedNoteFormat';
+import { ATTACHED_BLOCK_SEP, formatRefTag, type AttachedNoteBlock } from '../utils/attachedNoteFormat';
 import { strictTurnPortrait } from '../../../shared/ai/portraitSections';
 import { isExcludedFromAI, isPastedAttachmentId } from '../utils/isExcludedFromAI';
+import { hiddenNoteIdsFromDocs } from '../utils/hiddenNoteIds';
+import { dialogueFacetVisible } from '../utils/dialogueFacetVisibility';
 import { postBody } from '../utils/editorDiff';
 import { nameForms, NEVER_MATCH } from '../utils/nameForms';
 
 /** Заметка-тема диалога. title/date идут в правило строгого хода (noteScope). */
 export interface AttachedNoteRef {
-  content: string;
-  documentId?: string;
-  /** id приложенных заметок от сборщика хода (см. attachedBlockHeads). */
-  blockIds?: string[];
+  /** Приложенные заметки списком — от сборщика хода или одна, поднятая по связи диалога. */
+  blocks: AttachedNoteBlock[];
+  /** Поднята по documentId диалога после перезагрузки — человек её в этом ходе не присылал. */
+  fromLink?: boolean;
   title?: string;
   date?: string;
 }
@@ -58,32 +60,36 @@ export interface AttachedNoteRef {
  * IndexedDB (см. X-5 и П-6). Заметки берутся самые свежие.
  */
 const NAME_SCAN_NO_VECTOR_LIMIT = 200;
-export async function hideExcludedNotes(content: string, db: Pick<Awaited<ReturnType<typeof getLocalDb>>, 'get'>, ids?: readonly string[]): Promise<string> {
-  const heads = attachedBlockHeads(content, ids);
-  // DY5-1: шапки не совпали со списком сборщика — ход не разобран, скрыт целиком.
-  if (heads.length === 0) return ids ? `[Прикреплена заметка: "${HIDDEN_NOTE_TITLE}"]\n[заметка скрыта от ИИ]` : content;
-  let out = content.slice(0, heads[0]!.index);
-  for (let i = 0; i < heads.length; i++) {
-    const h = heads[i]!;
-    const bodyEnd = i + 1 < heads.length ? heads[i + 1]!.index : content.length;
-    const body = content.slice(h.index + h[0].length, bodyEnd);
+export async function hideExcludedNotes(
+  blocks: readonly AttachedNoteBlock[],
+  db: Pick<Awaited<ReturnType<typeof getLocalDb>>, 'get'>,
+): Promise<{ text: string; visible: AttachedNoteBlock[] }> {
+  // DY5 (дейлик 2026-10-25 + решение владельца): блоки хода — данные от сборщика,
+  // а не позиции в строке. Четыре круга правок 0.10.9–0.10.10 чинили разборку
+  // текста регулярками (поддельная шапка в теле заметки); теперь текст для модели
+  // собирается ПОСЛЕ отбора скрытых, и тело заметки не разбирается вовсе.
+  const visible: AttachedNoteBlock[] = [];
+  const parts: string[] = [];
+  for (const b of blocks) {
     // S-63: вставленный текст — не заметка, строки в documents у него нет; скрывать нечего.
-    let hidden = !isPastedAttachmentId(h[1]!);
+    let hidden = !isPastedAttachmentId(b.documentId);
     if (hidden) {
       try {
-        hidden = isExcludedFromAI(await db.get('documents', h[1]!));
+        hidden = isExcludedFromAI(await db.get('documents', b.documentId));
       } catch (e) {
-        reportError(e, { action: 'hideExcludedNotes', documentId: h[1] });
+        // S-51: не прочитали заметку — не знаем, скрыта ли; тело не уходит.
+        reportError(e, { action: 'hideExcludedNotes', documentId: b.documentId });
       }
     }
-    // Н-1 + решение владельца 24.10: от скрытой не уходят ни название, ни шапка
-    // с id и датой. DY4 Н-2: разделитель к следующей заметке жил в конце тела —
-    // без него следующий блок перестаёт быть блоком.
-    out += hidden
-      ? `[Прикреплена заметка: "${HIDDEN_NOTE_TITLE}"]\n[заметка скрыта от ИИ]${i + 1 < heads.length ? ATTACHED_BLOCK_SEP : '\n\n'}`
-      : h[0] + body;
+    // Н-1 + решение владельца 24.10: от скрытой не уходят ни название, ни id, ни дата.
+    if (hidden) {
+      parts.push(`[Прикреплена заметка: "${HIDDEN_NOTE_TITLE}"]\n[заметка скрыта от ИИ]`);
+    } else {
+      visible.push(b);
+      parts.push(formatRefTag({ ...b, content: b.content ?? '' }));
+    }
   }
-  return out;
+  return { text: parts.join(ATTACHED_BLOCK_SEP), visible };
 }
 
 /**
@@ -164,6 +170,15 @@ function bestChunkPosition(
   return pos >= 0 ? pos : null;
 }
 
+// PR-6: продолжение без своей темы. Всё остальное — новая тема: склейка со
+// старым запросом размывала её («главное за октябрь» + «линия сопротивления»).
+const PURE_FOLLOW_UP_RE = /^(?:[\s,.;:—–-]*(?:подробнее|подробней|ещ[её]|дальше|продолжи|продолжай|и\s+что|что\s+ещ[её]|по\s+одной|по\s+каждой|по\s+порядку|расскажи\s+(?:ещ[её]|подробнее)|да|ага|и)[\s,.!?;:—–-]*)+$/i;
+
+function isPureFollowUp(text: string): boolean {
+  const t = text.trim();
+  return t.length > 0 && PURE_FOLLOW_UP_RE.test(t);
+}
+
 export function useAIChatContext(personaId: string): {
   buildContext(params: BuildContextParams): Promise<ChatContextResult>;
   resetSession(): void;
@@ -181,6 +196,12 @@ export function useAIChatContext(personaId: string): {
   const stickyTurnsRef = useRef(0);
   const lastSearchQueryRef = useRef('');
   const lastSearchNamesRef = useRef<string[]>([]);
+  // PR-3: окно прошлого хода-перечня — по нему продолжение («перечитай по одной»)
+  // поднимает те же записи. Хранится окно разбора реплики, не текст ответа.
+  const lastPeriodWindowRef = useRef<{
+    minTime: number; maxTime: number; from?: string | undefined; to?: string | undefined;
+    mode?: 'summary' | 'insights' | 'facts' | undefined;
+  } | null>(null);
   const recentContextInjectedRef = useRef(false);
   // DLG-Q9: блок слов человека кэшируется на сессию по (люди, набор id заметок).
   const personQuotesCacheRef = useRef<{ key: string; block: string | undefined; ids: string[] } | null>(null);
@@ -189,6 +210,7 @@ export function useAIChatContext(personaId: string): {
     stickyTurnsRef.current = 0;
     lastSearchQueryRef.current = '';
     lastSearchNamesRef.current = [];
+    lastPeriodWindowRef.current = null;
     facetsCacheRef.current = { facets: null };
     docsCacheRef.current = null;
     doorsCacheRef.current = null;
@@ -260,7 +282,7 @@ export function useAIChatContext(personaId: string): {
       && endsWithProposal(lastAssistantReply.content);
     const strictNoteTurn = params.scope === 'note' && !!attached && !consentContinuation;
     // Кризис ищем и в приложенной заметке: текст хода теперь — только вопрос.
-    const crisis = detectRisk(attached ? `${text}\n${attached.content}` : text).isRisk;
+    const crisis = detectRisk(attached ? [text, ...attached.blocks.map(b => b.content ?? '')].join('\n') : text).isRisk;
     if (!strictNoteTurn && !smallTalk && text.trim().length > 0 && hasIndexingConsent(uid)) {
       try {
         setAIStage('query');
@@ -327,7 +349,7 @@ export function useAIChatContext(personaId: string): {
 
     // 2. Hydrate searchContext
     const noteAnalysisIntent = /(заметк|запис|аскез)/i.test(text) && /(разбер|разбор|проанализ|анализ|прочит|посмотр|глян)/i.test(text);
-    const noteIntentNoText = !attached?.content && noteAnalysisIntent;
+    const noteIntentNoText = !attached?.blocks.some(b => b.content) && noteAnalysisIntent;
 
     // The forced turn: use the provided query and force the search
     let explicitSearch = forcedSearchQuery ? true : shouldRunFullSearch(text, !!attached);
@@ -340,49 +362,27 @@ export function useAIChatContext(personaId: string): {
     let attachedBlock: string | undefined;
 
     let isAttachedExcluded = false;
-    // S-39: при нескольких заметках в documentId только первая — скрытую от ИИ
-    // проверяем по шапке каждого блока в момент отправки, а не при прикреплении.
-    const blockIds = attached?.blockIds;
-    const attachedContent = attached ? await hideExcludedNotes(attached.content, db, blockIds) : '';
-    // DY4 Н-1: ход с шапками режет по блокам hideExcludedNotes (сбой чтения = скрыта),
-    // и «скрыт» весь ход, только когда видимых блоков не осталось. Заметка-тема —
-    // первая видимая, а не documentId (первая приложенная): по ней строятся фон и
-    // поиск похожих, и скрытая первая утекла бы в них сутью.
-    // Только ход от сборщика (есть blockIds) и разобранный на блоки с первой
-    // строки. Иначе — старый ход, липкая заметка после перезагрузки (сырой текст),
-    // битая шапка — ворота по documentId, как раньше (fail-closed).
-    const turnHasHeads = !!blockIds && attachedBlockHeads(attached!.content, blockIds).length > 0;
-    // Только из шапок блоков: `[#id]` в теле (вставленный старый ответ ИИ) — не тема.
-    const subjectId = turnHasHeads
-      ? builderBlockHeads(attachedContent).map(h => h[1]!).find(id => !isPastedAttachmentId(id))
-      : attached?.documentId;
+    // DY5: скрытость — по списку блоков (сбой чтения = скрыта, S-51); «скрыт» весь
+    // ход, только когда видимых не осталось. Заметка-тема — первая видимая, не
+    // вставленный текст: по ней строятся фон, поиск похожих и память, и скрытая
+    // первая утекла бы в них сутью.
+    const attachedIds = attached?.blocks.map(b => b.documentId) ?? [];
+    const hid = attached ? await hideExcludedNotes(attached.blocks, db) : { text: '', visible: [] };
+    const subjectId = hid.visible.find(b => !isPastedAttachmentId(b.documentId))?.documentId;
+    // Заметка диалога без сборщика (fromLink) — сырой текст под своей пометкой.
+    const attachedContent = attached?.fromLink ? (hid.visible[0]?.content ?? '') : hid.text;
     if (attached) {
-      // DY5-1: список от сборщика есть, а шапки с ним не совпали — ход скрыт целиком.
-      // После hideExcludedNotes шапки уже свои (сверены по списку), список не нужен.
-      if (blockIds && !turnHasHeads) isAttachedExcluded = true;
-      if (turnHasHeads && builderBlockHeads(attachedContent).length === 0) isAttachedExcluded = true;
-      if (attached.documentId && !turnHasHeads) {
-        try {
-          const doc = await db.get('documents', attached.documentId);
-          if (isExcludedFromAI(doc)) {
-            isAttachedExcluded = true;
-          }
-        } catch (e) {
-          // S-51: не прочитали заметку — не знаем, скрыта ли; тело не уходит.
-          reportError(e, { action: 'buildContext_attachedExcluded', documentId: attached.documentId }, 'warning');
-          isAttachedExcluded = true;
-        }
-      }
+      if (hid.visible.length === 0) isAttachedExcluded = true;
       if (!isAttachedExcluded) {
-        if (attachedContent.includes('[#')) {
+        if (!attached.fromLink) {
           attachedBlock = attachedContent;
         } else {
-          const yyyymmdd = attached.documentId ? (await getDocDate(attached.documentId)) : formatDateYYYYMMDD(Date.now());
-          const docId = attached.documentId || 'attached-note';
+          const linked = hid.visible[0]!;
+          const yyyymmdd = await getDocDate(linked.documentId);
           const label = attachedIsSticky
             ? '[Заметка, к которой привязан этот диалог — пользователь НЕ присылал её сейчас, не говори «присланная/прикреплённая заметка»]'
             : '[Прикрепленная заметка]';
-          attachedBlock = `[#${docId} · ${yyyymmdd}]\n${label}\n${attachedContent}`;
+          attachedBlock = `[#${linked.documentId} · ${yyyymmdd}]\n${label}\n${attachedContent}`;
         }
         searchContext = attachedBlock;
 
@@ -467,8 +467,8 @@ export function useAIChatContext(personaId: string): {
             await (docsSnap ??= loadDocumentSnapshot()),
             await (summariesSnap ??= loadSummarySnapshot()),
             attachedContent,
-            // FN-2: в documentId только первая — остальные приложенные берём из шапок.
-            extractCitationIds(attachedContent),
+            // FN-2: все приложенные хода — из списка блоков.
+            attachedIds,
           );
         } catch (e) {
           reportError(e, { action: '[useAIChatContext] related days failed' });
@@ -498,12 +498,19 @@ export function useAIChatContext(personaId: string): {
 
     if (!noteIntentNoText) {
       const stickySearch = !explicitSearch && stickyTurnsRef.current > 0 && lastSearchQueryRef.current.length > 0;
+      // PR-6: у реплики своя тема (не «подробнее/ещё/дальше») — ищем по ней и
+      // делаем её новой темой продолжения, а не склеиваем со старой.
+      const topicShift = stickySearch && !isPureFollowUp(effectiveQuery);
       if (explicitSearch) {
         stickyTurnsRef.current = 4;
         lastSearchQueryRef.current = effectiveQuery;
         lastSearchNamesRef.current = [...new Set(effectiveQuery.match(/[А-ЯЁ][а-яё]{2,}/g) ?? [])];
       } else if (stickySearch) {
         stickyTurnsRef.current -= 1;
+        if (topicShift) {
+          lastSearchQueryRef.current = effectiveQuery;
+          lastSearchNamesRef.current = [...new Set(effectiveQuery.match(/[А-ЯЁ][а-яё]{2,}/g) ?? [])];
+        }
       }
 
       const needsFacets = !attached && !noteIntentNoText && (explicitSearch || stickySearch || PSYCHE_PERSONAS.includes(effectivePersonaId));
@@ -516,13 +523,61 @@ export function useAIChatContext(personaId: string): {
 
       if (shouldRunFacets) {
         try {
+          // DY6-4 (приёмка 26.10, Н-3): кэш на сессию переживал скрытие источника —
+          // перечитываем перед каждым ходом, если что-то из граней скрылось, уехало
+          // в корзину или удалилось (заметка — по снимку хода, диалог — по тому же
+          // правилу dialogueFacetVisible, что у сборщика и стража).
+          // Заметку ищем по всем трём ключам стража (локальный id, uuid,
+          // linkedCloudId): иначе грань с uuid в `noteIds` выглядела бы удалённой
+          // и пересобиралась бы каждый ход. Диалоги читаются по id, а не списком:
+          // `aiDialogues` — самое большое ИИ-хранилище, и полный `getAll` на грань
+          // стоил бы ходу мегабайты.
+          type SnapshotDoc = NonNullable<Awaited<ReturnType<typeof docAt>>>;
+          let stale = false;
+          if (facetsCacheRef.current.facets) {
+            let byKey: Map<string, SnapshotDoc> | null = null;
+            const findNote = async (id: string): Promise<SnapshotDoc | undefined> => {
+              const direct = await docAt(id);
+              if (direct) return direct;
+              const snap = await (docsSnap ??= loadDocumentSnapshot());
+              byKey ??= new Map();
+              if (byKey.size === 0) {
+                for (const d of snap.values()) {
+                  if (d.uuid) byKey.set(d.uuid, d);
+                  if (d.linkedCloudId) byKey.set(d.linkedCloudId, d);
+                }
+              }
+              return byKey.get(id);
+            };
+            let hiddenIdsCache: { has: (id: string) => boolean; size: number } | null = null;
+            const hiddenForDialogues = async () => {
+              if (hiddenIdsCache) return hiddenIdsCache;
+              const snap = await (docsSnap ??= loadDocumentSnapshot());
+              const hiddenRaw = hiddenNoteIdsFromDocs([...snap.values()]);
+              hiddenIdsCache = { has: (id: string) => !isPastedAttachmentId(id) && hiddenRaw.has(id), size: hiddenRaw.size };
+              return hiddenIdsCache;
+            };
+            for (const f of facetsCacheRef.current.facets) {
+              for (const id of f.noteIds) {
+                const d = await findNote(id);
+                if (!d || isExcludedFromAI(d) || d.trashedAt) { stale = true; break; }
+              }
+              if (stale) break;
+              for (const did of f.dialogueIds ?? []) {
+                const dialogue = await db.get('aiDialogues', did).catch(() => undefined);
+                // Непрочитанный диалог = «текста нет»: страж его грань не оставит.
+                if (!dialogueFacetVisible(dialogue, await hiddenForDialogues())) { stale = true; break; }
+              }
+            }
+            if (stale) facetsCacheRef.current = { facets: null };
+          }
           if (!facetsCacheRef.current.facets) {
             facetsCacheRef.current.facets = await AIProfileFacetService.getAll();
           }
           const facets = facetsCacheRef.current.facets;
 
           if (facets.length > 0 && hasIndexingConsent(uid)) {
-            const searchQuery = explicitSearch ? effectiveQuery : lastSearchQueryRef.current;
+            const searchQuery = explicitSearch || topicShift ? effectiveQuery : lastSearchQueryRef.current;
             // П-7: один вектор реплики на ход. При явном поиске поисковый запрос
             // совпадает с текстом реплики, а он уже векторизован выше (turnEmb,
             // AUDIT-M5) — второй вызов на тот же текст стоил ход-user'у ещё одну
@@ -611,9 +666,19 @@ export function useAIChatContext(personaId: string): {
         explicitSearch,
         lastSearchQuery: lastSearchQueryRef.current,
         db,
+        // Ревью 0.10.12 (M-2): ход с вложением говорит о своей заметке — окно не берёт.
+        carriedWindow: attached ? undefined : lastPeriodWindowRef.current ?? undefined,
       });
       handledByTemporal = temporal.outcome.handledByTemporal;
       periodWindow = temporal.periodWindow;
+      if (temporal.periodWindow?.listed) {
+        const { minTime: wMin, maxTime: wMax, from, to, mode } = temporal.periodWindow;
+        lastPeriodWindowRef.current = { minTime: wMin, maxTime: wMax, from, to, mode };
+      } else if (!temporal.periodWindow?.continued) {
+        // M-2: окно живёт только до хода, который не перечень и не продолжение;
+        // иначе «каждую ночь…» через десять ходов искало в старом окне.
+        lastPeriodWindowRef.current = null;
+      }
       skipSemantic = temporal.outcome.skipSemantic;
       minTime = temporal.outcome.minTime;
       maxTime = temporal.outcome.maxTime;
@@ -652,7 +717,7 @@ export function useAIChatContext(personaId: string): {
         // был лишь ускорением: на свежем устройстве он пуст, и общий поиск
         // отвечал на «что я писал про Сашу» лучше него.
         if (!skipSemantic) {
-          const searchQuery = explicitSearch ? effectiveQuery : `${lastSearchQueryRef.current}\n${text}`;
+          const searchQuery = explicitSearch || topicShift ? effectiveQuery : `${lastSearchQueryRef.current}\n${text}`;
           try {
             let searchQueries = [searchQuery];
             const expansionEnabled = import.meta.env.VITE_AI_QUERY_EXPANSION === 'true';
@@ -785,8 +850,8 @@ export function useAIChatContext(personaId: string): {
             }
             // DLG-Q7: приложенная заметка уже в контексте отдельным блоком —
             // второй раз она в результатах не нужна.
-            if (similarNotesQuery && attached?.documentId) {
-              allNotes = allNotes.filter(n => n.documentId !== attached.documentId && n.documentId !== subjectId);
+            if (similarNotesQuery && attached) {
+              allNotes = allNotes.filter(n => !attachedIds.includes(n.documentId));
             }
           }
 

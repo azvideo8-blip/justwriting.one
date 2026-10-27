@@ -89,5 +89,24 @@ describe('useEmptyDeviceDetection hook', () => {
       expect(result.current.cloudCount).toBe(1);
     });
   });
+
+  // Дейлик 27.10 (подозрение 2): облако не ответило — «нет ответа», а не «в облаке
+  // пусто». Перечитки было только две (сейф, сохранение), а на новом пустом
+  // устройстве ни того ни другого не будет: баннер «в облаке N заметок» не
+  // появлялся до перезагрузки. Мутация: убрать слушателя `online` → красный.
+  it('сбой облака на пустом устройстве — вернулась сеть, баннер появляется', async () => {
+    vi.spyOn(LocalStorageService, 'getDocumentsByOwner').mockResolvedValue([]);
+    const cloud = vi.spyOn(DocumentService, 'getUserDocuments')
+      .mockRejectedValueOnce(new Error('Failed to fetch'))
+      .mockResolvedValue([{ id: 'cloud_1' } as any, { id: 'cloud_2' } as any]);
+
+    const { result } = renderHook(() => useEmptyDeviceDetection());
+    await waitFor(() => expect(cloud).toHaveBeenCalledTimes(1));
+    expect(result.current.showCloudBanner).toBe(false);
+
+    window.dispatchEvent(new Event('online'));
+    await waitFor(() => expect(result.current.showCloudBanner).toBe(true));
+    expect(result.current.cloudCount).toBe(2);
+  });
 });
 

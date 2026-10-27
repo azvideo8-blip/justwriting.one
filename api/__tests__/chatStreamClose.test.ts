@@ -56,7 +56,7 @@ vi.stubGlobal('fetch', vi.fn(async (_url: unknown, init?: { signal?: AbortSignal
 }));
 
 import { handleChat, STREAM_BROKEN_NOTE } from '../chat';
-import { ANSWER_CUT_NOTE } from '../../src/shared/ai/aiPolicy';
+import { ANSWER_CUT_NOTE, ANSWER_CUT_NOTE_EN } from '../../src/shared/ai/aiPolicy';
 
 afterEach(() => {
   randomSpy?.mockRestore();
@@ -164,6 +164,16 @@ describe('3.8 stream disconnect', () => {
       await handleChat(new FakeReq(validBody) as unknown as IncomingMessage, res as unknown as ServerResponse);
       expect(res.body.endsWith(ANSWER_CUT_NOTE)).toBe(cut);
     }
+  });
+
+  // Дейлик 27.10 Н-4: английский ход — английская пометка (поток рассуждений).
+  it('английский ход на потолке получает английскую пометку', async () => {
+    const frame = (delta: object, finish?: string) => `data: ${JSON.stringify({ choices: [{ index: 0, delta, ...(finish ? { finish_reason: finish } : {}) }] })}\n\n`;
+    sseBody = sse([frame({ reasoning: 'thinking' }), frame({ content: 'Part of the answer' }, 'length')]);
+    const res = new FakeRes();
+    const body = { ...validBody, messages: [{ role: 'user' as const, content: 'Please rate my note about today, what do you think of it?' }] };
+    await handleChat(new FakeReq(body) as unknown as IncomingMessage, res as unknown as ServerResponse);
+    expect(res.body.endsWith(ANSWER_CUT_NOTE_EN)).toBe(true);
   });
 
   // Потоковый режим рассуждений включает рассуждение у провайдера — промпт не

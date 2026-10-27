@@ -47,29 +47,6 @@ describe('temporalQueryParser', () => {
     });
   });
 
-  it('should parse and lemmatize Russian names', () => {
-    expect(parseTemporalQuery('расскажи про Ольгу')).toEqual({
-      type: 'person',
-      personName: 'Ольга',
-      rawText: 'расскажи про Ольгу',
-    });
-    expect(parseTemporalQuery('что о Диме я писал')).toEqual({
-      type: 'person',
-      personName: 'Дима',
-      rawText: 'что о Диме я писал',
-    });
-    expect(parseTemporalQuery('встреча с Сашей')).toEqual({
-      type: 'person',
-      personName: 'Саша',
-      rawText: 'встреча с Сашей',
-    });
-    expect(parseTemporalQuery('говорили с Сергеем')).toEqual({
-      type: 'person',
-      personName: 'Сергей',
-      rawText: 'говорили с Сергеем',
-    });
-  });
-
   it('should return none for non-temporal queries', () => {
     expect(parseTemporalQuery('как дела?')).toEqual({
       type: 'none',

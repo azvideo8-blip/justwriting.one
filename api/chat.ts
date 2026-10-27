@@ -10,7 +10,7 @@ import { logChatShape, chatEndRecorder, type ChatEndSignals } from '../src/share
 import { auditAnswer, type AnswerAudit } from '../src/shared/ai/answerAudit.js';
 import { safeErrorShape } from '../src/shared/ai/errorShape.js';
 import { needsEnglishNudge, questionPart } from '../src/shared/ai/languageNudge.js';
-import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, assertNoSystemPromptInjection, createCallReservation, acquireChatReservation, ANSWER_CUT_NOTE, type CallReservation, type SettleReason, type CallReservationUsage } from '../src/shared/ai/aiPolicy.js';
+import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, assertNoSystemPromptInjection, createCallReservation, acquireChatReservation, answerCutNote, type CallReservation, type SettleReason, type CallReservationUsage } from '../src/shared/ai/aiPolicy.js';
 import { AiError, type GlobalReservation } from '../src/shared/ai/context.js';
 import { MAX_REQUEST_BODY_BYTES, DAILY_LIMIT, ADMIN_DAILY_LIMIT } from './ai/pure';
 
@@ -195,6 +195,7 @@ async function streamOpenRouterReasoning(
   chargedDay: string,
   estimatedInputTokens?: number,
   answerAudit?: (answer: string) => AnswerAudit | null,
+  replyLang: ReplyLanguage = 'ru',
 ): Promise<void> {
   const startedAt = Date.now();
   const settlement = createSettlement(uid, isInternalCall, reservation, chargedDay, estimatedInputTokens, 'reasoning');
@@ -390,7 +391,7 @@ async function streamOpenRouterReasoning(
   if (streamFailed && sawUpstreamChunk) write(STREAM_BROKEN_NOTE);
   // DL-19: ответ упёрся в потолок. Без ответа (весь потолок ушёл на ход мысли)
   // пометку не ставим — у клиента для этого своё сообщение.
-  else if (!clientClosed && answerText && (providerFinish === 'length' || tokensOut >= REASONING_MAX_TOKENS)) write(ANSWER_CUT_NOTE);
+  else if (!clientClosed && answerText && (providerFinish === 'length' || tokensOut >= REASONING_MAX_TOKENS)) write(answerCutNote(replyLang));
 
   // AUDIT-L3: settle() with measured tokens handles single usage recording and reconciliation.
   await settlement.settle(streamFailed ? 'failed' : 'done', { tokensIn, tokensOut, model });
@@ -617,7 +618,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     // line out of this prompt — that line is for the reasoning-off path only.
     // X-3: сам промпт собран до резерва (с `reasoning: true`), здесь лишь
     // правило о языке рассуждений.
-    await streamOpenRouterReasoning(res, uid, activeModel, providerRequest.system, providerMessages, isInternalCall, reservation, chargedDay, inputEstimate, answerAudit);
+    await streamOpenRouterReasoning(res, uid, activeModel, providerRequest.system, providerMessages, isInternalCall, reservation, chargedDay, inputEstimate, answerAudit, replyLang);
     return;
   }
 
@@ -813,7 +814,7 @@ function waitForNextOrAbort<T>(
       }
       // DL-19: поток кончился штатно, но на потолке вывода — пометка в конце.
       if (!controller.signal.aborted && !res.destroyed && answerText && await finishedOnLength(result)) {
-        res.write(ANSWER_CUT_NOTE);
+        res.write(answerCutNote(replyLang));
       }
     } catch (streamErr) {
       console.error('[api/chat] stream read failed mid-stream:', safeErrorShape(streamErr));

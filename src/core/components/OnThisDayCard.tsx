@@ -78,7 +78,7 @@ function trimExcerpt(text: string, max = 120): string {
   return (lastSpace > 0 ? slice.slice(0, lastSpace) : slice) + '\u2026';
 }
 
-export function OnThisDayCard({ sessions, onOpen, userId, showExcerpt = true }: {
+export function OnThisDayCard({ sessions, onOpen, userId, showExcerpt = true, compact = false }: {
   sessions: ArchiveSession[];
   onOpen: (s: ArchiveSession) => void;
   userId?: string | null | undefined;
@@ -88,10 +88,12 @@ export function OnThisDayCard({ sessions, onOpen, userId, showExcerpt = true }: 
    * В архиве выдержка остаётся (RC-6).
    */
   showExcerpt?: boolean;
+  /** Главный на компьютере (владелец 26.10): строка, как на телефоне, а не карточка. */
+  compact?: boolean;
 }) {
   const { t, language } = useLanguage();
   const { layoutMode } = useLayoutMode();
-  const isMobile = layoutMode === 'mobile';
+  const asRow = layoutMode === 'mobile' || compact;
   const reducedMotion = useReducedMotion();
   const today = format(new Date(), 'yyyy-MM-dd');
   const [dismissedDay, setDismissedDay] = useState<string | null>(() => readDismissedDay(userId));
@@ -115,7 +117,7 @@ export function OnThisDayCard({ sessions, onOpen, userId, showExcerpt = true }: 
     writeDismissedDay(userId, today);
     // На телефоне уход не анимируется (строка, а не карточка) — прячем сразу;
     // раньше «×» там не действовал вовсе, если не включено reduced motion.
-    if (isMobile || reducedMotion) {
+    if (asRow || reducedMotion) {
       setDismissedDay(today);
     } else {
       setDismissing(true);
@@ -125,7 +127,7 @@ export function OnThisDayCard({ sessions, onOpen, userId, showExcerpt = true }: 
   // MC-7: на телефоне напоминание — обычная строка: нет карточки в карточке,
   // нет цветного левого края и плашки с датой. Дата и заголовок читаются в
   // одной строке, стрелка справа говорит «откроется».
-  if (isMobile) {
+  if (asRow) {
     return (
       <div className="flex items-center border-b border-[var(--border-light)]">
         <button

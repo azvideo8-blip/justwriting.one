@@ -4,7 +4,7 @@ import { generate } from '../ai/provider';
 import type { AiContext } from '../../src/shared/ai/context.js';
 import { SYSTEM_TASK_PROMPTS } from '../../src/shared/ai/systemTaskPrompts.js';
 import { REASONING_LANGUAGE_RULE } from '../../src/shared/ai/buildChatPrompt.js';
-import { ANSWER_CUT_NOTE } from '../../src/shared/ai/aiPolicy.js';
+import { ANSWER_CUT_NOTE, ANSWER_CUT_NOTE_EN } from '../../src/shared/ai/aiPolicy.js';
 
 vi.mock('../ai/provider', () => ({
   generate: vi.fn(),
@@ -141,5 +141,14 @@ describe('chatWithAI: режим рассуждений в запасном пу
     vi.mocked(generate).mockResolvedValue({ text: 'Целый ответ', tokensIn: 10, tokensOut: 900, model: 'test-model' });
     const whole = await chatWithAILogic(ctx, 'u1', payload()) as { result: string };
     expect(whole.result).not.toContain(ANSWER_CUT_NOTE);
+  });
+
+  // Дейлик 27.10 Н-4: к английскому ответу — английская пометка, не русская.
+  // Мутация: одна константа на оба языка → красный.
+  it('английский ход на потолке получает английскую пометку', async () => {
+    vi.mocked(generate).mockResolvedValue({ text: 'A cut answer', tokensIn: 10, tokensOut: 3000, model: 'test-model' });
+    const cut = await chatWithAILogic(ctxSpy(), 'u1', payload({ messages: [{ role: 'user', content: 'Please rate my note about today, what do you think of it?' }] })) as { result: string };
+    expect(cut.result.endsWith(ANSWER_CUT_NOTE_EN)).toBe(true);
+    expect(cut.result).not.toContain(ANSWER_CUT_NOTE);
   });
 });

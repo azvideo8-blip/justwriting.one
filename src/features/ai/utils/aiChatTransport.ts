@@ -406,6 +406,8 @@ export async function streamChat(params: {
   userPortrait?: string | null | undefined;
   memoryContext?: string | null | undefined;
   noteScope?: NoteScope | undefined;
+  /** PR-10: род автора, посчитанный по текстам хода (только Редактор). */
+  authorGender?: 'm' | 'f' | undefined;
   responseLength?: 'short' | 'standard' | 'detailed' | undefined;
   reasoning?: boolean | undefined;
   /** DLG-Q3: кризисный ход — сигнал уезжает отдельным полем, не текстом в контексте. */
@@ -442,6 +444,7 @@ export async function streamChat(params: {
       userPortrait: params.userPortrait,
       memoryContext: params.memoryContext,
       noteScope: params.noteScope,
+      authorGender: params.authorGender,
       responseLength: params.responseLength,
       reasoning: params.reasoning,
       crisis: params.crisis,
@@ -593,6 +596,8 @@ export async function callableChat(params: {
   userPortrait?: string | null | undefined;
   memoryContext?: string | null | undefined;
   noteScope?: NoteScope | undefined;
+  /** PR-10: род автора, посчитанный по текстам хода (только Редактор). */
+  authorGender?: 'm' | 'f' | undefined;
   responseLength?: 'short' | 'standard' | 'detailed' | undefined;
   reasoning?: boolean | undefined;
   callType?: 'auto_name' | 'follow_up' | 'query_expand' | undefined;
@@ -609,6 +614,7 @@ export async function callableChat(params: {
     userPortrait: params.userPortrait,
     memoryContext: params.memoryContext,
     noteScope: params.noteScope,
+    authorGender: params.authorGender,
     responseLength: params.responseLength,
     reasoning: params.reasoning,
     callType: params.callType,

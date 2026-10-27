@@ -3,7 +3,6 @@ import { renderHook } from '@testing-library/react';
 import 'fake-indexeddb/auto';
 import { hideExcludedNotes, useAIChatContext } from '../aiChatContext';
 import { getLocalDb } from '../../../../core/storage/localDb';
-import { attachedTurn } from '../../../../test/attachedTurnFixtures';
 
 // S-63.1 (регрессия S-51): «Вставить как заметку» прикладывает текст под id
 // `pasted-<ts>` без строки в documents. isExcludedFromAI(undefined) с S-51
@@ -14,7 +13,7 @@ vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }
 
 const PASTED = 'ВСТАВЛЕННЫЙ ТЕКСТ, который человек хочет обсудить.';
 const DAY = new Date('2026-10-02T12:00:00').getTime();
-const pastedBlock = attachedTurn([{ documentId: 'pasted-1759392000000', title: 'Вставленный текст', lastSessionAt: DAY, content: PASTED }]);
+const pasted = { documentId: 'pasted-1759392000000', title: 'Вставленный текст', lastSessionAt: DAY, content: PASTED };
 
 describe('S-63: pasted text is not a note and is never hidden', () => {
   beforeEach(async () => {
@@ -24,15 +23,15 @@ describe('S-63: pasted text is not a note and is never hidden', () => {
 
   it('hideExcludedNotes keeps the pasted block although there is no documents row', async () => {
     const db = await getLocalDb();
-    const out = await hideExcludedNotes(pastedBlock, db);
+    const out = (await hideExcludedNotes([pasted], db)).text;
     expect(out).toContain(PASTED);
     expect(out).not.toContain('[заметка скрыта от ИИ]');
   });
 
   it('a deleted real note next to it is still hidden', async () => {
     const db = await getLocalDb();
-    const gone = attachedTurn([{ documentId: 'local_gone', title: 'Удалённая', lastSessionAt: DAY, content: 'ТЕЛО УДАЛЁННОЙ' }]);
-    const out = await hideExcludedNotes(`${pastedBlock}\n\n---\n\n${gone}`, db);
+    const gone = { documentId: 'local_gone', title: 'Удалённая', lastSessionAt: DAY, content: 'ТЕЛО УДАЛЁННОЙ' };
+    const out = (await hideExcludedNotes([pasted, gone], db)).text;
     expect(out).toContain(PASTED);
     expect(out).not.toContain('ТЕЛО УДАЛЁННОЙ');
   });
@@ -41,8 +40,8 @@ describe('S-63: pasted text is not a note and is never hidden', () => {
     const { result } = renderHook(() => useAIChatContext('editor'));
     const ctx = await result.current.buildContext({
       text: 'Что скажешь об этом?',
-      // Как собирает useAIPageData: documentId не задан (не local_), текст — в content.
-      attached: { content: pastedBlock },
+      // Как собирает useAIPageData: вставленный текст — блок с id `pasted-…`.
+      attached: { blocks: [pasted] },
       mood: undefined,
       messageHistory: [],
       isFirstTurn: true,

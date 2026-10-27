@@ -22,7 +22,7 @@ import { DataProvider } from '../../../core/data';
 import { getIndexingConsent, setIndexingConsent, INDEXING_CONSENT_VERSION } from '../../../core/ai/indexingConsent';
 import { indexPending } from '../utils/embeddingIndexer';
 import { looksLikeNoteSearch, splitAttachedMessage, legacyNoteHidden } from '../utils/aiChatTransport';
-import { formatRefTag, attachedTurn } from '../utils/attachedNoteFormat';
+import { attachedTurn } from '../utils/attachedNoteFormat';
 import { citesHiddenNote } from '../utils/hiddenNoteIds';
 import { useLanguage } from '../../../shared/i18n';
 import { noteMetaFor } from '../utils/noteMeta';
@@ -310,7 +310,6 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
         : { title: attaches.map(a => a.title).join('», «'), date: '' };
       const sendOpts = { question: text, noteMeta, ...(opts?.forceWide ? { forceWide: true } : {}) };
 
-      const totalContent = attaches.map(formatRefTag).join('\n\n---\n\n');
       const totalChars = attaches.reduce((s, a) => s + a.content.length, 0);
       const fits = totalChars <= 9000;
       // DE-3: шапка `[#id · дата]` стоит над каждым маркером, и в ходе, где тело
@@ -321,7 +320,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
         fits ? attaches : attaches.map(a => ({ documentId: a.documentId, title: a.title, lastSessionAt: a.lastSessionAt })),
         text,
       );
-      id = await sendMessage(display, { content: totalContent, ...(firstLocalDocId ? { documentId: firstLocalDocId } : {}), blockIds: attaches.map(a => a.documentId), inline: fits }, undefined, undefined, sendOpts);
+      id = await sendMessage(display, { blocks: attaches, ...(firstLocalDocId ? { documentId: firstLocalDocId } : {}) }, undefined, undefined, sendOpts);
     } else {
       id = await sendMessage(text, undefined, undefined, undefined, opts?.forceWide || opts?.question
         ? { ...(opts.forceWide ? { forceWide: true } : {}), ...(opts.question ? { question: opts.question } : {}) }

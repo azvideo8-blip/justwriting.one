@@ -26,10 +26,15 @@ export function initAiDomainEvents(): () => void {
       // положенная в корзину, продолжала поставлять факты и цитаты в подсказки.
       case 'note.deleted':
       case 'note.trashed': {
-        const [{ NoteAnalysisService }, { invalidateMiniSearchCache }] = await Promise.all([
+        const [{ NoteAnalysisService }, { invalidateMiniSearchCache }, { AILexiconService }] = await Promise.all([
           import('./services/NoteAnalysisService'),
           import('./utils/noteRetriever'),
+          import('./services/AILexiconService'),
         ]);
+        // DY6-1 (Н-1): «свои слова» кэшируются на 10 минут, и без сброса слово
+        // скрытой заметки уходит в модель ещё столько же после скрытия — даже когда
+        // чистка произведена и строки разбора уже удалены.
+        AILexiconService.clearCache();
         invalidateMiniSearchCache();
         await NoteAnalysisService.clear(e.documentId);
         break;
@@ -38,7 +43,11 @@ export function initAiDomainEvents(): () => void {
         const { refreshMiniSearchDoc } = await import('./utils/noteRetriever');
         const refreshing = refreshMiniSearchDoc(e.documentId);
         if (e.excluded) {
-          const { NoteAnalysisService } = await import('./services/NoteAnalysisService');
+          const [{ NoteAnalysisService }, { AILexiconService }] = await Promise.all([
+            import('./services/NoteAnalysisService'),
+            import('./services/AILexiconService'),
+          ]);
+          AILexiconService.clearCache();
           await NoteAnalysisService.clear(e.documentId);
         }
         await refreshing;

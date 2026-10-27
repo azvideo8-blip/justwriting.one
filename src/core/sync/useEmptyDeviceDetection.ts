@@ -151,6 +151,15 @@ export function useEmptyDeviceDetection(opts?: { cloudOnlyWhenEmpty?: boolean })
     return () => window.removeEventListener(VAULT_UNLOCKED_EVENT, onUnlocked);
   }, [check, bannerOnly]);
 
+  // Дейлик 27.10: сбой чтения облака — «нет ответа», а не «пусто». На новом
+  // пустом устройстве ни сейфа, ни сохранения может не случиться — перечитываем,
+  // когда вернулась сеть (облако — только пока устройство пустое).
+  useEffect(() => {
+    const onOnline = () => { void check({ cloudOnlyWhenEmpty: true }); };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [check]);
+
   // RA1-5: появилась первая локальная запись — баннер «в облаке N заметок»
   // больше не про этот экран. BR-4: событие фильтруется по владельцу (как
   // `useReturnNote` и `useOnThisDayHome`), а перечитка облака нужна только

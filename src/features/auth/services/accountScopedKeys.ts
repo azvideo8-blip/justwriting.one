@@ -35,6 +35,8 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
     `jw_restore_prompt_dismissed_${uid}`,
     // RA1-7: «В этот день» закрыт на сегодня (дата, не id заметки)
     `onthisday_dismissed_${uid}`,
+    // «Продолжить» скрыта на сегодня (дата)
+    `home_return_dismissed_${uid}`,
     // кэш психологического портрета (AIProfileService.portraitCacheKey).
     // Самый чувствительный единичный артефакт в приложении: спецкатегории и
     // имена третьих лиц открытым текстом.

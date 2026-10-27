@@ -25,8 +25,7 @@ import { SyncUnsyncedBar } from '../../../core/components/SyncUnsyncedBar';
 import { CloudNotesBanner } from './CloudNotesBanner';
 import { StreakChip } from './StreakChip';
 import { OnThisDayCard } from '../../../core/components/OnThisDayCard';
-import { useReturnNote } from '../hooks/useReturnNote';
-import { useOnThisDayHome } from '../hooks/useOnThisDayHome';
+import { useHomeHint } from '../hooks/useHomeHint';
 import { useAutoHideCursor } from '../hooks/useAutoHideCursor';
 import type { SessionType } from '../store/types';
 import type { LifeLogDocument } from '../types/lifeLog';
@@ -72,7 +71,6 @@ export function MobileWriteScreen({
   userId, isGuest, onContinueNote, onOpenMemory,
 }: MobileWriteScreenProps) {
   const { t, tp, language } = useLanguage();
-  const returnNote = useReturnNote(userId ?? '');
   const { openSettings } = useSettings();
   const { content, setContent, title, setTitle, wordCount } = useContentStore(
     useShallow(s => ({
@@ -113,11 +111,9 @@ export function MobileWriteScreen({
   const isRunning = status === 'writing';
   const isPaused = status === 'paused';
   const showZen = isZenActive && zenModeEnabled;
-  // BR-7 (предложение ревьюера; решение за владельцем): «В этот день» больше не
-  // ждёт, пока исчезнет карточка возврата, — она строкой под «Продолжить».
-  // `enabled` = то же условие, по которому строка реально рисуется.
+  // Одна подсказка за раз: «Продолжить», иначе «В этот день» (владелец 26.10).
   const homeStripVisible = !showZen && isIdleState && !hasDraft;
-  const onThisDay = useOnThisDayHome(userId ?? '', homeStripVisible);
+  const { returnNote, dismissReturn, onThisDay } = useHomeHint(userId ?? '', homeStripVisible);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     startOnKey(e);
@@ -436,10 +432,11 @@ export function MobileWriteScreen({
             hidden={Boolean(hasDraft)}
             className="flex items-center justify-between gap-2 rounded-xl border border-[var(--border-light)] bg-[var(--surface-card)] px-3 py-1 text-[13px] leading-snug text-text-main/60"
             onContinue={onContinueNote}
+            onDismiss={dismissReturn}
           />
         </div>
       )}
-      {/* BR-7: напоминание — строкой под «Продолжить», тем же списком. */}
+      {/* «В этот день» — только когда «Продолжить» нет или её скрыли. */}
       {homeStripVisible && onThisDay && (
         <div className="px-5 pb-2">
           <OnThisDayCard

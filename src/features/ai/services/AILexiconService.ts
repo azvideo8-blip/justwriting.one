@@ -1,6 +1,8 @@
 import { getLocalDb } from '../../../core/storage/localDb';
 import { hasEnoughSignal, SIGNAL_THRESHOLDS } from './signalGate';
 import { localMonthKey } from '../../../core/utils/dateUtils';
+import { loadVisibleNoteKeys } from '../utils/retrieval/docSnapshot';
+import { reportError } from '../../../shared/errors/reportError';
 
 export interface VoiceTerm {
   word: string;
@@ -63,10 +65,24 @@ export const AILexiconService = {
     const db = await getLocalDb();
     const summaries = await db.getAll('aiSummaries');
 
+    // DY6-1 (дейлик 2026-10-26, Н-1): сводка — производное заметки, и по её словам
+    // модель судит о «своих словах» человека. Снимок видимых заметок читается на
+    // каждый вызов (как в temporalBlocks): скрытое не отдаётся, даже если чистка
+    // производных на этом устройстве не дошла. Сбой снимка = слов не видно,
+    // а не «видно всё».
+    let visibleKeys: Set<string>;
+    try {
+      visibleKeys = await loadVisibleNoteKeys();
+    } catch (e) {
+      reportError(e, { action: 'ailexicon_visibleNotesSnapshot_failed' });
+      return null;
+    }
+
     // Collect summary dates and filter valid summaries with authorPhrases or frequentWords
     const validSummaries = summaries.filter(s =>
-      (Array.isArray(s.authorPhrases) && s.authorPhrases.length > 0) ||
-      (Array.isArray(s.frequentWords) && s.frequentWords.length > 0)
+      ((Array.isArray(s.authorPhrases) && s.authorPhrases.length > 0) ||
+        (Array.isArray(s.frequentWords) && s.frequentWords.length > 0))
+      && (visibleKeys.has(s.documentId) || (s.documentUuid ? visibleKeys.has(s.documentUuid) : false))
     );
     const summaryDates = validSummaries.map(s => s.eventDate ?? s.processedAt);
 

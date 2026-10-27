@@ -133,6 +133,11 @@ export function getMaxTokens(
  * оборванный текст читается законченным.
  */
 export const ANSWER_CUT_NOTE = '\n\n— Ответ упёрся в предел длины и оборван здесь. Напиши «продолжи» — допишу.';
+// Дейлик 27.10 Н-4: к английскому ответу — английская пометка (язык хода — replyLang).
+export const ANSWER_CUT_NOTE_EN = '\n\n— The answer hit the length limit and was cut off here. Write «continue» and I will finish it.';
+export function answerCutNote(lang: 'ru' | 'en'): string {
+  return lang === 'en' ? ANSWER_CUT_NOTE_EN : ANSWER_CUT_NOTE;
+}
 
 // AUD-19: EFFECTIVE_TOKEN_LIMIT резервируется против ответа. Длинная заметка,
 // ушедшая на анализ, тратит входные токены, которых никакой резерв не покрывает.

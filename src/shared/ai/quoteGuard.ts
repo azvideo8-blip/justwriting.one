@@ -135,9 +135,14 @@ interface Phrase {
   words: string[];
 }
 
+// Дейлик 27.10 Н-3: строки шапки блока («[#id · дата]», «[Прикреплена заметка: …]»)
+// — граница фразы, а не начало первой фразы заметки. Иначе цитата через конец
+// одной заметки и начало следующей не находилась в материалах.
+const BLOCK_HEAD_LINE = /^[ \t]*\[(?:#[^\]\n]*|Прикреплена заметка: [^\n]*)\][ \t]*$/gm;
+
 function phrasesOf(materials: string): Phrase[] {
   const out: Phrase[] = [];
-  for (const raw of materials.split(PHRASE_SPLIT)) {
+  for (const raw of materials.replace(BLOCK_HEAD_LINE, '\n').split(PHRASE_SPLIT)) {
     const text = normalizeQuoteText(raw);
     if (text) out.push({ text, words: words(text) });
   }
@@ -241,10 +246,14 @@ export function unquoteAbsent(
       // «она сказала: «…»» → «она сказала, по смыслу: …»; в начале фразы — «По смыслу: …».
       // DE-5: перевод строки не снимаем — иначе абзац склеивался с предыдущим.
       before = before.replace(/[ \t:,]*$/, '');
+      // PR-7: после тире запятая не ставится — «звучит так — по смыслу: …».
+      const dashBefore = /[—–-]$/.test(before);
       const sentenceStart = /(?:^|[.!?\n])\s*$/.test(out + before);
-      body = sentenceStart
-        ? `${before && !before.endsWith('\n') ? ' ' : ''}По смыслу: ${inner}`
-        : `, по смыслу: ${inner}`;
+      body = dashBefore
+        ? ` по смыслу: ${inner}`
+        : sentenceStart
+          ? `${before && !before.endsWith('\n') ? ' ' : ''}По смыслу: ${inner}`
+          : `, по смыслу: ${inner}`;
     }
     out += before + body;
     last = at + m[0].length;

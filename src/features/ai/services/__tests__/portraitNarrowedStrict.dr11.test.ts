@@ -6,6 +6,7 @@ import { renderHook } from '@testing-library/react';
 import 'fake-indexeddb/auto';
 import { useAIChatContext } from '../aiChatContext';
 import { getLocalDb } from '../../../../core/storage/localDb';
+import { linkedNote } from '../../../../test/attachedTurnFixtures';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../shared/i18n', () => ({ useLanguage: () => ({ language: 'ru', t: (k: string) => k }) }));
@@ -42,7 +43,7 @@ describe('DR-11: портрет в строгом ходе', () => {
     const { result } = renderHook(() => useAIChatContext('group_psychology'));
     return result.current.buildContext({
       text: scope === 'note' ? 'разбери глубоко' : 'свяжи с другими заметками',
-      attached: { documentId: ATT, content: 'ТЕКСТ_ПРИЛОЖЕННОЙ_ЗАМЕТКИ_ДР11' },
+      attached: linkedNote(ATT, 'ТЕКСТ_ПРИЛОЖЕННОЙ_ЗАМЕТКИ_ДР11'),
       mood: undefined,
       messageHistory: [],
       isFirstTurn: true,

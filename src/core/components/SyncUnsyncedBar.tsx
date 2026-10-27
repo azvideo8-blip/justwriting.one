@@ -22,6 +22,9 @@ export function SyncUnsyncedBar({ userId, className, compact = false }: SyncUnsy
   const { status, unsyncedCount, autoSyncEnabled } = useSyncStatus(userId);
   const [retrying, setRetrying] = React.useState(false);
   const [failed, setFailed] = React.useState(false);
+  // Дейлик 27.10 Н-2: движок отказался отправлять (сейф заперт / нет сети) —
+  // строка называет причину, а не обещает повтор, который ничего не сделал.
+  const [skipped, setSkipped] = React.useState<'vault_locked' | 'offline' | null>(null);
 
   // BR-2: полоса и её «Повторить» — только тем, кто синхронизацию включил.
   // Очередь пополняется при любом тумблере, и кнопка с невинной подписью
@@ -31,6 +34,7 @@ export function SyncUnsyncedBar({ userId, className, compact = false }: SyncUnsy
   const retry = async () => {
     setRetrying(true);
     setFailed(false);
+    setSkipped(null);
     try {
       // N-2: движок синка — по требованию. Статическое ребро из рейки тянуло
       // SyncService и весь облачный слой в стартовый кусок (гейт bootChunkGraph).
@@ -40,6 +44,7 @@ export function SyncUnsyncedBar({ userId, className, compact = false }: SyncUnsy
       // «Готово» здесь не звучит никогда: строка уходит сама, когда счётчик
       // станет нулём, а частичный провал — это провал.
       if (res.failed > 0) setFailed(true);
+      else if (res.skippedReason === 'vault_locked' || res.skippedReason === 'offline') setSkipped(res.skippedReason);
     } catch (e) {
       reportError(e, { action: 'syncUnsyncedBar/retry', userId });
       setFailed(true);
@@ -50,7 +55,9 @@ export function SyncUnsyncedBar({ userId, className, compact = false }: SyncUnsy
 
   const label = failed
     ? t('sync_retry_failed')
-    : status === 'offline'
+    : skipped === 'vault_locked'
+      ? t('vault_locked_banner_compact')
+      : status === 'offline' || skipped === 'offline'
       ? t('sync_paused_no_network')
       : t('sync_unsynced_compact', { count: unsyncedCount });
 

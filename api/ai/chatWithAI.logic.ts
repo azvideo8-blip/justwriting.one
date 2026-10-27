@@ -1,6 +1,6 @@
 // functions/src/ai/chatWithAI.logic.ts
 import { sanitizeAiInput, sanitizeAiResponse } from './pure';
-import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, assertNoSystemPromptInjection, acquireChatReservation, ANSWER_CUT_NOTE } from '../../src/shared/ai/aiPolicy.js';
+import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, assertNoSystemPromptInjection, acquireChatReservation, answerCutNote } from '../../src/shared/ai/aiPolicy.js';
 import { generate } from './provider';
 import { buildChatSystemPrompt, assembleChatPromptParams, isLongNoteTurn, chatInputSchema, withReasoningLanguage, withEnglishNudge, type ReplyLanguage } from '../../src/shared/ai/buildChatPrompt.js';
 import { resolveAiChatModel, resolveChatModel } from '../../src/shared/ai/requestConfig.js';
@@ -135,7 +135,7 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
   const raw = isReasoningMode && gen.reasoning ? `ХОД МЫСЛИ:\n${gen.reasoning}\n\nОТВЕТ:\n${gen.text}` : gen.text;
   // DL-19: ответ упёрся в потолок — пометка в конце (как в потоковом пути).
   const cut = !isInternalCall && gen.text.length > 0 && gen.tokensOut >= maxTokens;
-  const text = sanitizeAiResponse(raw, { keepReasoning: isReasoningMode }) + (cut ? ANSWER_CUT_NOTE : '');
+  const text = sanitizeAiResponse(raw, { keepReasoning: isReasoningMode }) + (cut ? answerCutNote(replyLang) : '');
 
   callRes.markProduced(gen.text.length);
   await callRes.settle('done');

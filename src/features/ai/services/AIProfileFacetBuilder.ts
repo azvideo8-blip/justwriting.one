@@ -1,4 +1,4 @@
-import { getLocalDb, type AIProfileFacet } from '../../../core/storage/localDb';
+import { getLocalDb, type AIProfileFacet, type AIDialogueEvent } from '../../../core/storage/localDb';
 import { AIEmbeddingService } from './AIEmbeddingService';
 import { AIService } from './AIService';
 import { clusterChunks, mergeSimilarClusters, suggestK, normalize, type ChunkItem } from '../utils/facetClustering';
@@ -10,6 +10,9 @@ import { reportAIDegradation } from '../utils/aiDegradationReporter';
 import { writeFacetStore } from '../../../core/services/facetLock';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 import { loadVisibleNoteKeys } from '../utils/retrieval/docSnapshot';
+import { dialogueFacetVisible } from '../utils/dialogueFacetVisibility';
+import { hiddenNoteIdsFromDocs } from '../utils/hiddenNoteIds';
+import { isPastedAttachmentId } from '../utils/isExcludedFromAI';
 
 const MIN_FACET_NOTES = 2;
 const MAX_EXCERPTS = 14;
@@ -97,7 +100,24 @@ export const AIProfileFacetBuilder = {
       const db = await getLocalDb();
 
       const dialogueInFacetsEnabled = localStorage.getItem('ff_dialogues_in_facets') === 'true';
-      const dialogueEvents = dialogueInFacetsEnabled ? await db.getAll('aiDialogueEvents') : [];
+      // DY6-3 (Н-2): событие диалога идёт в сборку только если сам диалог видим —
+      // то же правило, что страж на чтении (AIProfileFacetService.getAll), общая
+      // функция dialogueFacetVisible. Сбой списка диалогов («нет ответа») —
+      // событий нет; скрытое не уезжает summarizeFacet через _excerptSeed.
+      let dialogueEvents: AIDialogueEvent[] = [];
+      if (dialogueInFacetsEnabled) {
+        const dialogueEventsAll = await db.getAll('aiDialogueEvents');
+        try {
+          const docsForVis = await db.getAll('documents');
+          const hiddenRaw = hiddenNoteIdsFromDocs(docsForVis);
+          const hiddenIds = { has: (id: string) => !isPastedAttachmentId(id) && hiddenRaw.has(id), size: hiddenRaw.size };
+          const dialogues = new Map((await db.getAll('aiDialogues')).map(d => [d.id, d]));
+          dialogueEvents = dialogueEventsAll.filter(e => dialogueFacetVisible(dialogues.get(e.dialogueId), hiddenIds));
+        } catch (e) {
+          reportError(e, { action: 'facetBuilder_dialogueVisibility_failed' });
+          dialogueEvents = [];
+        }
+      }
       const dialogueIdsSet = new Set(dialogueEvents.map(e => e.dialogueId));
 
       const visibleKeys = await loadVisibleNoteKeys();

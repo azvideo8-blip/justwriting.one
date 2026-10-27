@@ -141,6 +141,8 @@ export const AIService = {
     userPortrait?: string | null | undefined;
     memoryContext?: string | null | undefined;
     noteScope?: NoteScope | undefined;
+    /** PR-10: род автора, посчитанный по текстам хода (только Редактор). */
+    authorGender?: 'm' | 'f' | undefined;
     responseLength?: 'short' | 'standard' | 'detailed' | undefined;
     reasoning?: boolean | undefined;
     callType?: 'auto_name' | 'follow_up' | 'query_expand' | 'system_task' | undefined;

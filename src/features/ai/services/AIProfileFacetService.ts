@@ -2,7 +2,10 @@ import { getLocalDb } from '../../../core/storage/localDb';
 import type { AIProfileFacet } from '../../../core/storage/localDb';
 import { AIProfileFacetBuilder, type FacetBuildProgress, type FacetBuildResult } from './AIProfileFacetBuilder';
 import { AIProfileFacetSummarizer } from './AIProfileFacetSummarizer';
-import { isExcludedFromAI } from '../utils/isExcludedFromAI';
+import { isExcludedFromAI, isPastedAttachmentId } from '../utils/isExcludedFromAI';
+import { hiddenNoteIdsFromDocs } from '../utils/hiddenNoteIds';
+import { dialogueFacetVisible } from '../utils/dialogueFacetVisibility';
+import { reportError } from '../../../shared/errors/reportError';
 
 import type { CallAiOptions } from '../../../core/ai/callAi';
 import { writeFacetStore } from '../../../core/services/facetLock';
@@ -29,10 +32,42 @@ export const AIProfileFacetService = {
       if (d.uuid) byId.set(d.uuid, d);
       if (d.linkedCloudId) byId.set(d.linkedCloudId, d);
     }
+    // DY6-2 (дейлик 2026-10-26, Н-2): при ff_dialogues_in_facets в грань кладутся
+    // пересказы диалогов (`dialogueIds`), а страж смотрел только на `noteIds` —
+    // то есть пересказ разговора о скрытой заметке уходил в контекст каждого хода.
+    // То же правило, что chatContext/proactive.ts (`citesHidden`): диалог, чья
+    // реплика ссылается на скрытую/удалённую/неразрешимую заметку или у которой
+    // скрыта заметка-тема, — не источник видимой грани. Не прочитался список
+    // диалогов («нет ответа») — грань с `dialogueIds` не видна; грань без них
+    // остаётся на своём месте, страж не прячет всё подряд.
+    const hiddenIdsRaw = hiddenNoteIdsFromDocs(docs);
+    // S-63: «вставленный текст» живёт под id `pasted-<ts>`, строки в `documents`
+    // у него нет и не будет — правило «заметки нет — нельзя» к нему не относится
+    // (тот же вырез, что у истории чата `aiChatTransport.ts:278` и у
+    // `attachedNoteAppendix`). Без него тема или цитата вставленного текста
+    // прятала бы грань навсегда: пересборка — только по действию человека.
+    const hiddenIds = {
+      has: (id: string) => !isPastedAttachmentId(id) && hiddenIdsRaw.has(id),
+      size: hiddenIdsRaw.size,
+    };
+    // Чтение списка диалогов нужно только если хоть одна грань на них ссылается:
+    // при выключенном ff_dialogues_in_facets их не несёт ни одна, а `aiDialogues`
+    // — самое большое ИИ-хранилище (замер: 300 диалогов ≈ 2,6 МБ).
+    let dialogueVisible: (dialogueId: string) => boolean = () => false;
+    if (all.some(f => (f.dialogueIds?.length ?? 0) > 0)) {
+      try {
+        const dialogues = await db.getAll('aiDialogues');
+        const byDialogueId = new Map(dialogues.map(d => [d.id, d]));
+        // DY6-3: правило — общая функция с продюсером граней, второй копии нет.
+        dialogueVisible = (dialogueId: string): boolean => dialogueFacetVisible(byDialogueId.get(dialogueId), hiddenIds);
+      } catch (e) {
+        reportError(e, { action: 'facetProfile_dialoguesSnapshot_failed' });
+      }
+    }
     const visible = all.filter(f => f.noteIds.every(id => {
       const doc = byId.get(id);
       return !!doc && !isExcludedFromAI(doc);
-    }));
+    }) && (f.dialogueIds ?? []).every(dialogueVisible));
     visible.sort((a, b) => b.noteCount - a.noteCount);
     return visible;
   },

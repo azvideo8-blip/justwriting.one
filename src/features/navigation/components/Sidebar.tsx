@@ -181,11 +181,16 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
   // Guests have no cloud sync relationship at all, so isCloudConnected
   // staying false for them isn't a "cloud unavailable" problem — gate on
   // being an actual authenticated user, same as AppTab's settings row.
-  // Значок показывается и при выключенной автоотправке: незалитые заметки —
-  // повод сказать об этом, а не молчать, потому что отправка выключена.
+  // BR-16 (ревью 0.10.11): «не залито» при выключенной синхронизации — не повод
+  // пульсировать: человек выбрал «только на устройстве», и развёрнутая полоса
+  // (SyncUnsyncedBar) молчит об этом же с BR-2. Прежнее «значок показывается и
+  // при выключенной автоотправке» оставляло свёрнутую рейку единственным местом,
+  // где подсказка всё ещё кричала. Прочие статусы — нет сети, облако недоступно,
+  // очередь в работе — показываем и здесь: они не про выбор человека.
   const showSyncIndicator = !isGuest
     && syncStatus.status !== 'synced'
-    && syncStatus.status !== 'sync_off';
+    && syncStatus.status !== 'sync_off'
+    && !(syncStatus.status === 'unsynced' && !syncStatus.autoSyncEnabled);
 
   const navItems = [
     { id: 'write',   path: '/',       icon: <PenLine size={20} />,   label: t('nav_write') },

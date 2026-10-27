@@ -4,10 +4,28 @@ import { AILexiconService } from '../AILexiconService';
 import { AIService } from '../AIService';
 
 describe('AILexiconService', () => {
+  // DY6-1: лексикон отдаёт слова только видимых ИИ заметок — «заметки нет» тоже
+  // «нельзя» (S-51). Разбор без заметки в `documents` в корпус не входит, поэтому
+  // тесты кладут и строку заметки.
+  const visibleDoc = (id: string) => ({
+    id,
+    uuid: `uuid_${id}`,
+    guestId: 'guest',
+    title: id,
+    currentVersion: 1,
+    totalWords: 10,
+    totalDuration: 100,
+    sessionsCount: 1,
+    firstSessionAt: Date.UTC(2026, 6, 1),
+    lastSessionAt: Date.UTC(2026, 6, 1),
+    tags: [],
+  });
+
   beforeEach(async () => {
     AILexiconService.clearCache();
     const db = await getLocalDb();
     await db.clear('aiSummaries');
+    await db.clear('documents');
     vi.restoreAllMocks();
   });
 
@@ -26,6 +44,7 @@ describe('AILexiconService', () => {
         themes: [],
         extractedFacts: [],
       };
+      await db.put('documents', visibleDoc(`doc_${i}`) as never);
       await db.put('aiSummaries', summary);
     }
 
@@ -50,6 +69,7 @@ describe('AILexiconService', () => {
         themes: [],
         extractedFacts: [],
       };
+      await db.put('documents', visibleDoc(`doc_${i}`) as never);
       await db.put('aiSummaries', summary);
     }
 
@@ -82,6 +102,7 @@ describe('AILexiconService', () => {
         themes: [],
         extractedFacts: [],
       };
+      await db.put('documents', visibleDoc(s.id) as never);
       await db.put('aiSummaries', summary);
     }
 
@@ -121,6 +142,7 @@ describe('AILexiconService', () => {
         themes: [],
         extractedFacts: [],
       };
+      await db.put('documents', visibleDoc(`doc_${i}`) as never);
       await db.put('aiSummaries', summary);
     }
 

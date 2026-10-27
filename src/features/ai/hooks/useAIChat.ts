@@ -32,12 +32,14 @@ import {
   citesAnyId,
   HIDDEN_ANSWER_PLACEHOLDER,
   HIDDEN_NOTE_TITLE,
+  cleanAttachedTitle,
   API_MSG_CAP,
   _streamUnavailableUntil
 } from '../utils/aiChatTransport';
 import { hiddenNoteIdsFromDocs } from '../utils/hiddenNoteIds';
 import { isPastedAttachmentId } from '../utils/isExcludedFromAI';
-import { attachedBlockHeads, blockHeadTitle } from '../utils/attachedNoteFormat';
+import { detectAuthorGender } from '../../../shared/ai/authorGender';
+import type { AttachedNoteBlock } from '../utils/attachedNoteFormat';
 import { extractCitationIds } from '../services/chatContext/citations';
 import { sanitizeFirstSeenDates } from '../utils/dateGuard';
 import { normalizeQuoteText, unquoteAbsent } from '../../../shared/ai/quoteGuard';
@@ -63,7 +65,7 @@ interface UseAIChatReturn {
   streamingMessage: string | null;
   streamingReasoning: string | null;
   error: string | null;
-  sendMessage: (text: string, attached?: { content: string; documentId?: string; blockIds?: string[]; inline?: boolean }, mood?: string, forcedSearchQuery?: string, options?: SendMessageOptions) => Promise<string | null>;
+  sendMessage: (text: string, attached?: { blocks: AttachedNoteBlock[]; documentId?: string }, mood?: string, forcedSearchQuery?: string, options?: SendMessageOptions) => Promise<string | null>;
   lastTurnScope: TurnScope | null;
   prepareAttachment: (documentId: string) => Promise<{ title: string; content: string; lastSessionAt?: number | undefined } | null>;
   stop: () => void;
@@ -130,15 +132,18 @@ export interface SanitizeCitationsOptions {
   quoteMaterialsText?: string | undefined;
 }
 
-/** RA1-8: источник кавычек для хода. Строгий ход — заметка + реплики человека;
- *  широкий/редактор — прежний полный набор (undefined). */
+/** RA1-8: источник кавычек для хода. Строгий ход — тексты видимых приложенных
+ *  блоков + реплики человека; широкий/редактор — прежний полный набор (undefined).
+ *  Скрытый блок модели не ушёл, и кавычка из него не может быть «подтверждённой». */
 export function quoteMaterialsForTurn(
   turnMode: string | undefined,
-  attachedContent: string | undefined,
+  blocks: ReadonlyArray<AttachedNoteBlock> | undefined,
+  isHiddenId: (id: string) => boolean,
   humanTurns: string[],
 ): string | undefined {
   if (turnMode !== 'note') return undefined;
-  return [attachedContent ?? '', ...humanTurns].filter(Boolean).join('\n');
+  const attached = (blocks ?? []).filter(b => !isHiddenId(b.documentId)).map(b => b.content ?? '');
+  return [...attached, ...humanTurns].filter(Boolean).join('\n');
 }
 
 export function sanitizeCitations(
@@ -327,7 +332,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           try {
             const content = await LocalVersionService.getLatestContent(d.documentId);
             const doc = await LocalDocumentService.getDocument(d.documentId);
-            if (content && !cancelled) context.setAttachedNote({ content, documentId: d.documentId, ...(doc ? noteMetaFor(doc) : {}) });
+            if (content && !cancelled) context.setAttachedNote({ blocks: [{ documentId: d.documentId, title: doc?.title ?? '', lastSessionAt: doc?.lastSessionAt, content }], fromLink: true, ...(doc ? noteMetaFor(doc) : {}) });
           } catch { /* non-critical */ }
         }
       });
@@ -383,12 +388,12 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
   const clearError = useCallback(() => { setError(null); setConsentRequired(null); }, []);
 
-  // `attached.content` is the full note text routed through documentContent (50K),
+  // `attached.blocks` carry the full note text routed through documentContent (50K),
   // so the model reads the whole note while the chat message stays small (just a
   // "[Прикреплена заметка: …]" marker plus any text the user typed). The note body
   const sendMessage = useCallback(async (
     text: string,
-    attached?: { content: string; documentId?: string; blockIds?: string[]; inline?: boolean },
+    attached?: { blocks: AttachedNoteBlock[]; documentId?: string },
     mood?: string,
     forcedSearchQuery?: string,
     options?: SendMessageOptions,
@@ -503,11 +508,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             // Sticky note: remember a freshly attached note, and reuse it on follow-up
       // turns that don't re-attach so the note stays the subject of the dialogue.
       if (attached) {
-        const note: AttachedNoteRef = { content: attached.content };
-        if (attached.documentId !== undefined) {
-          note.documentId = attached.documentId;
-        }
-        if (attached.blockIds) note.blockIds = attached.blockIds;
+        const note: AttachedNoteRef = { blocks: attached.blocks };
         if (options?.noteMeta) {
           note.title = options.noteMeta.title;
           note.date = options.noteMeta.date;
@@ -610,9 +611,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         text: question,
         scope,
         attached: effectiveAttached ? {
-          content: effectiveAttached.content,
-          ...(effectiveAttached.documentId !== undefined ? { documentId: effectiveAttached.documentId } : {}),
-          ...(effectiveAttached.blockIds ? { blockIds: effectiveAttached.blockIds } : {}),
+          blocks: effectiveAttached.blocks,
+          ...('fromLink' in effectiveAttached && effectiveAttached.fromLink ? { fromLink: true } : {}),
         } : null,
         mood,
         messageHistory: apiMessages,
@@ -638,23 +638,15 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // с найденными записями). Правило заметки для сервера строится по
       // фактическому режиму, а не по turnScope реплики.
       const turnMode = effectiveScope ?? scope;
-      // Н-1 + DY4 Н-3: правило называет только видимые заметки хода (название
-      // склеено из всех, documentId — первой, поэтому смотрим по шапке каждого
-      // блока). Скрыты все — заглушка без названия и без даты (владелец 24.10).
-      const isHiddenId = (id: string | undefined) => !!id && !isPastedAttachmentId(id) && hiddenCiteIds.has(id);
-      // Блоки — той же разборкой, что фильтр скрытых (attachedBlockHeads). Скрытая
-      // заметка-тема, которой среди разобранных блоков нет, — весь ход скрыт.
-      // Без списка от сборщика (липкая после перезагрузки, старый ход) шапкам не
-      // верим: скрыто хоть что-то — заглушка, как до 0.10.10.
-      const blocks = subjectNote ? attachedBlockHeads(subjectNote.content, subjectNote.blockIds) : [];
-      // DY5-1: шапки не совпали со списком сборщика — ход скрыт целиком (как в buildContext).
-      const broken = !!subjectNote?.blockIds && blocks.length === 0;
-      const trusted = !!subjectNote?.blockIds && !broken;
-      const visibleBlocks = blocks.filter(b => !isHiddenId(b[1]));
-      const subjectLost = !!subjectNote && isHiddenId(subjectNote.documentId) && (!trusted || !blocks.some(b => b[1] === subjectNote.documentId));
+      // Н-1 + DY4 Н-3: правило называет только видимые заметки хода (список блоков
+      // от сборщика — DY5, без разбора текста). Скрыты все — заглушка без названия
+      // и без даты (владелец 24.10).
+      const isHiddenId = (id: string) => !isPastedAttachmentId(id) && hiddenCiteIds.has(id);
+      const blocks = subjectNote?.blocks ?? [];
+      const visibleBlocks = blocks.filter(b => !isHiddenId(b.documentId));
       const scopeNote = !subjectNote ? subjectNote
-        : broken || subjectLost || (blocks.length > 0 && visibleBlocks.length === 0) || (!trusted && visibleBlocks.length < blocks.length) ? { title: HIDDEN_NOTE_TITLE, date: '' }
-        : visibleBlocks.length < blocks.length ? { title: visibleBlocks.map(blockHeadTitle).join('», «'), date: '' }
+        : visibleBlocks.length === 0 ? { title: HIDDEN_NOTE_TITLE, date: '' }
+        : visibleBlocks.length < blocks.length ? { title: visibleBlocks.map(b => cleanAttachedTitle(b.title)).join('», «'), date: '' }
         : subjectNote;
       const noteScope = turnMode ? noteScopeFor(turnMode, scopeNote) : undefined;
 
@@ -696,17 +688,20 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // RA1-8: в строгом ходе кавычки — только из приложенной заметки и реплик
       // человека. Фон и память — пересказ ИИ; ссылки и названия ниже сверяются
       // с полным набором, как раньше.
-      const quoteMaterialsText = quoteMaterialsForTurn(turnMode, effectiveAttached?.content, humanTurns);
+      const quoteMaterialsText = quoteMaterialsForTurn(turnMode, effectiveAttached?.blocks, isHiddenId, humanTurns);
 
       const customSystemPrompt = customPersona;
       const effectivePersonaId = customPersona ? 'custom' : personaId;
+      // PR-10 (18.2): род автора — по формам прошедшего времени из материалов
+      // этого хода (приложенная заметка и найденные записи), не догадкой модели.
+      const authorGender = effectivePersonaId === 'editor' ? detectAuthorGender(searchContext) ?? undefined : undefined;
 
       // Response length and reasoning variables moved to top of sendMessage
 
       let fullText: string;
 
       if (Date.now() < _streamUnavailableUntil) {
-        fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, memoryContext, noteScope, responseLength: effectiveResponseLength, reasoning: effectiveReasoning, crisis, signal: controller.signal });
+        fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, memoryContext, noteScope, authorGender, responseLength: effectiveResponseLength, reasoning: effectiveReasoning, crisis, signal: controller.signal });
       } else {
         try {
           fullText = await streamChat({
@@ -718,6 +713,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             userPortrait: safePortrait,
             memoryContext,
             noteScope,
+            authorGender,
             responseLength: effectiveResponseLength,
             reasoning: effectiveReasoning,
             crisis,
@@ -766,7 +762,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             if (lastPartial.trim().length > 200) {
               fullText = lastPartial;
             } else {
-              fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, memoryContext, noteScope, responseLength: effectiveResponseLength, reasoning: effectiveReasoning, signal: controller.signal });
+              fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, memoryContext, noteScope, authorGender, responseLength: effectiveResponseLength, reasoning: effectiveReasoning, signal: controller.signal });
             }
             // RSN-4: Parse reasoning and answer unconditionally from callable fallback
             const cleanReasoning = extractReasoning(fullText);

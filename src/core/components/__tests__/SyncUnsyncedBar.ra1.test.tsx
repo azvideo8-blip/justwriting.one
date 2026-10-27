@@ -100,4 +100,22 @@ describe('RA1-4: строка «Не синхронизировано» с по�
       expect(screen.getByRole('status')).toHaveTextContent('sync_retry_failed');
     });
   });
+
+  // Дейлик 27.10 Н-2: сейф заперт — движок ничего не отправил (failed: 0,
+  // skippedReason: 'vault_locked'), а строка обещала повтор и не менялась.
+  // Мутация: убрать ветку по skippedReason → два красных.
+  it('сейф заперт — после «Повторить» строка называет причину', async () => {
+    mockSyncPending.mockResolvedValue({ drained: 0, failed: 0, skippedReason: 'vault_locked' });
+    render(<SyncUnsyncedBar userId="u1" />);
+    fireEvent.click(screen.getByRole('button', { name: 'sync_retry' }));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('vault_locked_banner_compact'));
+  });
+
+  it('нет сети по ответу движка — «приостановлена (нет сети)», хотя статус ещё не офлайн', async () => {
+    mockSyncPending.mockResolvedValue({ drained: 0, failed: 0, skippedReason: 'offline' });
+    render(<SyncUnsyncedBar userId="u1" />);
+    fireEvent.click(screen.getByRole('button', { name: 'sync_retry' }));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('sync_paused_no_network'));
+  });
 });
+

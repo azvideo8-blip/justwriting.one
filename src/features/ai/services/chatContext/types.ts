@@ -1,4 +1,5 @@
 import type { AIMessage } from '../AIService';
+import type { AttachedNoteBlock } from '../../utils/attachedNoteFormat';
 
 // AUDIT-part3 6: был мёртвым экспортом — внешних потребителей нет,
 // интерфейс нужен только внутри модуля.
@@ -23,8 +24,12 @@ export interface ChatContextResult {
 
 export interface BuildContextParams {
   text: string;
-  /** blockIds — id приложенных заметок от сборщика хода; без них шапкам в тексте не верим. */
-  attached: { content: string; documentId?: string; blockIds?: string[] } | null;
+  /**
+   * Приложенные заметки списком (DY5: блок — данные, а не позиция в строке).
+   * fromLink — заметка диалога, поднятая по его documentId после перезагрузки:
+   * человек её в этом ходе не присылал.
+   */
+  attached: { blocks: AttachedNoteBlock[]; fromLink?: boolean } | null;
   mood: string | undefined;
   messageHistory: AIMessage[];
   isFirstTurn: boolean;

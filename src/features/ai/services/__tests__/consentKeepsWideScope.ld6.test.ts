@@ -7,6 +7,7 @@ import { LocalVersionService } from '../../../../core/services/LocalVersionServi
 import { AIEmbeddingService } from '../../services/AIEmbeddingService';
 import { AIService } from '../../services/AIService';
 import * as noteRetriever from '../../utils/noteRetriever';
+import { linkedNote } from '../../../../test/attachedTurnFixtures';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../shared/i18n', () => ({ useLanguage: () => ({ language: 'ru', t: (k: string) => k }) }));
@@ -77,7 +78,7 @@ async function build(turn: Turn) {
   const { result } = renderHook(() => useAIChatContext('editor'));
   return result.current.buildContext({
     text: turn.text,
-    attached: { content: NOTE_TEXT, documentId: NOTE_ID },
+    attached: linkedNote(NOTE_ID, NOTE_TEXT),
     mood: undefined,
     messageHistory: turn.history,
     isFirstTurn: turn.history.length === 0,
@@ -106,7 +107,7 @@ describe('LD-6: короткое согласие держит широкий х
     const { result } = renderHook(() => useAIChatContext('editor'));
     await result.current.buildContext({
       text: 'посмотри, что у меня было с подрядчиком',
-      attached: { content: NOTE_TEXT, documentId: NOTE_ID },
+      attached: linkedNote(NOTE_ID, NOTE_TEXT),
       mood: undefined,
       messageHistory: [{ role: 'user', content: 'посмотри, что у меня было с подрядчиком' }],
       isFirstTurn: false,
@@ -115,7 +116,7 @@ describe('LD-6: короткое согласие держит широкий х
     } as never);
     const consent = await result.current.buildContext({
       text: 'давай, собери, только без истории про коллегу',
-      attached: { content: NOTE_TEXT, documentId: NOTE_ID },
+      attached: linkedNote(NOTE_ID, NOTE_TEXT),
       mood: undefined,
       messageHistory: [
         { role: 'user', content: 'посмотри, что у меня было с подрядчиком' },
@@ -138,7 +139,7 @@ describe('LD-6: короткое согласие держит широкий х
     const { result } = renderHook(() => useAIChatContext('editor'));
     await result.current.buildContext({
       text: 'разбери эту заметку',
-      attached: { content: NOTE_TEXT, documentId: NOTE_ID },
+      attached: linkedNote(NOTE_ID, NOTE_TEXT),
       mood: undefined,
       messageHistory: [{ role: 'user', content: 'разбери эту заметку' }],
       isFirstTurn: false,
@@ -146,7 +147,7 @@ describe('LD-6: короткое согласие держит широкий х
     } as never);
     const consent = await result.current.buildContext({
       text: 'давай, собери',
-      attached: { content: NOTE_TEXT, documentId: NOTE_ID },
+      attached: linkedNote(NOTE_ID, NOTE_TEXT),
       mood: undefined,
       messageHistory: [
         { role: 'user', content: 'разбери эту заметку' },
@@ -167,7 +168,7 @@ describe('LD-6: короткое согласие держит широкий х
     const { result } = renderHook(() => useAIChatContext('editor'));
     await result.current.buildContext({
       text: 'посмотри, что у меня было с подрядчиком',
-      attached: { content: NOTE_TEXT, documentId: NOTE_ID },
+      attached: linkedNote(NOTE_ID, NOTE_TEXT),
       mood: undefined,
       messageHistory: [{ role: 'user', content: 'посмотри, что у меня было с подрядчиком' }],
       isFirstTurn: false,
@@ -176,7 +177,7 @@ describe('LD-6: короткое согласие держит широкий х
     } as never);
     const long = await result.current.buildContext({
       text: 'давай соберём пост, только без истории про коллегу, и добавь абзац про то, как я вела переговоры',
-      attached: { content: NOTE_TEXT, documentId: NOTE_ID },
+      attached: linkedNote(NOTE_ID, NOTE_TEXT),
       mood: undefined,
       messageHistory: [
         { role: 'user', content: 'посмотри, что у меня было с подрядчиком' },
@@ -194,7 +195,7 @@ describe('LD-6: короткое согласие держит широкий х
     const { result } = renderHook(() => useAIChatContext('editor'));
     await result.current.buildContext({
       text: 'посмотри, что у меня было с подрядчиком',
-      attached: { content: NOTE_TEXT, documentId: NOTE_ID },
+      attached: linkedNote(NOTE_ID, NOTE_TEXT),
       mood: undefined,
       messageHistory: [{ role: 'user', content: 'посмотри, что у меня было с подрядчиком' }],
       isFirstTurn: false,
@@ -203,7 +204,7 @@ describe('LD-6: короткое согласие держит широкий х
     } as never);
     const noProposal = await result.current.buildContext({
       text: 'давай',
-      attached: { content: NOTE_TEXT, documentId: NOTE_ID },
+      attached: linkedNote(NOTE_ID, NOTE_TEXT),
       mood: undefined,
       messageHistory: [
         { role: 'user', content: 'посмотри, что у меня было с подрядчиком' },

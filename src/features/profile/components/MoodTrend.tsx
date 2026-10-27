@@ -31,11 +31,20 @@ const TONE_CLASS: Record<string, string> = {
 
 export function MoodTrend({ userId, className }: { userId: string; className?: string }) {
   const { t, language } = useLanguage();
-  const [entries, setEntries] = useState<{ mood: string; date: number }[]>([]);
-  const [failed, setFailed] = useState(false);
+  // DY6-7 (приёмка 26.10, Н-5): состояние с ключом владельца, как BR-13/BR-15.
+  // При userId='' эффект выходил молча, и прежний тренд оставался на экране:
+  // пустому владельцу он показывал настроения того, кто читался раньше.
+  const [data, setData] = useState<{
+    owner: string;
+    entries: { mood: string; date: number }[];
+    failed: boolean;
+  }>({ owner: userId, entries: [], failed: false });
+  const { entries, failed } = useMemo(() => (
+    data.owner === userId ? { entries: data.entries, failed: data.failed } : { entries: [] as { mood: string; date: number }[], failed: false }
+  ), [data, userId]);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) return; // чужое состояние скрыто ключом ниже; запрос пустого владельца не нужен
     let active = true;
     void LocalDocumentService.getDocumentsByOwner(userId).then(docs => {
       if (!active) return;
@@ -44,11 +53,11 @@ export function MoodTrend({ userId, className }: { userId: string; className?: s
         .filter(d => typeof d.mood === 'string' && MOOD_META[d.mood] !== undefined && (d.lastSessionAt ?? 0) >= cutoff)
         .map(d => ({ mood: normalizeMood(d.mood as string), date: d.lastSessionAt ?? 0 }))
         .sort((a, b) => a.date - b.date);
-      setEntries(withMood);
+      setData({ owner: userId, entries: withMood, failed: false });
     }).catch(e => {
       if (!active) return;
       reportError(e, { action: 'MoodTrend_getDocuments' });
-      setFailed(true);
+      setData({ owner: userId, entries: [], failed: true });
     });
     return () => { active = false; };
   }, [userId]);

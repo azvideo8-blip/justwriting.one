@@ -40,6 +40,8 @@ const DIALOGUE_ID = 'd_a2_continued';
 // форму, отличную от писателя; тест проверяет продолжение именно такого хода.
 const DAY_A = '20260929';
 const DAY_B = '20261008';
+// DY5: блок текущего хода собирает общий писатель из списка заметок — дата с дефисами.
+const FENCE_DAY_B = '2026-10-08';
 const TITLE_A = 'Десять тысяч шагов';
 const TITLE_B = 'Разговор с руководителем про сроки';
 const QUESTION = 'разобрать подробно, с нескольких сторон';
@@ -254,7 +256,7 @@ async function runCase(): Promise<Sent> {
   const display = `${content}\n\n— — —\nВопрос: ${QUESTION}`;
   const noteMeta = noteMetaFor({ title: TITLE_B, lastSessionAt: tsB });
   await act(async () => {
-    await result.current.sendMessage(display, { content, documentId: DOC_B, inline: true }, undefined, undefined, { question: QUESTION, noteMeta });
+    await result.current.sendMessage(display, { blocks: [{ documentId: DOC_B, title: TITLE_B, lastSessionAt: tsB, content: NOTE_B }], documentId: DOC_B }, undefined, undefined, { question: QUESTION, noteMeta });
   });
   expect(sent, 'запрос не ушёл').toBeDefined();
   return sent!;
@@ -279,7 +281,7 @@ function fenceOffsets(sent: Sent): { note: number; portrait: number; memory: num
     }),
     rnd: SEEDED_RND,
   });
-  const note = system.lastIndexOf(`[#${DOC_B} · ${DAY_B}]`);
+  const note = system.lastIndexOf(`[#${DOC_B} · ${FENCE_DAY_B}]`);
   // фенс портрета ищется по шапке ограды: в строгий ход едет только раздел, а не весь текст
   const portrait = system.indexOf('данные профиля пользователя');
   return { note, portrait, memory: system.indexOf('данные памяти о пользователе') };
@@ -302,7 +304,7 @@ describe('A-2: приложенная заметка в продолженном
     expect(doc).not.toContain('ПРАВИЛО А');
     expect(doc).not.toContain('десять тысяч шагов');
     expect(doc.match(/^\[#/gm)).toHaveLength(1);
-    expect(doc).toContain(`[#${DOC_B} · ${DAY_B}]`);
+    expect(doc).toContain(`[#${DOC_B} · ${FENCE_DAY_B}]`);
     expect(sent.noteScope?.mode).toBe('note');
     expect(sent.noteScope?.title).toBe(TITLE_B);
     expect(sent.memoryContext).toBeNull();
@@ -368,7 +370,7 @@ describe('A-2: приложенная заметка в продолженном
       portraitChars: (sent.userPortrait ?? '').length,
       memoryChars: (sent.memoryContext ?? '').length,
       systemChars: system.length,
-      noteFenceAt: system.lastIndexOf(`[#${DOC_B} · ${DAY_B}]`),
+      noteFenceAt: system.lastIndexOf(`[#${DOC_B} · ${FENCE_DAY_B}]`),
       portraitFenceAt: system.indexOf('данные профиля пользователя'),
     };
     console.log('A2_SHAPE ' + JSON.stringify(shape));

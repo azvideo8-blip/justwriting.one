@@ -21,8 +21,7 @@ import { SyncUnsyncedBar } from '../../core/components/SyncUnsyncedBar';
 import { CloudNotesBanner } from '../../features/writing/components/CloudNotesBanner';
 import { StreakChip } from '../../features/writing/components/StreakChip';
 import { OnThisDayCard } from '../../core/components/OnThisDayCard';
-import { useReturnNote } from '../../features/writing/hooks/useReturnNote';
-import { useOnThisDayHome } from '../../features/writing/hooks/useOnThisDayHome';
+import { useHomeHint } from '../../features/writing/hooks/useHomeHint';
 import { hasOnlyTouchPointer } from '../../shared/utils/touchPointer';
 import { useStartOnFirstInput } from '../../features/writing/hooks/useStartOnFirstInput';
 // Текст нужен только ИИ-панели: подписка здесь, а не в раскладке, иначе на
@@ -61,12 +60,10 @@ export function DesktopWritingLayout() {
 
   const { onFinishClick } = useWritingSessionContext();
 
-  const returnNote = useReturnNote(session.userId);
-  // BR-7 (предложение ревьюера; решение за владельцем): карточка больше не
-  // waits на «нет карточки возврата» — она строкой под «Продолжить». `enabled`
-  // = реальное условие показа: пока пишешь, напоминания на экране нет.
+  // Одна подсказка за раз: «Продолжить», иначе «В этот день» (владелец 26.10).
+  // Пока пишешь, ни той, ни другой.
   const homeIdle = !setupMode && session.status === 'idle' && !session.hasDraft;
-  const onThisDay = useOnThisDayHome(session.userId, homeIdle);
+  const { returnNote, dismissReturn, onThisDay } = useHomeHint(session.userId, homeIdle);
 
   const onNew = actions.handleNew;
   const onOpenLog = actions.handleOpen;
@@ -192,15 +189,17 @@ export function DesktopWritingLayout() {
             hidden={Boolean(setupMode) || session.hasDraft}
             className="shrink-0 mx-auto mb-2 flex items-center gap-3 rounded-xl border border-text-main/10 bg-surface-card/90 backdrop-blur-xl px-4 py-2 text-sm text-text-main/60"
             onContinue={(doc) => void actions.handleContinueDocument(doc)}
+            onDismiss={dismissReturn}
           />
-          {/* BR-7: «В этот день» — строкой под «Продолжить», а не вместо него,
-              и без текста заметки (экран может быть открыт при ком-то). */}
+          {/* «В этот день» — строкой и без текста заметки (экран может быть
+              открыт при ком-то); только когда «Продолжить» нет. */}
           {onThisDay && homeIdle && (
             <div className="shrink-0 mx-auto mb-2 w-full max-w-xl">
               <OnThisDayCard
                 sessions={[onThisDay]}
                 userId={session.userId}
                 showExcerpt={false}
+                compact
                 onOpen={(s) => void actions.handleContinueSessionOrDoc(s)}
               />
             </div>

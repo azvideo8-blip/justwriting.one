@@ -7,6 +7,7 @@ import { AIService } from '../AIService';
 import * as noteRetriever from '../../utils/noteRetriever';
 import { turnScope, type TurnScope } from '../../utils/turnScope';
 import { asksForOtherNotes, asksForSimilarNotes } from '../../utils/aiChatTransport';
+import { linkedNote } from '../../../../test/attachedTurnFixtures';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../shared/i18n', () => ({ useLanguage: () => ({ language: 'ru', t: (k: string) => k }) }));
@@ -95,7 +96,7 @@ describe('Q-7: запрос строится из приложенной зам�
     const { result } = renderHook(() => useAIChatContext('editor'));
     return result.current.buildContext({
       text,
-      attached: { content: attachedContent, documentId: ATTACHED_ID },
+      attached: linkedNote(ATTACHED_ID, attachedContent),
       mood: undefined,
       messageHistory: [],
       isFirstTurn: true,

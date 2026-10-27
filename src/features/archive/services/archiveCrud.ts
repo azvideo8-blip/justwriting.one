@@ -285,7 +285,8 @@ export async function deleteArchiveSession(
   if (!result.applied) {
     return result;
   }
-  emitDomainEvent({ type: 'note.deleted', documentId: session.id });
+  // DY6-5: note.deleted эмитит ядро StorageService.deleteDocument — второй
+  // копии сигнала не было бы (подписчики чистят производные один раз).
   if (result.derivativesOk === false) {
     // N-51: заметка удалена, а часть её разборов ИИ — нет. «Удалено навсегда»
     // без оговорки было бы неправдой.

@@ -7,6 +7,7 @@ import { LocalVersionService } from '../../../../core/services/LocalVersionServi
 import { AIEmbeddingService } from '../../services/AIEmbeddingService';
 import { AIService } from '../../services/AIService';
 import * as noteRetriever from '../../utils/noteRetriever';
+import { linkedNote } from '../../../../test/attachedTurnFixtures';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../shared/i18n', () => ({ useLanguage: () => ({ language: 'ru', t: (k: string) => k }) }));
@@ -94,7 +95,7 @@ async function run(history: Array<{ role: 'user' | 'assistant'; content: string 
   const { result } = renderHook(() => useAIChatContext('editor'));
   return result.current.buildContext({
     text: TURN,
-    attached: { content: CONTENT[ATTACHED]!, documentId: ATTACHED },
+    attached: linkedNote(ATTACHED, CONTENT[ATTACHED]!),
     mood: undefined,
     messageHistory: history,
     isFirstTurn: history.length === 0,

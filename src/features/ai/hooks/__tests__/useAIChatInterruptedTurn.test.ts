@@ -155,7 +155,7 @@ describe('SB-3: обрыв стрима не должен стирать пок�
 
     const { result } = renderHook(() => useAIChat(null, 'editor'));
     await act(async () => {
-      await result.current.sendMessage(QUESTION, { content: 'Текст заметки', documentId: 'local_note1' });
+      await result.current.sendMessage(QUESTION, { blocks: [{ documentId: 'local_note1', title: '', content: 'Текст заметки' }], documentId: 'local_note1' });
     });
 
     const rows = await storedDialogues();

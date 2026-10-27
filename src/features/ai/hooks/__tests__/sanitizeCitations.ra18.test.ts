@@ -47,12 +47,25 @@ describe('RA1-8: кавычки сверяются с заметкой, а не 
     expect(out).toContain('«Фоновая заметка»');
   });
 
+  const VISIBLE = { documentId: 'local_note', title: 'Заметка о вторнике', content: NOTE_TEXT };
+  const HIDDEN = { documentId: 'local_hidden', title: 'Скрытая', content: 'Скрытое: «ключи от дачи лежат под ковриком у двери».' };
+  const isHidden = (id: string) => id === 'local_hidden';
+
   it('источник хода: строгий — заметка и человек, широкий — полный набор', () => {
-    const strict = quoteMaterialsForTurn('note', NOTE_TEXT, ['Ты спросила: «как это было».']);
+    const strict = quoteMaterialsForTurn('note', [VISIBLE], isHidden, ['Ты спросила: «как это было».']);
     expect(strict).toContain('Во вторник Соня сказала');
     expect(strict).toContain('как это было');
     expect(strict).not.toContain('скрипку напрокат');
-    expect(quoteMaterialsForTurn(undefined, NOTE_TEXT, [])).toBeUndefined();
+    expect(quoteMaterialsForTurn(undefined, [VISIBLE], isHidden, [])).toBeUndefined();
+  });
+
+  // Фальсификация: убрать фильтр по isHiddenId в quoteMaterialsForTurn → красный.
+  it('текст скрытого блока — не источник кавычек', () => {
+    const strict = quoteMaterialsForTurn('note', [VISIBLE, HIDDEN], isHidden, []);
+    expect(strict).toContain('Во вторник Соня сказала');
+    expect(strict).not.toContain('ключи от дачи лежат под ковриком у двери');
+    const out = sanitizeCitations('Там было: «ключи от дачи лежат под ковриком у двери».', IDS, TITLES, FULL, { quoteMaterialsText: strict });
+    expect(out).not.toContain('«ключи от дачи лежат под ковриком у двери»');
   });
 
   it('без явного источника — прежнее поведение (фон в материалах)', () => {

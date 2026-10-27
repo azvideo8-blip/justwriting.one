@@ -5,6 +5,7 @@ import { useAIChatContext } from '../aiChatContext';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { useAiLimitStore } from '../../store/useAiLimitStore';
 import { reportError } from '../../../../shared/errors/reportError';
+import { linkedNote } from '../../../../test/attachedTurnFixtures';
 
 // S-51 survivor (S-63) в buildContext: сбой чтения приложенной заметки читается
 // как «скрыта» (catch в ветке attached), тело и id до модели не доезжают.
@@ -38,7 +39,7 @@ describe('S-63: buildContext survivors', () => {
     const { result } = renderHook(() => useAIChatContext('editor'));
     const ctx = await result.current.buildContext({
       text: 'Что скажешь?',
-      attached: { documentId: 'local_boom', content: SECRET },
+      attached: linkedNote('local_boom', SECRET),
       mood: undefined,
       messageHistory: [],
       isFirstTurn: true,
@@ -46,6 +47,6 @@ describe('S-63: buildContext survivors', () => {
 
     expect(ctx.searchContext ?? '').not.toContain('Секретный текст');
     expect(ctx.injectedDocumentIds).not.toContain('local_boom');
-    expect(reportError).toHaveBeenCalledWith(expect.objectContaining({ message: 'IDB down' }), expect.objectContaining({ action: 'buildContext_attachedExcluded' }), 'warning');
+    expect(reportError).toHaveBeenCalledWith(expect.objectContaining({ message: 'IDB down' }), expect.objectContaining({ action: 'hideExcludedNotes', documentId: 'local_boom' }));
   });
 });

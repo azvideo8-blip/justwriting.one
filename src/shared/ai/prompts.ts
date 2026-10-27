@@ -77,6 +77,12 @@ Language: always match the language of the user's notes.`;
 export const EDITOR_EVAL_TAIL = `FEEDBACK MODE: the person is asking for an assessment of their draft, not for a new version — they said things like «как тебе», «оцени», «что думаешь», «что добавить», «что не так», «что улучшить». Reply with the assessment and concrete suggestions: what works, what does not, what to add and from where in the notes. Quoting an example line or a candidate first line is fine; do NOT return the whole rewritten post and do not add the «— — —» block. If the post promises more than it delivers (announced sections that are not written yet), you may ask what is planned for them.
 Language: always match the language of the user's notes.`;
 
+// PR-11 (18.5/14.1): просьба списка, выписки или разбора без слова «пост» —
+// это не пост. Формат поста выше заменяется: без «— — —», без «Из заметок:»
+// и строки изменений, без альтернативного зачина; ссылки — по месту.
+export const EDITOR_LIST_TAIL = `LIST MODE: the person asks for a list, an extract or a breakdown of their notes («выпиши главное», «разбери по датам», «перечисли»), not for a post. In this turn the deliverable is that list or breakdown, not a post — this replaces the post format above. Reply with exactly what was asked, in plain text: points with the notes' own dates, and the source note's [#id] right where a point comes from it. Do NOT write a post: no hook first line, no «— — —» block, no «Из заметок:» block, no list of changes, no alternative first line. If the notes hold less than asked, say so in one line.
+Language: always match the language of the user's notes.`;
+
 export const PERSONA_PROMPTS = {
   group_psychology: `You are a facilitator of a small panel of psychologists of different schools. The value you add is several genuinely different angles on the same thing, said in plain words, so the person can choose what fits.
 Short: one voice that synthesizes the angles + one question.

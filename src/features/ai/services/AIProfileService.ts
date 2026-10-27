@@ -11,6 +11,7 @@ import { LocalVersionService } from '../../../core/services/LocalVersionService'
 import { analyzeWritingStyle } from '../utils/styleAnalyzer';
 import { isExcludedFromAI } from '../utils/isExcludedFromAI';
 import { loadVisibleNoteKeys } from '../utils/retrieval/docSnapshot';
+import { AIProfileFacetService } from './AIProfileFacetService';
 import { usableMemories } from './AIChatMemoryService';
 import { AIBackgroundBudget } from './AIBackgroundBudget';
 import { reportError } from '../../../shared/errors/reportError';
@@ -219,13 +220,12 @@ export const AIProfileService = {
     const startEpoch = getPortraitEpoch();
     try {
       const db = await getLocalDb();
-      // AP-3: грань, которая ещё перечисляет скрытую или корзинную заметку,
-      // в промпт не идёт. Уборка при скрытии обычно уже убрала id, но строка
-      // могла остаться от прежней версии или приехать из облака; summary такой
-      // грани дословно пересказывает скрытое, пока её не пересоберут.
-      const rawFacets = await db.getAll('aiProfileFacets');
+      // AP-3 + DY6-2 (самопроверка 26.10): список граней берём там же, где его
+      // берут все читатели. Здесь лежала СВОЯ копия правила — только по
+      // `noteIds`, — и грань, чей источник диалог о скрытой заметке
+      // (`dialogueIds`), портрет отправлял провайдеру, хотя `getAll` её прятал.
+      const facets = await AIProfileFacetService.getAll();
       const visibleKeys = await loadVisibleNoteKeys();
-      const facets = rawFacets.filter(f => f.noteIds.every(id => visibleKeys.has(id)));
 
       // TICKET-053: Compile communication preferences from chat memory
       // Приёмка ai-privacy: портрет — тот же фильтр памяти, что и разговор: источник

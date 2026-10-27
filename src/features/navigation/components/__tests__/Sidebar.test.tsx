@@ -99,10 +99,14 @@ describe('Sidebar active navigation item styling (UI-03)', () => {
   });
 
   it('renders sync indicator with count for unsynced status (D-13)', () => {
+    // BR-16: фикстура не моделировала тумблер — теперь он участвует в решении.
+    // D-13 про включённую синхронизацию: при выключенной значка нет (см.
+    // sidebarCollapsedUnsynced.br16).
     mockSyncStatus = {
       status: 'unsynced',
       pendingCount: 0,
       unsyncedCount: 5,
+      autoSyncEnabled: true,
     };
 
     renderWithProviders(

@@ -3,6 +3,7 @@ import { renderHook } from '@testing-library/react';
 import 'fake-indexeddb/auto';
 import { useAIChatContext } from '../aiChatContext';
 import { getLocalDb } from '../../../../core/storage/localDb';
+import { linkedNote } from '../../../../test/attachedTurnFixtures';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../shared/i18n', () => ({
@@ -40,10 +41,7 @@ describe('B-1.5 (F-012) Period-comparison mode preserves attached note', () => {
 
     const ctx = await result.current.buildContext({
       text: 'сравни январь и февраль',
-      attached: {
-        documentId: ATTACHED_ID,
-        content: ATTACHED_CONTENT,
-      },
+      attached: linkedNote(ATTACHED_ID, ATTACHED_CONTENT),
       mood: undefined,
       messageHistory: [],
       isFirstTurn: true,

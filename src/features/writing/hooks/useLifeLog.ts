@@ -27,19 +27,32 @@ interface UseLifeLogReturn {
 }
 
 export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [unifiedDocuments, setUnifiedDocuments] = useState<LifeLogDocument[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [cloudUnknown, setCloudUnknown] = useState(false);
+  // DY6-7 (приёмка 26.10, Н-5): тот же ключ владельца, что у BR-13/BR-15. Хук
+  // живёт в контексте сессии и при гость → аккаунт не перемонтируется; без ключа
+  // поздний ответ прежнего владельца перезаписывал чужой экран, а переход на
+  // пустой id оставлял старый список наружу.
+  const [data, setData] = useState<{
+    owner: string;
+    documents: Document[];
+    unified: LifeLogDocument[];
+    loading: boolean;
+    cloudUnknown: boolean;
+  }>({ owner: userId, documents: [], unified: [], loading: true, cloudUnknown: false });
   const { t, language } = useLanguage();
   const mountedRef = useRef(true);
+  // DY6-7: поздний ответ сверяется с НАСТОЯЩИМ владельцем — замыкание fetch
+  // видит свой userId и подмены бы не заметило.
+  const currentOwnerRef = useRef(userId);
+  useEffect(() => { currentOwnerRef.current = userId; }, [userId]);
   const startOfToday = useStartOfToday();
 
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
   const fetchSessions = useCallback(async () => {
-    setLoading(true);
-    setCloudUnknown(false);
+    const ownerAtRequest = userId;
+    // Ключ не двигаем: чужой владелец ещё не прочитан, и наружу должно выйти
+    // «читается», а не прежний список (его прячет производный снимок ниже).
+    setData(s => (s.owner === ownerAtRequest ? { ...s, loading: true, cloudUnknown: false } : s));
     try {
       let localDocs: Awaited<ReturnType<typeof LocalDocumentService.getDocumentsByOwner>> = [];
       let didFail = false;
@@ -61,9 +74,6 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
       }
 
       if (!mountedRef.current) return;
-      setCloudUnknown(didFail);
-      setDocuments(cloudDocs);
-
       const rawUnified = isGuest
         ? localDocs.map(d => localDocToLifeLog(d, false))
         : mergeUnifiedDocuments(localDocs, cloudDocs);
@@ -102,11 +112,15 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
       );
 
       if (!mountedRef.current) return;
-      setUnifiedDocuments(unifiedWithVersions);
+      if (ownerAtRequest !== currentOwnerRef.current) return;
+      // Ход нового владельца: снимок целиком, вместе с ключом.
+      setData({ owner: ownerAtRequest, documents: cloudDocs, unified: unifiedWithVersions, loading: false, cloudUnknown: didFail });
     } catch (e) {
       reportError(e, { action: 'lifeLog/fetchSessions' });
     } finally {
-      if (mountedRef.current) setLoading(false);
+      if (mountedRef.current && ownerAtRequest === currentOwnerRef.current) {
+        setData(s => (s.owner === ownerAtRequest ? { ...s, loading: false } : s));
+      }
     }
   }, [userId, isGuest, startOfToday]);
 
@@ -123,6 +137,16 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
     if (e.userId !== undefined && e.userId !== userId) return;
     void fetchSessions();
   }), [fetchSessions, userId]);
+
+  // BR-13: состояние ключуется владельцем — чужая строка не совпадёт с текущим
+  // userId и наружу не выйдет (возврата прежнего списка при смене тоже нет:
+  // данные нового владельца ещё не прочитаны). useMemo — чтобы производные
+  // summary/группы не пересобирались на каждый рендер.
+  const { documents, unifiedDocuments, loading, cloudUnknown } = useMemo(() => (
+    data.owner === userId
+      ? { documents: data.documents, unifiedDocuments: data.unified, loading: data.loading, cloudUnknown: data.cloudUnknown }
+      : { documents: [] as Document[], unifiedDocuments: [] as LifeLogDocument[], loading: true, cloudUnknown: false }
+  ), [data, userId]);
 
   const summary = useMemo(
     () => computeDailySummary(unifiedDocuments, startOfToday),

@@ -4,6 +4,7 @@ import 'fake-indexeddb/auto';
 import { useAIChatContext } from '../aiChatContext';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import * as noteRetriever from '../../utils/noteRetriever';
+import { linkedNote } from '../../../../test/attachedTurnFixtures';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../shared/i18n', () => ({ useLanguage: () => ({ language: 'ru', t: (k: string) => k }) }));
@@ -26,7 +27,8 @@ async function seed() {
   vi.spyOn(noteRetriever, 'searchNotesMulti').mockResolvedValue({ notes: [], failed: false, degraded: false } as never);
 }
 
-async function build(text: string, attached: { content: string; documentId: string } | undefined, scope: 'wide' | 'note') {
+async function build(text: string, raw: { content: string; documentId: string } | undefined, scope: 'wide' | 'note') {
+  const attached = raw ? linkedNote(raw.documentId, raw.content) : null;
   const { result } = renderHook(() => useAIChatContext('editor'));
   const ctx = await result.current.buildContext({
     text, attached, mood: undefined, messageHistory: [], isFirstTurn: true, scope,

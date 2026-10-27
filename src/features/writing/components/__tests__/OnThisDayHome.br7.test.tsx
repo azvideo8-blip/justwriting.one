@@ -1,16 +1,17 @@
-// BR-7 (предложение ревьюера, см. tickets-2026-10-25 §BR-7; решение (а)/(б)
-// ещё за владельцем): хук «В этот день» получал `enabled = returnNote === null`
-// и потому не грузился ни у кого, кто писал раньше. Теперь `enabled` — то же
-// условие, по которому строка рисуется: на телефоне её нет в дзене, во время
-// письма и при черновике; на компьютере — то же.
+// Главный (владелец 26.10, вместо BR-7 «обе сразу»): одна подсказка за раз.
+// Есть «Продолжить» — «В этот день» не грузится и не рисуется; карточку
+// возврата скрыли крестиком (до завтра) или её нет — напоминание на месте.
+// Пока карточка возврата читается — напоминания нет, чтобы не мелькало.
+// Во время письма, в дзене и при черновике — ни той, ни другой.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { ComponentProps } from 'react';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { MobileWriteScreen } from '../MobileWriteScreen';
 import { useTimerStore } from '../../store/useTimerStore';
 import { useContentStore } from '../../store/useContentStore';
 
 const onThisDayArgs = vi.hoisted(() => [] as boolean[]);
+const returnState = vi.hoisted(() => ({ value: undefined as unknown }));
 const returnNote = { id: 'doc_ret', title: 'Запись трёхдневной давности', lastSessionAt: Date.now() - 3 * 86_400_000 };
 const memorySession = {
   id: 's_mem', userId: 'guest_1', title: 'Год назад', content: 'Текст прошлогодней заметки.',
@@ -44,7 +45,7 @@ vi.mock('../../../../core/crypto/useEncryptionStore', () => ({
   useEncryptionStore: () => ({ isVaultUnlocked: true, encryptionMode: 'none' }),
   useVaultStatus: () => ({ isVaultActive: false, isVaultUnlocked: true }),
 }));
-vi.mock('../../hooks/useReturnNote', () => ({ useReturnNote: () => returnNote }));
+vi.mock('../../hooks/useReturnNote', () => ({ useReturnNote: () => returnState.value }));
 vi.mock('../../hooks/useOnThisDayHome', () => ({
   useOnThisDayHome: (_uid: string, enabled: boolean) => {
     onThisDayArgs.push(enabled);
@@ -66,27 +67,61 @@ function renderScreen(overrides: Partial<ComponentProps<typeof MobileWriteScreen
 beforeEach(() => {
   cleanup();
   onThisDayArgs.length = 0;
+  returnState.value = returnNote;
+  localStorage.clear();
   useContentStore.setState({ content: '', wordCount: 0 });
   useTimerStore.setState({ status: 'idle', sessionType: 'free', wordGoal: 0, timerDuration: 0, sessionStartWords: 0, sessionStartSeconds: 0 } as Partial<ReturnType<typeof useTimerStore.getState>>);
 });
 
-describe('BR-7: «В этот день» живёт рядом с «Продолжить», а не вместо него', () => {
-  it('есть карточка возврата — напоминание всё равно грузится и показывается', () => {
+describe('главный: одна подсказка за раз', () => {
+  it('есть «Продолжить» — «В этот день» не грузится и не показывается', () => {
     renderScreen();
     expect(screen.getByTestId('return-to-writing')).toBeInTheDocument();
-    expect(screen.getByText('Год назад')).toBeInTheDocument();
-    expect(onThisDayArgs[onThisDayArgs.length - 1], 'хук выключён наличием карточки возврата').toBe(true);
+    expect(screen.queryByText('Год назад')).toBeNull();
+    expect(onThisDayArgs[onThisDayArgs.length - 1]).toBe(false);
   });
 
-  it('порядок: напоминание строкой ПОД «Продолжить»', () => {
-    const { container } = renderScreen();
-    const ret = screen.getByTestId('return-to-writing');
-    const mem = screen.getByText('Год назад').closest('div[class*="border-b"]')!;
-    expect(ret.compareDocumentPosition(mem) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(container).toBeTruthy();
+  it('«Продолжить» нет — напоминание на месте', () => {
+    returnState.value = null;
+    renderScreen();
+    expect(screen.queryByTestId('return-to-writing')).toBeNull();
+    expect(screen.getByText('Год назад')).toBeInTheDocument();
+  });
+
+  it('карточка возврата ещё читается — напоминание не мелькает', () => {
+    returnState.value = undefined;
+    renderScreen();
+    expect(screen.queryByText('Год назад')).toBeNull();
+    expect(onThisDayArgs[onThisDayArgs.length - 1]).toBe(false);
+  });
+
+  it('крестик у «Продолжить» скрывает её до завтра, и появляется напоминание', () => {
+    renderScreen();
+    fireEvent.click(screen.getByRole('button', { name: 'home_return_dismiss' }));
+    expect(screen.queryByTestId('return-to-writing')).toBeNull();
+    expect(screen.getByText('Год назад')).toBeInTheDocument();
+    // Перезапуск в тот же день — по-прежнему скрыта.
+    cleanup();
+    renderScreen();
+    expect(screen.queryByTestId('return-to-writing')).toBeNull();
+  });
+
+  it('отметка «скрыта» — своя у каждого человека', () => {
+    renderScreen();
+    fireEvent.click(screen.getByRole('button', { name: 'home_return_dismiss' }));
+    cleanup();
+    renderScreen({ userId: 'u_other' });
+    expect(screen.getByTestId('return-to-writing')).toBeInTheDocument();
+  });
+
+  it('вчерашняя отметка не прячет карточку сегодня', () => {
+    localStorage.setItem('home_return_dismissed_u_br7', '2000-01-01');
+    renderScreen();
+    expect(screen.getByTestId('return-to-writing')).toBeInTheDocument();
   });
 
   it('идёт письмо — напоминание не грузится и не показывается', () => {
+    returnState.value = null;
     useTimerStore.setState({ status: 'writing' } as Partial<ReturnType<typeof useTimerStore.getState>>);
     renderScreen({ status: 'writing' });
     expect(onThisDayArgs[onThisDayArgs.length - 1]).toBe(false);
@@ -94,13 +129,16 @@ describe('BR-7: «В этот день» живёт рядом с «Продол
   });
 
   it('черновик в редакторе — напоминания нет', () => {
+    returnState.value = null;
     renderScreen({ hasDraft: true });
     expect(onThisDayArgs[onThisDayArgs.length - 1]).toBe(false);
     expect(screen.queryByText('Год назад')).toBeNull();
   });
 
   it('текста заметки в напоминании нет — только название', () => {
+    returnState.value = null;
     renderScreen();
+    expect(screen.getByText('Год назад')).toBeInTheDocument();
     expect(screen.queryByText('Текст прошлогодней заметки.')).toBeNull();
   });
 });

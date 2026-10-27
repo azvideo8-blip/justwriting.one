@@ -1,8 +1,8 @@
 // BR-8 (ревью 25.10): новые элементы главного раньше не проверялись нигде —
 // прогон 141/141 шёл на аккаунтах без истории, и карточки не рисовались.
 // Спек сеет историю (запись вчера, запись три дня назад, запись год назад) и
-// проверяет, что на телефоне видно карточку возврата, строку «В этот день»,
-// полосу несинхронизированного и чип серии.
+// проверяет, что на телефоне видно карточку возврата, а после её крестика —
+// строку «В этот день»; полосу несинхронизированного и чип серии.
 //
 // Историю пишем в IndexedDB того же аккаунта после реальной записи через
 // редактор: даты `firstSessionAt`/`lastSessionAt` — те же поля, что читает
@@ -115,10 +115,15 @@ for (const { w, h } of [{ w: 360, h: 640 }, { w: 390, h: 844 }]) {
       await expect(returnCard, 'карточки возврата нет').toBeVisible({ timeout: 30_000 });
       await expect(returnCard).toContainText('Последняя запись');
 
-      // BR-7: напоминание — строкой под «Продолжить», только название.
+      // Владелец 26.10: одна подсказка за раз. Пока есть «Продолжить» —
+      // напоминания нет; крестик прячет её до завтра, и появляется «В этот день».
       const memory = page.getByText(/В этот день/).first();
+      await expect(memory, 'обе подсказки сразу').toBeHidden();
+      await shot(page, `br8-return-card-${w}`);
+      await returnCard.getByRole('button', { name: 'Скрыть до завтра' }).click();
+      await expect(returnCard).toBeHidden();
       await expect(memory, 'строки «В этот день» нет').toBeVisible({ timeout: 30_000 });
-      await expect(memory.locator('xpath=preceding::*[@data-testid="return-to-writing"][1]')).toBeVisible();
+      await shot(page, `br8-on-this-day-${w}`);
 
       await expect(page.getByTestId('streak-chip'), 'чип серии нет').toBeVisible();
 

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.10.12 — 2026-10-27
+
+- **[RU]** На главном — одна подсказка за раз. «Продолжить» скрывается крестиком до завтра, и тогда на его месте строка «В этот день». Карточка сразу пропадает, если запись удалили, убрали в корзину или скрыли от ИИ.
+- **[EN]** The home screen shows one hint at a time. «Continue» can be hidden with × until tomorrow, and «On this day» takes its place. The card disappears right away if the entry was deleted, moved to the trash or hidden from AI.
+- **[RU]** ИИ понимает «с 10 по 24 октября», «10 октября», «за две недели», «вчера» и «на этой неделе» как именно эти дни, а не весь месяц.
+- **[EN]** The AI reads «from 10 to 24 October», «10 October», «over two weeks», «yesterday» and «this week» as exactly those days, not the whole month.
+- **[RU]** На «перечисли записи за октябрь», «по каждой» или «пройдись по всем» ИИ даёт перечень записей за период, в том числе ваши осознания и факты; «перечитай по одной» продолжает тот же период.
+- **[EN]** Asked to «list my entries for October», «go through each» or «go through all», the AI gives a list of that period's entries, including your insights and facts; «re-read them one by one» continues the same period.
+- **[RU]** Редактор на «выпиши главное» или «разбери по датам» отвечает списком со ссылками на записи, а не постом, и пишет о вас в вашем роде.
+- **[EN]** Asked to «write out the main points» or «break it down by date», the Editor answers with a list linking to your entries instead of a post, and refers to you in your own grammatical gender.
+- **[RU]** «Повторить» у строки «Не синхронизировано» говорит, если сейф заперт или нет сети. На новом устройстве подсказка «в облаке есть ваши заметки» появляется, как только вернулась связь.
+- **[EN]** «Retry» next to «Not synced» now says when the vault is locked or there is no network. On a new device, the «your notes are in the cloud» hint appears as soon as you are back online.
+- **[RU]** Точная цитата из двух приложенных заметок подряд остаётся в кавычках. Пометка «ответ оборван» к ответу на английском — тоже по-английски.
+- **[EN]** An exact quote spanning two attached notes keeps its quotation marks. The «answer was cut off» note under an English answer is now in English too.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.10.11 — 2026-10-26
 
 - **[RU]** Без сети «Сохранить» больше не ждёт облако: запись сохраняется на устройстве и уходит в облако, как только вернётся связь.
