@@ -8,6 +8,8 @@
 #   bash deploy/backup/pull-backup.sh
 #
 set -euo pipefail
+# 27.10: копия — данные людей; на ноутбуке читать её может только владелец.
+umask 077
 
 HOST=justwriting                 # алиас из ~/.ssh/config
 DEST="$HOME/Backups/justwriting" # куда складывать здесь
@@ -80,7 +82,11 @@ if ! command -v pg_restore >/dev/null; then
     echo "не нашёл pg_restore — нечем проверить состав копии; поставь postgresql или libpq" >&2
     exit 1
 fi
-if ! pg_restore --list "$DEST/$NAME" 2>/dev/null | grep -q "TABLE DATA public documents"; then
+# 27.10: оглавление читается целиком, потом ищется. `pg_restore | grep -q` под
+# pipefail ложно падал: grep выходил на первом совпадении, pg_restore получал
+# SIGPIPE — и целая копия удалялась (ни одна не дошла сюда с 30.09 по 27.10).
+TOC=$(pg_restore --list "$DEST/$NAME" 2>/dev/null) || TOC=''
+if ! grep -q "TABLE DATA public documents" <<<"$TOC"; then
     echo "ОШИБКА: в копии нет данных таблицы documents — копия неполная, удаляю" >&2
     rm -f "$DEST/$NAME"
     exit 1

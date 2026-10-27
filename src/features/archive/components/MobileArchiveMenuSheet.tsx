@@ -11,6 +11,8 @@ interface MobileArchiveMenuSheetProps {
   onClose: () => void;
   viewMode: 'list' | 'grid';
   onViewModeChange: (v: 'list' | 'grid') => void;
+  searchVisible: boolean;
+  onSearchVisibleChange: (v: boolean) => void;
   sortMode: SortMode;
   onSortModeChange: (m: SortMode) => void;
   sortLabels: Record<SortMode, string>;
@@ -29,7 +31,7 @@ interface MobileArchiveMenuSheetProps {
 /** MR-8: один лист вместо шести рядов кнопок в шапке архива. */
 export function MobileArchiveMenuSheet(props: MobileArchiveMenuSheetProps) {
   const {
-    open, onClose, viewMode, onViewModeChange, sortMode, onSortModeChange, sortLabels,
+    open, onClose, viewMode, onViewModeChange, searchVisible, onSearchVisibleChange, sortMode, onSortModeChange, sortLabels,
     onOpenTags, tagsOpen, onOpenCalendar, calendarOpen, activeTab, onTabChange, trashCount, onClearTrash,
   } = props;
   const { t } = useLanguage();
@@ -73,6 +75,27 @@ export function MobileArchiveMenuSheet(props: MobileArchiveMenuSheetProps) {
                   )}
                 >
                   {v === 'list' ? t('archive_list') : t('archive_grid')}
+                </button>
+              ))}
+            </span>
+          </div>
+
+          {/* Владелец 27.10: поиск по умолчанию скрыт — переключатель как у «Вид». */}
+          <div role="group" aria-label={t('archive_menu_search')} className={row}>
+            <span className="flex-1">{t('archive_menu_search')}</span>
+            <span className="flex gap-1 p-0.5 rounded-lg bg-surface-elevated">
+              {([true, false] as const).map(v => (
+                <button
+                  key={String(v)}
+                  type="button"
+                  onClick={() => onSearchVisibleChange(v)}
+                  aria-pressed={searchVisible === v}
+                  className={cn(
+                    'h-11 px-3 rounded-md text-xs font-medium',
+                    searchVisible === v ? 'bg-text-main/25 text-text-main' : 'text-text-main/60'
+                  )}
+                >
+                  {t(v ? 'archive_menu_search_show' : 'archive_menu_search_hide')}
                 </button>
               ))}
             </span>

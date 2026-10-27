@@ -14,7 +14,7 @@ const wrap = (ui: ReactNode) => render(<LanguageProvider>{ui}</LanguageProvider>
 
 describe('MF-8: Notes header and tags panel', () => {
   it('57 sessions → the header reads «57 записей»', () => {
-    wrap(<MobileArchiveHeader title="Заметки" count={57} countLabel="записей" searchQuery="" searchInputRef={{ current: null }}
+    wrap(<MobileArchiveHeader title="Заметки" count={57} countLabel="записей" searchQuery="" searchVisible searchInputRef={{ current: null }}
       onSearchChange={vi.fn()} onOpenMenu={vi.fn()} allTags={[]} selectedTags={[]} onToggleTag={vi.fn()} />);
     expect(screen.getByText('57 записей')).toBeInTheDocument();
   });
@@ -31,7 +31,7 @@ describe('MF-8: Notes header and tags panel', () => {
 
   it('the menu item toggles: «Теги и метки» → «Скрыть теги»', () => {
     const base = {
-      open: true, onClose: vi.fn(), viewMode: 'list' as const, onViewModeChange: vi.fn(), sortMode: 'newest' as never,
+      open: true, onClose: vi.fn(), viewMode: 'list' as const, onViewModeChange: vi.fn(), searchVisible: false, onSearchVisibleChange: vi.fn(), sortMode: 'newest' as never,
       onSortModeChange: vi.fn(), sortLabels: {} as never, onOpenCalendar: vi.fn(), activeTab: 'notes' as const,
       onTabChange: vi.fn(), trashCount: 0, onClearTrash: vi.fn(),
     };
@@ -47,7 +47,7 @@ describe('MF-8: Notes header and tags panel', () => {
   // MF-17: тот же переключатель у календаря.
   it('the calendar item toggles: «Календарь и статистика» → «Скрыть календарь»', () => {
     const base = {
-      open: true, onClose: vi.fn(), viewMode: 'list' as const, onViewModeChange: vi.fn(), sortMode: 'newest' as never,
+      open: true, onClose: vi.fn(), viewMode: 'list' as const, onViewModeChange: vi.fn(), searchVisible: false, onSearchVisibleChange: vi.fn(), sortMode: 'newest' as never,
       onSortModeChange: vi.fn(), sortLabels: {} as never, onOpenTags: vi.fn(), activeTab: 'notes' as const,
       onTabChange: vi.fn(), trashCount: 0, onClearTrash: vi.fn(),
     };
@@ -67,4 +67,23 @@ describe('MF-8: Notes header and tags panel', () => {
     expect(screen.getByText('Теги')).toBeInTheDocument();
     expect(screen.queryByText('Теги/Метки')).toBeNull();
   });
+
+  // Владелец 27.10: «Поиск» в листе — переключатель Показать/Скрыть, как «Вид».
+  // Мутация: перепутать значения кнопок → красный.
+  it('«Поиск» в листе: «Показать» включает поле, «Скрыть» выключает', () => {
+    const onSearchVisibleChange = vi.fn();
+    wrap(<MobileArchiveMenuSheet open onClose={vi.fn()} viewMode="list" onViewModeChange={vi.fn()}
+      searchVisible={false} onSearchVisibleChange={onSearchVisibleChange}
+      sortMode={'newest' as never} onSortModeChange={vi.fn()} sortLabels={{} as never}
+      onOpenTags={vi.fn()} onOpenCalendar={vi.fn()} activeTab="notes" onTabChange={vi.fn()}
+      trashCount={0} onClearTrash={vi.fn()} />);
+    const group = screen.getByRole('group', { name: 'Поиск' });
+    const show = group.querySelector('button[aria-pressed="false"]') as HTMLButtonElement;
+    expect(show.textContent).toBe('Показать');
+    fireEvent.click(show);
+    expect(onSearchVisibleChange).toHaveBeenCalledWith(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Скрыть' }));
+    expect(onSearchVisibleChange).toHaveBeenLastCalledWith(false);
+  });
 });
+

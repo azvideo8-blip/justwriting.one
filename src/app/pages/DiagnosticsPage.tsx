@@ -28,6 +28,7 @@ import { useToast } from '../../shared/components/Toast';
 import { AIService } from '../../features/ai/services/AIService';
 import { isDayLimitError } from '../../features/ai/types/aiErrors';
 import { AISummaryService } from '../../features/ai/services/AISummaryService';
+import { isExcludedFromAI } from '../../features/ai/utils/isExcludedFromAI';
 import { getLocalDb, type AIDocumentSummary } from '../../core/storage/localDb';
 import { reportError } from '../../shared/errors/reportError';
 import { MAX_AI_CONTENT_LENGTH } from '../../shared/ai/buildChatPrompt';
@@ -900,7 +901,7 @@ import { AIBackgroundBudget } from '../../features/ai/services/AIBackgroundBudge
 import { localDayKey } from '../../core/utils/dateUtils';
 
 // UXFIX-3: Mass AI analysis of all unanalyzed notes
-function MassAnalyzeNotes() {
+export function MassAnalyzeNotes() {
   const { showToast } = useToast();
   const { t } = useLanguage();
   const [running, setRunning] = useState(false);
@@ -917,10 +918,12 @@ function MassAnalyzeNotes() {
   const loadStats = React.useCallback(async () => {
     try {
       const db = await getLocalDb();
-      const docs = await db.getAll('documents');
-      const summaries = await db.getAll('aiSummaries');
+      // TH-3: скрытые от ИИ и корзина не «ещё не разобранные» — их текст не
+      // уходит поставщику, поэтому и в очередь разбора, и в покрытие они не входят.
+      const docs = (await db.getAll('documents')).filter(d => !isExcludedFromAI(d));
+      const analyzedIds = new Set((await db.getAll('aiSummaries')).map(s => s.documentId));
       const total = docs.length;
-      const summarized = summaries.length;
+      const summarized = docs.filter(d => analyzedIds.has(d.id)).length;
       const remaining = Math.max(0, total - summarized);
       const budget = AIBackgroundBudget.budgetStatus();
       setStats({
@@ -956,7 +959,10 @@ function MassAnalyzeNotes() {
       const docs = await db.getAll('documents');
       const summaries = await db.getAll('aiSummaries');
       const analyzed = new Set(summaries.map(s => s.documentId));
-      const pending = docs.filter(d => !analyzed.has(d.id));
+      // TH-3: тот же фильтр, что у noteAnalysis.findPending. Здесь лежала его
+      // копия без фильтра, и «Проанализировать» отправляла поставщику текст
+      // скрытой от ИИ и корзинной заметки.
+      const pending = docs.filter(d => !analyzed.has(d.id) && !isExcludedFromAI(d));
 
       if (pending.length === 0) {
         showToast('Все заметки уже проанализированы', 'success');

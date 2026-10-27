@@ -6,6 +6,7 @@ import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncServ
 import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
 import { isExcludedFromAI } from '../utils/isExcludedFromAI';
+import { loadVisibleNoteKeys } from '../utils/retrieval/docSnapshot';
 
 
 export const AICommitmentService = {
@@ -81,9 +82,11 @@ export const AICommitmentService = {
       const db = await getLocalDb();
       const allCommitments = await db.getAll('aiCommitments');
       const documents = await db.getAll('documents');
-      // N-4: планы из заметок, исключённых из ИИ или лежащих в корзине, в чат не идут.
-      const hidden = new Set(documents.filter(isExcludedFromAI).flatMap(d => [d.id, d.uuid].filter((x): x is string => !!x)));
-      const openCommitments = allCommitments.filter(c => c.status === 'open' && !hidden.has(c.documentId));
+      // N-4 + ревью 0.10.13: в чат идут планы только видимых заметок. Список
+      // скрытых пропускал план удалённой заметки (её нет в documents) — тот же
+      // класс, что TH-3 у хронологии: «нет заметки» = «нельзя» (S-51).
+      const visible = await loadVisibleNoteKeys();
+      const openCommitments = allCommitments.filter(c => c.status === 'open' && visible.has(c.documentId));
       if (openCommitments.length === 0) return [];
 
       // Векторы всех заметок здесь не нужны целиком: совпадение ищется только

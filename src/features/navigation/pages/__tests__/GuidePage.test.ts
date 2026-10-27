@@ -45,4 +45,14 @@ describe('extractGuideArticle', () => {
   it('returns null for a page without an article', () => {
     expect(extractGuideArticle('<html><body><p>404</p></body></html>')).toBeNull();
   });
+
+  // Аудит безопасности 27.10: защита от «javascript:» не держится только на CSP.
+  // Мутация: убрать снятие опасных href → красный.
+  it('drops javascript: and data: links', () => {
+    const html = extractGuideArticle(`<article class="doc"><a href="javascript:alert(1)">x</a><a href=" JavaScript:alert(2)">y</a><a href="data:text/html,1">z</a><a href="java&#9;script:alert(3)">t</a><a href="sync.html">ok</a></article>`)!;
+    expect(html.toLowerCase()).not.toContain('javascript:');
+    expect(html).not.toContain('data:text');
+    expect(html).toContain('/guide/sync');
+  });
 });
+

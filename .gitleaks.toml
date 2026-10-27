@@ -21,4 +21,7 @@ regexes = [
   # поддельный wrappedDataKey — проверка ошибки расшифровки
   '''d3JhcHBlZGRhdGFrZXk=''',
   '''not-valid-base64''',
+  # проза в промте аудита (docs/fable-prompt-error-surfaces-audit.md:33, 9a624e85):
+  # «auth token refresh, encryption/vault unlock» — generic-api-key принял слово за ключ
+  '''encryption/vault''',
 ]

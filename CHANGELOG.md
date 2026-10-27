@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.10.13 — 2026-10-27
+
+- **[RU]** На телефоне в «Заметках» поле поиска по умолчанию скрыто: его включает пункт «Поиск» в меню «⋯». Поля по бокам стали уже — как на остальных вкладках.
+- **[EN]** On the phone, the search field in «Notes» is hidden by default: turn it on with «Search» in the «⋯» menu. The side margins are narrower, as on the other tabs.
+- **[RU]** Когда серия записей обнулилась, на главном больше нет надписи «Начнём новую серию».
+- **[EN]** When your writing streak resets, the home screen no longer shows «Start a new streak».
+- **[RU]** Удалённые и скрытые от ИИ заметки не попадают к ИИ ещё в четырёх местах.
+- **[EN]** Deleted notes and notes hidden from AI no longer reach the AI in four more places.
+- **[RU]** Новый пароль — не короче 8 символов и при прямом обращении к серверу входа, а не только в форме.
+- **[EN]** A new password must be at least 8 characters long on the sign-in server too, not only in the form.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.10.12 — 2026-10-27
 
 - **[RU]** На главном — одна подсказка за раз. «Продолжить» скрывается крестиком до завтра, и тогда на его месте строка «В этот день». Карточка сразу пропадает, если запись удалили, убрали в корзину или скрыли от ИИ.

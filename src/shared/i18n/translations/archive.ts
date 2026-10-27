@@ -5,6 +5,9 @@ export const archiveTranslations: Translations = {
   // MR-8: мобильная шапка архива — заголовок, поиск и один лист «⋯».
   archive_more: { ru: 'Ещё', en: 'More' },
   archive_menu_view: { ru: 'Вид', en: 'View' },
+  archive_menu_search: { ru: 'Поиск', en: 'Search' },
+  archive_menu_search_show: { ru: 'Показать', en: 'Show' },
+  archive_menu_search_hide: { ru: 'Скрыть', en: 'Hide' },
   archive_menu_sort: { ru: 'Сортировка', en: 'Sort' },
   archive_menu_tags: { ru: 'Теги и метки', en: 'Tags and labels' },
   archive_menu_hide_tags: { ru: 'Скрыть теги', en: 'Hide tags' },

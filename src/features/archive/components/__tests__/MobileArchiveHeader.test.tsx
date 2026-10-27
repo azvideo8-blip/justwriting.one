@@ -12,6 +12,7 @@ const mobileProps = {
   count: 2,
   countLabel: 'записи',
   searchQuery: '',
+  searchVisible: true,
   searchInputRef: { current: null },
   onSearchChange: vi.fn(),
   onOpenMenu: vi.fn(),
@@ -33,6 +34,14 @@ describe('MR-8: мобильная шапка архива', () => {
     expect(screen.getByRole('searchbox', { name: 'Поиск по заметкам...' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Ещё' })).toBeTruthy();
     expect(screen.queryByText('⌘K')).toBeNull();
+  });
+
+  // Владелец 27.10: поиск скрыт по умолчанию, включается в листе «⋯».
+  // Мутация: рисовать поле без searchVisible → красный.
+  it('поиск выключен — поля нет, заголовок и «⋯» на месте', () => {
+    renderMobile({ searchVisible: false });
+    expect(screen.queryByRole('searchbox')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Ещё' })).toBeTruthy();
   });
 
   it('при вводе поиска подходящие теги становятся чипсами, а без ввода их нет', () => {

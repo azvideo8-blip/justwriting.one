@@ -51,7 +51,12 @@ export function extractGuideArticle(html: string, base = '/docs/'): string | nul
   });
   article.querySelectorAll('a[href]').forEach(a => {
     const href = a.getAttribute('href') ?? '';
-    const m = /^([a-z]+)\.html(#.*)?$/.exec(href);
+    // Аудит безопасности 27.10: ссылка — только http(s)/mailto или относительная;
+    // разбор через URL (как браузер: табы и переводы строк внутри схемы срезаются).
+    let protocol = '';
+    try { protocol = new URL(href, 'https://justwriting.ru/docs/').protocol; } catch { protocol = ''; }
+    if (!['http:', 'https:', 'mailto:'].includes(protocol)) { a.removeAttribute('href'); return; }
+    const m =/^([a-z]+)\.html(#.*)?$/.exec(href);
     if (m) a.setAttribute('href', guidePath(m[1]!) + (m[2] ?? ''));
     // Телефонная страница ссылается на десктопный раздел — статическая страница.
     const up = /^\.\.\/([a-z]+\.html(#.*)?)$/.exec(href);

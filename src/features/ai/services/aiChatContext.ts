@@ -106,8 +106,12 @@ export async function postTopicQuery(
   const lastReply = [...history].reverse().find(m => m.role === 'assistant');
   if (!lastReply) return undefined;
   for (const id of extractCitationIds(lastReply.content)) {
+    // S-63: вставленный текст — не заметка, строки в documents у него нет.
+    if (isPastedAttachmentId(id)) continue;
     const doc = await docById(id);
-    if (doc && (isExcludedFromAI(doc) || doc.trashedAt)) return undefined;
+    // TH-3: «нет заметки» = «нельзя» (S-51). Здесь стояло `doc &&` — ответ,
+    // цитировавший удалённую заметку, уходил в запрос поиска и в эмбеддинг.
+    if (!doc || isExcludedFromAI(doc) || doc.trashedAt) return undefined;
   }
   const body = postBody(lastReply.content).replace(/\s+/g, ' ').trim().slice(0, 600);
   return body || undefined;

@@ -22,7 +22,7 @@ vi.mock('../../../../core/services/LocalDocumentService', () => ({
 const menu = (trashCount: number) => render(
   <LanguageProvider>
     <MobileArchiveMenuSheet
-      open onClose={vi.fn()} viewMode="list" onViewModeChange={vi.fn()} sortMode={'newest' as never} onSortModeChange={vi.fn()}
+      open onClose={vi.fn()} viewMode="list" onViewModeChange={vi.fn()} searchVisible={false} onSearchVisibleChange={vi.fn()} sortMode={'newest' as never} onSortModeChange={vi.fn()}
       sortLabels={{} as never} onOpenTags={vi.fn()} onOpenCalendar={vi.fn()} activeTab="notes" onTabChange={vi.fn()}
       trashCount={trashCount} onClearTrash={vi.fn()}
     />

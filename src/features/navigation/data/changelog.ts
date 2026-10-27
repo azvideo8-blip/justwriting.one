@@ -17,6 +17,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.10.13',
+    date: '2026-10-27',
+    items: [
+      { category: 'improvement', ru: 'На телефоне в «Заметках» поле поиска по умолчанию скрыто: его включает пункт «Поиск» в меню «⋯». Поля по бокам стали уже — как на остальных вкладках.', en: 'On the phone, the search field in «Notes» is hidden by default: turn it on with «Search» in the «⋯» menu. The side margins are narrower, as on the other tabs.' },
+      { category: 'improvement', ru: 'Когда серия записей обнулилась, на главном больше нет надписи «Начнём новую серию».', en: 'When your writing streak resets, the home screen no longer shows «Start a new streak».' },
+      { category: 'fix', ru: 'Удалённые и скрытые от ИИ заметки не попадают к ИИ ещё в четырёх местах.', en: 'Deleted notes and notes hidden from AI no longer reach the AI in four more places.' },
+      { category: 'fix', ru: 'Новый пароль — не короче 8 символов и при прямом обращении к серверу входа, а не только в форме.', en: 'A new password must be at least 8 characters long on the sign-in server too, not only in the form.' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.10.12',
     date: '2026-10-27',
     items: [

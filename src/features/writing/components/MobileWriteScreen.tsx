@@ -306,8 +306,7 @@ export function MobileWriteScreen({
                 {saveMomentLine}
               </span>
             ) : isIdleState ? (
-              /* RA1-6 (решение владельца 2026-10-24): серия не исчезает при 0 —
-                 чип зовёт начать новую, а не оставляет пустое место. */
+              /* RA1-6; владелец 27.10: при нуле чип сам не рисуется. */
               <StreakChip days={streakDays} displayDays={streakShown} />
             ) : (
             /* U-2, U-17: время — Inter tabular-nums без плашки и свечения, как на десктопе;

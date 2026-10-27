@@ -7,6 +7,7 @@ import { reportError } from '../../../../shared/errors/reportError';
 import { isExcludedFromAI } from '../../utils/isExcludedFromAI';
 import { extractCitationIds } from './citations';
 import { hiddenNoteIdsFromDocs, ALL_NOTES_HIDDEN, type HiddenNoteIds } from '../../utils/hiddenNoteIds';
+import { loadVisibleNoteKeys } from '../../utils/retrieval/docSnapshot';
 
 interface BuildProactiveBlockParams {
   personaId: string;
@@ -138,8 +139,11 @@ export async function buildProactiveBlock({ personaId, turnEmb }: BuildProactive
 
   try {
     const db = await getLocalDb();
-    const hidden = new Set((await db.getAll('documents')).filter(isExcludedFromAI).flatMap(d => [d.id, d.uuid].filter((x): x is string => !!x)));
-    const timeline = (await db.getAll('aiTimeline')).filter(t => !hidden.has(t.documentId));
+    // TH-3: список видимых, а не список скрытых. Удалённой заметки в
+    // `documents` нет — в списке скрытых её тоже нет, и её темы уходили в блок.
+    // Правило то же, что у читателей хронологии (S-51): «нет заметки» = «нельзя».
+    const visible = await loadVisibleNoteKeys();
+    const timeline = (await db.getAll('aiTimeline')).filter(t => visible.has(t.documentId));
 
     // Trends
     const { computeTrends, formatTrendsBlock } = await import('../../utils/contextTrends');

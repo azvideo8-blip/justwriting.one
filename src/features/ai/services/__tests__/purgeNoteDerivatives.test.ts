@@ -47,6 +47,8 @@ describe('N-4: a note leaves no derivatives behind', () => {
     await db.clear('aiCommitments');
     await db.put('documents', { id: 'doc_h', guestId: 'g', title: '', currentVersion: 1, totalWords: 1, totalDuration: 1, sessionsCount: 1, firstSessionAt: 1, lastSessionAt: 1, tags: [], excludedFromAI: true });
     await db.put('aiCommitments', { id: 'c3', text: 'скрытое', documentId: 'doc_h', createdAt: Date.now(), date: '2026-09-01', status: 'open' });
+    // Ревью 0.10.13: видимая — это заметка, которая есть и не скрыта; «нет в documents» = не видна.
+    await db.put('documents', { id: 'doc_other', guestId: 'g', title: '', currentVersion: 1, totalWords: 1, totalDuration: 1, sessionsCount: 1, firstSessionAt: 1, lastSessionAt: 1, tags: [] });
     await db.put('aiCommitments', { id: 'c4', text: 'видимое', documentId: 'doc_other', createdAt: Date.now(), date: '2026-09-01', status: 'open' });
     expect((await AICommitmentService.getOpenCommitments()).map(c => c.id)).toEqual(['c4']);
   });

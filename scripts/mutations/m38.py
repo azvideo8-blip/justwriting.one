@@ -5,12 +5,12 @@ p=sys.argv[1]; s=open(p).read()
 s=s.replace("""  res.on('close', () => {
     clientClosed = true;
     controller.abort();
-    void settlement.settle('closed').catch((e) => console.error('[chat] settle on close', e));
+    void settlement.settle('closed').catch((e) => console.error('[chat] settle on close', safeErrorShape(e)));
   });""","")
 s=s.replace("""  res.on('close', () => {
     clientClosed = true;
     clearTimeout(deadlineId);
     controller.abort();
-    void settlement.settle('closed').catch((e) => console.error('[chat] settle on close', e));
+    void settlement.settle('closed').catch((e) => console.error('[chat] settle on close', safeErrorShape(e)));
   });""","")
 open(p,'w').write(s)

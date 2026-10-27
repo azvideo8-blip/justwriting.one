@@ -7,11 +7,11 @@ p=sys.argv[1]; s=open(p).read()
 old = """      [uid, chargedDay, kind],
     );
   } catch (e) {
-    console.error('[postgresAiContext] refundDailyLimit error', e);"""
+    console.error('[postgresAiContext] refundDailyLimit error', safeErrorShape(e));"""
 new = """      [uid, today(), kind],
     );
   } catch (e) {
-    console.error('[postgresAiContext] refundDailyLimit error', e);"""
+    console.error('[postgresAiContext] refundDailyLimit error', safeErrorShape(e));"""
 n = s.count(old)
 assert n == 1, f"anchor matches {n} times in {p} — anchor must be unique"
 open(p,'w').write(s.replace(old, new))

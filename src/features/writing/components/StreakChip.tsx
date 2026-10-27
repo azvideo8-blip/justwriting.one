@@ -2,11 +2,12 @@ import { useLanguage } from '../../../shared/i18n';
 import { cn } from '../../../core/utils/utils';
 
 /**
- * RA1-6 (решение владельца 2026-10-24): серия не исчезает при нуле — вместо
- * числа чип зовёт начать новую. Один вид на телефон и десктоп.
+ * RA1-6: один вид на телефон и десктоп. Владелец 27.10: при нуле чипа нет —
+ * «Начнём новую серию» над пустым экраном мешала (решение 24.10 отменено).
  */
 export function StreakChip({ days, displayDays, className }: { days: number; displayDays?: number; className?: string }) {
-  const { t, tp } = useLanguage();
+  const { tp } = useLanguage();
+  if (days <= 0) return null;
   const value = displayDays ?? days;
   return (
     <div
@@ -17,7 +18,7 @@ export function StreakChip({ days, displayDays, className }: { days: number; dis
       )}
     >
       <span className="tabular-nums">
-        {days > 0 ? `${value} ${tp('home_streak_days', days)}` : t('home_streak_start')}
+        {`${value} ${tp('home_streak_days', days)}`}
       </span>
     </div>
   );

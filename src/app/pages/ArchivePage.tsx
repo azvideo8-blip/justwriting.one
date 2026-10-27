@@ -231,6 +231,14 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     z.enum(['list', 'grid'])
   );
 
+  // Владелец 27.10: на телефоне поле поиска скрыто по умолчанию, включается
+  // переключателем «Поиск» в листе «⋯».
+  const [mobileSearchVisible, setMobileSearchVisible] = useLocalStorage<boolean>(
+    'archive_mobileSearchVisible',
+    false,
+    z.boolean()
+  );
+
   const [sortMode, setSortMode] = useLocalStorage<SortMode>(
     'archive_sortMode',
     'newest',
@@ -269,7 +277,9 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
   const isGroupedByDate = sortMode === 'newest' || sortMode === 'oldest';
 
   return (
-    <AdaptiveContainer>
+    // Владелец 27.10: на телефоне поля задаёт main (px-4), второй px-4 контейнера
+    // делал их вдвое шире, чем на остальных вкладках.
+    <AdaptiveContainer className={isMobile ? 'px-0' : ''}>
       <motion.div
         initial={{ opacity: 0, transform: "translateY(20px)" }}
         animate={{ opacity: 1, transform: "translateY(0px)" }}
@@ -299,6 +309,9 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                   count={activeTab === 'notes' ? sortedSessions.length : filteredTrashedSessions.length}
                   countLabel={tp('archive_count', activeTab === 'notes' ? sortedSessions.length : filteredTrashedSessions.length)}
                   searchQuery={searchQuery} searchInputRef={searchInputRef} onSearchChange={setSearchQuery}
+                  // Ревью 0.10.13: введённый запрос не прячется вместе с полем — иначе
+                  // список отфильтрован, а сбросить нечем (смена макета на узкий).
+                  searchVisible={mobileSearchVisible || !!searchQuery}
                   onOpenMenu={() => setArchiveMenuOpen(true)}
                   allTags={allTags} selectedTags={selectedTags}
                   onToggleTag={tag => setSelectedTags(prev => (prev.includes(tag) ? prev.filter(x => x !== tag) : [...prev, tag]))}
@@ -307,6 +320,9 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                   open={archiveMenuOpen}
                   onClose={() => setArchiveMenuOpen(false)}
                   viewMode={viewMode} onViewModeChange={setViewMode}
+                  searchVisible={mobileSearchVisible}
+                  // Скрытое поле не фильтрует молча: запрос сбрасывается вместе с ним.
+                  onSearchVisibleChange={v => { setMobileSearchVisible(v); if (!v) setSearchQuery(''); }}
                   sortMode={sortMode} onSortModeChange={setSortMode} sortLabels={sortLabels}
                   onOpenTags={() => setShowTagLabelBars(v => !v)}
                   tagsOpen={showTagLabelBars}
