@@ -3,7 +3,7 @@ import React from 'react';
 // проход упал с исключением или вернул ноль. Теперь падение рисует состояние
 // ошибки, а не завершения. Фальсификация: вернуть setStep('completed') в catch —
 // тест краснеет.
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render as rtlRender, screen, fireEvent } from '@testing-library/react';
 import { LanguageProvider } from '../../../shared/i18n';
 
@@ -44,6 +44,25 @@ vi.mock('../../../core/services/LocalStorageService', () => {
 vi.mock('../../../core/sync/useEmptyDeviceDetection', () => ({
   setRestoreDismissed: vi.fn(),
 }));
+
+// R-2: битый ряд в списке облака — счётчик по прочитанной части и пометка,
+// а не «не удалось загрузить количество». Мутация «обычный catch» → красный.
+describe('R-2: неполный список облака в окне восстановления', () => {
+  // Постоянный отказ, не Once: эффект счётчиков перезапускается (меняется t),
+  // и второй вызов с [] снимал бы пометку раньше проверки.
+  afterEach(() => { vi.mocked(DocumentService.getUserDocuments).mockResolvedValue([]); });
+  it('показывает прочитанное и пометку о нечитаемых рядах', async () => {
+    localStorage.clear();
+    const e = Object.assign(new Error('UNREADABLE_CLOUD_LIST: 1'), { name: 'UnreadableCloudListError', docs: [{ id: 'c1' }, { id: 'c2' }], ids: ['bad'], uuids: ['bad'] });
+    vi.mocked(DocumentService.getUserDocuments).mockRejectedValue(e);
+
+    render(<RestoreFromCloudModal open onClose={() => {}} />);
+
+    await screen.findByTestId('restore-cloud-partial');
+    expect(screen.getByTestId('restore-cloud-partial').textContent).toMatch(/не прочиталась \(1\)/);
+    expect(screen.queryByText('Не удалось загрузить количество заметок в облаке')).toBeNull();
+  });
+});
 
 describe('AUD-12 restore modal reports failure', () => {
   beforeEach(() => {

@@ -1,4 +1,8 @@
-import { DocumentService } from './DocumentService';
+import { DocumentService, UnreadableCloudListError, UnreadableCloudRowError, parseCloudDocument } from './DocumentService';
+import { readCloudDocumentsPartial } from './cloudListPartial';
+import { pullChangesSince } from '../data/providers/pullChanges';
+import { DOCUMENT_REV, fromDb } from '../data/providers/fields';
+import { advanceSyncRevCursor, getSyncRevCursor, getSyncRevDeferred, setSyncRevDeferred } from '../sync/revCursor';
 import { requeueDocumentTask, quarantineDocumentTask } from '../sync/requeueDocumentTask';
 import { VersionService } from './VersionService';
 import { LocalStorageService } from './LocalStorageService';
@@ -53,10 +57,29 @@ export interface ReconcileSummary {
   failed: number;
   corrupted: number;
   locked?: boolean;
+  /** R-2: список облака был неполным — сверено только по прочитанной части; курсор не двигать. */
+  incomplete?: boolean;
 }
 
 const _activeReconcilePromises = new Map<string, Promise<ReconcileSummary>>();
 const downloadLimit = pLimit(5);
+
+// S1-6: один забор по rev на пользователя за раз — второй вызывающий
+// присоединяется к идущему, как у downloadAllFromCloud.
+export interface PullNotesResult {
+  /** S1-12: сколько строк отложено после этого забора (стойко нечитаемые). */
+  deferred: number;
+  downloaded: number;
+  reconciled: number;
+  skipped: number;
+  corrupted: number;
+  failed: number;
+  locked?: boolean;
+  documentsRev: number;
+  versionsRev: number;
+}
+const _activePullPromises = new Map<string, Promise<PullNotesResult>>();
+const PULL_PAGE_SIZE = 1000;
 
 export interface RelinkResult {
   relinked: number;
@@ -188,6 +211,322 @@ function withTimeout<T>(promise: Promise<T>, ms: number = CLOUD_SYNC_TIMEOUT): P
 
 
 
+type ReconcileOneOutcome = 'reconciled' | 'skipped' | 'failed' | 'busy';
+
+/**
+ * S1-11: замок заметки занят (выгрузка в другой вкладке). Для забора по rev
+ * это «не применено»: строка не пройдена, курсор встаёт перед ней, забор
+ * заканчивается без ошибки — следующий проход начнёт с неё.
+ */
+class PullPaused extends Error {
+  constructor(readonly uuid: string) {
+    // Без шаблонной строки: инвентарь ключей аккаунта читает `${…}` рядом с
+    // localStorage как ключ (accountScopedKeys.inventory).
+    super('PULL_PAUSED: document is locked by another writer: ' + uuid);
+    this.name = 'PullPaused';
+  }
+}
+
+/**
+ * S1-12: отказ, который повторится на той же строке при любом следующем
+ * чтении — схема, расшифровка, заметка без версий. Такую строку забор
+ * откладывает и идёт дальше. Всё остальное (сеть, LOCKED, замок, сбой
+ * записи) — стоп на этой строке, как раньше: оно может пройти само.
+ */
+function deterministicPullFailure(e: unknown): string | null {
+  if (e instanceof UnreadableCloudRowError) return 'schema';
+  const msg = String((e as { message?: string } | null)?.message ?? e);
+  for (const prefix of ['DECRYPTION_ERROR', 'EMPTY_CLOUD_DOCUMENT', 'DECRYPT_FAILED_LATEST']) {
+    if (msg.startsWith(prefix)) return prefix;
+  }
+  return null;
+}
+
+/**
+ * S1-6: сверка ОДНОЙ связанной заметки — одно правило на два входа.
+ *
+ * Старый полный проход (`reconcileLinkedDocuments`) зовёт её в цикле по всем
+ * связанным заметкам, новый забор по `rev` — только по тем, чей номер приехал.
+ * Правило «облако новее» (`isCloudNewer`) не меняется: это этап 3.
+ */
+async function reconcileOneLinked(
+  userId: string,
+  localDoc: LocalDocument,
+  cloudDoc: Document,
+  opts?: { getActiveDocumentId?: () => string | null },
+): Promise<{ outcome: ReconcileOneOutcome; corrupted: number }> {
+  const cloudTime = cloudDoc.updatedAt ? new Date(cloudDoc.updatedAt).getTime() : (cloudDoc.createdAt ? new Date(cloudDoc.createdAt).getTime() : 0);
+  const localSeenTime = localDoc.lastSeenCloudUpdatedAt ? new Date(localDoc.lastSeenCloudUpdatedAt).getTime() : 0;
+
+  /*gate:clock-rule*/
+  // Всё правило «облако новее» — под разметкой (SF-9): и решение по запомненной
+  // серверной метке, и запасной путь по `lastSessionAt`/номеру версии. Гейт —
+  // src/test/syncRuleGates.s06.test.ts (S0-6).
+  const isCloudNewer = localSeenTime > 0
+    ? cloudTime > localSeenTime
+    : (cloudDoc.currentVersion > (localDoc.lastSyncedCloudVersion ?? localDoc.currentVersion) ||
+       (cloudTime > (localDoc.lastSessionAt || 0) && cloudDoc.currentVersion >= localDoc.currentVersion));
+  /*endgate:clock-rule*/
+
+  if (!isCloudNewer) return { outcome: 'skipped', corrupted: 0 };
+
+  let outcome: ReconcileOneOutcome = 'skipped';
+  let corrupted = 0;
+  try {
+    await withDocumentLock(localDoc.id, async () => {
+      const db = await getLocalDb(userId);
+      const fresh = await db.get('documents', localDoc.id);
+      if (!fresh) {
+        return;
+      }
+
+      const freshQueue = await db.getAll('syncQueue');
+      const docUuid = fresh.uuid;
+      const linkedCloudId = fresh.linkedCloudId;
+      const hasQueueTask = freshQueue.some(
+        t => !t.id.startsWith('lock_cloud_') && (
+          t.documentId === localDoc.id ||
+          (Boolean(docUuid) && t.documentId === docUuid) ||
+          (Boolean(linkedCloudId) && t.documentId === linkedCloudId)
+        )
+      );
+
+      const activeEditorDocId = opts?.getActiveDocumentId ? opts.getActiveDocumentId() : getActiveEditorDocumentId();
+      const hasUnsyncedEdits = fresh.lastSyncedCloudVersion !== undefined &&
+        (fresh.currentVersion ?? 0) > fresh.lastSyncedCloudVersion;
+
+      const isPending = hasQueueTask || (activeEditorDocId === localDoc.id) || hasUnsyncedEdits;
+
+      if (hasUnsyncedEdits) {
+        await requeueDocumentTask(localDoc.id, userId);
+      }
+
+      const cloudVersions = await VersionService.getVersions(userId, localDoc.linkedCloudId!);
+      if (!cloudVersions.length) {
+        return;
+      }
+
+      // R3-010: без отметки синхронизации (заметки, связанные старыми
+      // версиями приложения) правки нельзя ни подтвердить, ни исключить.
+      // Прежде такая заметка шла в перемотку: счётчики вставали на голову
+      // облака, а локальная v2 с другим текстом объявлялась синхронизированной.
+      // Перемотка безопасна, только если текст совпадает с головой облака;
+      // иначе — как при правках: облачная голова ложится поверх, локальная
+      // остаётся в истории.
+      let unknownWatermarkDiverged = false;
+      if (!isPending && fresh.lastSyncedCloudVersion === undefined) {
+        const head = cloudVersions.reduce((latest, v) => (v.version > latest.version ? v : latest), cloudVersions[0]!);
+        let headContent: string | null = null;
+        try {
+          const dec = await maybeDecrypt(head as unknown as Record<string, unknown>, ['content'], []);
+          headContent = typeof dec.content === 'string' ? dec.content : null;
+        } catch (decErr) {
+          if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) throw decErr;
+          if (!(decErr instanceof DecryptionError)) throw decErr;
+        }
+        const localContent = await LocalVersionService.getLatestContent(localDoc.id, userId);
+        unknownWatermarkDiverged = localContent !== '' && localContent !== headContent;
+      }
+
+      const cloudUpdatedAtIso = cloudDoc.updatedAt
+        ? new Date(cloudDoc.updatedAt).toISOString()
+        : new Date(cloudTime || Date.now()).toISOString();
+
+      if (isPending || unknownWatermarkDiverged) {
+        const latestCloudVer = cloudVersions.reduce((latest, v) => (v.version > latest.version ? v : latest), cloudVersions[0]!);
+
+        let plainContent: string | null = null;
+        let plainMood: string | undefined = undefined;
+        try {
+          const decrypted = await maybeDecrypt(latestCloudVer as unknown as Record<string, unknown>, ['content', 'mood'], []);
+          plainContent = typeof decrypted.content === 'string' ? decrypted.content : null;
+          plainMood = typeof decrypted.mood === 'string' ? decrypted.mood : (typeof latestCloudVer.mood === 'string' ? latestCloudVer.mood : undefined);
+        } catch (decErr) {
+          if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) throw decErr;
+          if (!(decErr instanceof DecryptionError)) throw decErr;
+          // R3-023: голова облака не читается — счётчики не трогаем
+          // (ветка ниже пропускается), но и не молчим.
+          corrupted++;
+          reportError(decErr, {
+            action: 'reconcileLinkedDocuments_unreadableHead',
+            documentId: localDoc.id,
+            cloudDocumentId: localDoc.linkedCloudId,
+            version: latestCloudVer.version,
+          }, 'warning');
+        }
+
+        if (plainContent !== null) {
+          const localVersions = await LocalVersionService.getVersions(localDoc.id, userId);
+          const nextVersionNo = Math.max(...localVersions.map(v => v.version), 0) + 1;
+
+          const tx = db.transaction(['documents', 'versions'], 'readwrite');
+          const docStore = tx.objectStore('documents');
+          const verStore = tx.objectStore('versions');
+
+          const cur = await docStore.get(localDoc.id);
+          // Номер берётся и по строкам истории, и по счётчику заметки: строки
+          // могут отстать (историю чистят LocalVersionService.deleteVersions), и
+          // тогда nextVersionNo откатил бы currentVersion назад — вместе с
+          // признаком "есть что отправить" из A-2.3.
+          const versionNo = Math.max(nextVersionNo, cur?.currentVersion ?? 0);
+          const verId = 'ver_' + randomUUID();
+
+          await verStore.put({
+            id: verId,
+            documentId: localDoc.id,
+            guestId: userId,
+            version: versionNo,
+            content: plainContent,
+            wordCount: latestCloudVer.wordCount ?? 0,
+            wordsAdded: 0,
+            charsAdded: 0,
+            duration: latestCloudVer.duration ?? 0,
+            wpm: latestCloudVer.wpm ?? 0,
+            goalWords: latestCloudVer.goalWords,
+            goalTime: latestCloudVer.goalTime,
+            goalReached: latestCloudVer.goalReached ?? false,
+            sessionStartedAt: latestCloudVer.sessionStartedAt ? toDate(latestCloudVer.sessionStartedAt)?.getTime() ?? Date.now() : Date.now(),
+            savedAt: latestCloudVer.savedAt ? toDate(latestCloudVer.savedAt)?.getTime() ?? Date.now() : Date.now(),
+            mood: plainMood,
+          });
+
+          if (cur) {
+            await docStore.put({
+              ...cur,
+              currentVersion: versionNo,
+              lastSeenCloudUpdatedAt: cloudUpdatedAtIso,
+            });
+          }
+          await tx.done;
+
+          useActivityLogStore.getState().addActivity(
+            'activity_cloud_remote_edit',
+            { action: 'reconcileLinkedDocuments_remote_edit', documentId: localDoc.id, cloudDocumentId: localDoc.linkedCloudId },
+            'info',
+            'sync',
+          );
+
+          outcome = 'reconciled';
+        }
+      } else {
+        const localVersions = await LocalVersionService.getVersions(localDoc.id, userId);
+        const localVerSet = new Set(localVersions.map(v => v.version));
+
+        const sortedCloudVersions = [...cloudVersions].sort((a, b) => a.version - b.version);
+        let prevContent = '';
+        const corruptedVersions: number[] = [];
+        for (const cv of sortedCloudVersions) {
+          let cContent: string | null = null;
+          let cMood: string | undefined = undefined;
+          try {
+            const dec = await maybeDecrypt(cv as unknown as Record<string, unknown>, ['content', 'mood'], []);
+            cContent = typeof dec.content === 'string' ? dec.content : null;
+            cMood = typeof dec.mood === 'string' ? dec.mood : (typeof cv.mood === 'string' ? cv.mood : undefined);
+          } catch (decErr) {
+            if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) throw decErr;
+            if (!(decErr instanceof DecryptionError)) throw decErr;
+            corruptedVersions.push(cv.version);
+          }
+
+          if (cContent !== null) {
+            if (!localVerSet.has(cv.version)) {
+              await LocalVersionService.addVersion(userId, localDoc.id, {
+                content: cContent,
+                previousContent: prevContent,
+                wordCount: cv.wordCount ?? 0,
+                duration: cv.duration ?? 0,
+                wpm: cv.wpm ?? 0,
+                versionNumber: cv.version,
+                goalWords: cv.goalWords,
+                goalTime: cv.goalTime,
+                goalReached: cv.goalReached,
+                sessionStartedAt: cv.sessionStartedAt ? toDate(cv.sessionStartedAt) ?? new Date() : new Date(),
+                savedAt: cv.savedAt ? toDate(cv.savedAt) ?? undefined : undefined,
+                mood: cMood,
+              });
+            }
+            prevContent = cContent;
+          }
+        }
+
+        // R4-005: у облачного ряда current_version мог отстать от
+        // фактически скачанных версий (расхождение счётчиков) —
+        // записывать отставший счётчик значило прятать хвост истории
+        // за «синхронизировано». Берём максимум из увиденного.
+        const seenMaxVersion = Math.max(
+          cloudDoc.currentVersion,
+          ...sortedCloudVersions.map(cv => cv.version),
+        );
+
+        // R7F-010: заметку скрыли или выбросили на другом устройстве — флаг
+        // приехал этим забором, а доменное событие здесь никогда не эмитилось,
+        // поэтому производные (хронология, цитаты тем, линии) жили на этом
+        // устройстве бессрочно. Признак считается локально, без импорта из
+        // features: ядро не знает про ИИ, только про шину событий.
+        const cloudTrashedAtMs = toDate((cloudDoc as { trashedAt?: unknown }).trashedAt)?.getTime() ?? null;
+        const wasExcluded = Boolean(localDoc.excludedFromAI) || Boolean(localDoc.trashedAt);
+        const nowExcluded = Boolean(cloudDoc.excludedFromAI ?? localDoc.excludedFromAI) || Boolean(cloudTrashedAtMs);
+
+        await LocalStorageService.updateDocument(localDoc.id, {
+          title: cloudDoc.title ?? localDoc.title,
+          tags: cloudDoc.tags ?? localDoc.tags,
+          labelId: cloudDoc.labelId !== undefined ? (cloudDoc.labelId ?? undefined) : localDoc.labelId,
+          mood: cloudDoc.mood ?? localDoc.mood,
+          currentVersion: seenMaxVersion,
+          totalWords: cloudDoc.totalWords ?? localDoc.totalWords,
+          totalDuration: cloudDoc.totalDuration ?? localDoc.totalDuration,
+          sessionsCount: cloudDoc.sessionsCount ?? localDoc.sessionsCount,
+          lastSyncedCloudVersion: seenMaxVersion,
+          lastSeenCloudUpdatedAt: cloudUpdatedAtIso,
+          excludedFromAI: cloudDoc.excludedFromAI ?? localDoc.excludedFromAI,
+          // R3-5: корзина на другом устройстве (и восстановление из неё) —
+          // облако новее, значит его состояние корзины и есть последнее.
+          trashedAt: cloudTrashedAtMs,
+        }, userId);
+
+        if (!wasExcluded && nowExcluded) {
+          emitDomainEvent({ type: 'note.excludedFromAI', documentId: localDoc.id, excluded: true });
+        }
+
+        // A-4 (R2-004): версия не читается — в локальную историю её дыра.
+        // Воду метку всё равно поднимаем (иначе эта версия не прочитается
+        // никогда), но молчать нельзя: без записи заметка выглядит
+        // синхронизированной целиком.
+        if (corruptedVersions.length > 0) {
+          corrupted += corruptedVersions.length;
+          reportError(
+            new Error(`Skipped ${corruptedVersions.length} unreadable version(s) while reconciling a note`),
+            {
+              action: 'reconcileLinkedDocuments_corruptedVersions',
+              documentId: localDoc.id,
+              cloudDocumentId: localDoc.linkedCloudId,
+              versions: corruptedVersions.join(','),
+            },
+            'warning',
+          );
+          useActivityLogStore.getState().addActivity(
+            'activity_cloud_corrupted_versions',
+            { action: 'reconcileLinkedDocuments_corruptedVersions', cloudDocumentId: localDoc.linkedCloudId, count: corruptedVersions.length },
+            'warning',
+            'sync',
+          );
+        }
+
+        outcome = 'reconciled';
+      }
+    }, { queueOnHeld: false, ownerId: userId });
+  } catch (err) {
+    const msg = String((err as { message?: string })?.message || err);
+    if (msg.startsWith('LOCK_HELD') || msg.includes('LOCK_HELD')) {
+      // S1-11: занятый замок — не «пропущено как неновое», а «не применено».
+      return { outcome: 'busy', corrupted: 0 };
+    }
+    reportError(err, { action: 'reconcileLinkedDocuments_doc', docId: localDoc.id });
+    return { outcome: 'failed', corrupted: 0 };
+  }
+  return { outcome, corrupted };
+}
+
 export const CloudSyncService = {
   async restoreMissingDocuments(
     userId: string,
@@ -210,7 +549,8 @@ export const CloudSyncService = {
     const res = await CloudSyncService.downloadAllFromCloud(userId, opts?.onProgress ? { onProgress: opts.onProgress } : undefined);
     return {
       restored: res.downloaded,
-      hasMore: false,
+      // R-2: неполный список — не всё скачано; суточная отметка полного прохода не ставится.
+      hasMore: res.incomplete === true,
       ...(res.locked !== undefined ? { locked: res.locked } : {}),
     };
   },
@@ -223,7 +563,7 @@ export const CloudSyncService = {
   async downloadAllFromCloud(
     userId: string,
     opts?: { onProgress?: (current: number, total: number) => void }
-  ): Promise<{ downloaded: number; skipped: number; failed: number; locked?: boolean }> {
+  ): Promise<{ downloaded: number; skipped: number; failed: number; locked?: boolean; incomplete?: boolean }> {
     if (getEncryptionEnabled(userId) && !getSessionKey()) {
       return { downloaded: 0, skipped: 0, failed: 0, locked: true };
     }
@@ -235,21 +575,30 @@ export const CloudSyncService = {
       // S-2: Do NOT catch relinkOrphanedDocuments error here. A download that could not relink must stop.
       await CloudSyncService.relinkOrphanedDocuments(userId);
 
-      const [cloudDocs, localDocs] = await Promise.all([
-        DocumentService.getUserDocuments(userId),
+      const [cloudList, localDocs] = await Promise.all([
+        readCloudDocumentsPartial(userId),
         LocalStorageService.getDocumentsByOwner(userId),
       ]);
+      const cloudDocs = cloudList.docs;
+      // R-2: один битый ряд не превращает список в пустой — прочитанные заметки
+      // качаем; решения «по отсутствию» (TB-14) по неполному списку не принимаем.
+      const incomplete = cloudList.unreadable.length > 0;
+      if (incomplete) {
+        reportError(new Error(`UNREADABLE_CLOUD_LIST: ${cloudList.unreadable.length} row(s)`), { action: 'downloadAllFromCloud_partialList', userId, unreadable: cloudList.unreadable.length }, 'warning');
+      }
 
       // TB-14: связанная заметка, которой нет среди живых строк облака, либо
       // удалена там (надгробие), либо сервер её потерял, хотя подтвердил. Раньше
       // её просто не замечали — устройство вечно считало её синхронизированной.
       // Разбирается addCloudCopy: надгробие → отвязка с предупреждением, пропажа →
-      // выгрузка заново под тем же номером. Список облака прочитан целиком
-      // (иначе мы бы сюда не дошли), так что «нет в списке» — не сбой чтения.
+      // выгрузка заново под тем же номером. Только по полному списку: при
+      // неполном «нет в списке» может быть нечитаемой строкой.
       const cloudIds = new Set(cloudDocs.map(d => d.id));
-      for (const d of localDocs) {
-        if (d.linkedCloudId && d.localOnly !== true && !cloudIds.has(d.linkedCloudId)) {
-          await requeueDocumentTask(d.id, userId);
+      if (!incomplete) {
+        for (const d of localDocs) {
+          if (d.linkedCloudId && d.localOnly !== true && !cloudIds.has(d.linkedCloudId)) {
+            await requeueDocumentTask(d.id, userId);
+          }
         }
       }
 
@@ -292,7 +641,7 @@ export const CloudSyncService = {
         );
       }
 
-      return { downloaded, skipped, failed };
+      return { downloaded, skipped, failed, ...(incomplete ? { incomplete: true } : {}) };
     };
 
     const promise = run();
@@ -301,6 +650,343 @@ export const CloudSyncService = {
       return await promise;
     } finally {
       _activeDownloadPromises.delete(userId);
+    }
+  },
+
+  /**
+   * S1-6: забор заметок по серверному `rev` — только изменения, без полных
+   * списков. Документы читаются целиком (надгробия в выдаче), версии — только
+   * идентичностью; содержимое приезжает существующими функциями по заметке.
+   *
+   * Курсор каждой таблицы двигается после того, как строки страницы применены,
+   * и только до последней применённой. На первой неприменённой — стоп, курсор
+   * = номер предыдущей; ошибка уходит вызывающему, который отличит отсутствие
+   * колонки от настоящего сбоя.
+   *
+   * Забор ничего не удаляет и не отвязывает по отсутствию строки: действия —
+   * только по явной строке-надгробию (TB-14) или живому изменению.
+   */
+  async pullNotesByRev(
+    userId: string,
+    opts?: { getActiveDocumentId?: () => string | null },
+  ): Promise<PullNotesResult> {
+    const empty = (): PullNotesResult => ({
+      downloaded: 0, reconciled: 0, skipped: 0, corrupted: 0, failed: 0,
+      documentsRev: 0, versionsRev: 0, deferred: 0,
+    });
+    if (getEncryptionEnabled(userId) && !getSessionKey()) {
+      return { ...empty(), locked: true };
+    }
+
+    const active = _activePullPromises.get(userId);
+    if (active) return active;
+
+    const run = async (): Promise<PullNotesResult> => {
+      // Как в старом пути: без восстановления ссылок любая загрузка создаёт
+      // вторую облачную/локальную копию. Отказ чтения здесь — исключение.
+      await CloudSyncService.relinkOrphanedDocuments(userId);
+
+      const localDocs = await LocalStorageService.getDocumentsByOwner(userId);
+      // localOnly — «оставить только здесь»: старый проход не трогал такие
+      // заметки ни при загрузке, ни при сверке; новый забор обязан так же.
+      const linkedCloudMap = new Map(localDocs
+        .filter(d => Boolean(d.linkedCloudId) && d.localOnly !== true)
+        .map(d => [d.linkedCloudId!, d]));
+      const localUuidSet = new Set(localDocs.map(d => d.uuid).filter((u): u is string => Boolean(u)));
+
+      const start = await getSyncRevCursor(userId);
+      let documentsRev = start.documents;
+      let versionsRev = start.versions;
+      let downloaded = 0;
+      let reconciled = 0;
+      let skipped = 0;
+      let corrupted = 0;
+
+      // uuid, чья строка уже обработана этим забором (документы или версии).
+      const handled = new Set<string>();
+      // Строки документов из page/documents и догрузки по uuid из versions.
+      const docCache = new Map<string, Document>();
+      const remember = (doc: Document): string => {
+        const uuid = String(doc.uuid ?? doc.id ?? '');
+        if (uuid) docCache.set(uuid, doc);
+        return uuid;
+      };
+
+      const tombstoned = new Set<string>();
+      const unreadable = new Set<string>();
+
+      // S1-12: отложенные строки — в записи курсора; курсор их прошёл.
+      const deferred = new Map((await getSyncRevDeferred(userId)).map(r => [r.uuid, r]));
+      const defer = (uuid: string, rev: number, reason: string): void => {
+        deferred.set(uuid, { uuid, rev, reason });
+        handled.add(uuid);
+      };
+      const persistDeferred = () => setSyncRevDeferred(userId, Array.from(deferred.values()));
+
+      const applyTombstone = async (uuid: string): Promise<void> => {
+        tombstoned.add(uuid);
+        const local = linkedCloudMap.get(uuid);
+        if (local) {
+          await requeueDocumentTask(local.id, userId);
+          skipped++;
+        }
+        handled.add(uuid);
+        deferred.delete(uuid);
+      };
+
+      const applyCloudDoc = async (cloudDoc: Document): Promise<void> => {
+        const uuid = String(cloudDoc.uuid ?? cloudDoc.id ?? '');
+        if (!uuid) throw new Error('PULL_ROW_WITHOUT_UUID');
+
+        if (cloudDoc.deletedAt) {
+          await applyTombstone(uuid);
+          return;
+        }
+
+        const linkedLocal = linkedCloudMap.get(uuid);
+        if (linkedLocal) {
+          const res = await reconcileOneLinked(userId, linkedLocal, cloudDoc, opts);
+          if (res.outcome === 'failed') throw new Error('PULL_APPLY_FAILED: ' + uuid);
+          if (res.outcome === 'busy') throw new PullPaused(uuid);
+          if (res.outcome === 'reconciled') reconciled++;
+          else skipped++;
+          corrupted += res.corrupted;
+        } else if (localUuidSet.has(uuid)) {
+          // Локальная копия есть, но не связана (localOnly/unlinkedByTombstone):
+          // вторую не создаём — так же, как uuid-страж старого прохода.
+          skipped++;
+        } else {
+          await downloadLimit(() => CloudSyncService.addLocalCopy(userId, uuid));
+          downloaded++;
+        }
+        handled.add(uuid);
+        deferred.delete(uuid);
+      };
+
+      /** Применить строку; стойкий отказ откладывает её вместо остановки. */
+      const applyOrDefer = async (cloudDoc: Document, uuid: string, rev: number): Promise<void> => {
+        try {
+          await applyCloudDoc(cloudDoc);
+        } catch (e) {
+          const reason = deterministicPullFailure(e);
+          if (reason === null) throw e;
+          reportError(e, { action: 'pullNotes_deferred', userId, uuid, rev, reason }, 'warning');
+          defer(uuid, rev, reason);
+        }
+      };
+
+      let docSince = start.documents;
+      try {
+        // Повтор отложенных — до страниц: строка могла стать читаемой на месте,
+        // без нового rev (починка на сервере), или получить надгробие.
+        // R-5: внутри try, который ловит PullPaused — занятый замок на отложенной
+        // строке раньше роняла весь забор ошибкой. Применённое пишется и при паузе.
+        if (deferred.size > 0) {
+          const records = await DataProvider.getDocumentsByUuidsWithDeleted(userId, Array.from(deferred.keys()));
+          try {
+            for (const record of records) {
+              const u = String(record.uuid ?? record.id ?? '');
+              const entry = deferred.get(u);
+              if (!entry) continue;
+              if (record.deletedAt) {
+                await applyTombstone(u);
+                continue;
+              }
+              const doc = await parseCloudDocument(record);
+              if (!doc) continue; // по-прежнему не разбирается — остаётся отложенной
+              await applyOrDefer(doc, u, entry.rev);
+            }
+          } finally {
+            await persistDeferred();
+          }
+        }
+
+        for (;;) {
+          const page = await pullChangesSince(userId, 'documents', docSince, PULL_PAGE_SIZE);
+          if (page.rows.length === 0) break;
+          let lastApplied = docSince;
+          try {
+            // Разбор/расшифровка — параллельно, как в старом полном списке
+            // (getUserDocuments): иначе первая синхронизация 300 заметок шла бы
+            // по одной. Порядок ПРИМЕНЕНИЯ остаётся порядком rev.
+            const prepared = await Promise.all(page.rows.map(async row => {
+              const uuid = String(row.uuid ?? '');
+              if (!uuid) return { kind: 'bad' as const, uuid };
+              if (row.deleted_at !== null && row.deleted_at !== undefined) {
+                return { kind: 'tombstone' as const, uuid };
+              }
+              const cloudDoc = await parseCloudDocument(fromDb(DOCUMENT_REV, row));
+              // Строка документа идёт через тот же разбор/расшифровку, что и
+              // полный список: сырые колонки в локальную копию не попадают.
+              return cloudDoc
+                ? { kind: 'doc' as const, uuid, doc: cloudDoc }
+                : { kind: 'unreadable' as const, uuid };
+            }));
+
+            // Неизвестные заметки качаем заранее, с потолком downloadLimit, как
+            // старый проход; результат разбирается по порядку rev, поэтому курсор
+            // по-прежнему встаёт на первой неприменённой строке.
+            const unknown = [...new Set(prepared
+              .filter((p): p is { kind: 'doc'; uuid: string; doc: Document } => p.kind === 'doc')
+              .map(p => p.uuid)
+              .filter(uuid => !linkedCloudMap.has(uuid) && !localUuidSet.has(uuid)))];
+            const downloadedOk = new Set<string>();
+            const downloadFailed = new Map<string, unknown>();
+            await Promise.all(unknown.map(async uuid => {
+              try {
+                await downloadLimit(() => CloudSyncService.addLocalCopy(userId, uuid));
+                downloadedOk.add(uuid);
+              } catch (e) {
+                downloadFailed.set(uuid, e);
+              }
+            }));
+
+            for (let i = 0; i < page.rows.length; i++) {
+              const row = page.rows[i]!;
+              const item = prepared[i]!;
+              if (item.kind === 'bad') throw new Error('PULL_ROW_WITHOUT_UUID');
+              if (item.kind === 'tombstone') {
+                await applyTombstone(item.uuid);
+              } else if (item.kind === 'unreadable') {
+                // Не разобралась — не «строки нет»: откладываем с номером, курсор
+                // идёт дальше, повтор каждым забором (S1-12).
+                defer(item.uuid, row.rev, 'schema');
+              } else {
+                remember(item.doc);
+                if (!linkedCloudMap.has(item.uuid) && !localUuidSet.has(item.uuid)) {
+                  if (downloadFailed.has(item.uuid)) {
+                    const err = downloadFailed.get(item.uuid);
+                    const reason = deterministicPullFailure(err);
+                    if (reason === null) throw err;
+                    reportError(err, { action: 'pullNotes_deferred', userId, uuid: item.uuid, rev: row.rev, reason }, 'warning');
+                    defer(item.uuid, row.rev, reason);
+                  } else {
+                    if (!downloadedOk.has(item.uuid)) throw new Error('PULL_DOWNLOAD_MISSING: ' + item.uuid);
+                    downloaded++;
+                    handled.add(item.uuid);
+                    deferred.delete(item.uuid);
+                  }
+                } else {
+                  await applyOrDefer(item.doc, item.uuid, row.rev);
+                }
+              }
+              lastApplied = row.rev;
+            }
+          } catch (e) {
+            // Отложенные пишутся ДО сдвига курсора: курсор за строкой без записи
+            // о ней — потерянная заметка. Не записалось — курсор не двигаем.
+            try {
+              await persistDeferred();
+              await advanceSyncRevCursor(userId, 'documents', lastApplied);
+              documentsRev = lastApplied;
+            } catch (persistErr) {
+              reportError(persistErr, { action: 'pullNotes_persist_documents', userId });
+            }
+            throw e;
+          }
+          await persistDeferred();
+          await advanceSyncRevCursor(userId, 'documents', lastApplied);
+          documentsRev = lastApplied;
+          docSince = lastApplied;
+        }
+
+        let verSince = start.versions;
+        for (;;) {
+          const page = await pullChangesSince(userId, 'versions', verSince, PULL_PAGE_SIZE);
+          if (page.rows.length === 0) break;
+          let lastApplied = verSince;
+          try {
+            // Строк заметок, которых не было в странице documents, дочитываем
+            // пачками по 200 — вместе с надгробиями.
+            const missing = [...new Set(page.rows
+              .map(r => String(r.document_uuid ?? ''))
+              .filter(u => u !== '' && !docCache.has(u) && !tombstoned.has(u) && !handled.has(u)))];
+            if (missing.length > 0) {
+              // Надгробия нужны как факт, а не как разобранная заметка: по ним
+              // решается «отвязать», и схема тут ни при чём.
+              const records = await DataProvider.getDocumentsByUuidsWithDeleted(userId, missing);
+              const parsedRecords = await Promise.all(records.map(async record => {
+                const u = String(record.uuid ?? record.id ?? '');
+                if (!u) return { u, tombstone: false, doc: null as Document | null };
+                if (record.deletedAt) return { u, tombstone: true, doc: null as Document | null };
+                return { u, tombstone: false, doc: await parseCloudDocument(record) };
+              }));
+              for (const record of parsedRecords) {
+                if (!record.u) continue;
+                if (record.tombstone) {
+                  tombstoned.add(record.u);
+                } else if (record.doc) {
+                  docCache.set(record.u, record.doc);
+                } else {
+                  // Не разобрали — не «строки нет»: курсор за неё не пойдёт,
+                  // иначе заметка останется за курсором навсегда.
+                  unreadable.add(record.u);
+                }
+              }
+            }
+
+            for (const row of page.rows) {
+              const uuid = String(row.document_uuid ?? '');
+              if (!uuid) throw new Error('PULL_VERSION_WITHOUT_DOCUMENT');
+              if (!handled.has(uuid)) {
+                if (unreadable.has(uuid)) {
+                  defer(uuid, row.rev, 'schema');
+                } else if (tombstoned.has(uuid)) {
+                  await applyTombstone(uuid);
+                } else {
+                  const cloudDoc = docCache.get(uuid);
+                  if (cloudDoc) await applyOrDefer(cloudDoc, uuid, row.rev);
+                  else {
+                    // Версия без строки заметки: применять не к чему, отсутствие
+                    // строки ничего не значит и не удаляет.
+                    handled.add(uuid);
+                    skipped++;
+                  }
+                }
+              }
+              lastApplied = row.rev;
+            }
+          } catch (e) {
+            try {
+              await persistDeferred();
+              await advanceSyncRevCursor(userId, 'versions', lastApplied);
+              versionsRev = lastApplied;
+            } catch (persistErr) {
+              reportError(persistErr, { action: 'pullNotes_persist_versions', userId });
+            }
+            throw e;
+          }
+          await persistDeferred();
+          await advanceSyncRevCursor(userId, 'versions', lastApplied);
+          versionsRev = lastApplied;
+          verSince = lastApplied;
+        }
+      } catch (e) {
+        if (!(e instanceof PullPaused)) throw e;
+        // Курсор уже стоит перед занятой строкой (catch страницы); остальное
+        // этого прохода не читаем — порядок применения и есть порядок rev.
+        skipped++;
+        logger.info('pullNotesByRev', 'Pull paused: a note is locked by another writer', { uuid: e.uuid });
+      }
+
+      if (downloaded > 0 || reconciled > 0) {
+        useActivityLogStore.getState().addActivity(
+          'activity_cloud_downloaded_all',
+          { action: 'pullNotes', downloaded, reconciled, skipped, corrupted },
+          'info',
+          'sync',
+        );
+      }
+
+      return { downloaded, reconciled, skipped, corrupted, failed: 0, documentsRev, versionsRev, deferred: deferred.size };
+    };
+
+    const promise = run();
+    _activePullPromises.set(userId, promise);
+    try {
+      return await promise;
+    } finally {
+      _activePullPromises.delete(userId);
     }
   },
 
@@ -336,10 +1022,17 @@ export const CloudSyncService = {
         return { reconciled: 0, skipped: 0, failed: 1, corrupted: 0 };
       }
 
-      const [localDocs, cloudDocs] = await Promise.all([
+      const [localDocs, cloudList] = await Promise.all([
         LocalStorageService.getDocumentsByOwner(userId),
-        DocumentService.getUserDocuments(userId),
+        readCloudDocumentsPartial(userId),
       ]);
+      // R-2: сверяем по прочитанной части; неполнота уходит в результат, чтобы
+      // курсор изменений не двигался (changeCursor).
+      const cloudDocs = cloudList.docs;
+      const incomplete = cloudList.unreadable.length > 0;
+      if (incomplete) {
+        reportError(new Error(`UNREADABLE_CLOUD_LIST: ${cloudList.unreadable.length} row(s)`), { action: 'reconcileLinkedDocuments_partialList', userId, unreadable: cloudList.unreadable.length }, 'warning');
+      }
 
       const cloudDocMap = new Map(cloudDocs.map(cd => [cd.id, cd]));
       const linkedLocalDocs = localDocs.filter(d => Boolean(d.linkedCloudId) && d.localOnly !== true && cloudDocMap.has(d.linkedCloudId!));
@@ -354,281 +1047,14 @@ export const CloudSyncService = {
 
       for (const localDoc of linkedLocalDocs) {
         const cloudDoc = cloudDocMap.get(localDoc.linkedCloudId!)!;
-        const cloudTime = cloudDoc.updatedAt ? new Date(cloudDoc.updatedAt).getTime() : (cloudDoc.createdAt ? new Date(cloudDoc.createdAt).getTime() : 0);
-        const localSeenTime = localDoc.lastSeenCloudUpdatedAt ? new Date(localDoc.lastSeenCloudUpdatedAt).getTime() : 0;
-
-  /*gate:clock-rule*/
-  // Всё правило «облако новее» — под разметкой (SF-9): и решение по запомненной
-  // серверной метке, и запасной путь по `lastSessionAt`/номеру версии. Гейт —
-  // src/test/syncRuleGates.s06.test.ts (S0-6).
-        const isCloudNewer = localSeenTime > 0
-          ? cloudTime > localSeenTime
-          : (cloudDoc.currentVersion > (localDoc.lastSyncedCloudVersion ?? localDoc.currentVersion) ||
-             (cloudTime > (localDoc.lastSessionAt || 0) && cloudDoc.currentVersion >= localDoc.currentVersion));
-  /*endgate:clock-rule*/
-
-        if (!isCloudNewer) {
-          skipped++;
-          continue;
-        }
-
-        try {
-          await withDocumentLock(localDoc.id, async () => {
-            const db = await getLocalDb(userId);
-            const fresh = await db.get('documents', localDoc.id);
-            if (!fresh) {
-              skipped++;
-              return;
-            }
-
-            const freshQueue = await db.getAll('syncQueue');
-            const docUuid = fresh.uuid;
-            const linkedCloudId = fresh.linkedCloudId;
-            const hasQueueTask = freshQueue.some(
-              t => !t.id.startsWith('lock_cloud_') && (
-                t.documentId === localDoc.id ||
-                (Boolean(docUuid) && t.documentId === docUuid) ||
-                (Boolean(linkedCloudId) && t.documentId === linkedCloudId)
-              )
-            );
-
-            const activeEditorDocId = opts?.getActiveDocumentId ? opts.getActiveDocumentId() : getActiveEditorDocumentId();
-            const hasUnsyncedEdits = fresh.lastSyncedCloudVersion !== undefined &&
-              (fresh.currentVersion ?? 0) > fresh.lastSyncedCloudVersion;
-
-            const isPending = hasQueueTask || (activeEditorDocId === localDoc.id) || hasUnsyncedEdits;
-
-            if (hasUnsyncedEdits) {
-              await requeueDocumentTask(localDoc.id, userId);
-            }
-
-            const cloudVersions = await VersionService.getVersions(userId, localDoc.linkedCloudId!);
-            if (!cloudVersions.length) {
-              skipped++;
-              return;
-            }
-
-            // R3-010: без отметки синхронизации (заметки, связанные старыми
-            // версиями приложения) правки нельзя ни подтвердить, ни исключить.
-            // Прежде такая заметка шла в перемотку: счётчики вставали на голову
-            // облака, а локальная v2 с другим текстом объявлялась синхронизированной.
-            // Перемотка безопасна, только если текст совпадает с головой облака;
-            // иначе — как при правках: облачная голова ложится поверх, локальная
-            // остаётся в истории.
-            let unknownWatermarkDiverged = false;
-            if (!isPending && fresh.lastSyncedCloudVersion === undefined) {
-              const head = cloudVersions.reduce((latest, v) => (v.version > latest.version ? v : latest), cloudVersions[0]!);
-              let headContent: string | null = null;
-              try {
-                const dec = await maybeDecrypt(head as unknown as Record<string, unknown>, ['content'], []);
-                headContent = typeof dec.content === 'string' ? dec.content : null;
-              } catch (decErr) {
-                if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) throw decErr;
-                if (!(decErr instanceof DecryptionError)) throw decErr;
-              }
-              const localContent = await LocalVersionService.getLatestContent(localDoc.id, userId);
-              unknownWatermarkDiverged = localContent !== '' && localContent !== headContent;
-            }
-
-            const cloudUpdatedAtIso = cloudDoc.updatedAt
-              ? new Date(cloudDoc.updatedAt).toISOString()
-              : new Date(cloudTime || Date.now()).toISOString();
-
-            if (isPending || unknownWatermarkDiverged) {
-              const latestCloudVer = cloudVersions.reduce((latest, v) => (v.version > latest.version ? v : latest), cloudVersions[0]!);
-
-              let plainContent: string | null = null;
-              let plainMood: string | undefined = undefined;
-              try {
-                const decrypted = await maybeDecrypt(latestCloudVer as unknown as Record<string, unknown>, ['content', 'mood'], []);
-                plainContent = typeof decrypted.content === 'string' ? decrypted.content : null;
-                plainMood = typeof decrypted.mood === 'string' ? decrypted.mood : (typeof latestCloudVer.mood === 'string' ? latestCloudVer.mood : undefined);
-              } catch (decErr) {
-                if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) throw decErr;
-                if (!(decErr instanceof DecryptionError)) throw decErr;
-                // R3-023: голова облака не читается — счётчики не трогаем
-                // (ветка ниже пропускается), но и не молчим.
-                corrupted++;
-                reportError(decErr, {
-                  action: 'reconcileLinkedDocuments_unreadableHead',
-                  documentId: localDoc.id,
-                  cloudDocumentId: localDoc.linkedCloudId,
-                  version: latestCloudVer.version,
-                }, 'warning');
-              }
-
-              if (plainContent !== null) {
-                const localVersions = await LocalVersionService.getVersions(localDoc.id, userId);
-                const nextVersionNo = Math.max(...localVersions.map(v => v.version), 0) + 1;
-
-                const tx = db.transaction(['documents', 'versions'], 'readwrite');
-                const docStore = tx.objectStore('documents');
-                const verStore = tx.objectStore('versions');
-
-                const cur = await docStore.get(localDoc.id);
-                // Номер берётся и по строкам истории, и по счётчику заметки: строки
-                // могут отстать (историю чистят LocalVersionService.deleteVersions), и
-                // тогда nextVersionNo откатил бы currentVersion назад — вместе с
-                // признаком "есть что отправить" из A-2.3.
-                const versionNo = Math.max(nextVersionNo, cur?.currentVersion ?? 0);
-                const verId = 'ver_' + randomUUID();
-
-                await verStore.put({
-                  id: verId,
-                  documentId: localDoc.id,
-                  guestId: userId,
-                  version: versionNo,
-                  content: plainContent,
-                  wordCount: latestCloudVer.wordCount ?? 0,
-                  wordsAdded: 0,
-                  charsAdded: 0,
-                  duration: latestCloudVer.duration ?? 0,
-                  wpm: latestCloudVer.wpm ?? 0,
-                  goalWords: latestCloudVer.goalWords,
-                  goalTime: latestCloudVer.goalTime,
-                  goalReached: latestCloudVer.goalReached ?? false,
-                  sessionStartedAt: latestCloudVer.sessionStartedAt ? toDate(latestCloudVer.sessionStartedAt)?.getTime() ?? Date.now() : Date.now(),
-                  savedAt: latestCloudVer.savedAt ? toDate(latestCloudVer.savedAt)?.getTime() ?? Date.now() : Date.now(),
-                  mood: plainMood,
-                });
-
-                if (cur) {
-                  await docStore.put({
-                    ...cur,
-                    currentVersion: versionNo,
-                    lastSeenCloudUpdatedAt: cloudUpdatedAtIso,
-                  });
-                }
-                await tx.done;
-
-                useActivityLogStore.getState().addActivity(
-                  'activity_cloud_remote_edit',
-                  { action: 'reconcileLinkedDocuments_remote_edit', documentId: localDoc.id, cloudDocumentId: localDoc.linkedCloudId },
-                  'info',
-                  'sync',
-                );
-
-                reconciled++;
-              }
-            } else {
-              const localVersions = await LocalVersionService.getVersions(localDoc.id, userId);
-              const localVerSet = new Set(localVersions.map(v => v.version));
-
-              const sortedCloudVersions = [...cloudVersions].sort((a, b) => a.version - b.version);
-              let prevContent = '';
-              const corruptedVersions: number[] = [];
-              for (const cv of sortedCloudVersions) {
-                let cContent: string | null = null;
-                let cMood: string | undefined = undefined;
-                try {
-                  const dec = await maybeDecrypt(cv as unknown as Record<string, unknown>, ['content', 'mood'], []);
-                  cContent = typeof dec.content === 'string' ? dec.content : null;
-                  cMood = typeof dec.mood === 'string' ? dec.mood : (typeof cv.mood === 'string' ? cv.mood : undefined);
-                } catch (decErr) {
-                  if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) throw decErr;
-                  if (!(decErr instanceof DecryptionError)) throw decErr;
-                  corruptedVersions.push(cv.version);
-                }
-
-                if (cContent !== null) {
-                  if (!localVerSet.has(cv.version)) {
-                    await LocalVersionService.addVersion(userId, localDoc.id, {
-                      content: cContent,
-                      previousContent: prevContent,
-                      wordCount: cv.wordCount ?? 0,
-                      duration: cv.duration ?? 0,
-                      wpm: cv.wpm ?? 0,
-                      versionNumber: cv.version,
-                      goalWords: cv.goalWords,
-                      goalTime: cv.goalTime,
-                      goalReached: cv.goalReached,
-                      sessionStartedAt: cv.sessionStartedAt ? toDate(cv.sessionStartedAt) ?? new Date() : new Date(),
-                      savedAt: cv.savedAt ? toDate(cv.savedAt) ?? undefined : undefined,
-                      mood: cMood,
-                    });
-                  }
-                  prevContent = cContent;
-                }
-              }
-
-              // R4-005: у облачного ряда current_version мог отстать от
-              // фактически скачанных версий (расхождение счётчиков) —
-              // записывать отставший счётчик значило прятать хвост истории
-              // за «синхронизировано». Берём максимум из увиденного.
-              const seenMaxVersion = Math.max(
-                cloudDoc.currentVersion,
-                ...sortedCloudVersions.map(cv => cv.version),
-              );
-
-              // R7F-010: заметку скрыли или выбросили на другом устройстве — флаг
-              // приехал этим забором, а доменное событие здесь никогда не эмитилось,
-              // поэтому производные (хронология, цитаты тем, линии) жили на этом
-              // устройстве бессрочно. Признак считается локально, без импорта из
-              // features: ядро не знает про ИИ, только про шину событий.
-              const cloudTrashedAtMs = toDate((cloudDoc as { trashedAt?: unknown }).trashedAt)?.getTime() ?? null;
-              const wasExcluded = Boolean(localDoc.excludedFromAI) || Boolean(localDoc.trashedAt);
-              const nowExcluded = Boolean(cloudDoc.excludedFromAI ?? localDoc.excludedFromAI) || Boolean(cloudTrashedAtMs);
-
-              await LocalStorageService.updateDocument(localDoc.id, {
-                title: cloudDoc.title ?? localDoc.title,
-                tags: cloudDoc.tags ?? localDoc.tags,
-                labelId: cloudDoc.labelId !== undefined ? (cloudDoc.labelId ?? undefined) : localDoc.labelId,
-                mood: cloudDoc.mood ?? localDoc.mood,
-                currentVersion: seenMaxVersion,
-                totalWords: cloudDoc.totalWords ?? localDoc.totalWords,
-                totalDuration: cloudDoc.totalDuration ?? localDoc.totalDuration,
-                sessionsCount: cloudDoc.sessionsCount ?? localDoc.sessionsCount,
-                lastSyncedCloudVersion: seenMaxVersion,
-                lastSeenCloudUpdatedAt: cloudUpdatedAtIso,
-                excludedFromAI: cloudDoc.excludedFromAI ?? localDoc.excludedFromAI,
-                // R3-5: корзина на другом устройстве (и восстановление из неё) —
-                // облако новее, значит его состояние корзины и есть последнее.
-                trashedAt: cloudTrashedAtMs,
-              }, userId);
-
-              if (!wasExcluded && nowExcluded) {
-                emitDomainEvent({ type: 'note.excludedFromAI', documentId: localDoc.id, excluded: true });
-              }
-
-              // A-4 (R2-004): версия не читается — в локальную историю её дыра.
-              // Воду метку всё равно поднимаем (иначе эта версия не прочитается
-              // никогда), но молчать нельзя: без записи заметка выглядит
-              // синхронизированной целиком.
-              if (corruptedVersions.length > 0) {
-                corrupted += corruptedVersions.length;
-                reportError(
-                  new Error(`Skipped ${corruptedVersions.length} unreadable version(s) while reconciling a note`),
-                  {
-                    action: 'reconcileLinkedDocuments_corruptedVersions',
-                    documentId: localDoc.id,
-                    cloudDocumentId: localDoc.linkedCloudId,
-                    versions: corruptedVersions.join(','),
-                  },
-                  'warning',
-                );
-                useActivityLogStore.getState().addActivity(
-                  'activity_cloud_corrupted_versions',
-                  { action: 'reconcileLinkedDocuments_corruptedVersions', cloudDocumentId: localDoc.linkedCloudId, count: corruptedVersions.length },
-                  'warning',
-                  'sync',
-                );
-              }
-
-              reconciled++;
-            }
-          }, { queueOnHeld: false, ownerId: userId });
-        } catch (err) {
-          const msg = String((err as { message?: string })?.message || err);
-          if (msg.startsWith('LOCK_HELD') || msg.includes('LOCK_HELD')) {
-            skipped++;
-          } else {
-            failed++;
-            reportError(err, { action: 'reconcileLinkedDocuments_doc', docId: localDoc.id });
-          }
-        }
+        const res = await reconcileOneLinked(userId, localDoc, cloudDoc, opts);
+        if (res.outcome === 'reconciled') reconciled++;
+        else if (res.outcome === 'failed') failed++;
+        else skipped++;
+        corrupted += res.corrupted;
       }
 
-      return { reconciled, skipped, failed, corrupted };
+      return { reconciled, skipped, failed, corrupted, ...(incomplete ? { incomplete: true } : {}) };
     };
 
     const promise = run();
@@ -654,8 +1080,46 @@ export const CloudSyncService = {
   async relinkOrphanedDocuments(userId: string): Promise<RelinkResult> {
     const localDocs = await LocalStorageService.getDocumentsByOwner(userId);
     if (!localDocs.some(hasRelinkWork)) return { relinked: 0, skippedIds: [] };
-    const cloudDocs = await DocumentService.getUserDocuments(userId);
-    return relinkOrphaned(localDocs, cloudDocs);
+    let cloudDocs: Document[];
+    let unreadableUuids: Set<string> | null = null;
+    let unreadableStarts = new Set<number>();
+    let blind = false;
+    try {
+      cloudDocs = await DocumentService.getUserDocuments(userId);
+    } catch (e) {
+      if (!(e instanceof UnreadableCloudListError)) throw e;
+      // S1-10: прочитанная часть годится для перепривязки — совпадение uuid с
+      // прочитанной строкой остаётся тождеством. Нечитаемая строка может быть
+      // ровно той, к которой относится несвязанная заметка с тем же uuid: её
+      // выгружать как новую нельзя (вторая копия). R-1: откладывается только
+      // она — раньше откладывались все несвязанные, и один битый ряд держал на
+      // устройстве каждую новую заметку, пока ряд не починят.
+      reportError(e, { action: 'relinkOrphanedDocuments_partialList', userId, unreadable: e.ids.length }, 'warning');
+      cloudDocs = e.docs;
+      unreadableUuids = new Set(e.uuids);
+      unreadableStarts = new Set(e.starts);
+      blind = e.blind;
+    }
+    // R-6: по неполному списку — только по uuid: совпадение по времени с одной
+    // прочитанной строкой ничего не доказывает, пока нечитаемая может быть второй.
+    const res = await relinkOrphaned(localDocs, cloudDocs, { uuidOnly: unreadableUuids !== null });
+    if (unreadableUuids === null) return res;
+    const skipped = new Set(res.skippedIds);
+    // relinkOrphaned правит localDocs на месте: кто связался — уже не кандидат.
+    // C1: и по времени. Сверка по времени по неполному списку выключена (R-6), и
+    // старая несвязанная заметка, чья пара — нечитаемый ряд с другим uuid или без
+    // него, уходила бы в облако второй копией. Откладывается, если её время
+    // совпало с нечитаемым рядом или с прочитанным (связать нельзя, грузить —
+    // тоже). Нечитаемый ряд без uuid и времени — откладываются все: дубль хуже
+    // задержки.
+    const readableStarts = new Set(cloudDocs.map(c => toDate(c.firstSessionAt)?.getTime()).filter((t): t is number => t != null && !isNaN(t)));
+    for (const d of localDocs) {
+      if (!hasRelinkWork(d)) continue;
+      const byUuid = !!d.uuid && unreadableUuids.has(d.uuid);
+      const byTime = isRelinkCandidate(d) && (blind || unreadableStarts.has(d.firstSessionAt) || readableStarts.has(d.firstSessionAt));
+      if (byUuid || byTime) skipped.add(d.id);
+    }
+    return { relinked: res.relinked, skippedIds: Array.from(skipped) };
   },
 
   async addLocalCopy(userId: string, cloudDocumentId: string): Promise<string> {
@@ -1728,7 +2192,11 @@ function hasRelinkWork(doc: LocalDocument): boolean {
  * are left for the owner rather than guessed at. Mutates `localDocs` in place
  * so a caller that already holds the array sees the new links.
  */
-async function relinkOrphaned(localDocs: LocalDocument[], cloudDocs: Document[]): Promise<RelinkResult> {
+async function relinkOrphaned(
+  localDocs: LocalDocument[],
+  cloudDocs: Document[],
+  opts: { uuidOnly?: boolean } = {},
+): Promise<RelinkResult> {
   const takenCloudIds = new Set(localDocs.map(d => d.linkedCloudId).filter(Boolean));
   let relinkedByUuid = 0;
   const skippedIds = new Set<string>();
@@ -1790,7 +2258,7 @@ async function relinkOrphaned(localDocs: LocalDocument[], cloudDocs: Document[])
     );
   }
 
-  const candidates = localDocs.filter(d => isRelinkCandidate(d) && !skippedIds.has(d.id));
+  const candidates = opts.uuidOnly ? [] : localDocs.filter(d => isRelinkCandidate(d) && !skippedIds.has(d.id));
   if (candidates.length === 0) return { relinked: relinkedByUuid, skippedIds: Array.from(skippedIds) };
   const localsByStart = new Map<number, LocalDocument[]>();
   for (const doc of candidates) {

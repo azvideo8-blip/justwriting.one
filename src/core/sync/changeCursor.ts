@@ -138,9 +138,11 @@ export async function checkAndSyncCursor(
     downloadAll(userId),
     reconcileLinked(userId),
   ]);
+  // R-2: неполный список облака (битый ряд) — тоже не чистый проход: за курсором
+  // осталась бы строка, которую никто не прочитал.
   const incomplete = results.some(r => {
-    const x = r as { failed?: number; locked?: boolean } | null | undefined;
-    return Boolean(x?.locked) || (x?.failed ?? 0) > 0;
+    const x = r as { failed?: number; locked?: boolean; incomplete?: boolean } | null | undefined;
+    return Boolean(x?.locked) || Boolean(x?.incomplete) || (x?.failed ?? 0) > 0;
   });
 
   if (serverCursor && !incomplete) {

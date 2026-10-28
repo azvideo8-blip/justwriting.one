@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { DocumentService } from '../../../core/services/DocumentService';
+import { isUnreadableCloudList } from '../../../core/services/cloudListPartial';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { VersionService } from '../../../core/services/VersionService';
@@ -68,6 +69,8 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
         try {
           cloudDocs = await DocumentService.getUserDocuments(userId);
         } catch (e) {
+          // R-2: прочитанная часть идёт в журнал, облако — «неизвестно».
+          if (isUnreadableCloudList(e)) cloudDocs = e.docs;
           reportError(e, { action: 'lifeLog/fetchCloudDocs' });
           didFail = true;
         }

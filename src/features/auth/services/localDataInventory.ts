@@ -1,4 +1,4 @@
-import { getLocalDb } from '../../../core/storage/localDb';
+import { getLocalDb, isSyncRevCursorKey, syncRevCursorKey } from '../../../core/storage/localDb';
 import { countUnsyncedLocalData } from './unsyncedLocalData';
 
 export interface LocalDataInventory {
@@ -161,6 +161,15 @@ export async function clearOtherUserData(currentUserId: string): Promise<{ delet
     const vers = await tx.objectStore('versions').index('by-document').getAllKeys(doc.id);
     for (const vKey of vers) {
       await tx.objectStore('versions').delete(vKey);
+    }
+  }
+  // S1-5: курсор без заметок = заметки этого человека больше не приедут.
+  // Чистим ВСЕ чужие записи-курсоры, а не только владельцев оставшихся строк:
+  // у человека мог не остаться ни одной строки, а курсор — пережить их.
+  const keep = syncRevCursorKey(currentUserId);
+  for (const key of await tx.objectStore('profile').getAllKeys()) {
+    if (isSyncRevCursorKey(key) && key !== keep) {
+      await tx.objectStore('profile').delete(key);
     }
   }
   await tx.done;

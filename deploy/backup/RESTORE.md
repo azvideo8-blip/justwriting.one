@@ -146,11 +146,24 @@ sudo cat "$F" | sudo docker exec -i supabase-db pg_restore -U supabase_admin -d 
 # privileges образа возвращают anon/authenticated всё (drill 2026-10-01)
 sudo docker exec -i supabase-db psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 \
   < /opt/justwriting/backup/post-restore-grants.sql
+# S1-15 (0045): дамп возвращает последовательность rev назад, а на устройствах
+# остались курсоры от живой базы — всё, что запишут после восстановления,
+# получило бы номера ниже курсора и не приехало бы никогда. Прыжок на
+# миллиард вперёд дёшев и достаточен; дамп до 0045 (последовательности нет)
+# шаг пропускает — to_regclass.
+sudo docker exec -i supabase-db psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -c \
+  "do \$\$ begin if to_regclass('public.sync_rev_seq') is not null then
+     perform setval('public.sync_rev_seq', (select last_value from public.sync_rev_seq) + 1000000000);
+   end if; end \$\$;"
 sudo docker compose start kong auth rest realtime
 ```
 
 После восстановления всего — прогнать drill целиком: он сверяет счётчики и
 гранты с живой базой.
+
+То же — при любом ручном пересоздании `sync_rev_seq` или повторном применении
+`0045` после отката (ранбук SYNC1): последовательность, начавшая с 1, выдаёт
+номера ниже курсоров, которые устройства уже прошли.
 
 ## Восстановление одного человека
 

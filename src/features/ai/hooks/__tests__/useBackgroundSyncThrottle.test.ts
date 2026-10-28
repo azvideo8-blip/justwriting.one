@@ -65,14 +65,34 @@ describe('AUD-13 restore throttle is per-account and only after success', () => 
     vi.useRealTimers();
   });
 
-  it('does not set the throttle key when the pass fails', async () => {
+  it('does not set the notes throttle key when the notes pass fails', async () => {
     mockRestore.mockRejectedValue(new Error('offline'));
 
     renderHook(() => useBackgroundSync());
     await vi.advanceTimersByTimeAsync(5_100);
 
     expect(mockRestore).toHaveBeenCalled();
-    expect(localStorage.getItem('ai_restore_done_date_u_throttle_1')).toBeNull();
+    expect(localStorage.getItem('notes_restore_done_date_u_throttle_1')).toBeNull();
+  });
+
+  // C2: битый ряд в облаке держит `hasMore` (неполный список) сутками. С общей
+  // отметкой полный restoreAIDataFromCloud шёл каждый проход. Мутация: вернуть
+  // общую отметку (ИИ-ключ только при полных заметках) → красный.
+  it('C2: incomplete notes list does not repeat the full AI pass every cycle', async () => {
+    mockRestore.mockResolvedValue({ restored: 0, hasMore: true });
+    mockRestoreAi.mockResolvedValue({ skippedLocked: false, failed: 0, sectionFailed: false });
+
+    // Три прохода — три монтирования (как открытие приложения заново за день).
+    for (let i = 0; i < 3; i++) {
+      const h = renderHook(() => useBackgroundSync());
+      await vi.advanceTimersByTimeAsync(5_100);
+      h.unmount();
+    }
+
+    const fullAiPasses = mockRestoreAi.mock.calls.filter(c => c.length === 1 || c[1] === undefined).length;
+    expect(mockRestore.mock.calls.length, 'заметки повторяются своим чередом').toBeGreaterThan(1);
+    expect(fullAiPasses, 'полный проход ИИ — один раз за сутки').toBe(1);
+    expect(localStorage.getItem('notes_restore_done_date_u_throttle_1')).toBeNull();
   });
 
   it('keys the throttle by account and sets it after a full pass', async () => {

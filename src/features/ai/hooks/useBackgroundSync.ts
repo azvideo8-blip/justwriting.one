@@ -82,8 +82,15 @@ export function useBackgroundSync(): void {
       // AUD-13: ключ по аккаунту, а не глобальный — иначе выход и вход другим
       // человеком снимал (или навязывал) чужой троттлинг. Ставится только после
       // полного успеха: упавший проход не должен откладывать повтор на сутки.
+      // C2: отметки раздельные — заметки и ИИ-данные. Неполный список облака
+      // (битый ряд) даёт `hasMore` надолго; с общей отметкой каждые 120 с заново
+      // шёл и полный restoreAIDataFromCloud. ИИ-данные от заметок не зависят:
+      // строка без заметки на устройстве сохраняется, её довяжет
+      // reattachOrphanedAnalysis (AIRestoreService.ts:422).
+      const today = new Date().toISOString().slice(0, 10);
       const restoreDoneKey = `ai_restore_done_date_${uid}`;
-      if (localStorage.getItem(restoreDoneKey) !== new Date().toISOString().slice(0, 10)) {
+      const notesDoneKey = `notes_restore_done_date_${uid}`;
+      if (localStorage.getItem(notesDoneKey) !== today) {
         try {
           const { restored, hasMore, throttled } = await CloudSyncService.restoreMissingDocuments(uid);
           if (restored > 0) {
@@ -94,10 +101,16 @@ export function useBackgroundSync(): void {
               'sync',
             );
           }
+          if (!hasMore && !throttled) localStorage.setItem(notesDoneKey, today);
+        } catch (e) {
+          reportError(e, { action: 'backgroundSync_restoreFromCloud' });
+        }
+      }
+      if (localStorage.getItem(restoreDoneKey) !== today) {
+        try {
           const aiRestored = await restoreAIDataFromCloud(uid);
-          const notesFullyRestored = !hasMore && !throttled;
-          if (!aiRestored.skippedLocked && notesFullyRestored && (aiRestored.failed ?? 0) === 0 && !aiRestored.sectionFailed) {
-            localStorage.setItem(restoreDoneKey, new Date().toISOString().slice(0, 10));
+          if (!aiRestored.skippedLocked && (aiRestored.failed ?? 0) === 0 && !aiRestored.sectionFailed) {
+            localStorage.setItem(restoreDoneKey, today);
           }
         } catch (e) {
           reportError(e, { action: 'backgroundSync_restoreFromCloud' });

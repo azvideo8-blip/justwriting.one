@@ -142,6 +142,17 @@ describe('AUD-2: диспетчер AI-эндпоинтов сверяет со�
     expect(out.status).not.toBe(403);
   });
 
+  // Дейлик 28.10 Н-2: статистика ИИ для админ-панели — не обработка записей.
+  // Список исключений жил в двух копиях (callAi и handlers), и в обеих её не было:
+  // админ без согласия получал AI_CONSENT_REQUIRED. Мутация: убрать имя из
+  // общего списка → красный.
+  it('getAIUsageStats без AI-согласия не упирается в гейт согласия', async () => {
+    ctx.getAiConsent.mockResolvedValue({ granted: false });
+    let out: { status: number; body: unknown } | undefined;
+    try { out = await handleAiEndpoint('getAIUsageStats', 'u1', { data: { date: '2026-10-28' } }); } catch { /* логика без БД падает — не гейт */ }
+    expect((out?.body as { error?: { code?: string } } | undefined)?.error?.code).not.toBe('AI_CONSENT_REQUIRED');
+  });
+
   it('deleteAccount работает без AI-согласия (право субъекта)', async () => {
     ctx.getAiConsent.mockResolvedValue({ granted: false });
 

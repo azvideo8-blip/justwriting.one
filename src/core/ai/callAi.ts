@@ -2,10 +2,8 @@ import { getCurrentUser, getIdToken } from '../auth';
 import { TimeoutError } from '../../shared/utils/withTimeout';
 import { getAiConsent, isProfileLoaded } from './aiConsent';
 import { hasIndexingConsent } from './indexingConsent';
+import { CONSENT_EXEMPT_ENDPOINTS } from '../../shared/ai/aiPolicy';
 
-// Эти действия не про обработку записей: удаление аккаунта — право субъекта,
-// администрирование пользователей не требует согласия на анализ заметок.
-const CONSENT_EXEMPT = new Set(['deleteAccount', 'inviteUser', 'listUsersWithStatus', 'adminDeleteUser', 'listAdminActions']);
 
 export interface CallAiOptions {
   charge?: 'user' | 'bulk';
@@ -62,7 +60,7 @@ export async function callAi<T>(
   const token = await getIdToken();
   if (!token) throw new Error('AUTH_REQUIRED');
 
-  if (!CONSENT_EXEMPT.has(name)) {
+  if (!CONSENT_EXEMPT_ENDPOINTS.has(name)) {
     const user = getCurrentUser();
     if (user && isProfileLoaded(user.uid)) {
       if (!getAiConsent(user.uid)) {

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import "fake-indexeddb/auto";
-import { getLocalDb, resetDbInstance, type LocalDocument, type AIDocumentSummary } from "../../../../core/storage/localDb";
+import { getLocalDb, resetDbInstance, syncRevCursorKey, type LocalDocument, type AIDocumentSummary } from "../../../../core/storage/localDb";
 import { type MigrationManifest, exportMigrationManifest } from "../migrationExport";
 import { importMigrationManifest } from "../migrationImport";
 import { STORAGE_KEYS } from "../../../../shared/constants/storageKeys";
@@ -1148,6 +1148,24 @@ describe("C1 migrationImport", () => {
         putSpy.mockRestore();
       }
     });
+  });
+
+  // S1-5: импорт меняет локальную базу помимо забора — курсор по rev обязан
+  // сброситься, иначе импортированные строки останутся за ним.
+  it("S1-5: clears the rev pull cursor of the target account", async () => {
+    const db = await getLocalDb("u_target");
+    await db.put("profile", {
+      guestId: syncRevCursorKey("u_target"),
+      totalWords: 0, sessionsCount: 0, totalDuration: 0, lastSessionAt: 0,
+      syncRevCursor: { documents: 42, versions: 7 },
+    } as never);
+    const manifest = {
+      version: 1, exportedAt: new Date().toISOString(), documents: [], aiSummaries: [], aiEmbeddings: [], verbatim: [],
+      drafts: [], counters: {}, checksums: {}, skipped: [],
+    } as unknown as MigrationManifest;
+    const res = await importMigrationManifest(manifest, "u_target");
+    expect(res.success).toBe(true);
+    expect(await db.get("profile", syncRevCursorKey("u_target"))).toBeUndefined();
   });
 
   // DA-21: закреплённые мысли, теги и метка черновика переживают перенос.

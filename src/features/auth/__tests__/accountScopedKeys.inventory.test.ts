@@ -137,6 +137,8 @@ describe('accountScopedKeys inventory test (LS-5 + LS-8)', () => {
       [`vault_auto_unlock_failed_${SENTINEL}`]: 'sessionStorage only (AuthService.ts)',
       // jw_pending_purge_ is a crash/wipe-failure recovery marker cleaned up by processPendingPurges at boot (S-9)
       [`jw_pending_purge_${SENTINEL}`]: 'crash/wipe-failure recovery marker cleaned by processPendingPurges at boot',
+      // S1-5: курсор забора живёт в IndexedDB (запись profile), не в localStorage.
+      [`sync_rev_cursor:${SENTINEL}`]: 'IndexedDB profile record key (S1-5), not localStorage',
     };
 
     const missing: string[] = [];

@@ -53,6 +53,18 @@ describe('useEmptyDeviceDetection hook', () => {
     vi.clearAllMocks();
   });
 
+  // R-2: битый ряд не превращает облако в «пусто»: на устройстве меньше, чем
+  // прочитано, — подсказка есть. Мутация «не брать e.docs» → красный.
+  it('prompts on a partial cloud list when readable cloud notes outnumber local ones', async () => {
+    vi.spyOn(LocalStorageService, 'getDocumentsByOwner').mockResolvedValue([{ id: 'local_1' } as never]);
+    const e = Object.assign(new Error('UNREADABLE_CLOUD_LIST: 1'), { name: 'UnreadableCloudListError', docs: [{ id: 'c1' }, { id: 'c2' }], ids: ['bad'], uuids: ['bad'] });
+    vi.spyOn(DocumentService, 'getUserDocuments').mockRejectedValue(e);
+
+    const { result } = renderHook(() => useEmptyDeviceDetection());
+    await waitFor(() => expect(result.current.shouldPrompt).toBe(true));
+    expect(result.current.cloudCount).toBe(2);
+  });
+
   it('prompts to restore when local device has fewer notes than cloud (AG-RESTORE-1)', async () => {
     vi.spyOn(LocalStorageService, 'getDocumentsByOwner').mockResolvedValue([
       { id: 'local_1' } as any,

@@ -72,6 +72,27 @@ export async function listTombstonedDocumentUuids(userId: string, uuids: string[
   return out;
 }
 
+/**
+ * S1-6: строки заметок по uuid пачками — для версий, приехавших забором по
+ * `rev` без строки документа. Надгробия обязательны: по ним решается
+ * «отвязать»/«оставить», а не «нет строки — нет заметки».
+ */
+export async function getDocumentsByUuidsWithDeleted(userId: string, uuids: string[]): Promise<ProviderRecord[]> {
+  const out: ProviderRecord[] = [];
+  for (let i = 0; i < uuids.length; i += 200) {
+    const { data, error } = await getSupabase()
+      .from('documents')
+      .select('*')
+      .eq('user_id', userId)
+      .in('uuid', uuids.slice(i, i + 200));
+    if (error != null) throw error;
+    for (const row of ownRows((data ?? []) as Record<string, unknown>[], userId)) {
+      out.push(fromDb(DOCUMENT_REV, row));
+    }
+  }
+  return out;
+}
+
 export async function getUserDocuments(userId: string): Promise<ProviderRecord[]> {
   const allRows = await pageAll((from, to) =>
     getSupabase()

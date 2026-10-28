@@ -34,10 +34,11 @@ export function MobileArchiveHeader({
   // Чипсы под полем: подходящие по вводу теги плюс уже выбранные, чтобы сменить
   // фильтр можно было тапом, а не через «⋯».
   const chips = allTags.filter(tag => (q ? tag.toLowerCase().includes(q) : false) || selectedTags.includes(tag)).slice(0, 12);
+  // Владелец 28.10: заголовок как в MobilePageHeader («Профиль») — 18 px, строка 44 px.
   return (
     <div className="shrink-0">
       <div className="flex items-center gap-3">
-        <h1 className="flex-1 min-w-0 text-[24px] font-medium tracking-tight text-text-main truncate">{title}</h1>
+        <h1 className="flex-1 min-w-0 text-[18px] font-semibold text-text-main truncate">{title}</h1>
         <span className="text-[13px] font-medium text-text-main/60 tabular-nums shrink-0">{count} {countLabel}</span>
         <IconButton
           onClick={onOpenMenu}

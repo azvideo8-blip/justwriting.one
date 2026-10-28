@@ -108,6 +108,9 @@ export function AppShell() {
   // 0.10.1: и min-h-0 — иначе min-h-screen (100vh) побеждал h-[100dvh], пока видна
   // панель браузера, документ снова был выше окна и шапка уезжала вверх.
   const isChatPageMobile = currentPath === '/ai' && layoutMode !== 'desktop';
+  // Владелец 28.10: шапка «Заметок» на телефоне — как у «Профиля», у самого верха,
+  // без pt-8 над ней (32 px пустоты над заголовком).
+  const isArchivePageMobile = currentPath === '/archive' && layoutMode !== 'desktop';
 
   return (
     <AppLayout className={cn("min-h-screen bg-surface-base text-text-main font-sans selection:bg-white/10", isChatPageMobile && "h-[100dvh] min-h-0 overflow-hidden")}>
@@ -155,6 +158,7 @@ export function AppShell() {
           ? "min-h-screen"
           : cn(
               "min-h-screen pt-8",
+              isArchivePageMobile && "pt-[env(safe-area-inset-top,0px)]",
               layoutMode === 'desktop' && "pl-20 pr-4",
               // MB-2: панель остаётся видимой и в дзене, поэтому отступ под неё
               // не уменьшается. MB-7: плюс 32 px под чип «Активность» — он висит

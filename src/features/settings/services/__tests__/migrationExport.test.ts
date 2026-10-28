@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import 'fake-indexeddb/auto';
-import { getLocalDb, resetDbInstance, type LocalDocument, type LocalVersion } from '../../../../core/storage/localDb';
+import { getLocalDb, resetDbInstance, syncRevCursorKey, type LocalDocument, type LocalVersion } from '../../../../core/storage/localDb';
 import { exportMigrationManifest } from '../migrationExport';
 
 async function _clear() {
@@ -234,6 +234,25 @@ describe('migrationExport', () => {
     const manifest = await exportMigrationManifest();
     expect(manifest.skipped.some(s => s.store === 'aiDialogues' && s.reason.includes('verbatim read boom'))).toBe(true);
     expect(manifest.verbatim.filter(v => v.store === 'aiDialogues')).toHaveLength(0);
+  });
+
+  it('S1-5: the rev pull cursor is not exported — it means nothing on another device', async () => {
+    const db = await getLocalDb();
+    await db.put('profile', {
+      guestId: syncRevCursorKey('u1'),
+      totalWords: 0, sessionsCount: 0, totalDuration: 0, lastSessionAt: 0,
+      syncRevCursor: { documents: 42, versions: 7 },
+    } as never);
+    await db.put('profile', {
+      guestId: 'u1',
+      totalWords: 10, sessionsCount: 1, totalDuration: 60, lastSessionAt: 1000,
+      labels: [{ id: 'l1', name: 'Метка', color: '#fff' }],
+    });
+
+    const manifest = await exportMigrationManifest();
+    expect(manifest.verbatim.some(v => v.store === 'profile' && v.key.startsWith('sync_rev_cursor:'))).toBe(false);
+    expect(manifest.counters.verbatim['profile']).toBe(1);
+    expect(manifest.labels?.map(l => l.id)).toEqual(['l1']);
   });
 
   it('syncQueue does not appear in verbatim even with records', async () => {

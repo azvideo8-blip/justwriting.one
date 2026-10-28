@@ -7,6 +7,8 @@ import { Device, activeDevice, forgetDevice, activateDevice } from '../harnessDe
 import { StorageService } from '../../../core/services/StorageService';
 import { LocalStorageService } from '../../../core/services/LocalStorageService';
 import { SyncService } from '../../../core/services/SyncService';
+import { getSyncRevCursor } from '../../../core/sync/revCursor';
+import type { InMemoryPostgres } from '../inMemoryPostgres';
 
 /**
  * Next-steps №2: two real clients against one cloud.
@@ -27,16 +29,55 @@ async function allTexts(uid: string): Promise<{ byUuid: Map<string, string>; eve
     const vs = await db.getAllFromIndex('versions', 'by-document', d.id);
     vs.forEach(v => everything.add(v.content));
     if (d.trashedAt) continue; // в корзине — не «живая», но текст не потерян
+    // S1-3: копия, отвязанная надгробием (TB-14), намеренно остаётся локальной:
+    // в схождении облака она не участвует, а I3 проверяет, что она не всплывёт.
+    if (d.localOnly || d.unlinkedByTombstone) continue;
     const latest = vs.sort((a, b) => b.version - a.version)[0];
     byUuid.set(d.uuid ?? d.linkedCloudId ?? d.id, latest?.content ?? '');
   }
   return { byUuid, everything };
 }
 
+// S1-8: после забора каждая облачная строка с rev <= курсора обязана быть
+// отражена локально. Надгробие локальной копии не требует (её могло не быть);
+// строка версии требует документ и эту версию локально.
+async function assertPullCoversCloud(uid: string, pg: InMemoryPostgres, log: string[]): Promise<void> {
+  const cursor = await getSyncRevCursor(uid);
+  if (cursor.documents === 0 && cursor.versions === 0) return;
+  const db = await getLocalDb();
+  const docs = (await db.getAll('documents')).filter(d => d.guestId === uid);
+  const byCloud = new Map(docs.filter(d => d.linkedCloudId).map(d => [d.linkedCloudId!, d]));
+  const byUuid = new Map(docs.filter(d => d.uuid).map(d => [d.uuid!, d]));
+  const localOf = (uuid: string) => byCloud.get(uuid) ?? byUuid.get(uuid);
+
+  const cloudDocs = pg.getRows('documents').filter(r => r.user_id === uid);
+  const tombstoned = new Set(cloudDocs.filter(r => r.deleted_at).map(r => String(r.uuid)));
+  for (const row of cloudDocs) {
+    if (Number(row.rev) > cursor.documents || row.deleted_at) continue;
+    if (!localOf(String(row.uuid))) {
+      throw new Error(`PULL-COVER: cloud doc ${String(row.uuid)} rev=${String(row.rev)} <= cursor ${cursor.documents} has no local copy | ${log.join(' | ')}`);
+    }
+  }
+  for (const row of pg.getRows('versions')) {
+    if (row.user_id !== uid || Number(row.rev) > cursor.versions) continue;
+    const uuid = String(row.document_uuid);
+    if (tombstoned.has(uuid)) continue;
+    const local = localOf(uuid);
+    if (!local) {
+      throw new Error(`PULL-COVER: version rev=${String(row.rev)} of ${uuid} <= cursor ${cursor.versions} has no local document | ${log.join(' | ')}`);
+    }
+    // Номера версий не сверяем: при форке с локальной правкой сверка кладёт
+    // голову облака отдельной версией и промежуточные облачные версии по
+    // номерам не зеркалирует — это правило спора, а не пропуск забора. Строка
+    // версии отражена, если её заметка есть локально.
+  }
+}
+
 async function syncRound(uid: string): Promise<void> {
   await SyncService.syncPending(uid, { force: true });
-  await SyncService.downloadAllFromCloud(uid);
-  await SyncService.reconcileLinkedDocuments(uid);
+  // S1-7: стенд зовёт единую точку — она сама выбирает rev-забор или старый
+  // путь (флаг/сервер без 0045).
+  await SyncService.pullNotes(uid);
 }
 
 // Как экран письма сохраняет новую заметку (useWritingActions →
@@ -144,6 +185,46 @@ describe('№2: two devices, one cloud', () => {
     expect({ vs, cloud }).toEqual({ vs: ['1:a1', '2:a2', '3:a3', '4:a4'], cloud: expect.anything() });
   });
 
+  // I6 (S1-3, база для нового забора): «нет ответа» ≠ «нет данных». Оборванный
+  // забор — исключение, локальные заметки целы, ничего не отвязано; следующий
+  // забор приносит пропущенное. Проверяется на старом пути до S1-6.
+  it('I6: an aborted pull deletes nothing and the next pull catches up', async () => {
+    const A = new Device('A'), B = new Device('B');
+    activateDevice(A);
+    await runner.setup();
+    const uid = runner.userId;
+    A.storage.set('auto_sync_enabled', 'true'); B.storage.set('auto_sync_enabled', 'true');
+
+    await saveNewNote(uid, 'kept');
+    activateDevice(B);
+    await syncRound(uid);
+    expect([...(await allTexts(uid)).byUuid.values()]).toEqual(['kept']);
+
+    activateDevice(A);
+    await saveNewNote(uid, 'fresh');
+    activateDevice(B);
+
+    for (const fault of ['network_pre', 'network_post'] as const) {
+      runner.interceptor.setStep('device_b_edit');
+      runner.interceptor.armFault(fault, 'device_b_edit');
+      let threw = false;
+      try {
+        await SyncService.downloadAllFromCloud(uid);
+      } catch {
+        threw = true;
+      }
+      runner.interceptor.clearArmedFault();
+      runner.interceptor.setStep('initial_write');
+      expect(threw, `${fault}: отказ чтения не стал исключением`).toBe(true);
+      expect([...(await allTexts(uid)).byUuid.values()], `${fault}: локальное изменилось при отказе`)
+        .toEqual(['kept']);
+    }
+
+    await syncRound(uid);
+    expect([...(await allTexts(uid)).byUuid.values()].sort()).toEqual(['fresh', 'kept']);
+  });
+
+
   // Seeded interleavings of real operations on two devices, with each device
   // going offline at random. Checked at the end, after both come back online
   // and sync a few rounds:
@@ -196,6 +277,10 @@ describe('№2: two devices, one cloud', () => {
         else { runner.interceptor.clearArmedFault(); runner.interceptor.setStep('initial_write'); }
       };
       const saved = new Set<string>();
+      // S1-3: I3 — удалённое навсегда не воскресает. Тексты и uuid сносим из
+      // I1 (их больше не обязано быть видно) и проверяем облако в конце.
+      const deletedTexts = new Set<string>();
+      const deletedUuids = new Set<string>();
       const log: string[] = [];
       let n = 0;
 
@@ -212,39 +297,55 @@ describe('№2: two devices, one cloud', () => {
           label.set(d.id, vs.sort((p, q) => p.version - q.version)[0]?.content ?? d.id);
         }
         const live = docs.filter(d => !d.trashedAt).sort((p, q) => label.get(p.id)!.localeCompare(label.get(q.id)!));
+        const trashed = docs.filter(d => d.trashedAt).sort((p, q) => label.get(p.id)!.localeCompare(label.get(q.id)!));
         const r = rnd();
         const text = `${dev.name}${seed}-${++n}`;
-        const kind = (r < 0.2 || live.length === 0) ? 'new' : r < 0.55 ? 'edit' : r < 0.62 ? 'trash' : r < 0.85 ? 'sync' : 'net';
+        const kind = (r < 0.2 || live.length === 0) ? 'new'
+          : r < 0.55 ? 'edit'
+          : r < 0.60 ? 'trash'
+          : r < 0.64 && trashed.length > 0 ? 'delete_forever'
+          : r < 0.85 ? 'sync' : 'net';
         try {
-          if (r < 0.2 || live.length === 0) {
+          if (kind === 'new') {
             await saveNewNote(uid, text);
             saved.add(text); log.push(`${dev.name}${offline.get(dev) ? '(off)' : ''} new ${text}`);
-          } else if (r < 0.55) {
+          } else if (kind === 'edit') {
             const d = pick(live);
             await save(uid, d.id, text, Date.now());
             saved.add(text); log.push(`${dev.name}${offline.get(dev) ? '(off)' : ''} edit [${label.get(d.id)}] ${text}`);
-          } else if (r < 0.62) {
+          } else if (kind === 'trash') {
             const d = pick(live);
             await StorageService.trashDocument(uid, d.id, d.linkedCloudId);
             log.push(`${dev.name} trash [${label.get(d.id)}]`);
-          } else if (r < 0.85) {
+          } else if (kind === 'delete_forever') {
+            const d = pick(trashed);
+            const vs = await db.getAllFromIndex('versions', 'by-document', d.id);
+            for (const v of vs) {
+              deletedTexts.add(v.content);
+              saved.delete(v.content);
+            }
+            if (d.uuid) deletedUuids.add(d.uuid);
+            await StorageService.deleteDocument(uid, d.id, d.linkedCloudId);
+            log.push(`${dev.name}${offline.get(dev) ? '(off)' : ''} delete_forever [${label.get(d.id)}]`);
+          } else if (kind === 'sync') {
             await syncRound(uid);
+            await assertPullCoversCloud(uid, runner.interceptor.postgres, log);
             log.push(`${dev.name}${offline.get(dev) ? '(off)' : ''} sync`);
           } else {
             offline.set(dev, !offline.get(dev));
             log.push(`${dev.name} ${offline.get(dev) ? 'goes offline' : 'back online'}`);
           }
-          // I3 — после каждого шага: номер версии внутри заметки уникален.
+          // I2v — после каждого шага: номер версии внутри заметки уникален.
           // Два разных текста под одним номером — один из них в облако не попадёт.
           const db2 = await getLocalDb();
           for (const d of (await db2.getAll('documents')).filter(x => x.guestId === uid)) {
             const nums = (await db2.getAllFromIndex('versions', 'by-document', d.id)).map(v => v.version);
             if (new Set(nums).size !== nums.length) {
-              throw new Error(`I3: duplicate version numbers ${JSON.stringify(nums)} in ${d.id.slice(-4)} after: ${log[log.length - 1]}\n${log.join('\n')}`);
+              throw new Error(`I2v: duplicate version numbers ${JSON.stringify(nums)} in ${d.id.slice(-4)} after: ${log[log.length - 1]}\n${log.join('\n')}`);
             }
           }
         } catch (e) {
-          if ((e as Error).message.startsWith('I3:')) throw e;
+          if ((e as Error).message.startsWith('I2v:')) throw e;
           if (!offline.get(dev)) throw new Error(`online op failed: ${(e as Error).message}\n${log.join('\n')}`);
           // Офлайн сохранение может бросить после локальной записи — тогда текст
           // сохранён и обязан дожить до конца.
@@ -255,7 +356,11 @@ describe('№2: two devices, one cloud', () => {
 
       offline.set(A, false); offline.set(B, false);
       // A, B, A, B, A, B, A — последнее слово за A, чтобы увидеть последнюю выгрузку B.
-      for (const dev of [A, B, A, B, A, B, A]) { activateDevice(dev); setNet(dev); await syncRound(uid); }
+      for (const dev of [A, B, A, B, A, B, A]) {
+        activateDevice(dev); setNet(dev);
+        await syncRound(uid);
+        await assertPullCoversCloud(uid, runner.interceptor.postgres, log);
+      }
 
       const dump = async () => {
         const db = await getLocalDb();
@@ -277,6 +382,26 @@ describe('№2: two devices, one cloud', () => {
       expect(lost, `I1: saved texts lost\n${log.join('\n')}`).toEqual([]);
       const liveA = [...a.byUuid.values()].sort(), liveB = [...b.byUuid.values()].sort();
       expect(liveB, `I2: devices diverge\n${log.join('\n')}`).toEqual(liveA);
+
+      // I3 — удалённое навсегда не воскресает. На устройстве текст может
+      // остаться локальной копией по TB-14 (unlink с предупреждением), но в
+      // облаке строка обязана остаться надгробием, а её версий и живого текста
+      // быть не должно.
+      const cloudDocs = runner.interceptor.postgres.getRows('documents');
+      const cloudVersions = runner.interceptor.postgres.getRows('versions');
+      for (const u of deletedUuids) {
+        const row = cloudDocs.find(d => d.uuid === u);
+        expect(row === undefined || Boolean(row.deleted_at),
+          `I3: cloud row ${u} revived\n${log.join('\n')}`).toBe(true);
+      }
+      const liveCloudUuids = new Set(cloudDocs.filter(d => !d.deleted_at).map(d => String(d.uuid)));
+      const liveCloudTexts = new Set(cloudVersions
+        .filter(v => liveCloudUuids.has(String(v.document_uuid)))
+        .map(v => String(v.content)));
+      expect([...deletedTexts].filter(t => liveCloudTexts.has(t)),
+        `I3: deleted text came back in a live cloud row\n${log.join('\n')}`).toEqual([]);
+      expect(cloudVersions.filter(v => deletedUuids.has(String(v.document_uuid))).map(v => String(v.content)),
+        `I3: versions of a deleted note survived\n${log.join('\n')}`).toEqual([]);
     }, 60_000);
   }
 });

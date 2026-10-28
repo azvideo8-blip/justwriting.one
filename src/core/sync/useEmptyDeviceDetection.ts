@@ -115,10 +115,10 @@ export function useEmptyDeviceDetection(opts?: { cloudOnlyWhenEmpty?: boolean })
       // раньше этот перезапуск случался на каждое сохранение — навсегда.
       if (opts?.cloudOnlyWhenEmpty && localLen > 0) return;
 
-      const [{ DocumentService }] = await Promise.all([
-        import('../services/DocumentService'),
-      ]);
-      const cloudLen = (await DocumentService.getUserDocuments(uid)).length;
+      // B2 R-2: по неполному списку «на устройстве меньше, чем прочитано в
+      // облаке» по-прежнему доказательство; обратное — нет, но это только подсказка.
+      const { readCloudDocumentsPartial } = await import('../services/cloudListPartial');
+      const cloudLen = (await readCloudDocumentsPartial(uid)).docs.length;
 
       // AG-RESTORE-1: Prompt if local device has fewer notes than the cloud.
       // RA1-5: отклонённая модалка гасит только вопрос; счётчики читаются и

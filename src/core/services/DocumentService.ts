@@ -19,6 +19,74 @@ export class UnreadableCloudRowError extends Error {
   }
 }
 
+/**
+ * S1-10: списочный читатель не отдаёт неполный список молча. Ряд, который не
+ * прошёл схему или не расшифровался неожиданной ошибкой, раньше превращался в
+ * `null` и тихо выпадал из списка — курсор изменений уезжал за неприменённое
+ * изменение, «нет в списке» читалось как «прочитано целиком». Теперь список с
+ * такими рядами — ошибка уровня списка: `ids` нечитаемых и `docs` — прочитанная
+ * часть, по которой перепривязка всё ещё вправе связать совпавшие uuid.
+ */
+export class UnreadableCloudListError extends Error {
+  readonly ids: string[];
+  readonly docs: Document[];
+  /** R-1: uuid сырых нечитаемых рядов — только с ними может совпасть несвязанная
+   *  локальная заметка; остальные несвязанные дренаж не ждёт. */
+  readonly uuids: string[];
+  /** C1: `firstSessionAt` сырых нечитаемых рядов — пара по времени для старых
+   *  несвязанных заметок без uuid или с другим uuid. */
+  readonly starts: number[];
+  /** C1: есть нечитаемый ряд без uuid и без времени — с ним может совпасть любая
+   *  несвязанная заметка, откладываются все. */
+  readonly blind: boolean;
+  constructor(ids: string[], docs: Document[], uuids: string[] = [], starts: number[] = [], blind = false) {
+    super(`UNREADABLE_CLOUD_LIST: ${ids.length} unreadable row(s): ${ids.join(', ')}`);
+    this.name = 'UnreadableCloudListError';
+    this.ids = ids;
+    this.docs = docs;
+    this.uuids = uuids;
+    this.starts = starts;
+    this.blind = blind;
+  }
+}
+
+
+/**
+ * S1-6: одна строка облака → Document — тем же путём, что и полный список:
+ * расшифровка, страж нечитаемой строки, схема. Вынесено из getUserDocuments,
+ * чтобы забор по rev не заводил вторую копию правила разбора.
+ */
+export async function parseCloudDocument(d: Record<string, unknown>): Promise<Document | null> {
+  let _locked = false;
+  let _decryptionError = false;
+  let decrypted: Record<string, unknown> = d;
+  try {
+    decrypted = await maybeDecrypt(d, ['title', 'mood'], ['tags']);
+  } catch (decErr) {
+    if (decErr instanceof DecryptionError) {
+      _decryptionError = true;
+    } else if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) {
+      _locked = true;
+    } else {
+      reportError(decErr, { action: 'getUserDocuments_decrypt', docId: d.id as string });
+      return null;
+    }
+  }
+  const docData: Record<string, unknown> = { ...decrypted };
+  if (_locked || _decryptionError) {
+    delete docData.title;
+    delete docData.tags;
+    delete docData.mood;
+    if (_locked) docData._locked = true;
+    if (_decryptionError) docData._decryptionError = true;
+  }
+  const parsed = documentDbSchema.safeParse({ id: d.id, ...docData });
+  if (!parsed.success) {
+    reportError(parsed.error, { action: 'getUserDocuments_parse', docId: d.id as string });
+    return null;
+  }
+  return documentFromDb(parsed.data);
+}
 
 export const DocumentService = {
   async createDocument(
@@ -141,43 +209,29 @@ export const DocumentService = {
 
   async getUserDocuments(userId: string): Promise<Document[]> {
     const records = await DataProvider.getUserDocuments(userId);
-    const decryptedDocs = await Promise.all(
-      records.map(async d => {
-        let _locked = false;
-        let _decryptionError = false;
-        let decrypted: Record<string, unknown> = d;
-        try {
-          decrypted = await maybeDecrypt(d, ['title', 'mood'], ['tags']);
-        } catch (decErr) {
-          if (decErr instanceof DecryptionError) {
-            _decryptionError = true;
-          } else if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) {
-            _locked = true;
-          } else {
-            reportError(decErr, { action: 'getUserDocuments_decrypt', docId: d.id as string });
-            return null;
-          }
-        }
-        const docData: Record<string, unknown> = { ...decrypted };
-        if (_locked || _decryptionError) {
-          delete docData.title;
-          delete docData.tags;
-          delete docData.mood;
-          if (_locked) docData._locked = true;
-          if (_decryptionError) docData._decryptionError = true;
-        }
-        const parsed = documentDbSchema.safeParse({ id: d.id, ...docData });
-        if (!parsed.success) {
-          reportError(parsed.error, { action: 'getUserDocuments_parse', docId: d.id as string });
-          return null;
-        }
-        return documentFromDb(parsed.data);
-      })
-    );
-    const docs = decryptedDocs.filter((d): d is Document => d !== null);
+    const decryptedDocs = await Promise.all(records.map(parseCloudDocument));
+    const docs: Document[] = [];
+    // S1-10: `_locked`/`_decryptionError` идут дальше с флагами — это
+    // «прочитали, но закрыто»; сюда попадает только ряд, который разобрать
+    // не удалось. Неполный список не отдаётся как полный.
+    const unreadable: string[] = [];
+    const unreadableUuids: string[] = [];
+    const unreadableStarts: number[] = [];
+    let blind = false;
+    decryptedDocs.forEach((d, i) => {
+      if (d !== null) { docs.push(d); return; }
+      unreadable.push(String(records[i]!.id));
+      const uuid = records[i]!.uuid;
+      const start = toTimestampMs(records[i]!.firstSessionAt as never);
+      if (typeof uuid === 'string' && uuid) unreadableUuids.push(uuid);
+      if (start != null && Number.isFinite(start)) unreadableStarts.push(start);
+      else if (!(typeof uuid === 'string' && uuid)) blind = true;
+    });
     docs.sort((a, b) => (toTimestampMs(b.lastSessionAt) ?? 0) - (toTimestampMs(a.lastSessionAt) ?? 0));
+    if (unreadable.length > 0) throw new UnreadableCloudListError(unreadable, docs, unreadableUuids, unreadableStarts, blind);
     return docs;
   },
+
 
   async getCloudDocumentVersions(userId: string): Promise<Map<string, number>> {
     try {

@@ -37,6 +37,11 @@ export const commonTranslations: Translations = {
     ru: 'Не удалось загрузить количество заметок в облаке',
     en: 'Failed to load cloud note count',
   },
+  // R-2: битый ряд в облаке — показано прочитанное, неполнота названа.
+  restore_cloud_counts_partial: {
+    ru: 'Часть записей в облаке не прочиталась ({count}); показано только то, что удалось прочитать',
+    en: 'Some cloud rows could not be read ({count}); only readable notes are counted',
+  },
   restore_cloud_counts_retry: {
     ru: 'Повторить',
     en: 'Retry',

@@ -4,7 +4,10 @@ import { reportError } from '../../shared/errors/reportError';
 import { StorageService } from './StorageService';
 import { LocalDocumentService } from './LocalDocumentService';
 import { DocumentService } from './DocumentService';
-import { CloudSyncService, CLOUD_COPY_LOCAL_ONLY, CLOUD_COPY_TOMBSTONE, type ReconcileSummary } from './CloudSyncService';
+import { CloudSyncService, CLOUD_COPY_LOCAL_ONLY, CLOUD_COPY_TOMBSTONE, type ReconcileSummary, type PullNotesResult } from './CloudSyncService';
+import { RevUnavailableError } from '../data/providers/pullChanges';
+import { clearSyncRevCursor } from '../sync/revCursor';
+import { syncPullByRevEnabled } from '../sync/syncFlags';
 import { cloudSyncEnabled } from '../sync/cloudSyncEnabled';
 import { syncStatusOf } from '../sync/syncStatus';
 import { isPoisonSyncError, isRevivableOnUnlock, classifySyncError } from '../sync/classifySyncError';
@@ -14,6 +17,9 @@ import { announceQueueChange, addToSyncQueue } from './syncQueueOps';
 import pLimit from 'p-limit';
 
 const _syncInProgress = new Map<string, boolean>();
+// S1-6: сервер без 0045 запоминается на сессию — не долбить его каждым
+// событием. Сбрасывается только перезагрузкой страницы/выпуском.
+const _revUnavailableSessions = new Set<string>();
 const limit = pLimit(5);
 
 // AUDIT-H4 / FU-2: ядовитые ошибки (isPoisonSyncError: DECRYPTION_ERROR, LOCKED,
@@ -414,10 +420,78 @@ export const SyncService = {
     return true;
   },
 
+  /**
+   * S1-6: единая точка забора заметок. Флаг выключен или сервер не знает
+   * `rev` — старый путь (полная загрузка + сверка связанных); иначе —
+   * страницы «всё после номера N» и курсор в базе аккаунта.
+   */
+  async pullNotes(
+    userId: string,
+    opts?: { getActiveDocumentId?: () => string | null },
+  ): Promise<PullNotesResult> {
+    if (_revUnavailableSessions.has(userId) || !(await syncPullByRevEnabled(userId))) {
+      return SyncService.pullNotesOldPath(userId);
+    }
+    try {
+      const res = await CloudSyncService.pullNotesByRev(userId, opts);
+      if (!res.locked) {
+        if (res.downloaded + res.reconciled > 0) announceQueueChange();
+        await syncStreakFreezesWithCloud(userId).catch(e =>
+          reportError(e, { action: 'syncStreakFreezes_pullNotes', userId })
+        );
+      }
+      return res;
+    } catch (e) {
+      if (e instanceof RevUnavailableError) {
+        _revUnavailableSessions.add(userId);
+        reportError(e, { action: 'pullNotes_rev_unavailable', userId }, 'warning');
+        // Сервер не знает rev — прежний курсор ничего не значит: колонку могли
+        // снять и вернуть с новой последовательностью. С нуля безопаснее, чем
+        // пропустить строки с номерами меньше сохранённого курсора.
+        await clearSyncRevCursor(userId).catch(cursorErr =>
+          reportError(cursorErr, { action: 'pullNotes_rev_unavailable_cursor', userId }, 'warning'),
+        );
+        return SyncService.pullNotesOldPath(userId);
+      }
+      throw e;
+    }
+  },
+
+  /**
+   * S1-13: сервер этой сессии ответил 42703 (0045 не применена) — забор по
+   * rev невозможен до перезагрузки. Видимость в этом случае идёт старой
+   * проверкой курсора (два `limit 1`), а не полным проходом.
+   */
+  isRevPullUnavailable(userId: string): boolean {
+    return _revUnavailableSessions.has(userId);
+  },
+
+  /**
+   * Старый путь забора — ровно как в 0.10.x на входах «вход / сеть вернулась /
+   * сейф открыт»: только полная загрузка отсутствующих. Сверка связанных в
+   * 0.10.x шла лишь с проверкой курсора на видимости (checkAndSyncCursor) —
+   * сюда её добавлять нельзя (S1-14). Побочные эффекты (заморозки серии,
+   * announce) уже внутри обёртки downloadAllFromCloud.
+   */
+  async pullNotesOldPath(userId: string): Promise<PullNotesResult> {
+    const dl = await SyncService.downloadAllFromCloud(userId);
+    return {
+      downloaded: dl.downloaded,
+      reconciled: 0,
+      skipped: dl.skipped,
+      corrupted: 0,
+      failed: dl.failed,
+      ...(dl.locked ? { locked: true } : {}),
+      documentsRev: 0,
+      versionsRev: 0,
+      deferred: 0,
+    };
+  },
+
   async downloadAllFromCloud(
     userId: string,
     opts?: { onProgress?: (current: number, total: number) => void }
-  ): Promise<{ downloaded: number; skipped: number; failed: number; locked?: boolean }> {
+  ): Promise<{ downloaded: number; skipped: number; failed: number; locked?: boolean; incomplete?: boolean }> {
     // The download itself lives in CloudSyncService so that
     // restoreMissingDocuments can share it without importing this module back
     // (import/no-cycle). This wrapper adds what only the sync layer owns.

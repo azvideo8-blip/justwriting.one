@@ -185,8 +185,8 @@ export function SyncManager() {
                 reportError(e, { action: 'sync_pending_on_vault_unlock' }),
               );
               if (localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid)) === 'true') {
-                void SyncService.downloadAllFromCloud(user.uid).catch(e =>
-                  reportError(e, { action: 'download_all_on_vault_unlock' }),
+                void SyncService.pullNotes(user.uid).catch(e =>
+                  reportError(e, { action: 'pull_notes_on_vault_unlock' }),
                 );
               }
             }
@@ -206,7 +206,7 @@ export function SyncManager() {
       void syncEngine().then(SyncService => {
         SyncService.syncPending(user.uid).catch(e => reportError(e, { action: 'sync_manager_online_recovery' }));
         if (localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid)) === 'true') {
-          SyncService.downloadAllFromCloud(user.uid).catch(e => reportError(e, { action: 'download_all_online_recovery' }));
+          SyncService.pullNotes(user.uid).catch(e => reportError(e, { action: 'pull_notes_online_recovery' }));
         }
       }).catch(e => reportError(e, { action: 'sync_engine_load_online_recovery' }));
     }
@@ -220,8 +220,10 @@ export function SyncManager() {
     if (localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid)) !== 'true') return;
     initialSyncRanRef.current = user.uid;
     void syncEngine().then(SyncService =>
-      SyncService.downloadAllFromCloud(user.uid).catch(e =>
-        reportError(e, { action: 'download_all_on_auth' }),
+      // S1-6/S1-7: единая точка забора — по rev, если флаг включён и сервер
+      // знает колонку; иначе тот же старый полный проход.
+      SyncService.pullNotes(user.uid).catch(e =>
+        reportError(e, { action: 'pull_notes_on_auth' }),
       ),
     ).catch(e => reportError(e, { action: 'sync_engine_load_on_auth' }));
   }, [user]);
@@ -232,11 +234,25 @@ export function SyncManager() {
       if (document.hidden) return;
       if (!user?.uid) return;
       if (localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid)) !== 'true') return;
-      void import('../core/sync/changeCursor').then(({ checkAndSyncCursor }) =>
-        checkAndSyncCursor(user.uid).catch(e =>
+      // S1-7: при заборе по rev отдельная проверка серверного курсора не нужна —
+      // забор сам и есть проверка. Выключенный флаг — или сервер без 0045
+      // (S1-13: сессия запомнила 42703) — оставляет старую проверку курсора:
+      // два `limit 1`, а не полный проход на каждом возврате во вкладку.
+      void import('../core/sync/syncFlags').then(async ({ syncPullByRevEnabled }) => {
+        if (await syncPullByRevEnabled(user.uid)) {
+          const SyncService = await syncEngine();
+          if (!SyncService.isRevPullUnavailable(user.uid)) {
+            await SyncService.pullNotes(user.uid).catch(e =>
+              reportError(e, { action: 'pull_notes_on_visibility' }),
+            );
+            return;
+          }
+        }
+        const { checkAndSyncCursor } = await import('../core/sync/changeCursor');
+        await checkAndSyncCursor(user.uid).catch(e =>
           reportError(e, { action: 'check_and_sync_cursor_visibility' }),
-        ),
-      ).catch(e => reportError(e, { action: 'sync_engine_load_cursor' }));
+        );
+      }).catch(e => reportError(e, { action: 'sync_engine_load_cursor' }));
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => document.removeEventListener('visibilitychange', onVisibilityChange);

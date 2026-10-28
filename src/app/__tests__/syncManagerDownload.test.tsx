@@ -2,12 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/react';
 import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
 
-const downloadAllFromCloud = vi.fn(async () => ({ downloaded: 1, skipped: 0, failed: 0 }));
+const pullNotes = vi.fn(async () => ({ downloaded: 1, reconciled: 0, skipped: 0, corrupted: 0, failed: 0, documentsRev: 1, versionsRev: 1 }));
 const syncPending = vi.fn(async () => undefined);
 const reviveLockedTasks = vi.fn(async () => 0);
 
 vi.mock('../../core/services/SyncService', () => ({
-  SyncService: { downloadAllFromCloud, syncPending, reviveLockedTasks },
+  SyncService: { pullNotes, syncPending, reviveLockedTasks },
 }));
 
 let mockOnline = false;
@@ -22,7 +22,7 @@ vi.mock('../../features/auth/hooks/useAuthStatus', () => ({
 const { SyncManager } = await import('../AppProviders');
 const { VAULT_UNLOCKED_EVENT } = await import('../../core/crypto/useEncryptionStore');
 
-describe('SyncManager triggers downloadAllFromCloud', () => {
+describe('SyncManager triggers pullNotes (S1-7)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
@@ -30,13 +30,13 @@ describe('SyncManager triggers downloadAllFromCloud', () => {
     mockOnline = false;
   });
 
-  it('triggers downloadAllFromCloud on mount when user is authenticated and autoSync is enabled', async () => {
+  it('triggers pullNotes on mount when user is authenticated and autoSync is enabled', async () => {
     render(<SyncManager />);
     // N-2: движок синка приходит динамическим импортом — ждём вызова, а не кадра.
-    await vi.waitFor(() => expect(downloadAllFromCloud).toHaveBeenCalledWith('u_sync_test'));
+    await vi.waitFor(() => expect(pullNotes).toHaveBeenCalledWith('u_sync_test'));
   });
 
-  it('triggers downloadAllFromCloud on online recovery', async () => {
+  it('triggers pullNotes on online recovery', async () => {
     mockOnline = false;
     const { rerender } = render(<SyncManager />);
     // N-2: смонтированный проход уже ждёт динамический импорт движка; даём ему
@@ -53,17 +53,17 @@ describe('SyncManager triggers downloadAllFromCloud', () => {
     // синхронизации в облако не уходит ничего; решает сам syncPending.
     await vi.waitFor(() => {
       expect(syncPending).toHaveBeenCalledWith('u_sync_test');
-      expect(downloadAllFromCloud).toHaveBeenCalledWith('u_sync_test');
+      expect(pullNotes).toHaveBeenCalledWith('u_sync_test');
     });
   });
 
-  it('triggers downloadAllFromCloud on vault unlocked event', async () => {
+  it('triggers pullNotes on vault unlocked event', async () => {
     render(<SyncManager />);
     vi.clearAllMocks();
 
     window.dispatchEvent(new CustomEvent(VAULT_UNLOCKED_EVENT));
     await new Promise((r) => setTimeout(r, 0));
 
-    expect(downloadAllFromCloud).toHaveBeenCalledWith('u_sync_test');
+    expect(pullNotes).toHaveBeenCalledWith('u_sync_test');
   });
 });

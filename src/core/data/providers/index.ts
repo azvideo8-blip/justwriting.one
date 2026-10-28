@@ -14,6 +14,7 @@ import * as drafts from './drafts';
 import * as summaries from './summaries';
 import * as embeddings from './embeddings';
 import * as localStore from './localStore';
+import { pullChangesSince } from './pullChanges';
 
 export { likePrefix } from './fields';
 export { rowToLocalStoreRecord, parseStampedAt } from './localStore';
@@ -26,4 +27,5 @@ export const SupabaseDataProvider: IDataProvider = {
   ...summaries,
   ...embeddings,
   ...localStore,
+  pullChangesSince,
 };

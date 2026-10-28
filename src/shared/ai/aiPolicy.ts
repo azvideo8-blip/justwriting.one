@@ -539,3 +539,13 @@ export async function refundCall(
 // тех, кто разговаривает много. Один источник на обе стороны.
 export const MEMORY_EXTRACT_MAX_MESSAGES = 30;
 export const MEMORY_EXTRACT_MAX_MESSAGE_CHARS = 5_000;
+
+/**
+ * Действия, которым не нужно согласие на обработку записей ИИ: удаление аккаунта —
+ * право субъекта, администрирование и статистика ИИ — не про анализ заметок.
+ * Дейлик 28.10 Н-2: один список на клиента (callAi) и сервер (handlers) — две
+ * копии разъехались, и в обеих не было getAIUsageStats.
+ */
+export const CONSENT_EXEMPT_ENDPOINTS: ReadonlySet<string> = new Set([
+  'deleteAccount', 'inviteUser', 'listUsersWithStatus', 'adminDeleteUser', 'listAdminActions', 'getAIUsageStats',
+]);

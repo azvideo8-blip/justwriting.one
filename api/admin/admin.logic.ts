@@ -8,6 +8,8 @@ import { safeErrorShape } from '../../src/shared/ai/errorShape.js';
 
 /** R7Q-009: почасовой бюджет админских удалений (считается по admin_actions). */
 export const ADMIN_DELETES_PER_HOUR = 5;
+/** Дейлик 28.10 Н-3: почасовой бюджет приглашений — тот же журнал, своё действие. */
+export const ADMIN_INVITES_PER_HOUR = 20;
 
 const inviteSchema = z.object({
   email: z.string().trim().toLowerCase().pipe(z.string().email().max(254)),
@@ -61,19 +63,65 @@ export async function inviteUserLogic(
     }
     const isReinvite = existing.rows.length > 0;
 
-    const supabase = getSupabaseAdmin();
-    const { data: resData, error } = await supabase.auth.admin.inviteUserByEmail(email);
+    // Н-3: приглашение — письмо с нашего домена; бюджет — по следам в admin_actions,
+    // как у удалений. Как и там, решает пересчёт под блокировкой по админу в
+    // транзакции: иначе два параллельных запроса оба видели «19 из 20» (TOCTOU).
+    // След пишется в той же транзакции; письмо ушло, а след не записался — ошибка.
+    // Быстрый отказ без соединения из пула — как у удалений.
+    const pre = await pool.query<{ used: number }>(
+      `select count(*)::int as used from public.admin_actions
+        where admin_uid = $1 and action = 'invite_user' and at > now() - interval '1 hour'`,
+      [uid],
+    );
+    if ((pre.rows[0]?.used ?? 0) >= ADMIN_INVITES_PER_HOUR) {
+      throw new AiError('resource-exhausted', `Не больше ${ADMIN_INVITES_PER_HOUR} приглашений в час. Повторите позже.`);
+    }
+    const client = await pool.connect();
+    let invited: { id?: string | undefined; email?: string | undefined } | undefined;
+    try {
+      await client.query('begin');
+      // Блокировка без ожидания: письмо уходит внутри транзакции, и очередь из
+      // ждущих запросов держала бы соединения пула (пачка запросов одного админа
+      // выедала бы пул). Второй параллельный — сразу «повторите позже».
+      const lock = await client.query('select pg_try_advisory_xact_lock(hashtext($1)) as locked', [`invite:${uid}`]);
+      if (!(lock.rows[0] as { locked?: boolean } | undefined)?.locked) {
+        throw new AiError('resource-exhausted', 'Приглашение уже отправляется. Повторите через минуту.');
+      }
+      const budget = await client.query(
+        `select count(*)::int as used from public.admin_actions
+          where admin_uid = $1 and action = 'invite_user' and at > now() - interval '1 hour'`,
+        [uid],
+      );
+      if (((budget.rows[0] as { used?: number } | undefined)?.used ?? 0) >= ADMIN_INVITES_PER_HOUR) {
+        throw new AiError('resource-exhausted', `Не больше ${ADMIN_INVITES_PER_HOUR} приглашений в час. Повторите позже.`);
+      }
 
-    if (error) {
-      // Текст GoTrue не отдаём наружу (адреса, схема) — только в журнал службы.
-      console.error('[admin] inviteUserByEmail failed:', error.message);
-      throw new AiError('invalid-argument', 'Не удалось отправить приглашение.');
+      const supabase = getSupabaseAdmin();
+      const res = await supabase.auth.admin.inviteUserByEmail(email);
+      if (res.error) {
+        // Текст GoTrue не отдаём наружу (адреса, схема) — только в журнал службы.
+        console.error('[admin] inviteUserByEmail failed:', res.error.message);
+        throw new AiError('invalid-argument', 'Не удалось отправить приглашение.');
+      }
+      invited = res.data.user ?? undefined;
+      if (invited?.id) {
+        await client.query(
+          'insert into public.admin_actions (admin_uid, action, target_uid) values ($1, $2, $3)',
+          [uid, 'invite_user', invited.id],
+        );
+      }
+      await client.query('commit');
+    } catch (e) {
+      await client.query('rollback').catch(() => { /* намеренно: соединение уже в ошибке */ });
+      throw e;
+    } finally {
+      client.release();
     }
 
     return {
       user: {
-        id: resData.user?.id,
-        email: resData.user?.email,
+        id: invited?.id,
+        email: invited?.email,
       },
       reinvited: isReinvite,
     };

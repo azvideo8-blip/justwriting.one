@@ -470,10 +470,19 @@ export class FaultInterceptor {
     }
   }
 
+  /** RP-3: ответ стенда на `feature_enabled` — по умолчанию включено. */
+  public featureFlagsOn = true;
+
   public createMockSupabaseClient() {
     return {
       from: (table: TableName) => this.createQueryBuilder(table),
       rpc: (fnName: string, _args: unknown) => {
+        // RP-3: флаги этапов читаются с сервера (0046). Стенд — сервер с включённым
+        // забором по rev, как было с константой в коде. Чтение флага — мимо
+        // счётчика сбоев: иначе оно съедало бы сбой, нацеленный на страницу забора.
+        if (fnName === 'feature_enabled') {
+          return Promise.resolve({ data: this.featureFlagsOn, error: null });
+        }
         const fault = this.shouldTriggerFault();
         if (fault === 'network_pre') {
           this.fireFault();
@@ -669,7 +678,7 @@ export class FaultInterceptor {
               result = this.postgres.executeDelete(table, filters);
               break;
             case 'select': {
-              const res = this.postgres.executeSelect(table, filters, orders, limitCount, rangeOffset);
+              const res = this.postgres.executeSelect(table, filters, orders, limitCount, rangeOffset, selectCols);
               const cols = selectCols;
               const rows = cols && res.data ? res.data.map(r => Object.fromEntries(cols.map(k => [k, r[k]]))) : res.data;
               let data: Record<string, unknown> | Record<string, unknown>[] | null = rows;

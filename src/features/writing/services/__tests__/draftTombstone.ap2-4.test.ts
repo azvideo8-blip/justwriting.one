@@ -36,7 +36,11 @@ vi.mock('../../../../core/crypto/cryptoHelpers', () => ({
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 
 const UID = 'u_ap2_4';
-const T0 = Date.UTC(2026, 9, 21, 6, 0, 0);
+// Не фиксированная дата в будущем: после неё реальный момент удаления
+// оказывается «новее» облачной строки, loadDraft честно считает её призраком
+// удалённого черновика и стирает — тест протухает (поймано в CI 2026-10-21).
+// Нужен всего лишь облачный ряд, пришедший ПОСЛЕ удаления.
+const T0 = Date.now() + 60_000;
 const draft = (): LocalDraft => ({
   userId: UID, title: '', content: 'AP2_DRAFT_SYNTHETIC', seconds: 60, wpm: 40,
   wordCount: 3, pinnedThoughts: [], tags: [], activeSessionId: null, savedDocumentId: null,

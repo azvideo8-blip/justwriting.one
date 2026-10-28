@@ -137,6 +137,7 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
           'error'
         );
       }
+      if (dlRes.incomplete) showToast(t('settings_sync_cloud_partial'), 'warning');
     } catch (err) {
       reportError(err, { action: 'syncAllUnlinked' });
       showToast(t('error_generic_action'), 'error');

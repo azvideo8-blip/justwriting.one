@@ -15,7 +15,8 @@ export function AdminActionsTable({ actions, error = false }: { actions: AdminAc
   const { t } = useLanguage();
 
   const actionLabel = (action: string): string =>
-    action === 'delete_user' ? t('admin_action_delete_user') : action;
+    action === 'delete_user' ? t('admin_action_delete_user')
+      : action === 'invite_user' ? t('admin_action_invite_user') : action;
 
   const at = (iso: string): string => {
     const d = new Date(iso);

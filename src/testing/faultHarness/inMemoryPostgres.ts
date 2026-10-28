@@ -32,9 +32,9 @@ export interface QueryOrder {
 }
 
 const TABLE_COLUMNS: Record<TableName, readonly string[]> = {
-  documents: ['id', 'uuid', 'user_id', 'title', 'content', 'created_at', 'updated_at', 'deleted_at'],
-  versions: ['id', 'document_uuid', 'user_id', 'version', 'content', 'created_at'],
-  drafts: ['id', 'user_id', 'content', 'created_at', 'updated_at'],
+  documents: ['id', 'uuid', 'user_id', 'title', 'content', 'created_at', 'updated_at', 'deleted_at', 'rev'],
+  versions: ['id', 'document_uuid', 'user_id', 'version', 'content', 'created_at', 'rev'],
+  drafts: ['id', 'user_id', 'content', 'created_at', 'updated_at', 'rev'],
   users: ['id', 'uid', 'email', 'encryption_meta', 'created_at'],
   ai_summaries: ['id', 'document_id', 'user_id', 'summary', 'created_at'],
   ai_embeddings: ['id', 'document_id', 'user_id', 'dim', 'created_at'],
@@ -42,7 +42,8 @@ const TABLE_COLUMNS: Record<TableName, readonly string[]> = {
   // Без неё стенд не видел ни CAS скалярной выгрузки, ни инкрементального забора
   // ИИ-данных: оба решаются отметкой сервера, и на голых `updated_at` харнес
   // молчал там, где прод отказывает.
-  local_store_records: ['id', 'user_id', 'store', 'key', 'payload', 'checksum', 'created_at', 'updated_at', 'stamped_at'],
+  // S1-3: `rev` — номер строки из 0045; один счётчик на четыре таблицы.
+  local_store_records: ['id', 'user_id', 'store', 'key', 'payload', 'checksum', 'created_at', 'updated_at', 'stamped_at', 'rev'],
 };
 
 // R4-029: уникальные кортежи — по реальной схеме (0001_schema.sql,
@@ -81,9 +82,73 @@ function duplicateError(table: TableName) {
 export class InMemoryPostgres {
   public tables: Map<TableName, PostgresRow[]> = new Map();
   private sequences: Map<string, number> = new Map();
+  /** S1-3: база без 0045. Запрос, который трогает `rev`, отвечает 42703 —
+   *  как PostgREST на таблице без этой колонки. */
+  public withRev: boolean;
+  /** S1-3: как `PGRST_DB_MAX_ROWS` у PostgREST — режет и `limit`, и `range`. */
+  public maxRows: number;
+  /** S1-3: один номер на все четыре таблицы, как `sync_rev_seq`. */
+  private revSeq = 0;
+  /** S1-3: «сколько запросов к таблице и каким методом» — на событие синка. */
+  private requestCounts = new Map<string, number>();
 
-  constructor() {
+  constructor(opts: { withRev?: boolean; maxRows?: number } = {}) {
+    this.withRev = opts.withRev ?? true;
+    this.maxRows = opts.maxRows ?? 1000;
     this.reset();
+  }
+
+  /** Миграция 0045 применена/откатана посреди теста: строки получают/теряют
+   *  `rev` так же, как при перезаписи таблицы и `drop column`. */
+  public setWithRev(withRev: boolean): void {
+    if (this.withRev === withRev) return;
+    this.withRev = withRev;
+    for (const rows of this.tables.values()) {
+      for (const row of rows) {
+        if (withRev && row.rev === undefined) row.rev = this.nextRev();
+        if (!withRev) delete row.rev;
+      }
+    }
+  }
+
+  public setMaxRows(maxRows: number): void {
+    this.maxRows = Math.max(0, Math.floor(maxRows));
+  }
+
+  public getRequestCount(table?: TableName, method?: 'select' | 'insert' | 'upsert' | 'update' | 'delete'): number {
+    let total = 0;
+    for (const [key, count] of this.requestCounts) {
+      const [t, m] = key.split(':');
+      if (table !== undefined && t !== table) continue;
+      if (method !== undefined && m !== method) continue;
+      total += count;
+    }
+    return total;
+  }
+
+  public resetRequestCounts(): void {
+    this.requestCounts.clear();
+  }
+
+  private countRequest(table: TableName, method: 'select' | 'insert' | 'upsert' | 'update' | 'delete'): void {
+    const key = `${table}:${method}`;
+    this.requestCounts.set(key, (this.requestCounts.get(key) ?? 0) + 1);
+  }
+
+  private nextRev(): number {
+    this.revSeq += 1;
+    return this.revSeq;
+  }
+
+  private revUnavailable(table: TableName) {
+    return {
+      data: null as null,
+      error: { message: `column ${table}.rev does not exist`, code: '42703' },
+    };
+  }
+
+  private touchesRev(columns: Array<string | undefined | null>): boolean {
+    return columns.some(column => column === 'rev');
   }
 
   public getTableNamesWithColumn(column: string): TableName[] {
@@ -95,6 +160,8 @@ export class InMemoryPostgres {
   public reset(): void {
     this.tables.clear();
     this.sequences.clear();
+    this.revSeq = 0;
+    this.requestCounts.clear();
     const tableNames: TableName[] = [
       'documents',
       'versions',
@@ -171,8 +238,12 @@ export class InMemoryPostgres {
     table: TableName,
     payload: PostgresRow | PostgresRow[]
   ): { data: PostgresRow[] | null; error: { message: string; code: string } | null } {
-    const current = this.tables.get(table) || [];
+    this.countRequest(table, 'insert');
     const items = Array.isArray(payload) ? payload : [payload];
+    if (!this.withRev && items.some(item => Object.prototype.hasOwnProperty.call(item, 'rev'))) {
+      return this.revUnavailable(table);
+    }
+    const current = this.tables.get(table) || [];
     const inserted: PostgresRow[] = [];
 
     for (const item of items) {
@@ -180,6 +251,8 @@ export class InMemoryPostgres {
       if (!row.id) row.id = this.nextId(table);
       if (!row.created_at) row.created_at = new Date().toISOString();
       if (table === 'documents' && !row.updated_at) row.updated_at = this.stamp();
+      // S1-3: номер всегда серверный, присланное клиентом не доживает.
+      if (this.withRev) row.rev = this.nextRev();
       this.applyServerStamp(table, row);
 
       // Уникальный кортеж (R4-029): enforced на insert так же, как на upsert.
@@ -202,8 +275,12 @@ export class InMemoryPostgres {
     table: TableName,
     payload: PostgresRow | PostgresRow[]
   ): { data: PostgresRow[] | null; error: { message: string; code: string } | null } {
-    const current = this.tables.get(table) || [];
+    this.countRequest(table, 'upsert');
     const items = Array.isArray(payload) ? payload : [payload];
+    if (!this.withRev && items.some(item => Object.prototype.hasOwnProperty.call(item, 'rev'))) {
+      return this.revUnavailable(table);
+    }
+    const current = this.tables.get(table) || [];
     const upserted: PostgresRow[] = [];
 
     for (const item of items) {
@@ -220,12 +297,14 @@ export class InMemoryPostgres {
       }
 
       if (matchIndex >= 0) {
-        const merged = { ...current[matchIndex], ...row, ...(table === 'documents' ? { updated_at: this.stamp() } : {}) };
+        const merged: PostgresRow = { ...current[matchIndex], ...row, ...(table === 'documents' ? { updated_at: this.stamp() } : {}) };
+        if (this.withRev) merged.rev = this.nextRev();
         this.applyServerStamp(table, merged);
         current[matchIndex] = merged;
         upserted.push(current[matchIndex]!);
       } else {
         if (table === 'documents' && !row.updated_at) row.updated_at = this.stamp();
+        if (this.withRev) row.rev = this.nextRev();
         this.applyServerStamp(table, row);
         current.push(row);
         upserted.push(row);
@@ -241,12 +320,17 @@ export class InMemoryPostgres {
     payload: PostgresRow,
     filters: QueryFilter[]
   ): { data: PostgresRow[] | null; error: { message: string; code: string } | null } {
+    this.countRequest(table, 'update');
+    if (!this.withRev && Object.prototype.hasOwnProperty.call(payload, 'rev')) {
+      return this.revUnavailable(table);
+    }
     const current = this.tables.get(table) || [];
     const updated: PostgresRow[] = [];
 
     for (let i = 0; i < current.length; i++) {
       if (this.matchesFilters(current[i]!, filters)) {
-        const merged = { ...current[i], ...payload, ...(table === 'documents' ? { updated_at: this.stamp() } : {}) };
+        const merged: PostgresRow = { ...current[i], ...payload, ...(table === 'documents' ? { updated_at: this.stamp() } : {}) };
+        if (this.withRev) merged.rev = this.nextRev();
         this.applyServerStamp(table, merged);
         current[i] = merged;
         updated.push(current[i]!);
@@ -261,6 +345,7 @@ export class InMemoryPostgres {
     table: TableName,
     filters: QueryFilter[]
   ): { data: PostgresRow[] | null; error: { message: string; code: string } | null } {
+    this.countRequest(table, 'delete');
     const current = this.tables.get(table) || [];
     const remaining: PostgresRow[] = [];
     const deleted: PostgresRow[] = [];
@@ -282,8 +367,19 @@ export class InMemoryPostgres {
     filters: QueryFilter[],
     orders: QueryOrder[],
     limitCount?: number,
-    rangeOffset?: { from: number; to: number }
+    rangeOffset?: { from: number; to: number },
+    selectedColumns?: readonly string[] | null,
   ): { data: PostgresRow[] | null; error: { message: string; code: string } | null } {
+    this.countRequest(table, 'select');
+    // S1-3: база без 0045 отвечает так же, как PostgREST: колонки нет.
+    if (!this.withRev && this.touchesRev([
+      ...filters.map(f => f.column),
+      ...orders.map(o => o.column),
+      ...(selectedColumns ?? []),
+    ])) {
+      return this.revUnavailable(table);
+    }
+
     let rows = (this.tables.get(table) || []).filter(r => this.matchesFilters(r, filters));
 
     if (orders.length > 0) {
@@ -306,10 +402,16 @@ export class InMemoryPostgres {
       });
     }
 
+    // S1-3: потолок PostgREST (`PGRST_DB_MAX_ROWS`) режет и limit, и range.
     if (rangeOffset) {
-      rows = rows.slice(rangeOffset.from, rangeOffset.to + 1);
+      const to = Math.min(rangeOffset.to + 1, rangeOffset.from + this.maxRows);
+      rows = rows.slice(rangeOffset.from, to);
     } else if (limitCount !== undefined) {
-      rows = rows.slice(0, limitCount);
+      rows = rows.slice(0, Math.min(limitCount, this.maxRows));
+    } else {
+      // PostgREST режет ответ потолком и без явного limit/range — иначе харнес
+      // разрешал бы чтение, которое прод молча обрежет.
+      rows = rows.slice(0, this.maxRows);
     }
 
     return { data: rows.map(r => ({ ...r })), error: null };

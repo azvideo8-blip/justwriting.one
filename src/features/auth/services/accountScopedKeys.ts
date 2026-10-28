@@ -59,6 +59,8 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
     `ai_send_portrait_in_dialogue_${uid}`,
     // дата завершения фонового восстановления заметок и AI (LS-5)
     `ai_restore_done_date_${uid}`,
+    // C2: то же для заметок отдельно
+    `notes_restore_done_date_${uid}`,
     // флаг завершения миграции legacy IndexedDB (LS-5)
     `jw_legacy_migrated_${uid}`,
     // R-11 (LG-1): документ аккаунта застрял в общей базе после миграции — сигнал дан

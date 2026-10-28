@@ -17,7 +17,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
   const { t, tp, language } = useLanguage();
   const { layoutMode } = useLayoutMode();
   const {
-    loading, syncingId, items, queueCount, discrepancyCount,
+    loading, syncingId, items, queueCount, discrepancyCount, deferredCount,
     processedDocs, processingDocId, readSummary, setReadSummary,
     hasEncryption,
     fetchData, handleSyncItem, handleDownloadItem, handleUnlinkItem, cloudReadFailed,
@@ -89,6 +89,12 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                 count: discrepancyCount,
                 noun: tp('admin_sync_noun', discrepancyCount),
               })}
+            </div>
+          )}
+          {deferredCount > 0 && (
+            <div className="text-label-sm text-accent-warning/80 mt-1 font-medium flex items-center gap-1">
+              <AlertTriangle size={11} />
+              {t('admin_sync_deferred_alert', { count: deferredCount })}
             </div>
           )}
         </div>

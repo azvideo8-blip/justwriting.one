@@ -29,3 +29,21 @@ revoke all on public.applied_migrations from authenticated, anon;
 revoke all on public.ai_global_daily from authenticated, anon;
 revoke all on public.ai_cooldown from authenticated, anon;
 revoke all on public.service_accounts from authenticated, anon;
+-- 0045 (SYNC1): номер строки выдаёт security definer-функция; клиенту
+-- последовательность не нужна. Восстановление возвращает USAGE из default
+-- privileges образа — отзываем снова, иначе клиент сможет жечь номера.
+-- S1-15: дамп, снятый до 0045, последовательности не содержит — безусловный
+-- revoke ронял бы весь файл с ON_ERROR_STOP=1. Страж — psql \if; строка
+-- revoke остаётся дословной (её держит postRestoreGrants.test.ts).
+select to_regclass('public.sync_rev_seq') is not null as has_sync_rev_seq \gset
+\if :has_sync_rev_seq
+revoke all on sequence public.sync_rev_seq from public, anon, authenticated;
+\endif
+-- 0046 (RP-3): флаги читает только функция от имени владельца; таблица для
+-- клиентов закрыта. Дамп до 0046 таблицы не содержит — тот же страж \if.
+select to_regclass('public.feature_flags') is not null as has_feature_flags \gset
+\if :has_feature_flags
+revoke all on public.feature_flags from public, anon, authenticated;
+revoke all on function public.feature_enabled(text) from public, anon;
+grant execute on function public.feature_enabled(text) to authenticated;
+\endif

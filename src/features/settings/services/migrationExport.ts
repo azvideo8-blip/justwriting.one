@@ -1,4 +1,4 @@
-import { getLocalDb, type LocalDocument, type LocalVersion, type LocalDraft, type AIDocumentSummary, type AIDocumentEmbedding } from '../../../core/storage/localDb';
+import { getLocalDb, isSyncRevCursorKey, type LocalDocument, type LocalVersion, type LocalDraft, type AIDocumentSummary, type AIDocumentEmbedding } from '../../../core/storage/localDb';
 
 const MANIFEST_VERSION = 1;
 
@@ -247,6 +247,9 @@ export async function exportMigrationManifest(): Promise<MigrationManifest> {
     if (db.objectStoreNames.contains('profile' as never)) {
       const allProfiles = await db.getAll('profile');
       for (const p of allProfiles) {
+        // S1-5: запись-курсор забора — не профиль и на другое устройство не едет:
+        // там её номер ничего не значит и заставил бы пропустить заметки.
+        if (isSyncRevCursorKey((p as { guestId?: unknown }).guestId)) continue;
         const rawLabels = (p as { labels?: unknown[] }).labels;
         if (Array.isArray(rawLabels)) {
           for (const l of rawLabels) {
@@ -273,10 +276,13 @@ export async function exportMigrationManifest(): Promise<MigrationManifest> {
     if (!db.objectStoreNames.contains(store as never)) continue;   // схема младше этого клиента
     try {
       const all = await db.getAll(store as never);
+      verbatimCounters[store] = 0;
       for (const raw of all) {
         try {
+          if (store === 'profile' && isSyncRevCursorKey((raw as Record<string, unknown>)[keyPath])) continue;
           const key = String((raw as Record<string, unknown>)[keyPath] ?? '');
           verbatim.push({ store, key, payload: raw });
+          verbatimCounters[store] += 1;
           checksums[`${store}:${key}`] = await sha256Hex(JSON.stringify(raw));
         } catch (e) {
           // Не смогли прочитать запись — это НЕ «записи нет». Молчаливое
@@ -285,7 +291,6 @@ export async function exportMigrationManifest(): Promise<MigrationManifest> {
           skipped.push({ store, id: '?', reason: String(e) });
         }
       }
-      verbatimCounters[store] = all.length;
     } catch (e) {
       skipped.push({ store, id: '*', reason: String(e) });
     }

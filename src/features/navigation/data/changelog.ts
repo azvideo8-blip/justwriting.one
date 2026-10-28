@@ -17,6 +17,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.0',
+    date: '2026-10-28',
+    announce: false,
+    items: [
+      { category: 'improvement', ru: 'На телефоне шапка «Заметок» стала ниже: заголовок у самого верха и того же размера, что в «Профиле».', en: 'On the phone, the «Notes» header is shorter: the title sits at the very top and matches «Profile» in size.' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.10.13',
     date: '2026-10-27',
     items: [

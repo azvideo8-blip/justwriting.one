@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { DocumentService } from '../../../../core/services/DocumentService';
+import { DocumentService, UnreadableCloudListError } from '../../../../core/services/DocumentService';
 import { DataProvider } from '../../../../core/data';
 import { setProfileLoaded } from '../../../../core/crypto/cryptoHelpers';
 
@@ -104,14 +104,15 @@ describe('DocumentService', () => {
       expect(docs).toHaveLength(0);
     });
 
-    it('omits corrupted docs', async () => {
+    it('S1-10: нечитаемый ряд — ошибка уровня списка с прочитанной частью, а не молчаливый пропуск', async () => {
       vi.mocked(DataProvider.getUserDocuments).mockResolvedValue([
         { id: 'doc_valid', title: 'Doc1', currentVersion: 1, totalWords: 10, totalDuration: 10, sessionsCount: 1, firstSessionAt: 1000, lastSessionAt: 1000, tags: [], labelId: null },
         { id: 'doc_corrupted', title: 'Doc2', currentVersion: 'invalid' as unknown as number, totalWords: 10, totalDuration: 10, sessionsCount: 1, firstSessionAt: 1000, lastSessionAt: 2000, tags: [], labelId: null }
       ]);
-      const docs = await DocumentService.getUserDocuments('u1');
-      expect(docs).toHaveLength(1);
-      expect(docs[0]?.id).toBe('doc_valid');
+      const err = await DocumentService.getUserDocuments('u1').catch(e => e);
+      expect(err).toBeInstanceOf(UnreadableCloudListError);
+      expect(err.ids).toEqual(['doc_corrupted']);
+      expect(err.docs.map((d: { id: string }) => d.id)).toEqual(['doc_valid']);
     });
 
     it('retains locked encrypted documents without dropping them and marks _locked: true', async () => {

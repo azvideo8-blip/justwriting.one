@@ -2,6 +2,7 @@ import type { AppUser } from '../auth/types';
 import { Session, Document } from '../../types';
 import { LocalDocumentService } from './LocalDocumentService';
 import { DocumentService } from './DocumentService';
+import { isUnreadableCloudList } from './cloudListPartial';
 import { LocalVersionService } from './LocalVersionService';
 import { VersionService, isVersionContentTooLarge } from './VersionService';
 import { maybeDecrypt, DecryptionError, getEncryptionEnabled } from '../crypto/cryptoHelpers';
@@ -167,6 +168,9 @@ export async function loadAllSessions(
       try {
         cloudDocs = await DocumentService.getUserDocuments(uid);
       } catch (e) {
+        // R-2: битый ряд — прочитанные заметки показываем, облако помечено
+        // непрочитанным (D-2 у экспорта, пометка в архиве).
+        if (isUnreadableCloudList(e)) cloudDocs = e.docs;
         cloudLoadFailed = true;
         reportError(e, { action: 'loadAllSessions_cloudDocs', uid });
       }

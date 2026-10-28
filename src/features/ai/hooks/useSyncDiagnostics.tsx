@@ -6,6 +6,7 @@ import { maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import type { AIDocumentSummary } from '../../../core/storage/localDb';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { DocumentService } from '../../../core/services/DocumentService';
+import { isUnreadableCloudList } from '../../../core/services/cloudListPartial';
 import { SyncService } from '../../../core/services/SyncService';
 import { StorageService } from '../../../core/services/StorageService';
 import { VersionService } from '../../../core/services/VersionService';
@@ -18,6 +19,7 @@ import { useAuthStatus } from '../../../app/useAuthStatus';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { encryptSingleDocument } from '../../../core/crypto/encryptMigration';
 import { reportError } from '../../../shared/errors/reportError';
+import { getSyncRevDeferred } from '../../../core/sync/revCursor';
 
 export interface DiagnosticItem {
   id: string;
@@ -50,6 +52,8 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
   const [cloudUnavailable, setCloudUnavailable] = useState(false);
   const [queueCount, setQueueCount] = useState(0);
   const [discrepancyCount, setDiscrepancyCount] = useState(0);
+  // S1-12: строки облака, которые забор по rev отложил как стойко нечитаемые.
+  const [deferredCount, setDeferredCount] = useState(0);
 
   const [processedDocs, setProcessedDocs] = useState<Record<string, boolean>>({});
   const [processingDocId, setProcessingDocId] = useState<string | null>(null);
@@ -70,7 +74,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
     let cloudReadFailed = false;
     setCloudUnavailable(false);
     try {
-      const [localDocs, cloudDocs, queue, cloudDiscrepancies] = await Promise.all([
+      const [localDocs, cloudDocs, queue, cloudDiscrepancies, deferredRows] = await Promise.all([
         getLocalDb().then(db => db.getAll('documents')).catch(e => {
           reportError(e, { action: '[SyncDiagnostics] Local docs fetch failed' });
           return [];
@@ -82,7 +86,8 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
         DocumentService.getUserDocuments(userId).catch(e => {
           reportError(e, { action: '[SyncDiagnostics] Cloud fetch failed' });
           cloudReadFailed = true;
-          return [];
+          // R-2: прочитанная часть показывается; «нет в облаке» при этом не выносится.
+          return isUnreadableCloudList(e) ? e.docs : [];
         }),
         getLocalDb().then(db => db.getAll('syncQueue')).catch(e => {
           reportError(e, { action: '[SyncDiagnostics] Queue fetch failed' });
@@ -94,7 +99,12 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
           cloudReadFailed = true;
           return 0;
         }),
+        getSyncRevDeferred(userId).catch(e => {
+          reportError(e, { action: '[SyncDiagnostics] Deferred rows fetch failed' });
+          return [];
+        }),
       ]);
+      setDeferredCount(deferredRows.length);
 
       setCloudUnavailable(cloudReadFailed);
       setDiscrepancyCount(cloudDiscrepancies);
@@ -463,7 +473,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
   };
 
   return {
-    loading, syncingId, items, queueCount, discrepancyCount, cloudReadFailed: cloudUnavailable,
+    loading, syncingId, items, queueCount, discrepancyCount, deferredCount, cloudReadFailed: cloudUnavailable,
     processedDocs, processingDocId, readSummary, setReadSummary,
     hasEncryption,
     fetchData, handleSyncItem, handleDownloadItem, handleUnlinkItem,

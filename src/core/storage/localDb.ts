@@ -102,6 +102,24 @@ export interface LocalProfile {
   totalDuration: number;
   lastSessionAt: number;
   labels?: Array<{ id: string; name: string; color: string }> | undefined;
+  /** S1-5: курсор забора по `rev`. Лежит отдельной записью `profile` с ключом
+   *  `SYNC_REV_CURSOR_KEY_PREFIX + uid`, чтобы не поднимать DB_VERSION: старый
+   *  клиент, открыв базу новой версии, получил бы VersionError и оверлей. */
+  syncRevCursor?: { documents: number; versions: number } | undefined;
+  /** S1-12: строки, которые забор по rev отложил (стойко нечитаемые): курсор
+   *  прошёл их, повтор — каждым забором. Та же запись, что курсор. */
+  syncRevDeferred?: Array<{ uuid: string; rev: number; reason: string }> | undefined;
+}
+
+/** S1-5: префикс ключа записи-курсора в сторе `profile`. Ключ содержит uid. */
+export const SYNC_REV_CURSOR_KEY_PREFIX = 'sync_rev_cursor:';
+
+export function isSyncRevCursorKey(key: unknown): boolean {
+  return typeof key === 'string' && key.startsWith(SYNC_REV_CURSOR_KEY_PREFIX);
+}
+
+export function syncRevCursorKey(userId: string): string {
+  return `${SYNC_REV_CURSOR_KEY_PREFIX}${userId}`;
 }
 
 export interface LocalDraft {
@@ -967,7 +985,11 @@ export async function wipeGuestAndAccountFromSharedDb(uid: string): Promise<void
     while (cursor) {
       const rec = cursor.value as { guestId?: string; userId?: string; ownerId?: string };
       const owner = rec.guestId ?? rec.userId ?? rec.ownerId;
-      if (owner === uid || isGuestOwner(owner)) void cursor.delete();
+      // S1-5: запись-курсор не профиль: её владелец — uid в ключе, а не guestId.
+      const cursorOwner = isSyncRevCursorKey(rec.guestId)
+        ? rec.guestId!.slice(SYNC_REV_CURSOR_KEY_PREFIX.length)
+        : null;
+      if (owner === uid || isGuestOwner(owner) || cursorOwner === uid) void cursor.delete();
       cursor = await cursor.continue();
     }
   }

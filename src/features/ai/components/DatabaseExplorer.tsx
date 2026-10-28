@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Database, Loader2, Trash2 } from 'lucide-react';
-import { getLocalDb } from '../../../core/storage/localDb';
+import { getLocalDb, isSyncRevCursorKey } from '../../../core/storage/localDb';
 import { DocumentService } from '../../../core/services/DocumentService';
+import { readCloudDocumentsPartial } from '../../../core/services/cloudListPartial';
 import { VersionService } from '../../../core/services/VersionService';
 import { AdminUserService } from '../../../core/services/AdminUserService';
 import { cn } from '../../../core/utils/utils';
@@ -64,17 +65,22 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
       if (source === 'local') {
         const db = await getLocalDb();
         const data = await db.getAll(selectedTable as 'documents');
-        setRecords(data as unknown as RecordType[]);
+        // S1-5: запись-курсор забора лежит в `profile`, но профилем не является.
+        const visible = selectedTable === 'profile'
+          ? (data as unknown as Array<{ guestId?: unknown }>).filter(r => !isSyncRevCursorKey(r.guestId))
+          : data;
+        setRecords(visible as unknown as RecordType[]);
       } else {
         if (selectedTable === 'users') {
           const { users } = await AdminUserService.getUsers(150);
           setRecords(users as unknown as RecordType[]);
         } else if (selectedTable === 'user_documents') {
-          const data = await DocumentService.getUserDocuments(userId);
+          // R-2: битый ряд — показываем прочитанные, а не пустую таблицу.
+          const data = (await readCloudDocumentsPartial(userId)).docs;
           setRecords(data as unknown as RecordType[]);
         } else if (selectedTable === 'user_versions') {
-          const [docs, versions] = await Promise.all([
-            DocumentService.getUserDocuments(userId),
+          const [{ docs }, versions] = await Promise.all([
+            readCloudDocumentsPartial(userId),
             VersionService.getAllVersionsForUser(userId),
           ]);
           const docTitleMap = new Map<string, string>();

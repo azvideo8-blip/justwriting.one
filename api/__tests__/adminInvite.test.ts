@@ -8,6 +8,8 @@ vi.mock('../db', () => ({
   pool: {
     on: (...args: unknown[]) => poolOn(...args),
     query: (...args: unknown[]) => poolQuery(...args),
+    // Н-3: бюджет и след приглашения — в транзакции под блокировкой по админу.
+    connect: async () => ({ query: (...args: unknown[]) => poolQuery(...args), release: () => {} }),
   },
 }));
 
@@ -27,6 +29,10 @@ const { handleAiEndpoint } = await import('../handlers');
 describe('Admin Invite & User Status Logic', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Дейлик 28.10 Н-3: после проверки «уже есть пароль» идут счётчик бюджета и
+    // запись в admin_actions — по умолчанию пусто.
+    poolQuery.mockImplementation(async (sql: string) =>
+      String(sql).includes('pg_try_advisory_xact_lock') ? { rows: [{ locked: true }] } : { rows: [] });
     setSupabaseAdminForTesting(mockSupabaseAdmin as any);
   });
 
@@ -141,6 +147,45 @@ describe('Admin Invite & User Status Logic', () => {
     });
 
     // DA-20: у кого пароль уже есть, тому ссылку на смену пароля не шлём.
+    // Дейлик 28.10 Н-3: приглашение не оставляло следа в admin_actions и не
+    // считалось в бюджете — абуз украденным админ-токеном не был виден даже
+    // постфактум. Мутации: убрать insert → (а) красный; убрать проверку бюджета → (б) красный.
+    it('(а) приглашение пишется в admin_actions с id приглашённого', async () => {
+      mockInviteUserByEmail.mockResolvedValueOnce({ data: { user: { id: 'new-uid-1', email: 'a@example.com' } }, error: null });
+      await inviteUserLogic(mockAdminCtx, 'admin-123', { email: 'a@example.com' });
+      const insert = poolQuery.mock.calls.find(c => String(c[0]).includes('insert into public.admin_actions'));
+      expect(insert, 'приглашение не записано в журнал').toBeTruthy();
+      expect(insert![1]).toEqual(['admin-123', 'invite_user', 'new-uid-1']);
+    });
+
+    it('(б) больше бюджета в час — отказ, письмо не уходит', async () => {
+      poolQuery.mockImplementation(async (sql: string) =>
+        String(sql).includes('count(*)') ? { rows: [{ used: 20 }] } : { rows: [] });
+      await expect(inviteUserLogic(mockAdminCtx, 'admin-123', { email: 'b@example.com' }))
+        .rejects.toThrowError(expect.objectContaining({ code: 'resource-exhausted' }));
+      expect(mockInviteUserByEmail).not.toHaveBeenCalled();
+    });
+
+    it('(в) пересчёт бюджета — под блокировкой по админу, в одной транзакции со следом', async () => {
+      mockInviteUserByEmail.mockResolvedValueOnce({ data: { user: { id: 'new-uid-2' } }, error: null });
+      await inviteUserLogic(mockAdminCtx, 'admin-123', { email: 'c@example.com' });
+      const sqls = poolQuery.mock.calls.map(c => String(c[0]));
+      const lock = sqls.findIndex(q => q.includes('pg_try_advisory_xact_lock'));
+      const count = sqls.findIndex((q, i) => i > lock && q.includes('count(*)'));
+      const insert = sqls.findIndex(q => q.includes('insert into public.admin_actions'));
+      const commit = sqls.findIndex(q => q === 'commit');
+      expect(lock, 'нет блокировки по админу').toBeGreaterThan(-1);
+      expect(lock < count && count < insert && insert < commit).toBe(true);
+    });
+
+    it('(г) параллельное приглашение того же админа не ждёт блокировку — сразу отказ', async () => {
+      poolQuery.mockImplementation(async (sql: string) =>
+        String(sql).includes('pg_try_advisory_xact_lock') ? { rows: [{ locked: false }] } : { rows: [] });
+      await expect(inviteUserLogic(mockAdminCtx, 'admin-123', { email: 'd@example.com' }))
+        .rejects.toThrowError(expect.objectContaining({ code: 'resource-exhausted' }));
+      expect(mockInviteUserByEmail).not.toHaveBeenCalled();
+    });
+
     it('refuses to re-invite a member who already has a password', async () => {
       poolQuery.mockResolvedValueOnce({ rows: [{ hasPassword: true, invitedAt: null }] });
       await expect(

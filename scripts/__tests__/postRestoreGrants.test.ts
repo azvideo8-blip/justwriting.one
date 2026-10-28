@@ -75,6 +75,33 @@ describe('post-restore-grants.sql', () => {
     expect(invalidStatements).toEqual([]);
   });
 
+  // S1-15: дамп, снятый до 0045, последовательности не содержит — безусловный
+  // revoke на неё ронял весь шаг с ON_ERROR_STOP=1. Страж — psql \if по
+  // to_regclass; сама строка revoke остаётся дословной, иначе проверка выше
+  // («каждый grant/revoke из миграций есть в файле») её не увидела бы.
+  it('S1-15: revoke на sync_rev_seq стоит под стражем to_regclass', () => {
+    const grants = readFileSync('deploy/backup/post-restore-grants.sql', 'utf8');
+    const revokeAt = grants.indexOf('revoke all on sequence public.sync_rev_seq');
+    expect(revokeAt).toBeGreaterThan(-1);
+    const guardAt = grants.lastIndexOf('\\if :has_sync_rev_seq', revokeAt);
+    const endAt = grants.indexOf('\\endif', revokeAt);
+    expect(guardAt).toBeGreaterThan(-1);
+    expect(endAt).toBeGreaterThan(revokeAt);
+    expect(grants.slice(0, guardAt)).toMatch(/to_regclass\('public\.sync_rev_seq'\)[^\n]*\\gset/);
+  });
+
+  // S1-15: восстановление из бэкапа откатывает sync_rev_seq — новые записи
+  // получали бы rev ниже курсоров устройств и не приезжали бы никогда.
+  it('S1-15: RESTORE.md после грантов прыгает sync_rev_seq вперёд', () => {
+    const restore = readFileSync('deploy/backup/RESTORE.md', 'utf8');
+    const grantsAt = restore.indexOf('post-restore-grants.sql', restore.indexOf('pg_restore -U supabase_admin'));
+    const setvalAt = restore.indexOf("setval('public.sync_rev_seq'", grantsAt);
+    expect(setvalAt).toBeGreaterThan(grantsAt);
+    expect(restore.slice(setvalAt, setvalAt + 200)).toMatch(/last_value[\s\S]*\+ 1000000000/);
+    // Дамп до 0045: последовательности нет — шаг не должен ронять восстановление.
+    expect(restore.slice(setvalAt - 300, setvalAt)).toMatch(/to_regclass\('public\.sync_rev_seq'\)/);
+  });
+
   it('drill и RESTORE.md применяют файл после pg_restore', () => {
     const drill = readFileSync('deploy/backup/restore-drill.sh', 'utf8');
     const restoreAt = drill.indexOf('pg_restore -U supabase_admin');

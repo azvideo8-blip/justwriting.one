@@ -8,6 +8,7 @@ import { useLanguage } from '../../shared/i18n';
 import { ModalShell } from '../../shared/components/ModalShell';
 import { Button } from '../../shared/components/Button';
 import { DocumentService } from '../../core/services/DocumentService';
+import { isUnreadableCloudList } from '../../core/services/cloudListPartial';
 import { LocalStorageService } from '../../core/services/LocalStorageService';
 import { setRestoreDismissed } from '../../core/sync/useEmptyDeviceDetection';
 import { CloudDownload, CheckCircle, AlertTriangle } from 'lucide-react';
@@ -62,6 +63,17 @@ export function RestoreFromCloudModal({
     open && Boolean(user) && (initialCloudCount === undefined || initialLocalCount === undefined)
   ));
   const [countsError, setCountsError] = useState<string | null>(null);
+  // R-2: сколько облачных рядов не прочиталось — счётчик показывает прочитанное с пометкой.
+  const [cloudUnreadable, setCloudUnreadable] = useState(0);
+  // Битый ряд не делает список пустым: прочитанные считаем, нечитаемые — отдельно.
+  const readCloudDocs = useCallback(async (uid: string) => {
+    try {
+      return { docs: await DocumentService.getUserDocuments(uid), unreadable: 0 };
+    } catch (e) {
+      if (isUnreadableCloudList(e)) return { docs: e.docs, unreadable: e.ids.length };
+      throw e;
+    }
+  }, []);
   // Инициализатор useState отработал бы одно открытие: в настройках окно не
   // размонтируют, и второе открытие показывало прежние числа, пока висит новый
   // запрос. Это «состояние из пропсов» во время рендера — паттерн React, а не
@@ -95,27 +107,29 @@ export function RestoreFromCloudModal({
     setCountsError(null);
     void Promise.all([
       LocalStorageService.getDocumentsByOwner(user.uid),
-      DocumentService.getUserDocuments(user.uid),
-    ]).then(([localDocs, cloudDocs]) => {
+      readCloudDocs(user.uid),
+    ]).then(([localDocs, cloud]) => {
       setLocalCount(localDocs.length);
-      setCloudCount(cloudDocs.length);
+      setCloudCount(cloud.docs.length);
+      setCloudUnreadable(cloud.unreadable);
       setLoadingCounts(false);
     }).catch(() => {
       setLoadingCounts(false);
       setCountsError(t('restore_cloud_counts_error'));
     });
-  }, [user, t]);
+  }, [user, t, readCloudDocs]);
 
   useEffect(() => {
     let active = true;
     if (open && user && (initialCloudCount === undefined || initialLocalCount === undefined)) {
       void Promise.all([
         LocalStorageService.getDocumentsByOwner(user.uid),
-        DocumentService.getUserDocuments(user.uid),
-      ]).then(([localDocs, cloudDocs]) => {
+        readCloudDocs(user.uid),
+      ]).then(([localDocs, cloud]) => {
         if (active) {
           setLocalCount(localDocs.length);
-          setCloudCount(cloudDocs.length);
+          setCloudCount(cloud.docs.length);
+          setCloudUnreadable(cloud.unreadable);
           setLoadingCounts(false);
         }
       }).catch(() => {
@@ -128,7 +142,7 @@ export function RestoreFromCloudModal({
     return () => {
       active = false;
     };
-  }, [open, user, initialCloudCount, initialLocalCount, t]);
+  }, [open, user, initialCloudCount, initialLocalCount, t, readCloudDocs]);
 
   const handleStartRestore = async () => {
     if (!user) return;
@@ -297,6 +311,12 @@ export function RestoreFromCloudModal({
                     ? t('restore_cloud_desc_ready_zero', { cloudCount })
                     : t('restore_cloud_desc_ready_nonzero', { localCount, cloudCount }))}
             </p>
+
+            {!countsError && cloudUnreadable > 0 && (
+              <div className="p-2.5 rounded-xl bg-accent-warning/10 border border-accent-warning/20 text-xs text-accent-warning" data-testid="restore-cloud-partial">
+                {t('restore_cloud_counts_partial', { count: cloudUnreadable })}
+              </div>
+            )}
 
             {countsError && (
               <div className="flex items-center justify-between p-2.5 rounded-xl bg-accent-danger/10 border border-accent-danger/20 text-xs text-accent-danger">

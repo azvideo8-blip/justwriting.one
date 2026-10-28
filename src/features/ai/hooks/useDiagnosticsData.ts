@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getLocalDb, getOrCreateGuestId } from '../../../core/storage/localDb';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
-import { DocumentService } from '../../../core/services/DocumentService';
+import { readCloudDocumentsPartial } from '../../../core/services/cloudListPartial';
 import { SyncService } from '../../../core/services/SyncService';
 import { StorageService } from '../../../core/services/StorageService';
 import { AdminUserService, type AdminActionItem } from '../../../core/services/AdminUserService';
@@ -271,7 +271,8 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     if (!user) return;
     setBulkImporting(true);
     try {
-      const cloudDocs = await DocumentService.getUserDocuments(user.uid);
+      // R-2: битый ряд не отменяет импорт прочитанных.
+      const { docs: cloudDocs, unreadable } = await readCloudDocumentsPartial(user.uid);
       let imported = 0;
       let failed = 0;
       for (const cloudDoc of cloudDocs) {
@@ -284,6 +285,8 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
         }
       }
       showToast(`Импорт завершен: скачано ${imported} из ${cloudDocs.length} заметок. Ошибок: ${failed}`, 'success');
+      // C4: «из N» — только прочитанные; нечитаемые ряды названы отдельно.
+      if (unreadable.length > 0) showToast(t('restore_cloud_counts_partial', { count: String(unreadable.length) }), 'warning');
       setDiagnosticsKey(k => k + 1);
     } catch (e) {
       reportError(e);

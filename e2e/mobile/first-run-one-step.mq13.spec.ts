@@ -29,8 +29,13 @@ test('MQ-13: возвращающийся пользователь — один 
   // До правки шагов минимум два, и счётчик есть — иначе тест ничего не проверяет.
   await expect(page.getByTestId('first-run-step')).toBeVisible();
 
+  // 28.10: у нового аккаунта после перезагрузки ждут ещё код восстановления
+  // (sessionStorage) и вопрос об облаке — два шага, «Шаг 1 из 2» верен. Чтобы
+  // остался один шаг, код считаем уже показанным.
   await page.evaluate(([uid, version]) => {
     localStorage.setItem(`privacy_accepted_${uid}`, String(version));
+    sessionStorage.removeItem(`pending_recovery_code_${uid}`);
+    localStorage.removeItem(`pending_recovery_code_${uid}`);
   }, [account.uid, AI_CONSENT_VERSION_REQUIRED] as const);
   await page.reload();
 

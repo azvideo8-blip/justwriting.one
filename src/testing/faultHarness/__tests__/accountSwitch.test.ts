@@ -133,6 +133,7 @@ async function seedA(): Promise<Seed> {
 const IN_FLIGHT: Record<string, (s: Seed) => Promise<unknown>> = {
   syncPending: () => SyncService.syncPending(A, { force: true }),
   downloadAll: () => SyncService.downloadAllFromCloud(A),
+  pullNotes: () => SyncService.pullNotes(A),
   reconcile: () => SyncService.reconcileLinkedDocuments(A),
   sweepOrphans: () => SyncService.sweepOrphanedDocuments(A, 0),
   saveVersion: s => StorageService.saveVersion(A, s.syncedId, note(MARK.edit, 5000)),

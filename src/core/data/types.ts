@@ -1,5 +1,20 @@
 export type ProviderRecord = Record<string, unknown>;
 
+/** S1-4: таблицы, у которых есть серверный номер строки `rev` (миграция 0045). */
+export type PullChangesTable = 'documents' | 'versions';
+
+/** Строка страницы забора. `rev` — серверный номер, по нему двигается курсор. */
+export interface PullChangesRow extends ProviderRecord {
+  user_id: string;
+  rev: number;
+}
+
+export interface PullChangesPage {
+  rows: PullChangesRow[];
+  /** Номер последней строки страницы; при пустой странице — `sinceRev`. */
+  lastRev: number;
+}
+
 export interface LocalStoreRecordRow {
   store: string;
   key: string;
@@ -23,6 +38,10 @@ export interface IDataProvider {
   getDocument(userId: string, documentId: string): Promise<ProviderRecord | null>;
   getDocumentWithDeleted(userId: string, documentId: string): Promise<ProviderRecord | null>;
   getUserDocuments(userId: string): Promise<ProviderRecord[]>;
+  /** S1-6: строки заметок по uuid, включая надгробия, пачками по 200. */
+  getDocumentsByUuidsWithDeleted(userId: string, uuids: string[]): Promise<ProviderRecord[]>;
+  /** S1-4: страница изменений «после номера N» по серверному `rev`. */
+  pullChangesSince(userId: string, table: PullChangesTable, sinceRev: number, limit?: number): Promise<PullChangesPage>;
   /** S-47: подмножество `uuids`, снятых в облаке надгробием (`deleted_at is not null`). */
   listTombstonedDocumentUuids(userId: string, uuids: string[]): Promise<string[]>;
   updateDocument(userId: string, documentId: string, data: ProviderRecord): Promise<void>;

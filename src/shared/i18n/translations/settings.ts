@@ -224,6 +224,8 @@ export const settingsTranslations: Translations = {
   settings_sync_all_unlinked_progress: { ru: 'Отправляю заметки в облако...', en: 'Uploading notes to cloud...' },
   settings_sync_all_unlinked_done: { ru: 'Синхронизировано: {synced} заметок', en: 'Synced: {synced} documents' },
   settings_sync_all_unlinked_failed: { ru: 'Не удалось отправить: {failed} заметок', en: 'Failed to upload: {failed} documents' },
+  // C4: битый ряд в облаке — скачано не всё, и человек это видит.
+  settings_sync_cloud_partial: { ru: 'Облако прочиталось не целиком — часть заметок не скачана. Попробуйте позже', en: 'The cloud was not read completely — some notes were not downloaded. Try again later' },
   settings_sync_vault_locked: {
     ru: 'Сейф заперт. Открой сейф, чтобы загрузить заметки из облака.',
     en: 'Vault is locked. Unlock the vault to download notes from the cloud.',

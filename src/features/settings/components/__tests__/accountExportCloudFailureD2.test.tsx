@@ -88,6 +88,25 @@ describe('D-2: экспорт при сбое облака', () => {
     await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith('Нет заметок для экспорта', 'error'));
   });
 
+  // R-3 (S1-10): один битый ряд — то же окно D-2, а не тихое «экспортировано N».
+  // Ошибка списка — какой её бросает DocumentService (модуль замокан, класса нет).
+  // Мутация: в UnifiedSessionLoader не ставить cloudLoadFailed при неполном списке → красный.
+  it('ZIP: неполный список облака (битый ряд) — окно D-2, экспорта нет; «Только с этого устройства» идёт дальше', async () => {
+    const partial = Object.assign(new Error('UNREADABLE_CLOUD_LIST: 1'), { name: 'UnreadableCloudListError', docs: [CLOUD_DOC], ids: ['cloud-bad'], uuids: ['cloud-bad'] });
+    mocks.getDocuments.mockRejectedValue(partial);
+    renderWithProviders(<AccountExportSection userId="u1" />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Экспортировать всё в ZIP/ }));
+
+    await waitFor(() => expect(screen.getByText(/Облако не прочиталось/)).toBeTruthy());
+    expect(mocks.exportAllAsZip).not.toHaveBeenCalled();
+    expect(mocks.showToast).not.toHaveBeenCalledWith(expect.stringMatching(/Экспортировано/), 'success');
+
+    fireEvent.click(screen.getByRole('button', { name: /Только с этого устройства/ }));
+    // Явный выбор снимает ворота: экспорт идёт по тому, что прочитано (как в D-2 после сбоя облака).
+    await waitFor(() => expect(mocks.exportAllAsZip).toHaveBeenCalledTimes(1));
+  });
+
   it('JSON: облако не прочиталось — файл не скачивается', async () => {
     mocks.getDocuments.mockRejectedValue(new Error('MARKER_D2_CLOUD'));
     renderWithProviders(<AccountExportSection userId="u1" />);

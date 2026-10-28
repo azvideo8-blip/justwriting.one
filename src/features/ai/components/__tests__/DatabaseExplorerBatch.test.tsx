@@ -22,6 +22,28 @@ vi.mock("../../../../core/auth", () => ({
   getCurrentUser: () => ({ uid: "u_admin" }),
 }));
 
+// R-2: битый ряд облака — таблица показывает прочитанные, а не пустеет.
+// Мутация «вернуть DocumentService.getUserDocuments напрямую» → красный.
+describe("R-2: DatabaseExplorer shows readable cloud documents on a partial list", () => {
+  it("user_documents with one unreadable row still lists the readable ones", async () => {
+    const good = { id: "doc_ok", userId: "u1", title: "Doc ok", currentVersion: 1, totalWords: 1, totalDuration: 0, sessionsCount: 1, firstSessionAt: 1, lastSessionAt: 1, tags: [] };
+    const e = Object.assign(new Error("UNREADABLE_CLOUD_LIST: 1"), { name: "UnreadableCloudListError", docs: [good], ids: ["bad"], uuids: ["bad"] });
+    vi.mocked(DocumentService.getUserDocuments).mockRejectedValue(e);
+    vi.mocked(VersionService.getAllVersionsForUser).mockResolvedValue([]);
+    const { findByText, getByRole, getAllByRole } = renderWithProviders(
+      <ToastProvider>
+        <DatabaseExplorer userId="u1" />
+      </ToastProvider>
+    );
+    const { fireEvent } = await import("@testing-library/react");
+    const cloudBtn = getAllByRole("button").find(b => /облак|cloud/i.test(b.textContent ?? ""));
+    expect(cloudBtn, "переключатель источника «Облако»").toBeTruthy();
+    fireEvent.click(cloudBtn!);
+    fireEvent.change(getByRole("combobox"), { target: { value: "user_documents" } });
+    expect(await findByText(/doc_ok/)).toBeTruthy();
+  });
+});
+
 describe("DEEP-16: DatabaseExplorer user_versions batching", () => {
   it("loads versions without issuing 1 request per document", async () => {
     // 50 documents

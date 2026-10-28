@@ -324,10 +324,14 @@ jobs:
         # защита от убежавших часов держится на одном триггере из 0037, а миграции
         # перезаписываются часто; без этой строчки удалённый триггер ронял бы
         # гейты в ноль.
+        # drafts_updated_at.test.sql — 0043: метку черновика ставит сервер (дейлик 28.10
+        # DY8-6: тест был, но не подключён — снятый триггер не ронял ничего).
+        # feature_flags.test.sql — RP-3 (0046): флаг «владельцу / всем / никому» отдаёт
+        # база; таблица закрыта для клиентов.
         # mobile_layout_access.test.sql — MB-1: право на мобильный макет отдаёт база
         # (0041), и это единственное место, где видно, что ветка служебных аккаунтов
         # в функции есть, а у anon права на исполнение нет.
-        { for f in supabase/tests/_auth_setup.sql supabase/migrations/*.sql supabase/tests/rls.test.sql supabase/tests/server_stamp.test.sql supabase/tests/mobile_layout_access.test.sql; do cat "$f"; echo; done; } \
+        { for f in supabase/tests/_auth_setup.sql supabase/migrations/*.sql supabase/tests/rls.test.sql supabase/tests/server_stamp.test.sql supabase/tests/drafts_updated_at.test.sql supabase/tests/mobile_layout_access.test.sql supabase/tests/feature_flags.test.sql; do cat "$f"; echo; done; } \
           | docker exec -i "${{ job.services.postgres.id }}" psql -U postgres -v ON_ERROR_STOP=1
 
   # MB-12: мобильные спеки (e2e/mobile/*.spec.ts) под проектом Mobile Chrome.

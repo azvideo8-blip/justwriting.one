@@ -19,6 +19,7 @@ import { deriveTaxonomyLogic } from './ai/deriveTaxonomy.logic';
 import { deleteAccountLogic } from './account';
 import { adminDeleteUserLogic, inviteUserLogic, listAdminActionsLogic, listUsersWithStatusLogic } from './admin/admin.logic';
 import { safeErrorShape } from '../src/shared/ai/errorShape.js';
+import { CONSENT_EXEMPT_ENDPOINTS } from '../src/shared/ai/aiPolicy.js';
 
 type LogicFn = (
   ctx: typeof postgresAiContext,
@@ -87,9 +88,8 @@ export async function handleAiEndpoint(
   }
 
   // AUD-2: серверный гейт согласия. Клиентский (callAi) остаётся как
-  // вежливость, но гарантией быть не может. Исключения — те же, что и там:
-  // удаление аккаунта и администрирование пользователей не про обработку записей.
-  if (endpoint !== 'deleteAccount' && endpoint !== 'inviteUser' && endpoint !== 'listUsersWithStatus' && endpoint !== 'adminDeleteUser' && endpoint !== 'listAdminActions') {
+  // вежливость, но гарантией быть не может. Исключения — общий список с ним.
+  if (!CONSENT_EXEMPT_ENDPOINTS.has(endpoint)) {
     if (endpoint === 'embedDocument') {
       // Индексация гоняет фрагменты заметок через модель эмбеддингов —
       // отдельное согласие, отдельная колонка.

@@ -12,6 +12,7 @@ import { emitDomainEvent } from "../../../core/events/domainEvents";
 import { type MigrationManifest } from "./migrationExport";
 import { SyncService } from "../../../core/services/SyncService";
 import { cloudSyncEnabled } from "../../../core/sync/cloudSyncEnabled";
+import { clearSyncRevCursor } from "../../../core/sync/revCursor";
 import { getSessionKey } from "../../../core/crypto/encrypt";
 import { reportError } from "../../../shared/errors/reportError";
 import { toTimestampMs } from "../../../core/utils/dateUtils";
@@ -662,6 +663,13 @@ export async function importMigrationManifest(
 
   // ── 7. Cache Invalidation ─────────────────────────────────────────────
   emitDomainEvent({ type: 'sync.restoredFromCloud', userId: targetUserId });
+
+  // S1-5: импорт смешал заметки помимо забора — курсор по rev больше не
+  // описывает локальную базу. Следующий забор пойдёт с нуля (полный), иначе
+  // импортированные/перезалитые строки остались бы за курсором.
+  // Ревью 0.11.0: сбой сброса не обрывает импорт до выгрузки (шаг 8) — заметки уже
+  // записаны локально и должны уйти в облако; выгрузка даст им новый rev.
+  await clearSyncRevCursor(targetUserId).catch(err => reportError(err, { action: 'migrationImport_clearSyncRevCursor' }));
 
   // ── 8. Cloud Queue / Upload ────────────────────────────────────────────
   // Ticket C7: Imported notes must reach the cloud or be queued for upload.
