@@ -67,7 +67,10 @@ describe('PBKDF2 iteration fallback (SEC-36 lockout)', () => {
   it('defaults to the real constants, so production unlock covers legacy vaults', () => {
     // Guards the pairing the logic tests above stub out: if these drift, vaults
     // wrapped by the shipped code stop matching what unlock tries.
-    expect(PBKDF2_ITERATIONS).toBe(600_000);
+    // DY9-2 (дейлик 29.10): код восстановления разворачивается на ТЕКУЩЕЙ константе,
+    // число итераций его обёртки в мете не пишется. Поднял константу — каждый
+    // правильный код станет «неверным». Сначала recoveryIterations в мете + запасной 600k.
+    expect(PBKDF2_ITERATIONS, 'перед подъёмом — DY9-2 (коды восстановления)').toBe(600_000);
     expect(LEGACY_PBKDF2_ITERATIONS).toBe(300_000);
   });
 

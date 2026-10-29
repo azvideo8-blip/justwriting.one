@@ -377,6 +377,9 @@ async function wipeDeviceDataForUid(uid: string): Promise<void> {
   await wipeGuestAndAccountFromSharedDb(uid);
   const { clearAccountScopedStorage } = await import('./accountScopedKeys');
   clearAccountScopedStorage(uid);
+  // DY9-1: и запомненный ключ сейфа — как при обычном выходе (signOut). Иначе
+  // «данные удалены», а следующий вход в этот аккаунт открывает сейф без пароля.
+  await clearDeviceKey(uid);
 }
 
 export const AuthService = {

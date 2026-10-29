@@ -7,7 +7,11 @@ export type { DbErrorInfo };
 
 export function handleDbError(error: unknown, operationType: OperationType, path: string | null): DbErrorInfo {
   const errInfo: DbErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    // Журнал владельца 29.10: supabase-js отдаёт не Error, а объект с message —
+    // String() давал «[object Object]», и reportError не узнавал обрыв сети.
+    error: error instanceof Error ? error.message
+      : typeof (error as { message?: unknown } | null)?.message === 'string' ? (error as { message: string }).message
+      : String(error),
     authInfo: {
       userId: getCurrentUser()?.uid,
     },

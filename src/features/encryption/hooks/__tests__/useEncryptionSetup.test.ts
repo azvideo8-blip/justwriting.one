@@ -22,6 +22,7 @@ let storeUnlocked = false;
 vi.mock('../../../../core/crypto/useEncryptionStore', () => ({
   useEncryptionStore: (sel: (s: unknown) => unknown) => sel({ isVaultUnlocked: storeUnlocked }),
   setRememberDevice: vi.fn(),
+  isLockedByIdle: () => false,
 }));
 
 vi.mock('../../../../core/crypto/keyVaultCache', () => ({

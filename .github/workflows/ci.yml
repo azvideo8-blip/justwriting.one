@@ -120,11 +120,21 @@ jobs:
         set -euo pipefail
         ZERO=0000000000000000000000000000000000000000
         FROM="${GL_RANGE%%..*}"
-        # Свежая ветка (before — нули) и force-push (before уже не предок) —
-        # проверяем хотя бы выгруженный коммит, а не всю историю.
+        # Свежая ветка (before — нули) и force-push (before уже не предок):
+        # раньше сканировался один коммит `-1 HEAD`, и секрет, добавленный в
+        # ветку раньше последнего коммита, проходил. B-5: сравниваем с main.
+        # origin/main нужен в refs — checkout с fetch-depth: 0 его не гарантирует.
         if [ "$FROM" = "$ZERO" ] || ! git cat-file -e "${FROM}^{commit}" 2>/dev/null \
            || ! git merge-base --is-ancestor "$FROM" HEAD 2>/dev/null; then
-          LOG_OPTS="-1 ${GITHUB_SHA}"
+          git fetch --no-tags --quiet origin +refs/heads/main:refs/remotes/origin/main || true
+          # Ревью: на main (force-push, ручной запуск) origin/main = HEAD и диапазон
+          # пуст — gitleaks прошёл бы, ничего не проверив. Пусто — хотя бы HEAD.
+          if git rev-parse --verify --quiet origin/main >/dev/null \
+             && [ "$(git rev-list --count origin/main..HEAD)" -gt 0 ]; then
+            LOG_OPTS="origin/main..HEAD"
+          else
+            LOG_OPTS="-1 ${GITHUB_SHA}"
+          fi
         else
           LOG_OPTS="$GL_RANGE"
         fi

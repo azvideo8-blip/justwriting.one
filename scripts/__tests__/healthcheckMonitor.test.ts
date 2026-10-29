@@ -4,6 +4,17 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+// Здравоохранитель харнесса: на Windows `:` в PATH не разделяет пути —
+// заглушки не находятся и тесты «падают средой». `path.delimiter` даёт
+// `:` на Linux (как раньше) и `;` на Windows; PYTHONUTF8 чинит cp1251-вывод
+// питона, чтобы кириллица в stdout сравнивалась честно.
+
+// Харнесс POSIX-only: заглушки — bash-скрипты, healthcheck зовёт их через
+// `shell=True` (bash-пайпы `df | tail`). На Windows это физически не исполнить —
+// там файл честно пропускается, а не краснеет 26 «средовыми» падениями.
+// Решающий прогон — CI (Linux), там все проверки идут.
+const POSIX_ONLY = process.platform !== 'linux' && process.platform !== 'darwin';
+
 const ROOT = path.resolve(__dirname, '../..');
 const HEALTHCHECK = path.join(ROOT, 'deploy/monitor/healthcheck.py');
 
@@ -12,7 +23,7 @@ afterEach(() => {
   for (const dir of sandboxes.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
 });
 
-type Sandbox = { dir: string; backupDir: string; bin: string };
+type Sandbox = { dir: string; backupDir: string; bin: string; offsiteStamp: string; alertEnv: string };
 
 /** systemctl-заглушка: list-units и show (момент падения юнита) читают файлы песочницы — их можно менять между запусками. */
 function setSystemctl(sb: Sandbox, unitOutput: string, showOutput = ''): void {
@@ -48,8 +59,15 @@ function makeSandbox(unitOutput: string, showOutput = ''): Sandbox {
   fs.mkdirSync(backupDir, { recursive: true });
   const bin = path.join(dir, 'bin');
   fs.mkdirSync(bin, { recursive: true });
-  const sb = { dir, backupDir, bin };
+  const offsiteStamp = path.join(dir, 'offsite.stamp');
+  fs.writeFileSync(offsiteStamp, '');
+  const alertEnv = path.join(dir, 'monitor.env');
+  fs.writeFileSync(alertEnv, '');
+  const sb = { dir, backupDir, bin, offsiteStamp, alertEnv };
   setSystemctl(sb, unitOutput, showOutput);
+  // Песочница не читает журнал машины: без заглушки на macOS journalctl нет,
+  // а на Linux-раннере (он же прод) попадал журнал самого сервера.
+  fs.writeFileSync(path.join(bin, 'journalctl'), '#!/bin/bash\nexit 0\n', { mode: 0o755 });
 
   fs.writeFileSync(
     path.join(bin, 'curl'),
@@ -59,11 +77,11 @@ function makeSandbox(unitOutput: string, showOutput = ''): Sandbox {
 
   fs.writeFileSync(
     path.join(bin, 'docker'),
-    '#!/bin/bash\nexit 0\n',
+    '#!/bin/bash\ncase "$*" in *ai_global_daily*) echo "10|20" ;; *) exit 0 ;; esac\n',
     { mode: 0o755 },
   );
 
-  return { dir, backupDir, bin };
+  return sb;
 }
 
 /**
@@ -77,7 +95,7 @@ function makeGreenSandbox(unitOutput = 'justwriting.service loaded active runnin
   stub('df', 'echo "Use% IUse%"; echo "50%  10%"');
   stub('curl', 'echo "200"');
   stub('openssl', 'echo "notAfter=Jan 01 00:00:00 2099 GMT"');
-  stub('docker', 'case "$*" in *exec*) echo \'{"disable_signup": true}\' ;; *) echo \'{"Service":"db","State":"running","Health":"healthy"}\' ;; esac');
+  stub('docker', 'case "$*" in *ai_global_daily*) echo "10|20" ;; *exec*) echo \'{"disable_signup": true}\' ;; *) echo \'{"Service":"db","State":"running","Health":"healthy"}\' ;; esac');
   const dump = path.join(sb.backupDir, 'justwriting-20261002-030000.dump');
   fs.writeFileSync(dump, 'dump');
   fs.writeFileSync(`${dump}.sha256`, 'sha');
@@ -85,13 +103,20 @@ function makeGreenSandbox(unitOutput = 'justwriting.service loaded active runnin
   return sb;
 }
 
-function runHealthcheck(sb: { backupDir: string; bin: string }): { status: number; stdout: string; stderr: string } {
+function runHealthcheck(sb: Sandbox): { status: number; stdout: string; stderr: string } {
   const res = spawnSync('python3', [HEALTHCHECK, '--dry-run'], {
     env: {
       ...process.env,
       BACKUP_DIR: sb.backupDir,
+      OFFSITE_STAMP: sb.offsiteStamp,
+      MONITOR_ALERT_ENV: sb.alertEnv,
+      // Каталог compose — песочница: /opt/justwriting/supabase есть только на
+      // Linux-раннере (он же прод), и на Mac `cd` падал до заглушки docker.
+      MONITOR_COMPOSE_DIR: sb.dir,
       MONITOR_SITE: 'http://127.0.0.1:9',
-      PATH: `${sb.bin}:${process.env.PATH ?? ''}`,
+      PATH: `${sb.bin}${path.delimiter}${process.env.PATH ?? ''}`,
+      PYTHONUTF8: '1',
+      PYTHONIOENCODING: 'utf-8',
     },
     encoding: 'utf8',
   });
@@ -112,6 +137,19 @@ const RUNNER = [
   // GREEN_SITE=1: сайт отвечает 200 оболочкой приложения; GREEN_SITE_HTML
   // подменяет оболочку, MISSING_ASSETS (пути через запятую) отвечают 404 (S-63).
   'import os, io, urllib.request, urllib.error',
+  'if os.environ.get("TELEGRAM_CAPTURE"):',
+  '    _real_open = urllib.request.urlopen',
+  '    def _tg_open(req, timeout=15):',
+  "        if '/bot' in req.full_url:",
+  "            print('TG_SENT: ' + (req.data.decode() if req.data else ''))",
+  '            class R:',
+  '                status = 200',
+  '                def read(self): return os.environ.get("TELEGRAM_CAPTURE_REPLY", \'{"ok":true}\').encode()',
+  '                def __enter__(self): return self',
+  '                def __exit__(self, *a): return False',
+  '            return R()',
+  '        return _real_open(req, timeout=timeout)',
+  '    urllib.request.urlopen = _tg_open',
   'if os.environ.get("GREEN_SITE"):',
   '    class R(io.BytesIO):',
   '        status = 200',
@@ -134,21 +172,28 @@ function runAlerting(sb: Sandbox, statePath = path.join(sb.dir, 'state.json'), g
   const res = spawnSync('python3', ['-c', RUNNER, HEALTHCHECK], {
     env: {
       ...process.env,
+      // «Сейчас» для сводки E-9 — 15:00 по UTC+5, не 09:00: без этого прогон
+      // с 09:00 до 10:00 по часам машины слал письмо «сводка не ушла», и тесты
+      // писем краснели по времени суток (полный прогон 29.10 в 10:00).
+      MONITOR_NOW: String(Date.UTC(2026, 9, 21, 10, 0, 0) / 1000),
       ...(green ? { GREEN_SITE: '1', MONITOR_COMPOSE_DIR: sb.dir } : {}),
       ...extraEnv,
       BACKUP_DIR: sb.backupDir,
+      OFFSITE_STAMP: sb.offsiteStamp,
       MONITOR_SITE: 'http://127.0.0.1:9',
       MONITOR_ALERT_TO: 'alerts@test',
       MONITOR_STATE: statePath,
       MONITOR_ENV_FILE: envFile,
-      PATH: `${sb.bin}:${process.env.PATH ?? ''}`,
+      PATH: `${sb.bin}${path.delimiter}${process.env.PATH ?? ''}`,
+      PYTHONUTF8: '1',
+      PYTHONIOENCODING: 'utf-8',
     },
     encoding: 'utf8',
   });
   return { status: res.status ?? -1, stdout: res.stdout, stderr: res.stderr };
 }
 
-describe('deploy/monitor/healthcheck.py (S-7)', () => {
+describe.skipIf(POSIX_ONLY)('deploy/monitor/healthcheck.py (S-7)', () => {
   it('detects failed systemd unit from systemctl list-units', () => {
     const sb = makeSandbox('justwriting-restore-drill.service loaded failed failed Justwriting Restore Drill');
     const res = runHealthcheck(sb);
@@ -328,5 +373,127 @@ describe('deploy/monitor/healthcheck.py (S-7)', () => {
     const second = runAlerting(sb);
     expect(second.status).toBe(0);
     expect(second.stdout).not.toContain('SMTP_SENT');
+  });
+});
+
+describe.skipIf(POSIX_ONLY)('C-1: суточный кап ИИ', () => {
+  function setAiUsage(sb: Sandbox, output: string, thresholds = '') {
+    fs.writeFileSync(sb.alertEnv, thresholds);
+    fs.writeFileSync(
+      path.join(sb.bin, 'docker'),
+      `#!/bin/bash
+case "$*" in *ai_global_daily*) ${output ? `echo "${output}"` : 'exit 1'} ;; *exec*) echo '{"disable_signup": true}' ;; *) echo '{"Service":"db","State":"running","Health":"healthy"}' ;; esac
+`,
+      { mode: 0o755 },
+    );
+  }
+
+  it('ниже порога — тихо', () => {
+    const sb = makeGreenSandbox();
+    setAiUsage(sb, '10|20', 'AI_ALERT_CALLS=100\nAI_ALERT_TOKENS=1000\n');
+    const res = runHealthcheck(sb);
+    expect(res.stdout).not.toContain('Суточный кап ИИ близко');
+  });
+
+  it('порог достигнут — ai_quota_near с числами', () => {
+    const sb = makeGreenSandbox();
+    setAiUsage(sb, '7|20', 'AI_ALERT_CALLS=5\nAI_ALERT_TOKENS=1000\n');
+    const res = runHealthcheck(sb);
+    expect(res.stdout).toContain('Суточный кап ИИ близко: запросов 7 из 5');
+  });
+
+  it('сбой запроса — «измеритель», а не «всё хорошо»', () => {
+    const sb = makeGreenSandbox();
+    setAiUsage(sb, '');
+    const res = runHealthcheck(sb);
+    expect(res.stdout).toContain('Не удалось измерить суточный расход ИИ');
+  });
+});
+
+describe.skipIf(POSIX_ONLY)('E-8: сплошные 5xx API', () => {
+  function setJournal(sb: Sandbox, lines: string[], fail = false) {
+    const body = fail
+      ? '#!/bin/bash\nexit 1\n'
+      : `#!/bin/bash\n${lines.map(l => `echo "${l}"`).join('\n')}\nexit 0\n`;
+    fs.writeFileSync(path.join(sb.bin, 'journalctl'), body, { mode: 0o755 });
+  }
+
+  it('ниже порога — тихо', () => {
+    const sb = makeGreenSandbox();
+    setJournal(sb, ['[api/handlers] 500 internal in summarizeDocument: x']);
+    const res = runHealthcheck(sb);
+    expect(res.stdout).not.toContain('Ошибки API за час');
+  });
+
+  it('порог — счётчики по меткам, текста строк в выводе нет', () => {
+    const sb = makeGreenSandbox();
+    setJournal(sb, [
+      ...Array.from({ length: 5 }, () => '[api/handlers] 502 internal in chat: MARKER_E8_TEXT'),
+      'uncaughtException MARKER_E8_TEXT',
+    ]);
+    const res = runHealthcheck(sb);
+    expect(res.stdout).toContain('handlers5xx=5');
+    expect(res.stdout).toContain('uncaught=1');
+    expect(res.stdout).not.toContain('MARKER_E8_TEXT');
+  });
+
+  // Ревью: самый общий путь 500 пишет «unhandled error» без кода.
+  // Мутация: считать только '[api/handlers] 5' → красный.
+  it('«unhandled error» тоже считается пятисоткой', () => {
+    const sb = makeGreenSandbox();
+    setJournal(sb, Array.from({ length: 5 }, () => '[api/handlers] unhandled error in chat: MARKER_E8_TEXT'));
+    const res = runHealthcheck(sb);
+    expect(res.stdout).toContain('handlers5xx=5');
+    expect(res.stdout).not.toContain('MARKER_E8_TEXT');
+  });
+
+  it('журнал не читается — тревога «измеритель», не тишина', () => {
+    const sb = makeGreenSandbox();
+    setJournal(sb, [], true);
+    const res = runHealthcheck(sb);
+    expect(res.stdout).toContain('Не удалось прочитать журнал');
+  });
+});
+
+// TELEGRAM_CAPTURE: питон печатает TG_SENT в stdout — без живого HTTP-сервера
+// в воркере (spawnSync блокирует цикл событий, сервер не отвечал на Linux CI).
+describe.skipIf(POSIX_ONLY)('E-9: ежедневная сводка в Telegram', () => {
+  it('в 09:00 МСК одна сводка, повтор в тот же день не дублирует, сбой части проверок отмечен', () => {
+    const sb = makeSandbox('justwriting.service loaded active running Justwriting');
+    const daily = path.join(sb.dir, 'daily-summary.json');
+    const env = {
+      MONITOR_NOW: String(Date.UTC(2026, 9, 21, 4, 0, 0) / 1000), // 09:00 по UTC+5 (время владельца)
+      MONITOR_DAILY_STATE: daily,
+      TELEGRAM_BOT_TOKEN: 'test-token',
+      TELEGRAM_CHAT_ID: 'test-chat',
+      TELEGRAM_CAPTURE: '1',
+    };
+    const first = runAlerting(sb, path.join(sb.dir, 'state.json'), false, env);
+    const second = runAlerting(sb, path.join(sb.dir, 'state.json'), false, env);
+
+    const sent = (first.stdout + '\n' + second.stdout).split('\n').filter(l => l.startsWith('TG_SENT:'));
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toContain('сводка за сутки');
+    expect(sent[0]).toContain('Проверка неполная');
+    expect(sent[0]).toContain('[client-error] за 24 ч');
+    expect(fs.existsSync(daily)).toBe(true);
+  });
+
+  // Telegram отвечает 200 и с ok:false (бот выкинут из чата) — это не доставка:
+  // сводка не помечается отправленной, о сбое уходит письмо.
+  it('ok:false в ответе — не доставка: письмо о сбое, отметки дня нет', () => {
+    const sb = makeSandbox('justwriting.service loaded active running Justwriting');
+    const daily = path.join(sb.dir, 'daily-summary.json');
+    const res = runAlerting(sb, path.join(sb.dir, 'state.json'), false, {
+      MONITOR_NOW: String(Date.UTC(2026, 9, 21, 4, 0, 0) / 1000),
+      MONITOR_DAILY_STATE: daily,
+      TELEGRAM_BOT_TOKEN: 'test-token',
+      TELEGRAM_CHAT_ID: 'test-chat',
+      TELEGRAM_CAPTURE: '1',
+      TELEGRAM_CAPTURE_REPLY: '{"ok":false,"description":"Forbidden: bot was kicked"}',
+    });
+    expect(res.stderr).toContain('СВОДКА НЕ УШЛА');
+    expect(res.stdout).toContain('SMTP_SENT: justwriting: ежедневная сводка не ушла');
+    expect(fs.existsSync(daily)).toBe(false);
   });
 });

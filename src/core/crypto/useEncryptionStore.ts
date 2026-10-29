@@ -36,6 +36,19 @@ interface EncryptionState {
 }
 
 let autoLockTimer: ReturnType<typeof setTimeout> | null = null;
+// DY9-3 (дейлик 29.10, владелец: «сделай настоящей»): сейф, запертый по простою,
+// не открывается ключом «запомнить на устройстве», пока человек не введёт пароль.
+// Отметка живёт в памяти вкладки: перезагрузка страницы — прежнее «без пароля».
+let lockedByIdle = false;
+
+export function isLockedByIdle(): boolean {
+  return lockedByIdle;
+}
+
+function lockVaultForIdle(): void {
+  lockedByIdle = true;
+  useEncryptionStore.getState().lockVault();
+}
 let lastActivity = Date.now();
 let rememberDevice = false;
 
@@ -60,9 +73,7 @@ function clearAutoLockTimer() {
 function startAutoLockTimer() {
   clearAutoLockTimer();
   const timeoutMs = rememberDevice ? REMEMBERED_AUTO_LOCK_MS : AUTO_LOCK_MS;
-  autoLockTimer = setTimeout(() => {
-    useEncryptionStore.getState().lockVault();
-  }, timeoutMs);
+  autoLockTimer = setTimeout(lockVaultForIdle, timeoutMs);
 }
 
 function resetAutoLockTimer() {
@@ -102,7 +113,7 @@ export function setupEncryptionStoreListeners() {
       const idleMs = Date.now() - lastActivity;
       const timeoutMs = rememberDevice ? REMEMBERED_AUTO_LOCK_MS : AUTO_LOCK_MS;
       if (idleMs >= timeoutMs) {
-        useEncryptionStore.getState().lockVault();
+        lockVaultForIdle();
       }
     }
   };
@@ -235,6 +246,7 @@ export const useEncryptionStore = create<EncryptionState>((set, get) => ({
   setKey: (key) => {
     set({ dataKey: key, isVaultUnlocked: !!key });
     if (key) {
+      lockedByIdle = false;
       lastActivity = Date.now();
       startAutoLockTimer();
       startCrossTabHeartbeat();

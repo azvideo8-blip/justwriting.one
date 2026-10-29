@@ -192,6 +192,30 @@ describe('3.8 stream disconnect', () => {
     expect(body).toContain('ТОЛЬКО на русском языке');
   });
 
+  // Дейлик 29.10 запуск 2, Н-2 (DY9-10): клиент ушёл, пока ждём заголовков
+  // провайдера (самое долгое окно хода мысли). Слушатель close ставился только
+  // после writeHead — уход не замечался, слот рассуждений (5 в сутки) списывался.
+  // Мутация: вернуть res.on('close') после writeHead → красный.
+  it('уход до заголовков провайдера в ходе мысли возвращает слот', async () => {
+    let release: ((r: Response) => void) | undefined;
+    const fetchMock = vi.mocked(fetch as unknown as ReturnType<typeof vi.fn>);
+    // Провайдер не слушает отмену (худший случай): отвечает, когда отпустим.
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises -- типы vi.fn() здесь затёрты кастом
+    fetchMock.mockImplementationOnce(() => new Promise<Response>(r => { release = r; }));
+    const frame = (delta: object, finish?: string) => `data: ${JSON.stringify({ choices: [{ index: 0, delta, ...(finish ? { finish_reason: finish } : {}) }] })}\n\n`;
+
+    const res = new FakeRes();
+    const done = handleChat(new FakeReq(validBody) as unknown as IncomingMessage, res as unknown as ServerResponse);
+    await vi.waitFor(() => expect(release).toBeDefined(), { timeout: 2000 });
+    res.destroyed = true;
+    res.emit('close');
+    release!(new Response(sse([frame({ content: 'Ответ, который никто не прочтёт' }, 'stop')]), { status: 200 }));
+    await done;
+
+    expect(refundDaily).toHaveBeenCalledTimes(1);
+    expect(refundDaily).toHaveBeenCalledWith('u_stream', '2026-08-20', 'reasoning');
+  });
+
   it('refunds once when the client leaves before any byte was streamed', async () => {
     // Upstream never finishes on its own; the abort signal closes the pipe.
     sseBody = holdOpen();

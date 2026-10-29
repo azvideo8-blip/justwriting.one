@@ -208,6 +208,16 @@ async function streamOpenRouterReasoning(
     return;
   }
   const controller = new AbortController();
+  // DY9-10 (дейлик 29.10): уход клиента слушаем с самого начала — самое долгое
+  // окно хода мысли это ожидание заголовков провайдера (десятки секунд), и
+  // подписка после writeHead его не видела: слот рассуждений списывался.
+  // settle идемпотентен — поздний settle('done') возврат не отменит.
+  let clientClosed = false;
+  res.on('close', () => {
+    clientClosed = true;
+    controller.abort();
+    void settlement.settle('closed').catch((e) => console.error('[chat] settle on close', safeErrorShape(e)));
+  });
   // DR-8: срок поднят тем же флагом, что и в обычной ветке, — иначе «deadline»
   // в журнале неотличим от «провайдер сам закончил».
   let timedOut = false;
@@ -233,6 +243,8 @@ async function streamOpenRouterReasoning(
     });
   } catch (err) {
     clearTimeout(timeoutId);
+    // DY9-10: запрос оборвали мы сами — человек ушёл; слот уже возвращён в close.
+    if (clientClosed) return;
     console.error('[api/chat] upstream request failed:', safeErrorShape(err));
     await settlement.settle('failed');
     sendError(res, 504, 'UPSTREAM_TIMEOUT', 'AI provider did not respond in time.');
@@ -269,7 +281,6 @@ async function streamOpenRouterReasoning(
   let answerText = '';
   // DR-8: причина, по которой ход кончился. Только перечисление и размеры.
   let providerFinish: string | null = null;
-  let clientClosed = false;
   const endChat = chatEndRecorder(startedAt);
 
   // Клиент ушёл до первого байта содержимого — слот не использован, возвращаем
@@ -286,12 +297,6 @@ async function streamOpenRouterReasoning(
     if (!res.destroyed) res.write(s);
   };
   let sawUpstreamChunk = false;
-
-  res.on('close', () => {
-    clientClosed = true;
-    controller.abort();
-    void settlement.settle('closed').catch((e) => console.error('[chat] settle on close', safeErrorShape(e)));
-  });
 
   let streamFailed = false;
   try {

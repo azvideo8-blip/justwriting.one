@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 // R7F-024 / R7F-028 / R7Q-030 / R7Q-029 — гигиена выкатки и ворот.
@@ -214,3 +216,41 @@ describe('без повторов: шлагбаум остаётся', () => {
   });
 });
 
+
+describe('B-5: gitleaks на свежей ветке сканирует ветку, а не последний коммит', () => {
+  it('при нулевом/непредковом before диапазон — origin/main..HEAD', () => {
+    const step = ci.slice(ci.indexOf('- name: Secret scan (gitleaks)'), ci.indexOf('- name: nginx -t'));
+    expect(step).toContain('git fetch --no-tags --quiet origin +refs/heads/main:refs/remotes/origin/main');
+    expect(step).toContain('LOG_OPTS="origin/main..HEAD"');
+  });
+
+  // Ревью: на main origin/main = HEAD, диапазон пуст — шаг не должен пройти, ничего
+  // не проверив. Гоняем сам шаг на временном репозитории с заглушкой сканера.
+  // Мутация: убрать проверку rev-list --count → сканер получает пустой диапазон, красный.
+  it.skipIf(process.platform === 'win32')('force-push в main: пустой диапазон заменяется на HEAD', () => {
+    const step = ci.slice(ci.indexOf('- name: Secret scan (gitleaks)'), ci.indexOf('- name: nginx -t'));
+    const script = step.slice(step.indexOf('run: |') + 'run: |'.length).split('\n')
+      .map(l => l.replace(/^ {8}/, '')).join('\n');
+    const dir = mkdtempSync(join(tmpdir(), 'jw-b5-'));
+    const sh = (cmd: string, cwd = dir) => execSync(cmd, { cwd, stdio: 'pipe', encoding: 'utf8' }).trim();
+    try {
+      sh('git init -q --bare -b main origin.git');
+      sh('git init -q -b main work');
+      const work = join(dir, 'work');
+      sh('git -c user.email=t@t -c user.name=t commit -q --allow-empty -m a', work);
+      sh('git -c user.email=t@t -c user.name=t commit -q --allow-empty -m b', work);
+      sh(`git remote add origin ${join(dir, 'origin.git')} && git push -q origin main`, work);
+      mkdirSync(join(work, 'scripts'));
+      writeFileSync(join(work, 'scripts', 'gitleaks-scan.sh'), 'echo "SCAN:$1"\n');
+      const head = sh('git rev-parse HEAD', work);
+      writeFileSync(join(dir, 'step.sh'), script);
+      const out = execSync(`bash ${join(dir, 'step.sh')}`, {
+        cwd: work, encoding: 'utf8',
+        env: { ...process.env, GL_RANGE: `${'f'.repeat(40)}..${head}`, GITHUB_SHA: head },
+      });
+      expect(out).toContain(`SCAN:-1 ${head}`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

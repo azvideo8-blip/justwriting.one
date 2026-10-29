@@ -2,7 +2,7 @@ import { DocumentService, UnreadableCloudListError, UnreadableCloudRowError, par
 import { readCloudDocumentsPartial } from './cloudListPartial';
 import { pullChangesSince } from '../data/providers/pullChanges';
 import { DOCUMENT_REV, fromDb } from '../data/providers/fields';
-import { advanceSyncRevCursor, getSyncRevCursor, getSyncRevDeferred, setSyncRevDeferred } from '../sync/revCursor';
+import { advanceSyncRevCursor, getSyncRevCursor, getSyncRevDeferred, setSyncRevDeferred, withSyncRevPullLock } from '../sync/revCursor';
 import { requeueDocumentTask, quarantineDocumentTask } from '../sync/requeueDocumentTask';
 import { VersionService } from './VersionService';
 import { LocalStorageService } from './LocalStorageService';
@@ -857,6 +857,11 @@ export const CloudSyncService = {
                   if (downloadFailed.has(item.uuid)) {
                     const err = downloadFailed.get(item.uuid);
                     const reason = deterministicPullFailure(err);
+                    // R11-2: заметку скачивает другая вкладка — пауза перед строкой,
+                    // как у связанной (reconcile `busy`), а не ошибка всего забора.
+                    if (reason === null && String((err as { message?: unknown })?.message ?? err).startsWith('LOCK_HELD')) {
+                      throw new PullPaused(item.uuid);
+                    }
                     if (reason === null) throw err;
                     reportError(err, { action: 'pullNotes_deferred', userId, uuid: item.uuid, rev: row.rev, reason }, 'warning');
                     defer(item.uuid, row.rev, reason);
@@ -981,7 +986,7 @@ export const CloudSyncService = {
       return { downloaded, reconciled, skipped, corrupted, failed: 0, documentsRev, versionsRev, deferred: deferred.size };
     };
 
-    const promise = run();
+    const promise = withSyncRevPullLock(userId, run);
     _activePullPromises.set(userId, promise);
     try {
       return await promise;

@@ -147,13 +147,9 @@ Admin dashboard statistics for AI usage across all users.
 
 **Error codes:** `unauthenticated`, `permission-denied` (non-admin), `invalid-argument`.
 
-### `setUserRole` (Admin only)
-
-Set a user's role (`user` or `admin`).
-
 ### `resetUserLimit` (Admin only)
 
-Reset a user's daily AI request counter. Blocked if project-wide daily usage exceeds safety budget (500 requests / $5 USD).
+Reset a user's daily chat and reasoning counters for today (`ai_daily_limit`, kinds `chat` and `reasoning`). The background pool and the global budget are not touched. Exempt from the AI consent gate (admin action, no note processing).
 
 **Request data:**
 
@@ -161,9 +157,9 @@ Reset a user's daily AI request counter. Blocked if project-wide daily usage exc
 |-------|------|-------------|-------------|
 | `targetUid` | `string` | 1–128 chars | UID of the user whose limit to reset |
 
-**Response:** `{ success: true, totalRequests: number, totalCost: number }`
+**Response:** `{ ok: true }`
 
-**Error codes:** `unauthenticated`, `permission-denied`, `invalid-argument`, `resource-exhausted` (safety budget exceeded).
+**Error codes:** `unauthenticated`, `permission-denied`, `invalid-argument`.
 
 ---
 

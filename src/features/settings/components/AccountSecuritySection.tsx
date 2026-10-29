@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Lock, Laptop } from 'lucide-react';
-import { EncryptionService } from '../../../core/services/EncryptionService';
+import { EncryptionService, WrongPasswordError } from '../../../core/services/EncryptionService';
 import { AuthService } from '../../../app/AuthService';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
@@ -55,6 +55,12 @@ export function AccountSecuritySection({ userId }: AccountSecuritySectionProps) 
       setCurrentPassword('');
       setNewPassword('');
     } catch (err: unknown) {
+      // DY9-5: неверный текущий пароль ловит сейф (WrongPasswordError) раньше
+      // GoTrue — это опечатка человека, а не ошибка: свой текст, без журнала.
+      if (err instanceof WrongPasswordError) {
+        setPasswordError(t('auth_error_wrong_password'));
+        return;
+      }
       reportError(err, { action: 'changePassword', userId });
       // Коды Supabase: до переезда здесь ждали auth/* от Firebase — любая
       // ошибка обновления пароля показывалась как общая.

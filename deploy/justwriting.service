@@ -17,7 +17,7 @@ WorkingDirectory=/opt/justwriting/api
 # resolution entirely — importing across package boundaries fails at load time
 # with a clean tsc.
 #
-# Dependencies stay external (pg, zod, langfuse, isomorphic-dompurify) — jsdom,
+# Dependencies stay external (pg, zod, isomorphic-dompurify) — jsdom,
 # which isomorphic-dompurify pulls in, reads files from its own package at
 # runtime and cannot be inlined.
 ExecStart=/usr/bin/node /opt/justwriting/api/server.mjs

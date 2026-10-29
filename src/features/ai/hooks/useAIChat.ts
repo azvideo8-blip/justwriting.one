@@ -747,7 +747,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             reportError(e, { action: 'Streaming chat failed, falling back to callable chat' }, 'warning');
           }
           const isUpstream = errMsg === 'UPSTREAM' || errMsg === 'UPSTREAM_ERROR' || errMsg === 'SERVICE_UNAVAILABLE' || errMsg.startsWith('UPSTREAM');
-          if (!isConsentCode(errMsg) && errMsg !== DISALLOWED_PHRASE && !isUpstream && errMsg !== 'DAILY_LIMIT' && errMsg !== 'AUTH_REQUIRED' && errMsg !== 'GLOBAL_LIMIT' && errMsg !== 'RATE_LIMIT' && !errMsg.startsWith('RATE_LIMIT:')) {
+          if (!isConsentCode(errMsg) && errMsg !== DISALLOWED_PHRASE && !isUpstream && errMsg !== 'DAILY_LIMIT' && errMsg !== 'REASONING_LIMIT' && errMsg !== 'AUTH_REQUIRED' && errMsg !== 'GLOBAL_LIMIT' && errMsg !== 'RATE_LIMIT' && !errMsg.startsWith('RATE_LIMIT:')) {
             // #77: streaming already consumed a daily limit slot. The callable
             // fallback consumes another. Accepted by design: the residual case
             // after server-side refund-on-disconnect is a mid-stream network

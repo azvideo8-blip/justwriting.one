@@ -547,5 +547,5 @@ export const MEMORY_EXTRACT_MAX_MESSAGE_CHARS = 5_000;
  * копии разъехались, и в обеих не было getAIUsageStats.
  */
 export const CONSENT_EXEMPT_ENDPOINTS: ReadonlySet<string> = new Set([
-  'deleteAccount', 'inviteUser', 'listUsersWithStatus', 'adminDeleteUser', 'listAdminActions', 'getAIUsageStats',
+  'deleteAccount', 'inviteUser', 'listUsersWithStatus', 'adminDeleteUser', 'listAdminActions', 'getAIUsageStats', 'resetUserLimit',
 ]);

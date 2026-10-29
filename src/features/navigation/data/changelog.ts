@@ -17,6 +17,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.1',
+    date: '2026-10-29',
+    announce: false,
+    items: [
+      { category: 'fix', ru: 'Если исчерпан дневной лимит «хода мысли», чат так и говорит, а не просит подождать и не отправляет лишний повтор.', en: 'When the daily «reasoning» limit is used up, the chat says so instead of asking you to wait and retrying in vain.' },
+      { category: 'fix', ru: 'Если закрыть чат или остановить «ход мысли» до начала ответа, попытка из дневного лимита не тратится.', en: 'Closing the chat or stopping «reasoning» before the answer starts no longer uses up an attempt from the daily limit.' },
+      { category: 'fix', ru: 'Сейф, открытый с «Запомнить на этом устройстве», после часа простоя закрывается по-настоящему: дальше нужен пароль. После перезагрузки страницы — как раньше, без пароля.', en: 'A vault opened with «Remember on this device» now really locks after an hour of inactivity: the password is needed again. After a page reload it opens without a password, as before.' },
+      { category: 'fix', ru: 'Опечатка в текущем пароле при смене пароля называется «неверный пароль», а не «ошибка при входе».', en: 'A typo in the current password when changing the password is now reported as a wrong password, not a sign-in error.' },
+      { category: 'fix', ru: '«Удалить данные с этого устройства» после оборванной сессии стирает и запомненный ключ сейфа.', en: '«Delete data from this device» after a lost session also removes the remembered vault key.' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.11.0',
     date: '2026-10-28',
     announce: false,

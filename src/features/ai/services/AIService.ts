@@ -78,6 +78,8 @@ export function mapAIError(e: unknown): AIErrorCode {
     // них не ловила: исчерпанный фоновый лимит читался как «подождите минуту»,
     // то есть предлагал повторять до утра.
     if (errData?.errorType === 'BULK_LIMIT' || message.toLowerCase().includes('bulk')) return 'BULK_LIMIT';
+    // DY9-12: «Reasoning limit reached.» — суточный лимит рассуждений, не частота.
+    if (errData?.errorType === 'REASONING_LIMIT' || message.toLowerCase().includes('reasoning')) return 'REASONING_LIMIT';
     if (errData?.errorType === 'DAILY_LIMIT' || message.toLowerCase().includes('daily')) return 'DAILY_LIMIT';
     return 'RATE_LIMIT';
   }

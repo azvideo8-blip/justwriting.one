@@ -87,4 +87,36 @@ describe('S1-11: LOCK_HELD stops the pull on the previous row', () => {
     expect(await latestLocalText(uid, 'busy-y')).toBe('new y');
     expect((await getSyncRevCursor(uid)).documents).toBe(revY);
   });
+
+  // Ревью 0.11.0 (R11-2): новая заметка из облака, которую в эту минуту
+  // скачивает другая вкладка (LOCK_HELD у addLocalCopy), — пауза, как у
+  // связанной, а не ошибка всего забора с отчётом pull_notes_*.
+  // Мутация: убрать перевод LOCK_HELD в PullPaused → pullNotes бросает, красный.
+  it('R11-2: занятая скачиванием новая заметка — пауза, а не ошибка; потом приезжает', async () => {
+    activateDevice(new Device('B'));
+    runner.userId = 'user_pull_busy_new';
+    await runner.setup();
+    const uid = runner.userId;
+    const pg = runner.interceptor.postgres;
+    seedCloudNote(pg, uid, 'busy-a', 'a');
+    await SyncService.pullNotes(uid);
+
+    seedCloudNote(pg, uid, 'busy-z', 'z');
+    const revZ = Number(pg.getRows('documents').find(r => r.uuid === 'busy-z')!.rev);
+    const db = await getLocalDb(uid);
+    await db.put('syncQueue', {
+      id: 'lock_cloud_busy-z', documentId: 'busy-z', type: 'document',
+      createdAt: Date.now(), ownerToken: 'other-tab',
+    } as never);
+
+    const res = await SyncService.pullNotes(uid);
+    expect(res.locked).toBeFalsy();
+    expect((await db.getAll('documents')).some(d => d.uuid === 'busy-z')).toBe(false);
+    expect((await getSyncRevCursor(uid)).documents).toBeLessThan(revZ);
+
+    await db.delete('syncQueue', 'lock_cloud_busy-z');
+    await SyncService.pullNotes(uid);
+    expect(await latestLocalText(uid, 'busy-z')).toBe('z');
+    expect((await getSyncRevCursor(uid)).documents).toBe(revZ);
+  });
 });

@@ -139,6 +139,8 @@ describe('accountScopedKeys inventory test (LS-5 + LS-8)', () => {
       [`jw_pending_purge_${SENTINEL}`]: 'crash/wipe-failure recovery marker cleaned by processPendingPurges at boot',
       // S1-5: курсор забора живёт в IndexedDB (запись profile), не в localStorage.
       [`sync_rev_cursor:${SENTINEL}`]: 'IndexedDB profile record key (S1-5), not localStorage',
+      // R11-1: имя Web Lock забора по rev (navigator.locks), в хранилище не пишется.
+      [`jw-sync-rev-pull:${SENTINEL}`]: 'navigator.locks name (R11-1), not storage',
     };
 
     const missing: string[] = [];

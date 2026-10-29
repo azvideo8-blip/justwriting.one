@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { isVaultUnlocked, setSessionKey, decryptContent } from '../../../core/crypto/encrypt';
-import { useEncryptionStore, setRememberDevice } from '../../../core/crypto/useEncryptionStore';
+import { useEncryptionStore, setRememberDevice, isLockedByIdle } from '../../../core/crypto/useEncryptionStore';
 import { loadDeviceKey, clearDeviceKey } from '../../../core/crypto/keyVaultCache';
 import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
 import { hasEncryptionMeta, getEncryptionMeta } from '../../../core/services/EncryptionMetaService';
@@ -50,6 +50,13 @@ export function useEncryptionSetup(): {
         return;
       }
       if (hasNew) {
+        // DY9-3: запертый по простою сейф открывается только паролем — иначе
+        // часовой потолок «запомнить на устройстве» ничего не запирал.
+        if (isLockedByIdle()) {
+          setMode('unlock');
+          setLoading(false);
+          return;
+        }
         // "Remember on this device": auto-unlock from the cached key, no prompt.
         const deviceKey = await loadDeviceKey(user.uid);
         if (isVaultUnlocked()) {

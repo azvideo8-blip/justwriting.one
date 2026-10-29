@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.11.1 — 2026-10-29
+
+- **[RU]** Если исчерпан дневной лимит «хода мысли», чат так и говорит, а не просит подождать и не отправляет лишний повтор.
+- **[EN]** When the daily «reasoning» limit is used up, the chat says so instead of asking you to wait and retrying in vain.
+- **[RU]** Если закрыть чат или остановить «ход мысли» до начала ответа, попытка из дневного лимита не тратится.
+- **[EN]** Closing the chat or stopping «reasoning» before the answer starts no longer uses up an attempt from the daily limit.
+- **[RU]** Сейф, открытый с «Запомнить на этом устройстве», после часа простоя закрывается по-настоящему: дальше нужен пароль. После перезагрузки страницы — как раньше, без пароля.
+- **[EN]** A vault opened with «Remember on this device» now really locks after an hour of inactivity: the password is needed again. After a page reload it opens without a password, as before.
+- **[RU]** Опечатка в текущем пароле при смене пароля называется «неверный пароль», а не «ошибка при входе».
+- **[EN]** A typo in the current password when changing the password is now reported as a wrong password, not a sign-in error.
+- **[RU]** «Удалить данные с этого устройства» после оборванной сессии стирает и запомненный ключ сейфа.
+- **[EN]** «Delete data from this device» after a lost session also removes the remembered vault key.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.11.0 — 2026-10-28
 
 - **[RU]** На телефоне шапка «Заметок» стала ниже: заголовок у самого верха и того же размера, что в «Профиле».

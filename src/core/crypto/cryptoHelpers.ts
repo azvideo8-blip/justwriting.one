@@ -189,6 +189,13 @@ export async function maybeDecrypt(
         reportError(e, { action: 'maybeDecrypt_jsonParse', field });
         delete result[field];
       }
+    } else if (isEncrypted && Array.isArray(val) && val.length > 0) {
+      // DY9-4: зашифрованная строка хранит массив шифротекстом; открытый непустой
+      // массив рядом — не наш (тот же довод, что N1-1). Пустой [] — значение
+      // колонки по умолчанию. На проде таких строк 0 (счёт 29.10).
+      const e = new Error('PLAINTEXT_ARRAY_UNDER_ENCRYPTED_ROW');
+      reportError(e, { action: 'maybeDecrypt_arrayField', field });
+      throw new DecryptionError(field, e);
     } else if (!Array.isArray(val)) {
       result[field] = [];
     }

@@ -7,6 +7,7 @@ import { editWithAILogic } from './ai/editWithAI.logic';
 import { embedDocumentLogic } from './ai/embedDocument.logic';
 import { extractChatMemoryLogic } from './ai/extractChatMemory.logic';
 import { getAIUsageStatsLogic } from './ai/getAIUsageStats.logic';
+import { resetUserLimitLogic } from './ai/resetUserLimit.logic';
 import { getAiQuotaLogic } from './ai/getAiQuota.logic';
 import { judgeBeliefCandidateLogic } from './ai/judgeBeliefCandidate.logic';
 import { judgeFacetsLogic } from './ai/judgeFacets.logic';
@@ -34,6 +35,7 @@ const LOGIC_MAP: Record<string, LogicFn> = {
   extractChatMemory: extractChatMemoryLogic,
   getAIUsageStats: getAIUsageStatsLogic,
   getAiQuota: getAiQuotaLogic,
+  resetUserLimit: resetUserLimitLogic,
   judgeBeliefCandidate: judgeBeliefCandidateLogic,
   judgeFacets: judgeFacetsLogic,
   rerankNotes: rerankNotesLogic,

@@ -69,7 +69,12 @@ function cursorRecord(key: string, existing: unknown, patch: { syncRevCursor?: S
 
 function parseCursor(record: unknown): { cursor: SyncRevCursor; readable: boolean } {
   const raw = (record as { syncRevCursor?: unknown } | undefined)?.syncRevCursor;
-  if (raw === undefined) return { cursor: { ...ZERO }, readable: record === undefined };
+  // R11-5: запись только с отложенными (первый забор отложил строку раньше, чем
+  // двинул курсор) — это «курсора ещё нет», а не порча: без предупреждения.
+  if (raw === undefined) {
+    const deferredOnly = (record as { syncRevDeferred?: unknown } | undefined)?.syncRevDeferred !== undefined;
+    return { cursor: { ...ZERO }, readable: record === undefined || deferredOnly };
+  }
   if (typeof raw !== 'object' || raw === null) return { cursor: { ...ZERO }, readable: false };
   const documents = (raw as { documents?: unknown }).documents;
   const versions = (raw as { versions?: unknown }).versions;
@@ -155,4 +160,18 @@ export async function setSyncRevDeferred(userId: string, rows: SyncRevDeferredRo
 export async function clearSyncRevCursor(userId: string): Promise<void> {
   const db = await getLocalDb(userId);
   await db.delete('profile', syncRevCursorKey(userId));
+}
+
+/**
+ * Ревью 0.11.0 (R11-1): забор по rev — один на аккаунт во всём браузере, а не
+ * только в своей вкладке (`_activePullPromises`). Две вкладки читали список
+ * отложенных каждая себе и записывали его целиком: строка, отложенная одной,
+ * пропадала из списка после записи другой, а курсор уже прошёл её. Вторая
+ * вкладка ждёт и потом читает курсор и список заново.
+ * Без Web Locks (старый браузер, тесты) — как раньше, без замка.
+ */
+export function withSyncRevPullLock<T>(userId: string, fn: () => Promise<T>): Promise<T> {
+  const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
+  if (!locks?.request) return fn();
+  return locks.request(`jw-sync-rev-pull:${userId}`, () => fn()) as Promise<T>;
 }

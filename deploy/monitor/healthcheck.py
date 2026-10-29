@@ -39,6 +39,11 @@ if not TO and not DRY:
 def sh(cmd):
     return subprocess.run(cmd, shell=True, capture_output=True, text=True).stdout.strip()
 
+def sh_result(cmd):
+    # Полный результат: для «прочитали ноль строк» и «не смогли прочитать»
+    # нужен код возврата, а не только stdout.
+    return subprocess.run(cmd, shell=True, capture_output=True, text=True)
+
 def send(subject, body):
     # R5-050: письмо, которое не ушло, не должно выглядеть как «всё хорошо».
     # Причина — в журнал (без пароля: печатается только тип и текст ошибки),
@@ -118,6 +123,61 @@ else:
         # не сделал reset-failed.
         stamps = [f"{u}@{sh(f'systemctl show -p ExecMainExitTimestamp --value {u}')}" for u in failed]
         problem('units_failed:' + ','.join(sorted(stamps)), f"Юниты в failed: {', '.join(failed)} — journalctl -u {failed[0]}")
+
+# ── суточный кап ИИ (C-1) ───────────────────────────────────────────────────
+# Только чтение агрегата: никаких вызовов модели. Пороги — из
+# /etc/justwriting/monitor.env, не из /opt/justwriting/api/.env (там секреты).
+AI_MONITOR_ENV = Path(os.environ.get('MONITOR_ALERT_ENV', '/etc/justwriting/monitor.env'))
+AI_ALERT_CALLS = 8000          # 80 % от дефолта AI_TIER_RPD=10000
+AI_ALERT_TOKENS = 20_000_000   # 80 % от дефолта AI_TIER_TPD=25000000
+API_ALERT_ERRORS = 5           # 5xx/streamText/uncaught за час
+try:
+    if AI_MONITOR_ENV.exists():
+        for key, value in re.findall(r'^(AI_ALERT_CALLS|AI_ALERT_TOKENS|API_ALERT_ERRORS)=(\d+)$', AI_MONITOR_ENV.read_text(), re.M):
+            if key == 'AI_ALERT_CALLS':
+                AI_ALERT_CALLS = int(value)
+            elif key == 'AI_ALERT_TOKENS':
+                AI_ALERT_TOKENS = int(value)
+            else:
+                API_ALERT_ERRORS = int(value)
+except Exception as e:
+    problem('ai_quota_unmeasured', f'Не удалось прочитать пороги ИИ: {type(e).__name__}.')
+
+today_utc = time.strftime('%Y-%m-%d', time.gmtime())
+ai_row = sh(f"cd {COMPOSE_DIR} && docker compose exec -T db psql -U postgres -d postgres -tAc "
+            f"\"select coalesce((select call_count from public.ai_global_daily where date = '{today_utc}'),0)"
+            f"||'|'||coalesce((select tokens from public.ai_global_daily where date = '{today_utc}'),0)\"")
+ai_parts = ai_row.strip().split('|')
+if len(ai_parts) != 2 or not all(p.strip().isdigit() for p in ai_parts):
+    problem('ai_quota_unmeasured', 'Не удалось измерить суточный расход ИИ: запрос к ai_global_daily не ответил.')
+else:
+    ai_calls, ai_tokens = (int(p.strip()) for p in ai_parts)
+    if ai_calls >= AI_ALERT_CALLS or ai_tokens >= AI_ALERT_TOKENS:
+        problem('ai_quota_near',
+                f'Суточный кап ИИ близко: запросов {ai_calls} из {AI_ALERT_CALLS}, '
+                f'токенов {ai_tokens} из {AI_ALERT_TOKENS} (UTC {today_utc}).')
+
+# ── сплошные 5xx API и сбои провайдера (E-8) ──────────────────────────────
+# Почасовой healthcheck видел только «служба не active» и /ready; поток
+# пятисоток от RouterAI при живом процессе был невидим. Считаем метки в
+# журнале службы за час. В письмо — только счётчики, без строк журнала:
+# в строках бывает текст пользователя.
+API_UNIT = os.environ.get('MONITOR_API_UNIT', 'justwriting')
+jr = sh_result(f"journalctl -u {API_UNIT} --since -1h --no-pager -o cat")
+if jr.returncode != 0:
+    problem('api_log_unreadable', f'Не удалось прочитать журнал {API_UNIT} — проверка 5xx выключена.')
+else:
+    api_lines = jr.stdout.splitlines()
+    # Ревью: «unhandled error» — самый общий путь 500 (api/handlers.ts), без кода в строке.
+    handlers_5xx = sum(1 for line in api_lines
+                       if '[api/handlers] 5' in line or '[api/handlers] unhandled error' in line)
+    stream_failed = sum(1 for line in api_lines if 'streamText failed' in line)
+    uncaught = sum(1 for line in api_lines if 'uncaughtException' in line)
+    api_total = handlers_5xx + stream_failed + uncaught
+    if api_total >= API_ALERT_ERRORS:
+        problem('api_errors',
+                f'Ошибки API за час: handlers5xx={handlers_5xx}, '
+                f'streamText={stream_failed}, uncaught={uncaught} (порог {API_ALERT_ERRORS}).')
 
 # ── контейнеры ──────────────────────────────────────────────────────────────
 ps = sh(f'cd {COMPOSE_DIR} && docker compose ps --format json')
@@ -224,6 +284,92 @@ try:
         problem('signup_open', 'Регистрация открыта: /auth/v1/settings вернул disable_signup: false.')
 except Exception as e:
     problem('signup_check', f'Не удалось проверить /auth/v1/settings: {e}')
+
+# ── ежедневная сводка в Telegram (E-9) ─────────────────────────────────────
+# Раз в сутки в 09:00 по времени владельца (UTC+5, Екатеринбург; имя `msk` —
+# историческое, это не Москва) бот получает короткую сводку: сайт, /ready,
+# возраст бэкапа, свободное место, число [client-error]. Тишина в этой сводке
+# — тоже тревога: значит, не работает сам монитор.
+DAILY_STATE = Path(os.environ.get('MONITOR_DAILY_STATE', '/var/lib/justwriting-monitor/daily-summary.json'))
+SUMMARY_HOUR_MSK = 9
+now_epoch = float(os.environ.get('MONITOR_NOW', time.time()))
+msk = time.gmtime(now_epoch + 5 * 3600)
+
+def send_telegram(text):
+    token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+    chat = os.environ.get('TELEGRAM_CHAT_ID', '')
+    if not token or not chat:
+        raise RuntimeError('TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID не заданы')
+    api_base = os.environ.get('TELEGRAM_API_BASE', 'https://api.telegram.org')
+    # ensure_ascii=False: Telegram принимает UTF-8, а текст в журнале и в
+    # тестах остаётся кириллицей, а не побегами.
+    data = json.dumps({'chat_id': chat, 'text': text, 'disable_web_page_preview': True},
+                      ensure_ascii=False).encode('utf-8')
+    req = urllib.request.Request(f'{api_base}/bot{token}/sendMessage', data=data,
+                                 headers={'Content-Type': 'application/json'})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        if getattr(r, 'status', 200) != 200:
+            raise RuntimeError(f'Telegram HTTP {getattr(r, "status", "?")}')
+        # Telegram отвечает 200 и при ok:false в теле — проверяем оба.
+        answer = json.loads(r.read().decode('utf-8', 'replace') or '{}')
+        if answer.get('ok') is not True:
+            raise RuntimeError('Telegram rejected the message')
+
+if not DRY and msk.tm_hour == SUMMARY_HOUR_MSK:
+    day_key = time.strftime('%Y-%m-%d', msk)
+    already = None
+    try:
+        if DAILY_STATE.exists():
+            already = json.loads(DAILY_STATE.read_text()).get('date')
+    except Exception:
+        already = None
+    if already != day_key:
+        site_ok = code == '200'
+        api_ok = ready == '200'
+        backup_line = 'нет ни одной копии'
+        if dumps:
+            backup_h = (now_epoch - dumps[0].stat().st_mtime) / 3600
+            backup_line = f'{backup_h:.0f} ч назад'
+        disk_free = '?'
+        try:
+            pct_daily = int(re.search(r'(\d+)%', sh('df --output=pcent / | tail -1')).group(1))
+            disk_free = f'{100 - pct_daily}%'
+        except Exception:
+            pass
+        ce_run = sh_result('journalctl -u justwriting --since "-24h" --no-pager -o cat')
+        ce_count = '?' if ce_run.returncode != 0 else str(sum('[client-error]' in line for line in ce_run.stdout.splitlines()))
+        partial = []
+        if not site_ok:
+            partial.append(f'сайт {code}')
+        if not api_ok:
+            partial.append(f'API {ready}')
+        lines = [
+            'justwriting, сводка за сутки',
+            f'Сайт: {"отвечает" if site_ok else "не отвечает"}',
+            f'API /ready: {"готов" if api_ok else "не готов"}',
+            f'Последний бэкап: {backup_line}',
+            f'Свободно на диске: {disk_free}',
+            f'[client-error] за 24 ч: {ce_count}',
+        ]
+        if partial:
+            lines.append('Проверка неполная: ' + ', '.join(partial))
+        summary_text = '\n'.join(lines)
+        try:
+            send_telegram(summary_text)
+            print('сводка отправлена в Telegram')
+            # Ревью: сбой записи отметки — не «сводка не ушла»: она ушла, худшее —
+            # повтор в следующий час.
+            try:
+                DAILY_STATE.parent.mkdir(parents=True, exist_ok=True)
+                DAILY_STATE.write_text(json.dumps({'date': day_key, 'sent': now_epoch}))
+            except Exception as se:
+                print(f'отметка сводки не записана: {type(se).__name__}', file=sys.stderr)
+        except Exception as e:
+            # Сводка не ушла — это не тишина, а поломка канала: пишем письмом.
+            send('justwriting: ежедневная сводка не ушла',
+                 f'Сводка за {day_key} не отправлена в Telegram: {type(e).__name__}.\n'
+                 'Тишина в сводке считается тревогой — проверьте TELEGRAM_BOT_TOKEN/CHAT_ID.\n')
+            print(f'СВОДКА НЕ УШЛА: {type(e).__name__}', file=sys.stderr)
 
 # ── отправка ────────────────────────────────────────────────────────────────
 texts = [t for _, t in problems]

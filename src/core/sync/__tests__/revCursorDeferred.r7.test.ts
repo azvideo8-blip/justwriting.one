@@ -52,4 +52,14 @@ describe('R-7: порча отложенных = нечитаемый курсо
     expect(await getSyncRevDeferred(A)).toEqual([]);
     expect(reportError).not.toHaveBeenCalled();
   });
+
+  // Ревью 0.11.0 (R11-5): первый забор отложил строку до первого сдвига курсора —
+  // запись есть, курсора нет. Это «с нуля», но не порча: без предупреждения.
+  // Мутация: readable = record === undefined → красный (warning есть).
+  it('R11-5: запись только с отложенными — курсор с нуля без предупреждения', async () => {
+    await setSyncRevDeferred(A, [{ uuid: 'z', rev: 3, reason: 'schema' }]);
+    expect(await getSyncRevCursor(A)).toEqual({ documents: 0, versions: 0 });
+    expect(reportError).not.toHaveBeenCalled();
+    expect((await getSyncRevDeferred(A)).map(r => r.uuid)).toEqual(['z']);
+  });
 });

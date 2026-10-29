@@ -272,6 +272,15 @@ async function getDailyLimitCount(uid: string): Promise<{ used: number; reasonin
   return { used, reasoningUsed, date };
 }
 
+// DY9-9: кнопка админа «сбросить дневной лимит». Только чат и рассуждения —
+// то, что админка показывает; фоновый пул и общий котёл не трогаются.
+async function resetDailyLimit(uid: string): Promise<void> {
+  await pool.query(
+    `DELETE FROM public.ai_daily_limit WHERE uid = $1 AND day = $2 AND kind IN ('chat', 'reasoning')`,
+    [uid, today()],
+  );
+}
+
 // ── Bulk limit (reuse per-user table with a separate kind) ────────────────────
 const BULK_LIMIT = envInt('AI_BULK_DAILY_LIMIT', 50);
 const INTERNAL_CHAT_DAILY_LIMIT = envInt('AI_INTERNAL_CHAT_DAILY_LIMIT', 60);
@@ -448,6 +457,10 @@ async function checkAndIncrementLimit(
 
   const verdict = await checkDailyLimit(uid, reasoning);
   if (verdict.ok) return { ok: true, day: verdict.day };
+  // DY9-11: отказ ничего не списал — и кулдаун не держит. Иначе следующий запрос
+  // в пределах 10 с читается как «слишком часто», а не «лимит до завтра»
+  // (как R7Q-024(a) в фоновом входе, но там окно и потолок в одной транзакции).
+  await resetCooldown(uid);
   if (verdict.reason === 'unauthorized') return 'UNAUTHORIZED';
   if (verdict.reason === 'unavailable') return 'UNAVAILABLE';
   return reasoning ? 'REASONING_LIMIT' : 'DAILY_LIMIT';
@@ -520,6 +533,7 @@ export const postgresAiContext: AiContext = {
   checkDailyLimit,
   refundDailyLimit,
   getDailyLimitCount,
+  resetDailyLimit,
   getUserDailyLimit,
   isAdmin,
   checkAndIncrementBulkLimit,
