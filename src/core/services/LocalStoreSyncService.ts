@@ -582,6 +582,54 @@ export function stripCloudStamp(record: unknown): unknown {
   return copy;
 }
 
+/**
+ * DY10-8 (владелец 30.10: «векторы не синхронизируй»): вектор-кэш поиска в
+ * «обязательствах» и «журнале тем» — тысячи чисел на запись, ~65 МБ из 71 МБ
+ * облачных ИИ-записей владельца. В облако запись едет без него; на устройстве
+ * он пересчитывается при нужде (без вектора дубль обязательства сверяется по
+ * тексту, тема — по названию).
+ */
+const SYNCED_VECTOR_FIELDS: Readonly<Partial<Record<string, { field: string; empty: unknown }>>> = {
+  aiCommitments: { field: 'vector', empty: undefined },
+  aiThemeLedger: { field: 'themeVector', empty: [] },
+};
+
+function hasVector(value: unknown): boolean {
+  return Array.isArray(value) && value.length > 0;
+}
+
+/** Есть ли в записи вектор, который в облако не едет (толстая облачная копия до DY10-8). */
+export function carriesSyncedVector(store: string, record: unknown): boolean {
+  const spec = SYNCED_VECTOR_FIELDS[store];
+  return !!spec && !!record && typeof record === 'object' && hasVector((record as Record<string, unknown>)[spec.field]);
+}
+
+/** Облачный вид записи: без служебных отметок устройства и без вектора-кэша. */
+export function cloudFormOf(store: string, record: unknown): unknown {
+  const stripped = stripCloudStamp(record);
+  if (!carriesSyncedVector(store, stripped)) return stripped;
+  const spec = SYNCED_VECTOR_FIELDS[store]!;
+  const copy = { ...(stripped as Record<string, unknown>) };
+  if (spec.empty === undefined) delete copy[spec.field];
+  else copy[spec.field] = spec.empty;
+  return copy;
+}
+
+/**
+ * Облачная копия без вектора поверх локальной: локальный вектор остаётся, если
+ * запись про то же самое (тот же текст обязательства / то же название темы),
+ * иначе он устарел и не нужен.
+ */
+export function keepLocalVector(store: string, cloud: unknown, local: unknown): unknown {
+  const spec = SYNCED_VECTOR_FIELDS[store];
+  if (!spec || !cloud || typeof cloud !== 'object' || !carriesSyncedVector(store, local)) return cloud;
+  const c = cloud as Record<string, unknown>;
+  const l = local as Record<string, unknown>;
+  if (hasVector(c[spec.field])) return cloud;
+  const sameSubject = store === 'aiCommitments' ? c.text === l.text : c.theme === l.theme;
+  return sameSubject ? { ...c, [spec.field]: l[spec.field] } : cloud;
+}
+
 /** Обновления, ждущие облачного upsert и ещё не уехавшие. `null` — журнал не читается. */
 export function getPendingStoreUpserts(uid: string): PersistedUpsert[] | null {
   return readPersistedUpserts(uid);
@@ -1904,7 +1952,8 @@ export class LocalStoreSyncManager {
           }
 
           // T-8: отметка облачной версии — служебное поле устройства, в облако не едет.
-          const record: unknown = stripCloudStamp(rawRecord);
+          // DY10-8: и вектор-кэш тоже.
+          const record: unknown = cloudFormOf(item.store, rawRecord);
           const jsonString = JSON.stringify(record);
           const recordBytes = new TextEncoder().encode(jsonString).length;
 

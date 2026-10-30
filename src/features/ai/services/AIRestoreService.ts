@@ -22,7 +22,9 @@ import {
   MAX_RESTORE_RECORD_BYTES,
   getPendingStoreDeleteKeys,
   getPendingUpsertKeySet,
-  stripCloudStamp,
+  cloudFormOf,
+  keepLocalVector,
+  carriesSyncedVector,
   CLOUD_STAMP_FIELD,
   CLOUD_BASE_HASH_FIELD,
 } from '../../../core/services/LocalStoreSyncService';
@@ -793,12 +795,13 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
             pending: pendingUpserts === null ? null : pendingUpserts.has(`${store}:${baseKey}`),
             base: (localRecord as Record<string, unknown>)[CLOUD_STAMP_FIELD] as number | undefined,
             cloudStamp,
-            sameContent: JSON.stringify(stripCloudStamp(localRecord)) === fullJson,
+            // DY10-8: сравниваем облачный вид — локальный вектор-кэш в облако не едет.
+            sameContent: JSON.stringify(cloudFormOf(store, localRecord)) === fullJson,
             localTs: extractRecordTimestamp(localRecord),
             cloudTs,
           });
           if (decision === 'cloud') {
-            await writeLocal(withStamp(parsedData));
+            await writeLocal(withStamp(keepLocalVector(store, parsedData, localRecord)));
             result.localStoreRecords++;
           } else if (decision === 'adopt') {
             await writeLocal(withStamp(localRecord));
@@ -809,6 +812,9 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
           result.localStoreRecords++;
         }
         markApplied(rows, baseKey);
+        // DY10-8: облачная копия ещё с вектором (до DY10-8) — отправить облегчённую.
+        // Выгрузка условная (база — принятая облачная версия), чужую правку не затрёт.
+        if (carriesSyncedVector(store, parsedData)) LocalStoreSyncService.scheduleStoreSync(store as SupportedLocalStoreName, baseKey);
       } catch (err) {
         markRefused(rows, baseKey);
         result.failed++;

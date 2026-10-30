@@ -140,6 +140,20 @@ describe('LocalStoreSyncService', () => {
     );
   });
 
+  // DY10-8: вектор-кэш обязательства в облако не едет. Мутация: на отправке
+  // stripCloudStamp вместо cloudFormOf → красный.
+  it('обязательство уходит в облако без вектора', async () => {
+    const db = await getLocalDb();
+    await db.put('aiCommitments', { id: 'c1', text: 'Позвонить маме', documentId: 'd1', createdAt: 1, date: '2026-10-29', status: 'open', vector: [0.1, 0.2] } as never);
+    LocalStoreSyncService.scheduleStoreSync('aiCommitments', 'c1');
+    await LocalStoreSyncService.flushPending();
+    const call = mockSaveRecord.mock.calls.find(c => c[1] === 'aiCommitments');
+    expect(call, 'обязательство не выгружено').toBeDefined();
+    const data = String((call![3] as { data: string }).data);
+    expect(data).toContain('Позвонить маме');
+    expect(data).not.toContain('"vector"');
+  });
+
   it('debounces 5 rapid writes into a single batch flush', async () => {
     const db = await getLocalDb();
     await db.put('aiDialogues', {

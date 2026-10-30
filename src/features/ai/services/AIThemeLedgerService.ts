@@ -275,9 +275,18 @@ export const AIThemeLedgerService = {
           }
         }
 
+        if (bestMatch === null) {
+          // DY10-8 (ревью 0.11.2): вектор в облако не едет — тема с другого
+          // устройства приезжает без него. Та же тема по имени — это она, а не новая.
+          const norm = cleanedTheme.toLowerCase();
+          bestMatch = activeRecords.find(r => r.theme.toLowerCase().trim() === norm) ?? null;
+        }
+
         if (bestMatch !== null) {
           // --- REINFORCE BRANCH ---
           bestMatch.count += 1;
+          // Вектор возвращается теме при первом же касании, без отдельных вызовов.
+          if (bestMatch.themeVector.length === 0 && themeVector !== null) bestMatch.themeVector = themeVector;
 
           if (eventDate > bestMatch.lastReinforcedAt) {
             bestMatch.lastReinforcedAt = eventDate;

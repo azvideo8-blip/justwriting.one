@@ -79,6 +79,8 @@ describe('DUP-5: pageAll PostgREST pagination convergence', () => {
       run: () => Promise<unknown[]>;
       generateRow: (i: number) => Record<string, unknown>;
       extractKey: (item: unknown) => string | number;
+      /** Размер страницы функции, если не 1000. */
+      pageSize?: number;
     };
 
     const cases: ConvertedFnCase[] = [
@@ -141,6 +143,8 @@ describe('DUP-5: pageAll PostgREST pagination convergence', () => {
       {
         name: 'getLocalStoreRecords',
         run: () => getLocalStoreRecords('user_test', 'settings'),
+        // Журнал владельца 30.10: строки ИИ-сторов тяжёлые — страница 50.
+        pageSize: 50,
         generateRow: (i) => ({
           store: 'settings',
           key: `key_${i}`,
@@ -151,7 +155,7 @@ describe('DUP-5: pageAll PostgREST pagination convergence', () => {
       },
     ];
 
-    for (const { name, run, generateRow, extractKey } of cases) {
+    for (const { name, run, generateRow, extractKey, pageSize = 1000 } of cases) {
       it(`${name}: 1,500 seeded rows come back complete and without duplicates`, async () => {
         const totalRows = 1500;
         const seeded = Array.from({ length: totalRows }, (_, i) => generateRow(i));
@@ -178,9 +182,9 @@ describe('DUP-5: pageAll PostgREST pagination convergence', () => {
         expect(items).toHaveLength(totalRows);
         const keys = items.map(extractKey);
         expect(new Set(keys).size).toBe(totalRows);
-        expect(mockRange).toHaveBeenCalledTimes(2);
-        expect(mockRange).toHaveBeenNthCalledWith(1, 0, 999);
-        expect(mockRange).toHaveBeenNthCalledWith(2, 1000, 1999);
+        expect(mockRange).toHaveBeenCalledTimes(Math.ceil(totalRows / pageSize) + (totalRows % pageSize === 0 ? 1 : 0));
+        expect(mockRange).toHaveBeenNthCalledWith(1, 0, pageSize - 1);
+        expect(mockRange).toHaveBeenNthCalledWith(2, pageSize, 2 * pageSize - 1);
       });
     }
 

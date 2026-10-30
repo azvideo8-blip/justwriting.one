@@ -11,11 +11,13 @@ import { join, resolve } from 'node:path';
 const ctx = vi.hoisted(() => ({
   getAiConsent: vi.fn(async () => ({ granted: true, version: 99 })),
   isAdmin: vi.fn(async () => true),
-  resetDailyLimit: vi.fn(async () => undefined),
+  resetDailyLimit: vi.fn(async (): Promise<'ok' | 'budget' | 'busy'> => 'ok'),
 }));
 vi.mock('../postgresAiContext', () => ({ postgresAiContext: ctx }));
 
 import { handleAiEndpoint } from '../handlers';
+
+const TARGET = '00000000-0000-4000-8000-0000000d10a1';
 
 function callAiNames(): string[] {
   const root = resolve(__dirname, '../../src');
@@ -48,15 +50,22 @@ describe('DY9-9: resetUserLimit и все имена callAi', () => {
   });
 
   it('(2) админ сбрасывает лимит человека', async () => {
-    const out = await handleAiEndpoint('resetUserLimit', 'u_admin', { data: { targetUid: 'u_target' } });
+    const out = await handleAiEndpoint('resetUserLimit', 'u_admin', { data: { targetUid: TARGET } });
     expect(out.status).toBe(200);
-    expect(ctx.resetDailyLimit).toHaveBeenCalledWith('u_target');
+    expect(ctx.resetDailyLimit).toHaveBeenCalledWith('u_admin', TARGET);
   });
 
   it('(3) не админ — отказ, счётчик не тронут', async () => {
     ctx.isAdmin.mockResolvedValue(false);
-    const out = await handleAiEndpoint('resetUserLimit', 'u_user', { data: { targetUid: 'u_target' } });
+    const out = await handleAiEndpoint('resetUserLimit', 'u_user', { data: { targetUid: TARGET } });
     expect(out.status).toBe(403);
     expect(ctx.resetDailyLimit).not.toHaveBeenCalled();
+  });
+
+  // DY10-1: бюджет исчерпан — отказ, а не тихий успех.
+  it('(4) бюджет сбросов исчерпан — 429', async () => {
+    ctx.resetDailyLimit.mockResolvedValueOnce('budget');
+    const out = await handleAiEndpoint('resetUserLimit', 'u_admin', { data: { targetUid: TARGET } });
+    expect(out.status).toBe(429);
   });
 });

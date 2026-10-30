@@ -22,7 +22,9 @@ export async function rebuildWordCloud(ownerId: string): Promise<void> {
   const db = await getLocalDb(ownerId);
 
   const allDocs = await db.getAllFromIndex('documents', 'by-guest', ownerId);
-  const docs = allDocs.filter(d => !d.trashedAt);
+  // Владелец 30.10: «скрыта от ИИ» убирает заметку и из облака слов — на экране
+  // её слова не всплывают (как и в подсказках главного экрана).
+  const docs = allDocs.filter(d => !d.trashedAt && !d.excludedFromAI);
   const docIds = new Set(docs.map(d => d.id));
   const allSummaries = await db.getAll('aiSummaries');
   const summaries = allSummaries.filter(s => docIds.has(s.documentId));
@@ -116,7 +118,9 @@ export function useArchiveWordCloud(): { wordCloud: WordCloudEntry[]; maxCount: 
         event.type === 'note.saved' ||
         event.type === 'note.deleted' ||
         event.type === 'note.trashed' ||
-        event.type === 'note.restored'
+        event.type === 'note.restored' ||
+        // Владелец 30.10: скрытую от ИИ заметку убрать из облака сразу, не через сутки.
+        event.type === 'note.excludedFromAI'
       ) {
         const uid = event.type === 'note.saved' && event.userId ? event.userId : ownerId;
         void rebuildWordCloud(uid).catch(() => {});

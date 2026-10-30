@@ -343,6 +343,19 @@ jobs:
         # в функции есть, а у anon права на исполнение нет.
         { for f in supabase/tests/_auth_setup.sql supabase/migrations/*.sql supabase/tests/rls.test.sql supabase/tests/server_stamp.test.sql supabase/tests/drafts_updated_at.test.sql supabase/tests/mobile_layout_access.test.sql supabase/tests/feature_flags.test.sql; do cat "$f"; echo; done; } \
           | docker exec -i "${{ job.services.postgres.id }}" psql -U postgres -v ON_ERROR_STOP=1
+    # DY10-5 (дейлик 30.10, «го» владельца): стражи номера rev (0045) — не остался
+    # ли null, не сдвинулись ли метки времени при заполнении, нет ли default у
+    # колонки и прав клиентов на sync_rev_seq; и два сеанса (замок пользователя,
+    # без взаимоблокировки). В общий поток не встраиваются: тест заново применяет
+    # 0045 через \ir, а проверке замков нужен второй сеанс. База — та же, что
+    # выше: миграции уже применены.
+    - name: sync_rev guards (0045)
+      run: |
+        set -euo pipefail
+        PG="${{ job.services.postgres.id }}"
+        docker cp supabase "$PG:/tmp/supabase"
+        docker exec -i "$PG" psql -U postgres -v ON_ERROR_STOP=1 -f /tmp/supabase/tests/sync_rev.test.sql
+        SYNC_REV_PSQL="docker exec -i $PG psql -U postgres" bash supabase/tests/sync_rev_concurrency.sh
 
   # MB-12: мобильные спеки (e2e/mobile/*.spec.ts) под проектом Mobile Chrome.
   # Отдельный джоб, а не шаг в build: спекам нужен живой стек (мобильный макет

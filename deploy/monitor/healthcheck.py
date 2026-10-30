@@ -173,6 +173,9 @@ else:
                        if '[api/handlers] 5' in line or '[api/handlers] unhandled error' in line)
     stream_failed = sum(1 for line in api_lines if 'streamText failed' in line)
     uncaught = sum(1 for line in api_lines if 'uncaughtException' in line)
+    # DY10-2: всякий 5xx через api/sendError.ts (в т. ч. ветка «хода мысли»).
+    api_5xx = sum(1 for line in api_lines if '[api-5xx] 5' in line)
+    handlers_5xx += api_5xx
     api_total = handlers_5xx + stream_failed + uncaught
     if api_total >= API_ALERT_ERRORS:
         problem('api_errors',

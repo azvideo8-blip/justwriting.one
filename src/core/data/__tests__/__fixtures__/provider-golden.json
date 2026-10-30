@@ -1308,7 +1308,7 @@
           "eq([\"store\",\"aiDialogues\"])",
           "order([\"store\",{\"ascending\":true}])",
           "order([\"key\",{\"ascending\":true}])",
-          "range([0,999])",
+          "range([0,49])",
           "<await>"
         ]
       }

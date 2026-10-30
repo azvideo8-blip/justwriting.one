@@ -168,40 +168,48 @@ export function DesktopWritingLayout() {
               </motion.div>
             )}
           </AnimatePresence>
-          {/* RA1-6: серия была только на телефоне; на десктопе её не было вовсе. */}
-          {!setupMode && session.status === 'idle' && (
-            <div className="shrink-0 mx-auto mb-2 flex flex-col items-center gap-1">
-              <StreakChip days={streakDays} />
-              {streakFreezeUsed && (
-                <span className="text-xs text-text-main/60" data-testid="streak-freeze-note">
-                  {t('home_streak_frozen')}
-                </span>
-              )}
-            </div>
-          )}
           <SyncUnsyncedBar
             userId={session.isGuest ? null : session.userId}
             className="shrink-0 mx-auto mb-2"
           />
           <CloudNotesBanner className="shrink-0 mx-auto mb-2 flex items-center gap-3 rounded-xl border border-text-main/10 bg-surface-card/90 px-4 py-2 text-sm text-text-main/70" />
-          <ReturnToWritingCard
-            note={returnNote}
-            hidden={Boolean(setupMode) || session.hasDraft}
-            className="shrink-0 mx-auto mb-2 flex items-center gap-3 rounded-xl border border-text-main/10 bg-surface-card/90 backdrop-blur-xl px-4 py-2 text-sm text-text-main/60"
-            onContinue={(doc) => void actions.handleContinueDocument(doc)}
-            onDismiss={dismissReturn}
-          />
-          {/* «В этот день» — строкой и без текста заметки (экран может быть
-              открыт при ком-то); только когда «Продолжить» нет. */}
-          {onThisDay && homeIdle && (
-            <div className="shrink-0 mx-auto mb-2 w-full max-w-xl">
-              <OnThisDayCard
-                sessions={[onThisDay]}
-                userId={session.userId}
-                showExcerpt={false}
-                compact
-                onOpen={(s) => void actions.handleContinueSessionOrDoc(s)}
+          {/* Владелец 30.10: серия и подсказка («Продолжить» или «В этот день») —
+              одной тихой строкой по ширине поля письма, а не стопкой плашек
+              посреди экрана. Слева серия, справа подсказка. */}
+          {!setupMode && session.status === 'idle' && (
+            <div
+              data-testid="home-status-row"
+              className="shrink-0 self-center flex items-center justify-between gap-4 px-4 text-[13px] text-text-main/60"
+              style={{ width: editorWidth < 100 ? `${editorWidth}%` : '100%' }}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <StreakChip days={streakDays} className="border-0 bg-transparent px-0 py-0 text-[13px] font-medium text-text-main/70" />
+                {streakFreezeUsed && (
+                  <span className="text-xs text-text-main/60" data-testid="streak-freeze-note">
+                    {t('home_streak_frozen')}
+                  </span>
+                )}
+              </div>
+              <ReturnToWritingCard
+                note={returnNote}
+                hidden={Boolean(setupMode) || session.hasDraft}
+                className="flex items-center gap-1 text-[13px] text-text-main/60"
+                onContinue={(doc) => void actions.handleContinueDocument(doc)}
+                onDismiss={dismissReturn}
               />
+              {/* «В этот день» — строкой и без текста заметки (экран может быть
+                  открыт при ком-то); только когда «Продолжить» нет. */}
+              {onThisDay && homeIdle && (
+                <div className="min-w-0 max-w-md">
+                  <OnThisDayCard
+                    sessions={[onThisDay]}
+                    userId={session.userId}
+                    showExcerpt={false}
+                    compact
+                    onOpen={(s) => void actions.handleContinueSessionOrDoc(s)}
+                  />
+                </div>
+              )}
             </div>
           )}
           <div style={{

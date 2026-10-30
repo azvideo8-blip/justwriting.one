@@ -19,16 +19,29 @@ export function resetAIDegradationSession(): void {
   sessionReportedCauses.clear();
 }
 
+// DY10-3: один список «лимит до завтра» — раньше коды перечислялись в двух
+// ветках, и REASONING_LIMIT (DY9-12) классифицировался как сбой сервера.
+const DAILY_LIMIT_CODES: ReadonlySet<string> = new Set(['DAILY_LIMIT', 'BULK_LIMIT', 'REASONING_LIMIT']);
+
+function dailyLimitCode(cause: unknown): string | null {
+  if (typeof cause === 'string') return DAILY_LIMIT_CODES.has(cause) ? cause : null;
+  if (cause && typeof cause === 'object') {
+    const c = cause as { code?: string; details?: { errorType?: string } };
+    if (c.code && DAILY_LIMIT_CODES.has(c.code)) return c.code;
+    if (c.details?.errorType && DAILY_LIMIT_CODES.has(c.details.errorType)) return c.details.errorType;
+  }
+  return null;
+}
+
 export function isDailyLimitError(cause: unknown): boolean {
   if (!cause) return false;
+  if (dailyLimitCode(cause)) return true;
   if (typeof cause === 'string') {
     const lower = cause.toLowerCase();
-    return cause === 'DAILY_LIMIT' || cause === 'BULK_LIMIT' || ((lower.includes('daily limit') || lower.includes('bulk operations limit')) && !lower.includes('rate limit'));
+    return (lower.includes('daily limit') || lower.includes('bulk operations limit')) && !lower.includes('rate limit');
   }
   if (typeof cause === 'object') {
     const c = cause as { code?: string; message?: string; details?: { errorType?: string } };
-    if (c.code === 'DAILY_LIMIT' || c.code === 'BULK_LIMIT') return true;
-    if (c.details?.errorType === 'DAILY_LIMIT' || c.details?.errorType === 'BULK_LIMIT') return true;
     const msg = (c.message || '').toLowerCase();
     return (msg.includes('daily limit') || msg.includes('bulk operations limit')) && !msg.includes('rate limit');
   }
@@ -37,8 +50,7 @@ export function isDailyLimitError(cause: unknown): boolean {
 
 export function classifyCause(cause: unknown): { category: AIDegradationCategory; code: string } {
   if (isDailyLimitError(cause)) {
-    const isBulk = cause === 'BULK_LIMIT' || (typeof cause === 'object' && cause !== null && ((cause as { code?: string }).code === 'BULK_LIMIT' || (cause as { details?: { errorType?: string } }).details?.errorType === 'BULK_LIMIT'));
-    return { category: 'daily_limit', code: isBulk ? 'BULK_LIMIT' : 'DAILY_LIMIT' };
+    return { category: 'daily_limit', code: dailyLimitCode(cause) ?? 'DAILY_LIMIT' };
   }
 
   let code = 'UNKNOWN';

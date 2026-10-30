@@ -196,6 +196,109 @@ export async function listUsersWithStatusLogic(
 
 const deleteUserSchema = z.object({ uid: z.string().uuid() });
 
+// C-6: уборка неактивированных приглашений — только по кнопке, без фоновой
+// задачи. Условие одно и то же в списке и в удалении: неподтверждённый
+// аккаунт с invited_at < now() - 30 days, не служебный.
+export const STALE_INVITE_DAYS = 30;
+
+export interface StaleInviteItem {
+  uid: string;
+  email: string;
+  invitedAt: string;
+}
+
+const staleInvitesSql = `
+  SELECT au.id AS uid, au.email, au.invited_at AS "invitedAt"
+    FROM auth.users au
+   WHERE au.invited_at IS NOT NULL
+     AND au.invited_at < now() - ($1::int * interval '1 day')
+     AND COALESCE(au.confirmed_at, au.email_confirmed_at) IS NULL
+     AND (au.encrypted_password IS NULL OR au.encrypted_password = '')
+     AND NOT EXISTS (SELECT 1 FROM public.service_accounts sa WHERE sa.uid = au.id)
+   ORDER BY au.invited_at ASC`;
+
+export async function listStaleInvitesLogic(
+  ctx: typeof postgresAiContext,
+  uid: string,
+  _data: unknown,
+): Promise<StaleInviteItem[]> {
+  if (!(await ctx.isAdmin(uid))) {
+    throw new AiError('permission-denied', 'Admin access required');
+  }
+  try {
+    const { rows } = await pool.query<{ uid: string; email: string; invitedAt: string | Date }>(
+      staleInvitesSql, [STALE_INVITE_DAYS],
+    );
+    return rows.map(r => ({
+      uid: r.uid,
+      email: r.email,
+      invitedAt: new Date(r.invitedAt).toISOString(),
+    }));
+  } catch (err: unknown) {
+    // Сбой чтения — не «ноль приглашений»: кнопка удаления не должна получить
+    // пустой список и объявить «удалено 0».
+    console.error('[listStaleInvites] error:', safeErrorShape(err));
+    throw new AiError('internal', 'Failed to list stale invites');
+  }
+}
+
+const deleteStaleInvitesSchema = z.object({ uids: z.array(z.string().uuid()).min(1).max(500) });
+
+export async function deleteStaleInvitesLogic(
+  ctx: typeof postgresAiContext,
+  uid: string,
+  data: unknown,
+): Promise<{ deleted: number }> {
+  if (!(await ctx.isAdmin(uid))) {
+    throw new AiError('permission-denied', 'Admin access required');
+  }
+  const parsed = deleteStaleInvitesSchema.safeParse(data);
+  if (!parsed.success) throw new AiError('invalid-argument', 'Invalid invite list');
+
+  let deleted = 0;
+  for (const target of parsed.data.uids) {
+    // Повторная проверка перед каждым удалением: между показом списка и
+    // подтверждением человек мог активироваться.
+    const still = await pool.query(
+      `SELECT 1 FROM auth.users au
+        WHERE au.id = $1
+          AND au.invited_at IS NOT NULL
+          AND au.invited_at < now() - ($2::int * interval '1 day')
+          AND COALESCE(au.confirmed_at, au.email_confirmed_at) IS NULL
+          AND (au.encrypted_password IS NULL OR au.encrypted_password = '')
+          AND NOT EXISTS (SELECT 1 FROM public.service_accounts sa WHERE sa.uid = au.id)`,
+      [target, STALE_INVITE_DAYS],
+    );
+    if ((still.rowCount ?? 0) === 0) continue;
+    // 30.10 (решение владельца): без FK C-3 удаление аккаунта входа оставляет
+    // строку профиля с почтой — её убираем тоже. И след в журнале админки, как у
+    // приглашения и удаления (DY8-3, DY10-1).
+    // Ревью 0.11.2: профиль и след — одной транзакцией и ДО удаления входа.
+    // Сорвётся удаление входа — повтор найдёт его снова (проверка выше смотрит
+    // auth.users). В обратном порядке сбой оставлял профиль с почтой навсегда.
+    const client = await pool.connect();
+    try {
+      await client.query('begin');
+      await client.query('delete from public.users where uid = $1', [target]);
+      await client.query(
+        'insert into public.admin_actions (admin_uid, action, target_uid) values ($1, $2, $3)',
+        [uid, 'delete_stale_invite', target],
+      );
+      await client.query('commit');
+    } catch (e) {
+      await client.query('rollback').catch(() => undefined);
+      throw e;
+    } finally {
+      client.release();
+    }
+    const { error } = await getSupabaseAdmin().auth.admin.deleteUser(target);
+    if (error) throw new AiError('internal', 'Failed to delete a stale invite');
+    deleted++;
+  }
+  return { deleted };
+}
+
+
 /**
  * 2026-10-05 (owner request): an admin deletes another account — the same rows,
  * in the same transaction and order as self-deletion (deleteUserRows). Never

@@ -29,6 +29,7 @@ import { useEncryptionSetup } from '../features/encryption/hooks/useEncryptionSe
 import { RecoveryCodeGate } from '../features/encryption/components/RecoveryCodeGate';
 import { setupGlobalErrorListeners } from '../shared/errors/reportError';
 import { ActivityLogBadge } from './ActivityLogBadge';
+import { LOCAL_DB_STALLED_EVENT } from '../core/storage/localDbStall';
 
 import { AppRoutes } from './AppRoutes';
 import { ConfirmDialogRenderer, useConfirmDialog } from '../shared/components/ConfirmDialog';
@@ -79,6 +80,18 @@ export function AppShell() {
     const onConverged = () => showToast(t('enc_password_converged'), 'success');
     window.addEventListener(VAULT_PASSWORD_CONVERGED_EVENT, onConverged);
     return () => window.removeEventListener(VAULT_PASSWORD_CONVERGED_EVENT, onConverged);
+  }, [showToast, t]);
+
+  // DY10-9: локальная база не отвечает — подсказка, раз в минуту, а не на каждую операцию.
+  useEffect(() => {
+    let shownAt = 0;
+    const onStalled = () => {
+      if (Date.now() - shownAt < 60_000) return;
+      shownAt = Date.now();
+      showToast(t('local_db_stalled'), 'error');
+    };
+    window.addEventListener(LOCAL_DB_STALLED_EVENT, onStalled);
+    return () => window.removeEventListener(LOCAL_DB_STALLED_EVENT, onStalled);
   }, [showToast, t]);
 
   // Выход перезагружает страницу — сообщение о нём показывает уже новая.

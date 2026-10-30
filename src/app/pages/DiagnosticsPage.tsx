@@ -13,6 +13,7 @@ import { AdminActionsTable } from '../../features/admin/components/AdminActionsT
 import { LoadingSpinner } from '../../shared/components/LoadingSpinner';
 import { useAuthStatus } from '../useAuthStatus';
 import { useDiagnosticsData, type Tab } from '../../features/ai/hooks/useDiagnosticsData';
+import { AdminUserService } from '../../core/services/AdminUserService';
 import { DatabaseExplorer } from '../../features/ai/components/DatabaseExplorer';
 import { EmbeddingDiagnostics } from '../../features/ai/components/EmbeddingDiagnostics';
 import { ProfileFacets } from '../../features/ai/components/ProfileFacets';
@@ -191,6 +192,34 @@ export function DiagnosticsPage() {
       showToast(t('admin_error_report_failed'), 'error');
     } finally {
       setReportingErrors(false);
+    }
+  };
+
+  const [staleInvitesLoading, setStaleInvitesLoading] = useState(false);
+
+  const handleStaleInvites = async () => {
+    setStaleInvitesLoading(true);
+    try {
+      const list = await AdminUserService.listStaleInvites();
+      if (list.length === 0) {
+        showToast(t('admin_stale_invites_none'), 'info');
+        return;
+      }
+      const shown = list.slice(0, 10).map(item => `• ${item.email}`).join('\n');
+      const ok = await confirm({
+        title: t('admin_stale_invites_title'),
+        message: `${t('admin_stale_invites_confirm', { count: list.length })}\n\n${shown}${list.length > 10 ? '\n…' : ''}`,
+        confirmLabel: t('admin_stale_invites_btn'),
+        cancelLabel: t('common_cancel'),
+      });
+      if (!ok) return;
+      const { deleted } = await AdminUserService.deleteStaleInvites(list.map(item => item.uid));
+      showToast(t('admin_stale_invites_done', { count: deleted }), 'success');
+    } catch (e) {
+      reportError(e, { action: 'deleteStaleInvites' });
+      showToast(t('admin_stale_invites_failed'), 'error');
+    } finally {
+      setStaleInvitesLoading(false);
     }
   };
 
@@ -476,6 +505,19 @@ export function DiagnosticsPage() {
                   )}
                 </Button>
               </form>
+            </div>
+
+            <div className="p-4 rounded-2xl border border-border-subtle bg-surface-base/50 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+              <div className="text-xs text-text-main/60 leading-relaxed">{t('admin_stale_invites_desc')}</div>
+              <Button
+                onClick={() => void handleStaleInvites()}
+                disabled={staleInvitesLoading}
+                data-testid="stale-invites-btn"
+                className="shrink-0 px-3 py-1.5 rounded-xl border border-border-subtle text-text-main/70 text-xs font-semibold hover:text-text-main transition-colors disabled:opacity-50"
+              >
+                {staleInvitesLoading ? <Loader2 size={13} className="animate-spin" /> : null}
+                {t('admin_stale_invites_btn')}
+              </Button>
             </div>
 
             <div className="space-y-3">

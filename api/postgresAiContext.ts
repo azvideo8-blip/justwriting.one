@@ -274,11 +274,45 @@ async function getDailyLimitCount(uid: string): Promise<{ used: number; reasonin
 
 // DY9-9: кнопка админа «сбросить дневной лимит». Только чат и рассуждения —
 // то, что админка показывает; фоновый пул и общий котёл не трогаются.
-async function resetDailyLimit(uid: string): Promise<void> {
-  await pool.query(
-    `DELETE FROM public.ai_daily_limit WHERE uid = $1 AND day = $2 AND kind IN ('chat', 'reasoning')`,
-    [uid, today()],
-  );
+// DY10-1: как приглашение (DY8-3) — след в admin_actions и почасовой бюджет,
+// в одной транзакции со сбросом: без следа сброса нет.
+const ADMIN_LIMIT_RESETS_PER_HOUR = 20;
+async function resetDailyLimit(adminUid: string, targetUid: string): Promise<'ok' | 'budget' | 'busy'> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    // Неблокирующий замок, как у приглашения (DY8-3): ждущий замок держал бы
+    // соединение пула.
+    const lock = await client.query('select pg_try_advisory_xact_lock(hashtext($1)) as locked', [`reset_limit:${adminUid}`]);
+    if (!(lock.rows[0] as { locked?: boolean } | undefined)?.locked) {
+      await client.query('ROLLBACK');
+      return 'busy';
+    }
+    const used = await client.query(
+      `select count(*)::int as used from public.admin_actions
+        where admin_uid = $1 and action = 'reset_user_limit' and at > now() - interval '1 hour'`,
+      [adminUid],
+    );
+    if (((used.rows[0] as { used?: number } | undefined)?.used ?? 0) >= ADMIN_LIMIT_RESETS_PER_HOUR) {
+      await client.query('ROLLBACK');
+      return 'budget';
+    }
+    await client.query(
+      `DELETE FROM public.ai_daily_limit WHERE uid = $1 AND day = $2 AND kind IN ('chat', 'reasoning')`,
+      [targetUid, today()],
+    );
+    await client.query(
+      'insert into public.admin_actions (admin_uid, action, target_uid) values ($1, $2, $3)',
+      [adminUid, 'reset_user_limit', targetUid],
+    );
+    await client.query('COMMIT');
+    return 'ok';
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 // ── Bulk limit (reuse per-user table with a separate kind) ────────────────────
@@ -460,9 +494,11 @@ async function checkAndIncrementLimit(
   // DY9-11: отказ ничего не списал — и кулдаун не держит. Иначе следующий запрос
   // в пределах 10 с читается как «слишком часто», а не «лимит до завтра»
   // (как R7Q-024(a) в фоновом входе, но там окно и потолок в одной транзакции).
-  await resetCooldown(uid);
   if (verdict.reason === 'unauthorized') return 'UNAUTHORIZED';
+  // Дейлик 30.10: «не прочитали лимит» — не отказ по лимиту; окно частоты
+  // остаётся, иначе при больной БД запросы шли бы без 10-секундного окна.
   if (verdict.reason === 'unavailable') return 'UNAVAILABLE';
+  await resetCooldown(uid);
   return reasoning ? 'REASONING_LIMIT' : 'DAILY_LIMIT';
 }
 

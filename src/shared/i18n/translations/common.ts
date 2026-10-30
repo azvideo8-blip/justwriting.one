@@ -175,6 +175,7 @@ export const commonTranslations: Translations = {
   enc_unlock_submit: { ru: 'Разблокировать', en: 'Unlock' },
   enc_remember_device: { ru: 'Запомнить на этом устройстве (не спрашивать при перезагрузке; автоблокировка через 1 час бездействия)', en: "Remember on this device (don't ask on reload; auto-locks after 1h inactivity)" },
   enc_setup_title: { ru: 'Настрой шифрование', en: 'Set Up Encryption' },
+  local_db_stalled: { ru: 'База на этом устройстве не отвечает. Закрой другие вкладки с сайтом и перезагрузи страницу — сохранённое не пропадёт.', en: 'Storage on this device is not responding. Close other tabs with the site and reload the page — nothing saved will be lost.' },
   enc_password_converged: { ru: 'Готово: заметки теперь открываются твоим новым паролем — он один для входа и для заметок.', en: 'Done: your notes now open with your new password — one password for signing in and for your notes.' },
   enc_setup_wrong_account_password: { ru: 'Это не пароль от аккаунта. Введи тот, с которым входишь.', en: 'This is not your account password. Enter the one you sign in with.' },
   enc_setup_subtitle: { ru: 'Введи пароль от аккаунта — из него строится ключ шифрования. Один пароль и для входа, и для заметок.', en: 'Enter your account password — the encryption key is derived from it. One password for signing in and for your notes.' },

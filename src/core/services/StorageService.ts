@@ -9,6 +9,7 @@ import { ProfileUpdater } from './ProfileUpdater';
 import { SaveDocumentData, StorageState } from './storageTypes';
 import { withTimeout } from '../../shared/utils/withTimeout';
 import { reportError } from '../../shared/errors/reportError';
+import { watchLocalDbStall } from '../storage/localDbStall';
 import { getEncryptionEnabled } from '../crypto/cryptoHelpers';
 import { isVersionContentTooLarge } from './VersionService';
 import { cloudSyncEnabled } from '../sync/cloudSyncEnabled';
@@ -121,7 +122,8 @@ async function deleteDocumentUnlocked(userId: string, localId?: string, cloudId?
 
 export const StorageService = {
   async saveNew(userId: string, data: SaveDocumentData): Promise<{ localId: string }> {
-    return LocalStorageService.saveNew(userId, data);
+    // DY10-9: сохранение, вставшее на локальной базе, не молчит.
+    return watchLocalDbStall('saveNew', LocalStorageService.saveNew(userId, data));
   },
 
   async saveVersion(userId: string, documentId: string, data: SaveDocumentData): Promise<SaveVersionResult> {
@@ -256,11 +258,13 @@ export type SaveVersionResult = {
 };
 
 async function _doSaveVersion(userId: string, documentId: string, data: SaveDocumentData): Promise<SaveVersionResult> {
-  const db = await getLocalDb(userId);
   const now = Date.now();
   const totalWords = data.documentWordCount ?? data.wordCount;
 
-  const res = await LocalStorageService.saveVersionToLocal(db, documentId, data, now);
+  // DY10-9: сторож только на локальной части — отправка в облако (до 60 с на
+  // плохой сети) не «зависшая база».
+  const res = await watchLocalDbStall('saveVersion',
+    getLocalDb(userId).then(db => LocalStorageService.saveVersionToLocal(db, documentId, data, now)));
   if (!res.ok) {
     throw new DOMException('Local save failed (quota exceeded)', 'QuotaExceededError');
   }

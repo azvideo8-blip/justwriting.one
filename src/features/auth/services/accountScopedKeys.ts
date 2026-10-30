@@ -59,6 +59,8 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
     `ai_send_portrait_in_dialogue_${uid}`,
     // дата завершения фонового восстановления заметок и AI (LS-5)
     `ai_restore_done_date_${uid}`,
+    // Журнал владельца 30.10: пауза после неудачного полного прохода ИИ-данных.
+    `ai_restore_retry_after_${uid}`,
     // C2: то же для заметок отдельно
     `notes_restore_done_date_${uid}`,
     // флаг завершения миграции legacy IndexedDB (LS-5)

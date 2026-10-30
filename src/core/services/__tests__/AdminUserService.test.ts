@@ -166,4 +166,17 @@ describe('AdminUserService', () => {
     expect(result.statusesFailed).toBe(true);
     expect(result.users).toHaveLength(1);
   });
+
+  // 30.10: список уборки — до 500, сервер принимает до 100 за запрос → пачки.
+  // Мутация: одним запросом → красный.
+  it('deleteStaleInvites шлёт пачками по 100 и суммирует удалённое', async () => {
+    vi.mocked(callAi).mockReset();
+    vi.mocked(callAi).mockImplementation(async (_e: string, d: unknown) => ({ deleted: (d as { uids: string[] }).uids.length }) as never);
+    const uids = Array.from({ length: 250 }, (_, i) => `u${i}`);
+    const res = await AdminUserService.deleteStaleInvites(uids);
+    expect(res).toEqual({ deleted: 250 });
+    const sizes = vi.mocked(callAi).mock.calls.map(c => (c[1] as { uids: string[] }).uids.length);
+    expect(sizes).toEqual([100, 100, 50]);
+  });
 });
+

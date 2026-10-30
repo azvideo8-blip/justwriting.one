@@ -17,6 +17,23 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.2',
+    date: '2026-10-30',
+    items: [
+      { category: 'improvement', ru: 'На компьютере серия и «Продолжить» стоят одной тихой строкой над полем письма, а не плашками посреди экрана.', en: 'On desktop, the streak and «Continue» sit in one quiet line above the writing field instead of cards in the middle of the screen.' },
+      { category: 'improvement', ru: 'ИИ внимательнее к записям: держит условие, которое вы ставите своему решению, замечает главное событие записи и не выдаёт свой прошлый ответ за вашу запись.', en: 'The AI reads more carefully: it keeps track of conditions you attach to a decision, notices the main event of an entry and no longer passes off its own earlier reply as your entry.' },
+      { category: 'improvement', ru: '«Поищи похожее»: если в заметке сказано «в одной из ранних заметок про…», ИИ ищет именно про это.', en: '«Find similar»: if a note says «in one of my earlier notes about…», the AI searches for exactly that.' },
+      { category: 'fix', ru: 'Если ответ ИИ в трудном разговоре оборвался из-за связи, повторный ответ строится с теми же правилами безопасности.', en: 'If an AI reply in a difficult conversation was cut off by the connection, the retry follows the same safety rules.' },
+      { category: 'fix', ru: 'На телефоне данные ИИ приходят из облака небольшими порциями — меньше трафика и обрывов при слабой связи.', en: 'On the phone, AI data comes from the cloud in small portions — less traffic and fewer failures on a weak connection.' },
+      { category: 'fix', ru: 'После ввода пароля сейфа недостающие заметки подтягиваются из облака в тот же день.', en: 'After you unlock the vault, missing notes come from the cloud the same day.' },
+      { category: 'improvement', ru: 'Облако слов не показывает слова заметок, скрытых от ИИ.', en: 'The word cloud no longer shows words from notes hidden from AI.' },
+      { category: 'improvement', ru: 'Выгрузка «Только с этого устройства» помечена в имени файла и внутри.', en: 'A «This device only» export is marked in the file name and inside the file.' },
+      { category: 'improvement', ru: 'Если хранилище на устройстве перестало отвечать, приложение подскажет, что делать, вместо бесконечного «сохраняю».', en: 'If storage on the device stops responding, the app tells you what to do instead of saving forever.' },
+      { category: 'improvement', ru: 'Ссылки из писем — приглашение и сброс пароля — действуют 3 дня.', en: 'Links in emails — invitations and password resets — are valid for 3 days.' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.11.1',
     date: '2026-10-29',
     announce: false,

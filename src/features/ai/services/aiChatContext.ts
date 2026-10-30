@@ -12,7 +12,7 @@ import { AIService } from './AIService';
 import { reportError } from '../../../shared/errors/reportError';
 import { detectRisk } from '../utils/riskDetect';
 import { analyzeDoors, aggregateDoors, doorLabel } from '../utils/contactDoors';
-import { shouldRunFullSearch, asksForSimilarNotes, asksForOtherNotes, HIDDEN_NOTE_TITLE } from '../utils/aiChatTransport';
+import { shouldRunFullSearch, asksForSimilarNotes, asksForOtherNotes, referencedEarlierTopics, HIDDEN_NOTE_TITLE } from '../utils/aiChatTransport';
 import { detectPersonMentions, buildPersonQuotesBlock, personQuoteIds, type PersonNote } from './chatContext/personQuotes';
 import { isSmallTalkTurn, PSYCHE_PERSONAS } from '../utils/smallTalk';
 import { cosineSimilarity } from '../utils/vectorSearch';
@@ -415,11 +415,18 @@ export function useAIChatContext(personaId: string): {
         // тема» — тема ответа, а не всё, что разобрала заметка. Диагноз на
         // синтетическом архиве: запрос из разбора многотемной заметки давал
         // блок из 9 заметок, где 6 — про другие темы той же заметки.
-        const fromPost = await postTopicQuery(
-          params.messageHistory,
-          async id => (await docAt(id)) ?? undefined,
-        );
-        if (fromPost) {
+        // Случай #20 (20.1): тема из ответа — только у Редактора, его ответ и есть
+        // пост. У остальных персон ответ — разговор о человеке; поиск по нему
+        // уводил от темы заметки.
+        const fromPost = effectivePersonaId === 'editor'
+          ? await postTopicQuery(params.messageHistory, async id => (await docAt(id)) ?? undefined)
+          : undefined;
+        // Случай #20 (20.1): заметка сама ссылается на ранние записи про X —
+        // похожее ищем по X: человек уже назвал, что искать.
+        const referenced = referencedEarlierTopics(attachedContent);
+        if (referenced.length > 0) {
+          similarNotesQuery = referenced.join('. ');
+        } else if (fromPost) {
           similarNotesQuery = fromPost;
         } else {
           const summary = subjectId ? await summaryAt(subjectId) : undefined;

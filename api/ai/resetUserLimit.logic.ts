@@ -5,7 +5,8 @@ import { z } from 'zod';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 
 const inputSchema = z.object({
-  targetUid: z.string().regex(/^[a-zA-Z0-9_-]{1,128}$/),
+  // DY10-1: target_uid в admin_actions — uuid.
+  targetUid: z.string().uuid(),
 });
 
 export async function resetUserLimitLogic(ctx: AiContext, uid: string, data: unknown): Promise<unknown> {
@@ -16,6 +17,9 @@ export async function resetUserLimitLogic(ctx: AiContext, uid: string, data: unk
   if (!parsed.success) {
     throw new AiError('invalid-argument', 'Invalid arguments.');
   }
-  await ctx.resetDailyLimit(parsed.data.targetUid);
+  // DY10-1: след в admin_actions и бюджет — внутри resetDailyLimit, одной транзакцией.
+  const verdict = await ctx.resetDailyLimit(uid, parsed.data.targetUid);
+  if (verdict === 'budget') throw new AiError('resource-exhausted', 'Не больше 20 сбросов лимита в час. Повторите позже.');
+  if (verdict === 'busy') throw new AiError('resource-exhausted', 'Сброс уже выполняется. Повторите через минуту.');
   return { ok: true };
 }

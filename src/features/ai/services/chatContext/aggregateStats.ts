@@ -45,7 +45,8 @@ export async function buildAggregateThemeBlock(deps: AggregateDeps): Promise<str
         score = cosineSimilarity(localQueryEmb, t.themeVector);
       }
       if (queryLower.includes(t.theme.toLowerCase())) {
-        score += 0.2;
+        // DY10-8: у темы с другого устройства вектора нет — имя в вопросе решает само.
+        score += t.themeVector?.length > 0 ? 0.2 : 1;
       }
       return { ...t, score };
     })

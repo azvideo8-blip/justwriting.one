@@ -39,6 +39,8 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
 
   // Ревью 0.10.7: при сбое облака человек может явно выгрузить то, что есть на
   // устройстве (офлайн или сервер лёг) — неполнота названа на кнопке.
+  const localOnlyMark = () => ({ suffix: t('settings_export_local_only_suffix'), note: t('settings_export_local_only_note') });
+
   const handleExportAll = async (localOnly = false) => {
     setLoading(true);
     setCloudExportError(null);
@@ -66,7 +68,7 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
         untitled: t('export_untitled'),
         untitledFilename: t('export_filename_default'),
       };
-      const { exported, skipped } = await exportAllAsZip(sessions, strings);
+      const { exported, skipped } = await exportAllAsZip(sessions, strings, cloudLoadFailed ? localOnlyMark() : undefined);
       showToast(t('settings_export_all_done', { count: exported }), 'success');
       if (skipped > 0) {
         showToast(t('settings_export_all_skipped', { count: skipped }), 'error');
@@ -100,9 +102,12 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
       };
       const exportableSessions = sessions.filter(s => !s._locked && !s._decryptionError && !s._contentError && !s._contentNotLoaded);
       const skippedCount = sessions.length - exportableSessions.length;
+      const mark = cloudLoadFailed ? localOnlyMark() : undefined;
       const exportData = {
         exportedAt: new Date().toISOString(),
         appVersion: APP_VERSION,
+        // Владелец 30.10: выгрузка без облака неполная — так и сказано в файле.
+        ...(mark ? { localOnly: true, note: mark.note } : {}),
         profile: profileData,
         sessions: exportableSessions
           .map(s => ({
@@ -120,7 +125,7 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
           })),
       };
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-      downloadBlob(blob, `justwriting-export-${new Date().toISOString().slice(0, 10)}.json`);
+      downloadBlob(blob, `justwriting-export-${new Date().toISOString().slice(0, 10)}${mark ? `_${mark.suffix}` : ''}.json`);
       showToast(t('settings_export_all_done', { count: exportableSessions.length }), 'success');
       if (skippedCount > 0) {
         showToast(t('settings_export_all_skipped', { count: skippedCount }), 'error');

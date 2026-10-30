@@ -148,4 +148,23 @@ describe('D-2: экспорт при сбое облака', () => {
     expect(mocks.exportAllAsZip).not.toHaveBeenCalled();
     expect(mocks.downloadBlob).not.toHaveBeenCalled();
   });
+
+  // Владелец 30.10: выгрузка «Только с этого устройства» помечена — хвост в имени
+  // и пояснение внутри. Мутация: не передавать пометку → красный.
+  it('«Только с этого устройства»: ZIP и JSON помечены как неполные', async () => {
+    const { LocalDocumentService } = await import('../../../../core/services/LocalDocumentService');
+    vi.mocked(LocalDocumentService.getDocumentsByOwner).mockResolvedValue([{
+      id: 'local-1', guestId: 'u1', title: 'MARKER_LOCAL', currentVersion: 1, totalWords: 2, totalDuration: 60,
+      sessionsCount: 1, firstSessionAt: Date.now(), lastSessionAt: Date.now(), tags: [], content: 'локальный текст',
+    }] as never);
+    mocks.getDocuments.mockRejectedValue(new Error('MARKER_D2_CLOUD'));
+    renderWithProviders(<AccountExportSection userId="u1" />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Экспортировать всё в ZIP/ }));
+    await waitFor(() => expect(screen.getByText(/Облако не прочиталось/)).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: /Только с этого устройства/ }));
+    await waitFor(() => expect(mocks.exportAllAsZip).toHaveBeenCalled());
+    expect(mocks.exportAllAsZip.mock.calls[0]![2]).toEqual({ suffix: 'только-это-устройство', note: expect.stringContaining('Облако было недоступно') });
+  });
 });
+

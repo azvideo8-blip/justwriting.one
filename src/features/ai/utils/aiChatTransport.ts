@@ -168,6 +168,31 @@ export function asksForSimilarNotes(text: string): boolean {
   return !namesSearchTopic(text);
 }
 
+/**
+ * Случай #20 (20.1, владелец 29.10): заметка сама ссылается на прошлые записи —
+ * «в одной из ранних заметок про X», «в прошлых записях о X», «раньше писал про X».
+ * Такая ссылка и есть предмет поиска похожего: ищем по X, а не по разбору всей
+ * заметки. Возвращает темы по порядку, без повторов; X — до 6 слов.
+ */
+const EARLIER_NOTES_REF = /(?:(?:в|из)\s+(?:одной\s+из\s+|одну\s+из\s+|нескольких\s+|паре\s+)?(?:своих\s+|моих\s+)?(?:ранних|прошлых|предыдущих|старых|давних|прежних)\s+(?:заметок|заметках|записей|записях)|(?:раньше|ранее|уже)\s+писал[аи]?|писал[аи]?\s+(?:раньше|ранее|уже))\s+(?:про|об|обо|о)\s+([^.,;:!?\n«»"()]{3,80})/giu;
+
+const TOPIC_STOP = /^(и|а|но|где|когда|что|как|там|тогда|я|ты|мы|он|она|они|уже|это|этого|всё|все|был|была|было|были|писал[аи]?|разбирал[аи]?)$/iu;
+
+export function referencedEarlierTopics(content: string): string[] {
+  const topics: string[] = [];
+  for (const m of content.matchAll(EARLIER_NOTES_REF)) {
+    // Тема — до первого служебного слова: «про отца я уже это разбирал» → «отца».
+    const words: string[] = [];
+    for (const w of (m[1] ?? '').trim().split(/\s+/)) {
+      if (TOPIC_STOP.test(w) || words.length === 6) break;
+      words.push(w);
+    }
+    const topic = words.join(' ');
+    if (topic.length >= 3 && !topics.some(t => t.toLowerCase() === topic.toLowerCase())) topics.push(topic);
+  }
+  return topics;
+}
+
 // A chat message sent to the API is capped at 10K chars. An attached note is
 // always collapsed to its marker + question — its text travels via
 // documentContent — and a hard slice is the final safety net.

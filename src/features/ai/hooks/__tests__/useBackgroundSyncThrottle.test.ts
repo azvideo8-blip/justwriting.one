@@ -75,6 +75,48 @@ describe('AUD-13 restore throttle is per-account and only after success', () => 
     expect(localStorage.getItem('notes_restore_done_date_u_throttle_1')).toBeNull();
   });
 
+  // Журнал владельца 30.10: упавший полный проход ИИ-данных (десятки МБ) шёл
+  // заново каждые 120 с. Теперь пауза 30 минут. Мутация: убрать проверку
+  // retryAfter → красный (второй полный проход через 2 минуты).
+  it('после неудачного полного прохода ИИ-данных следующий — не раньше чем через 30 минут', async () => {
+    mockRestore.mockResolvedValue({ restored: 0, hasMore: false });
+    mockRestoreAi.mockResolvedValue({ skippedLocked: false, sectionFailed: true, failed: 0 });
+    const fullCalls = () => mockRestoreAi.mock.calls.filter(c => c[1] === undefined).length;
+
+    // Каждый монтаж — отдельный проход (в этих подменах повтор по опросу не идёт).
+    const first = renderHook(() => useBackgroundSync());
+    await vi.advanceTimersByTimeAsync(5_100);
+    first.unmount();
+    expect(fullCalls()).toBe(1);
+    const retryAfter = Number(localStorage.getItem('ai_restore_retry_after_u_throttle_1'));
+    expect(retryAfter - Date.now(), 'пауза не выставлена').toBeGreaterThan(29 * 60_000);
+
+    const second = renderHook(() => useBackgroundSync());
+    await vi.advanceTimersByTimeAsync(5_100);
+    second.unmount();
+    expect(fullCalls(), 'полный проход повторился внутри паузы').toBe(1);
+
+    localStorage.setItem('ai_restore_retry_after_u_throttle_1', String(Date.now() - 1));
+    const third = renderHook(() => useBackgroundSync());
+    await vi.advanceTimersByTimeAsync(5_100);
+    third.unmount();
+    expect(fullCalls(), 'после паузы попытка снова идёт').toBe(2);
+  });
+
+  // Дейлик 30.10 Н-4 (DY10-4): C2 разделил отметки и потерял страж «сейф заперт».
+  // Проход до ввода пароля ставил отметку «заметки на сегодня восстановлены» —
+  // после разблокировки автоматика молчала до полуночи. Мутация: убрать
+  // `&& !locked` → красный.
+  it('запертый сейф не ставит отметку восстановления заметок', async () => {
+    mockRestore.mockResolvedValue({ restored: 0, hasMore: false, locked: true });
+
+    renderHook(() => useBackgroundSync());
+    await vi.advanceTimersByTimeAsync(5_100);
+
+    expect(mockRestore).toHaveBeenCalled();
+    expect(localStorage.getItem('notes_restore_done_date_u_throttle_1')).toBeNull();
+  });
+
   // C2: битый ряд в облаке держит `hasMore` (неполный список) сутками. С общей
   // отметкой полный restoreAIDataFromCloud шёл каждый проход. Мутация: вернуть
   // общую отметку (ИИ-ключ только при полных заметках) → красный.

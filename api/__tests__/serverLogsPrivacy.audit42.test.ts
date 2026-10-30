@@ -255,7 +255,7 @@ describe('W-4: места печати сбоя провайдера', () => {
       return { pipeTextStreamToResponse: vi.fn() };
     });
     await sendStream();
-    expect(loggedText()).toContain('[api/chat] streamText failed: name=Error');
+    expect(loggedText()).toContain('[api/chat] provider failed before response: name=Error');
     expect(loggedMarkers()).toEqual([]);
   });
 
@@ -267,7 +267,7 @@ describe('W-4: места печати сбоя провайдера', () => {
       pipeTextStreamToResponse: vi.fn(),
     }));
     await sendStream();
-    expect(loggedText()).toContain('[api/chat] streamText failed before response started: name=RangeError');
+    expect(loggedText()).toContain('[api/chat] provider failed before response started: name=RangeError');
     expect(loggedMarkers()).toEqual([]);
   });
 

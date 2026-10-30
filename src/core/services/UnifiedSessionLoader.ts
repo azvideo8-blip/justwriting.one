@@ -9,6 +9,7 @@ import { maybeDecrypt, DecryptionError, getEncryptionEnabled } from '../crypto/c
 import { toDate } from '../utils/dateUtils';
 import { reportError } from '../../shared/errors/reportError';
 import { getLocalDb } from '../storage/localDb';
+import { watchLocalDbStall } from '../storage/localDbStall';
 import pLimit from 'p-limit';
 
 interface LoadedSession extends Session {
@@ -51,8 +52,9 @@ export async function loadAllSessions(
 
   const pendingDocIds = new Set<string>();
   try {
-    const db = await getLocalDb(userId);
-    const queue = await db.getAll('syncQueue');
+    // DY10-9: «Заметки» висели на чтении локальной базы без ошибки.
+    const db = await watchLocalDbStall('loadAllSessions_openDb', getLocalDb(userId));
+    const queue = await watchLocalDbStall('loadAllSessions_syncQueue', db.getAll('syncQueue'));
     for (const item of queue) {
       if (item.documentId && !item.id.startsWith('lock_cloud_')) {
         pendingDocIds.add(item.documentId);
@@ -65,7 +67,7 @@ export async function loadAllSessions(
   const idsToQuery = user ? [user.uid, userId] : [userId];
 
   for (const uid of idsToQuery) {
-    const localDocs = await LocalDocumentService.getDocumentsByOwner(uid);
+    const localDocs = await watchLocalDbStall('loadAllSessions_documents', LocalDocumentService.getDocumentsByOwner(uid));
     const localByCloudId = new Set(localDocs.filter(d => d.linkedCloudId).map(d => d.linkedCloudId!));
     // Второй ключ дедупликации — канонический uuid. В облаке id документа И
     // ЕСТЬ этот uuid (см. карту полей: id ↔ uuid), а linkedCloudId проставляется

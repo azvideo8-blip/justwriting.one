@@ -18,7 +18,7 @@ import { summarizeFacetLogic } from './ai/summarizeFacet.logic';
 import { validateCustomPromptLogic } from './ai/validateCustomPrompt.logic';
 import { deriveTaxonomyLogic } from './ai/deriveTaxonomy.logic';
 import { deleteAccountLogic } from './account';
-import { adminDeleteUserLogic, inviteUserLogic, listAdminActionsLogic, listUsersWithStatusLogic } from './admin/admin.logic';
+import { adminDeleteUserLogic, inviteUserLogic, listAdminActionsLogic, listUsersWithStatusLogic, listStaleInvitesLogic, deleteStaleInvitesLogic } from './admin/admin.logic';
 import { safeErrorShape } from '../src/shared/ai/errorShape.js';
 import { CONSENT_EXEMPT_ENDPOINTS } from '../src/shared/ai/aiPolicy.js';
 
@@ -50,6 +50,8 @@ const LOGIC_MAP: Record<string, LogicFn> = {
   inviteUser: inviteUserLogic,
   listUsersWithStatus: listUsersWithStatusLogic,
   listAdminActions: listAdminActionsLogic,
+  listStaleInvites: listStaleInvitesLogic,
+  deleteStaleInvites: deleteStaleInvitesLogic,
   adminDeleteUser: adminDeleteUserLogic,
 };
 

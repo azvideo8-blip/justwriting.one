@@ -89,3 +89,38 @@ describe('2.1 word-cloud owner scoping', () => {
     expect(getAllFromIndex).toHaveBeenCalledWith('versions', 'by-document', 'd2');
   });
 });
+
+// Владелец 30.10: заметка, скрытая от ИИ, в облако слов не попадает.
+// Мутация: убрать `!d.excludedFromAI` из фильтра → красный.
+describe('облако слов без скрытых от ИИ', () => {
+  it('слова скрытой заметки не попадают в облако', async () => {
+    getAllFromIndex.mockImplementation(async (store?: string, _i?: string, val?: string) => {
+      if (store === 'documents') return [
+        { id: 'open', guestId: 'u_owner' },
+        { id: 'hidden', guestId: 'u_owner', excludedFromAI: true },
+      ];
+      if (store === 'versions') return [{ version: 1, content: val === 'hidden' ? 'секретслово секретслово секретслово' : 'обычноеслово обычноеслово' }];
+      return [];
+    });
+    await rebuildWordCloud('u_owner');
+    const cloud = JSON.parse(localStorage.getItem('cached_word_cloud_v2:u_owner') ?? '[]') as { word: string }[];
+    expect(cloud.map(e => e.word)).toContain('обычноеслово');
+    expect(cloud.map(e => e.word)).not.toContain('секретслово');
+    getAllFromIndex.mockImplementation(async () => []);
+  });
+});
+
+// Мутация: убрать note.excludedFromAI из списка событий → красный.
+describe('облако перестраивается, когда заметку скрыли от ИИ', () => {
+  it('событие note.excludedFromAI → пересборка', async () => {
+    const { emitDomainEvent } = await import('../../../../core/events/domainEvents');
+    localStorage.setItem('cached_word_cloud_v2:u_owner', JSON.stringify([{ word: 'свежее', count: 5 }]));
+    localStorage.setItem('cached_word_cloud_v2:u_owner:timestamp', String(Date.now()));
+    renderHook(() => useArchiveWordCloud());
+    await new Promise(r => setTimeout(r, 20));
+    getAllFromIndex.mockClear();
+    emitDomainEvent({ type: 'note.excludedFromAI', documentId: 'd1', excluded: true });
+    await waitFor(() => expect(getAllFromIndex).toHaveBeenCalledWith('documents', 'by-guest', 'u_owner'));
+  });
+});
+

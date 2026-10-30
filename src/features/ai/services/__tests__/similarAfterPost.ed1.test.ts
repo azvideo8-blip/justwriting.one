@@ -8,6 +8,8 @@ import { AIEmbeddingService } from '../../services/AIEmbeddingService';
 import { AIService } from '../../services/AIService';
 import * as noteRetriever from '../../utils/noteRetriever';
 import { linkedNote } from '../../../../test/attachedTurnFixtures';
+import { setIndexingConsent } from '../../../../core/ai/indexingConsent';
+import { getCurrentUser } from '../../../../core/auth';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../shared/i18n', () => ({ useLanguage: () => ({ language: 'ru', t: (k: string) => k }) }));
@@ -91,11 +93,11 @@ async function seed(extra: Record<string, Record<string, unknown>> = {}) {
   vi.spyOn(AIService, 'rerank').mockResolvedValue({ ok: false, error: 'SERVER_ERROR' } as never);
 }
 
-async function run(history: Array<{ role: 'user' | 'assistant'; content: string }>) {
-  const { result } = renderHook(() => useAIChatContext('editor'));
+async function run(history: Array<{ role: 'user' | 'assistant'; content: string }>, persona = 'editor', attachedText = CONTENT[ATTACHED]!) {
+  const { result } = renderHook(() => useAIChatContext(persona));
   return result.current.buildContext({
     text: TURN,
-    attached: linkedNote(ATTACHED, CONTENT[ATTACHED]!),
+    attached: linkedNote(ATTACHED, attachedText),
     mood: undefined,
     messageHistory: history,
     isFirstTurn: history.length === 0,
@@ -193,3 +195,52 @@ describe('ED-1: после поста ищем по теме поста', () => 
     expect(idx('Скалодром, зацепы'), 'пост-тематическая заметка должна идти ближе к запросу').toBeGreaterThan(idx('Роман про архивиста'));
   });
 });
+
+// Случай #20 (20.1, владелец 29.10): тема из ответа ассистента берётся в запрос
+// «похожих записей» только у Редактора — его ответ и есть пост. У остальных ответ
+// — разговор о человеке, и поиск по нему уводил от темы заметки.
+// Мутация: убрать проверку персоны → (1) красный.
+describe('C20-1: тема из ответа — только у Редактора; векторизуется построенный запрос', () => {
+  beforeEach(() => { vi.restoreAllMocks(); });
+
+  it('(1) не Редактор: после ответа ИИ запрос строится из разбора заметки, а не из ответа', async () => {
+    await seed();
+    const spy = vi.spyOn(noteRetriever, 'searchNotesMulti');
+    await run([
+      { role: 'user', content: 'что скажешь про этот день' },
+      { role: 'assistant', content: POST },
+    ], 'cbt');
+    const joined = queryOf(spy.mock.calls).join(' ');
+    expect(joined).toContain('Отчётность');
+    expect(joined).toContain('Ремонт ванной');
+    expect(joined).not.toContain('терпением к мелким зацепам');
+  });
+
+  it('(2) в эмбеддинг поиска уходит построенный запрос, а не текст реплики', async () => {
+    await seed();
+    // Векторный поиск идёт только с согласием на индексацию.
+    setIndexingConsent(getCurrentUser()?.uid, 'granted');
+    await run([], 'editor');
+    const embedded = vi.mocked(AIService.embed).mock.calls.map(c => String((c[0] as { content: string }).content));
+    expect(embedded.some(t => t.includes('Отчётность') && t.includes('Ремонт ванной')), `векторизовано: ${JSON.stringify(embedded)}`).toBe(true);
+  });
+});
+
+// Случай #20 (20.1): заметка сама ссылается на ранние записи про X — похожее
+// ищем по X, а не по разбору всей многотемной заметки.
+// Мутация: не брать referencedEarlierTopics → красный (запрос из разбора).
+describe('C20-1: «в одной из ранних заметок про X» — ищем по X', () => {
+  beforeEach(() => { vi.restoreAllMocks(); });
+
+  it('запрос похожего — по названной теме, без чужих тем заметки', async () => {
+    await seed();
+    const spy = vi.spyOn(noteRetriever, 'searchNotesMulti');
+    await run([], 'cbt', CONTENT[ATTACHED] + ' Вспомнил, что в одной из ранних заметок про скалодром писал, как боялся высоты.');
+    const joined = queryOf(spy.mock.calls).join(' ');
+    expect(joined.toLowerCase()).toContain('скалодром');
+    for (const foreign of ['отчётность', 'договор аренды', 'ремонт ванной']) {
+      expect(joined.toLowerCase(), `в запросе чужая тема «${foreign}»`).not.toContain(foreign);
+    }
+  });
+});
+

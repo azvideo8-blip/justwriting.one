@@ -19,9 +19,19 @@ export interface ExportAllResult {
   skipped: number;
 }
 
+/** Владелец 30.10: выгрузка без облака («Только с этого устройства») — неполная,
+ *  и файл обязан это сказать: в имени и строкой внутри. */
+export interface LocalOnlyMark {
+  /** Хвост имени файла, например «только-это-устройство». */
+  suffix: string;
+  /** Строка объяснения внутри выгрузки. */
+  note: string;
+}
+
 export async function exportAllAsZip(
   sessions: ArchiveSession[],
   s: ExportStrings,
+  localOnly?: LocalOnlyMark,
 ): Promise<ExportAllResult> {
   // jszip грузится по требованию: 95 кБ ради кнопки, которую в большинстве
   // сессий не нажимают, не должны лежать в общем чанке.
@@ -56,8 +66,10 @@ export async function exportAllAsZip(
     exported++;
   }
 
+  if (localOnly) zip.file(`_${localOnly.suffix}.txt`, `${localOnly.note}\n`);
   const blob = await zip.generateAsync({ type: 'blob' });
-  downloadBlob(blob, `justwriting_backup_${format(new Date(), 'yyyy-MM-dd')}.zip`);
+  const suffix = localOnly ? `_${localOnly.suffix}` : '';
+  downloadBlob(blob, `justwriting_backup_${format(new Date(), 'yyyy-MM-dd')}${suffix}.zip`);
 
   return { exported, skipped };
 }

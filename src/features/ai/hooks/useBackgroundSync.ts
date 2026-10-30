@@ -32,6 +32,7 @@ import { nextPullCursor, pullSince } from '../services/pullCursor';
 const IDLE_TIMEOUT_MS = 5_000;
 const POLL_INTERVAL_MS = 120_000;
 const PULL_FIRST_WINDOW_MS = 24 * 60 * 60_000;
+const AI_RESTORE_RETRY_MS = 30 * 60_000;
 
 export function useBackgroundSync(): void {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -92,7 +93,7 @@ export function useBackgroundSync(): void {
       const notesDoneKey = `notes_restore_done_date_${uid}`;
       if (localStorage.getItem(notesDoneKey) !== today) {
         try {
-          const { restored, hasMore, throttled } = await CloudSyncService.restoreMissingDocuments(uid);
+          const { restored, hasMore, throttled, locked } = await CloudSyncService.restoreMissingDocuments(uid);
           if (restored > 0) {
             useActivityLogStore.getState().addActivity(
               'activity_cloud_restored_notes',
@@ -101,18 +102,30 @@ export function useBackgroundSync(): void {
               'sync',
             );
           }
-          if (!hasMore && !throttled) localStorage.setItem(notesDoneKey, today);
+          // DY10-4: запертый сейф — проход не состоялся, отметку не ставим (как
+          // skippedLocked у ИИ-отметки ниже).
+          if (!hasMore && !throttled && !locked) localStorage.setItem(notesDoneKey, today);
         } catch (e) {
           reportError(e, { action: 'backgroundSync_restoreFromCloud' });
         }
       }
-      if (localStorage.getItem(restoreDoneKey) !== today) {
+      // Журнал владельца 30.10: полный проход ИИ-данных тяжёлый (десятки МБ).
+      // Упал — не повторять его каждые 120 с, а подождать 30 минут; отметка
+      // «сделано за сегодня» по-прежнему ставится только после полного успеха.
+      const restoreRetryKey = `ai_restore_retry_after_${uid}`;
+      const retryAfter = Number(localStorage.getItem(restoreRetryKey)) || 0;
+      if (localStorage.getItem(restoreDoneKey) !== today && Date.now() >= retryAfter) {
+        const backOff = () => localStorage.setItem(restoreRetryKey, String(Date.now() + AI_RESTORE_RETRY_MS));
         try {
           const aiRestored = await restoreAIDataFromCloud(uid);
           if (!aiRestored.skippedLocked && (aiRestored.failed ?? 0) === 0 && !aiRestored.sectionFailed) {
             localStorage.setItem(restoreDoneKey, today);
+            localStorage.removeItem(restoreRetryKey);
+          } else if (!aiRestored.skippedLocked) {
+            backOff();
           }
         } catch (e) {
+          backOff();
           reportError(e, { action: 'backgroundSync_restoreFromCloud' });
         }
       }

@@ -685,7 +685,9 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     },
     onError: async (e) => {
       streamErrorOccurred = e;
-      console.error('[api/chat] streamText failed:', safeErrorShape(e));
+      // Монитор (E-8) считает «streamText failed» только у обрыва посреди ответа:
+      // отказ до заголовков уходит 502 и уже посчитан по [api-5xx] (ревью 0.11.2).
+      console.error(res.headersSent ? '[api/chat] streamText failed:' : '[api/chat] provider failed before response:', safeErrorShape(e));
       await settlement.settle('failed');
       if (!res.headersSent) {
         sendError(res, 502, 'UPSTREAM_ERROR', 'AI provider failed before response started');
@@ -742,7 +744,7 @@ function waitForNextOrAbort<T>(
     try {
       firstResult = await waitForNextOrAbort(iterator, controller.signal);
     } catch (err) {
-      console.error('[api/chat] streamText failed before response started:', safeErrorShape(err));
+      console.error('[api/chat] provider failed before response started:', safeErrorShape(err));
       await settlement.settle('failed');
       // DR-8: строка пишется ДО sendError — end() в составе ответа эмитит 'close',
       // и штатный отказ провайдера был бы записан как уход клиента.

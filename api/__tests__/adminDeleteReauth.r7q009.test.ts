@@ -23,6 +23,8 @@ vi.mock('../admin/admin.logic', () => ({
   // мок подменяет модуль целиком: каждый экспорт `api/handlers.ts` обязан здесь
   // быть, иначе файл не собирается (R7Q-014 добавил `listAdminActionsLogic`).
   listAdminActionsLogic: vi.fn(async () => ({ actions: [] })),
+  listStaleInvitesLogic: vi.fn(async () => []),
+  deleteStaleInvitesLogic: vi.fn(async () => ({ deleted: 0 })),
 }));
 
 vi.mock('../postgresAiContext', () => ({

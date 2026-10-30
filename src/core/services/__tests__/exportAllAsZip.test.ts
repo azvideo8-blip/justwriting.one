@@ -60,3 +60,24 @@ describe('exportAllAsZip', () => {
     expect(res).toEqual({ exported: 1, skipped: 1 });
   });
 });
+
+// Владелец 30.10: выгрузка «Только с этого устройства» помечена в имени и внутри.
+// Мутация: не класть пометку → красный.
+describe('exportAllAsZip: пометка выгрузки без облака', () => {
+  beforeEach(() => { savedAs.length = 0; });
+
+  it('имя с хвостом и файл-пояснение внутри', async () => {
+    await exportAllAsZip([note('a', 'текст')], STRINGS, { suffix: 'только-это-устройство', note: 'Облако было недоступно — здесь только заметки с этого устройства.' });
+    expect(savedAs[0]!.name).toMatch(/_только-это-устройство\.zip$/);
+    const { default: JSZip } = await import('jszip');
+    const zip = await JSZip.loadAsync(savedAs[0]!.blob as Blob);
+    const notePath = Object.keys(zip.files).find(n => n.includes('только-это-устройство'));
+    expect(notePath, 'нет файла-пояснения').toBeDefined();
+    expect(await zip.file(notePath!)!.async('string')).toContain('Облако было недоступно');
+  });
+
+  it('обычная выгрузка — без хвоста и без пояснения', async () => {
+    await exportAllAsZip([note('a', 'текст')], STRINGS);
+    expect(savedAs[0]!.name).not.toContain('только');
+  });
+});

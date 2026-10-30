@@ -29,8 +29,10 @@ export interface AiContext {
   getDailyLimitCount(uid: string): Promise<{ used: number; reasoningUsed?: number; date: string }>;
   getUserDailyLimit(uid: string): Promise<number>;
   isAdmin(uid: string): Promise<boolean>;
-  /** DY9-9: админ сбрасывает суточные счётчики чата и рассуждений человека (сегодня). */
-  resetDailyLimit(uid: string): Promise<void>;
+  /** DY9-9: админ сбрасывает суточные счётчики чата и рассуждений человека (сегодня).
+   *  DY10-1: со следом в admin_actions и почасовым бюджетом; 'budget' — бюджет исчерпан,
+   *  'busy' — параллельный сброс того же админа. */
+  resetDailyLimit(adminUid: string, targetUid: string): Promise<'ok' | 'budget' | 'busy'>;
   /** Bulk (background) limit — separate from the chat daily limit.
    *  AUD-18: also enforces a per-interval cooldown keyed (uid, endpoint);
    *  returns 'RATE_LIMIT' when the interval has not elapsed. */

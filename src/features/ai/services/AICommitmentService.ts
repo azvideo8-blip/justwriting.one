@@ -35,8 +35,19 @@ export const AICommitmentService = {
         let isDuplicate = false;
         if (vector) {
           for (const open of openCommitments) {
-            if (open.vector && cosineSimilarity(vector, open.vector) > 0.9) {
+            // DY10-8: вектор в облако не едет — у приехавших из облака его нет;
+            // такие сверяются по тексту, как при выключенной индексации.
+            const same = open.vector
+              ? cosineSimilarity(vector, open.vector) > 0.9
+              : open.text.trim().toLowerCase() === trimmed.toLowerCase();
+            if (same) {
               isDuplicate = true;
+              // Приехавшему без вектора возвращаем его — иначе план не закроется.
+              if (!open.vector) {
+                open.vector = vector;
+                await db.put('aiCommitments', open);
+                LocalStoreSyncService.scheduleStoreSync('aiCommitments', open.id);
+              }
               break;
             }
           }

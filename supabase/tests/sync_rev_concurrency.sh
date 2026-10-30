@@ -2,8 +2,8 @@
 # sync_rev_concurrency.sh — два сеанса к живой базе стенда (S1-2).
 #
 # Почему отдельно от sync_rev.test.sql: здесь нужен второй сеанс, а CI-шаг rls
-# склеивает миграции и тесты в один поток psql. В CI не подключён; запуск — на
-# стенде (Docker или нативная база), только при свободном стенде.
+# склеивает миграции и тесты в один поток psql. С DY10-5 (30.10) — шаг
+# «sync_rev guards (0045)» в джобе rls; вручную — на стенде (Docker или нативная база).
 #
 # Подключение задаётся переменными окружения (как у psql):
 #   PGHOST PGPORT PGUSER PGDATABASE — можно передать утилите напрямую.
@@ -35,6 +35,13 @@ q() {
   "${PSQL_CMD[@]}" -v ON_ERROR_STOP=1 -Atq "$@"
 }
 
+# Имя сеанса — в строке подключения, а не в PGAPPNAME: при `docker exec … psql`
+# переменная окружения остаётся у клиента docker и в контейнер не попадает
+# (DY10-5: в CI сеанс A не находился в pg_stat_activity).
+conninfo() {
+  echo "dbname=${PGDATABASE:-postgres} application_name=$1"
+}
+
 fail() {
   echo "sync_rev_concurrency: FAIL: $*" >&2
   exit 1
@@ -58,7 +65,7 @@ q -c "insert into auth.users (id, email) values
 
 echo "== 1. замок пользователя: B ждёт A, V проходит"
 
-PGAPPNAME=sync1-A "${PSQL_CMD[@]}" -v ON_ERROR_STOP=1 -q <<SQL &
+"${PSQL_CMD[@]}" -d "$(conninfo sync1-A)" -v ON_ERROR_STOP=1 -q <<SQL &
 begin;
 update public.documents set title = 'a' where uuid = 's1-conc-u1';
 select pg_sleep(3);
@@ -112,7 +119,7 @@ echo "== 2. два многострочных UPDATE U в разном поря�
 # Клиентский путь: роль authenticated и JWT-claims. Statement-триггер берёт
 # замок по auth.uid(); под сервисной ролью (claims нет) он по устройству
 # ничего не делает — тогда порядок обеспечивает только строчный триггер.
-PGAPPNAME=sync1-D1 "${PSQL_CMD[@]}" -v ON_ERROR_STOP=1 -q >/tmp/sync_rev_d1.out 2>&1 <<SQL &
+"${PSQL_CMD[@]}" -d "$(conninfo sync1-D1)" -v ON_ERROR_STOP=1 -q >/tmp/sync_rev_d1.out 2>&1 <<SQL &
 set role authenticated;
 select set_config('request.jwt.claims', '{"sub":"$U","role":"authenticated"}', false);
 begin;

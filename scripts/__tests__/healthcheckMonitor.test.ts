@@ -437,6 +437,27 @@ describe.skipIf(POSIX_ONLY)('E-8: сплошные 5xx API', () => {
     expect(res.stdout).not.toContain('MARKER_E8_TEXT');
   });
 
+  // DY10-2: ветка «хода мысли» отвечает 502/504 через sendError — метка [api-5xx].
+  // Мутация: не считать [api-5xx] → красный.
+  it('[api-5xx] из sendError считается пятисоткой', () => {
+    const sb = makeGreenSandbox();
+    setJournal(sb, Array.from({ length: 5 }, () => '[api-5xx] 502 UPSTREAM_ERROR'));
+    const res = runHealthcheck(sb);
+    expect(res.stdout).toContain('handlers5xx=5');
+  });
+
+  // Ревью 0.11.2: отказ поставщика до ответа пишет свою строку и [api-5xx] 502 —
+  // это одна ошибка, не две. Мутация: считать и «provider failed» → красный.
+  it('отказ поставщика до ответа считается один раз', () => {
+    const sb = makeGreenSandbox();
+    setJournal(sb, Array.from({ length: 4 }, () => [
+      '[api/chat] provider failed before response started: name=Error',
+      '[api-5xx] 502 UPSTREAM_ERROR',
+    ]).flat());
+    const res = runHealthcheck(sb);
+    expect(res.stdout).not.toContain('Ошибки API за час');
+  });
+
   // Ревью: самый общий путь 500 пишет «unhandled error» без кода.
   // Мутация: считать только '[api/handlers] 5' → красный.
   it('«unhandled error» тоже считается пятисоткой', () => {

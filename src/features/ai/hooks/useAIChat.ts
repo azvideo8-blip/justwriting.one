@@ -762,7 +762,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             if (lastPartial.trim().length > 200) {
               fullText = lastPartial;
             } else {
-              fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, memoryContext, noteScope, authorGender, responseLength: effectiveResponseLength, reasoning: effectiveReasoning, signal: controller.signal });
+              // DY10-6: кризисный флаг — и в запасном пути, как в стриме и прямом callable.
+              fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, memoryContext, noteScope, authorGender, responseLength: effectiveResponseLength, reasoning: effectiveReasoning, crisis, signal: controller.signal });
             }
             // RSN-4: Parse reasoning and answer unconditionally from callable fallback
             const cleanReasoning = extractReasoning(fullText);

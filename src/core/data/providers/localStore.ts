@@ -219,6 +219,11 @@ export async function getLocalStoreStamps(userId: string): Promise<Array<{ store
   });
 }
 
+// Журнал владельца 30.10: строки ИИ-сторов тяжёлые (у владельца 1508 строк на
+// 71 МБ, до 400 КБ на строку). Страница в 1000 строк — десятки мегабайт одним
+// ответом, и Safari на телефоне обрывал его («Load failed»). 50 строк — несколько МБ.
+const LOCAL_STORE_PAGE_SIZE = 50;
+
 export async function getLocalStoreRecords(userId: string, store?: string, sinceMs?: number): Promise<LocalStoreRecordRow[]> {
   const allRows = await pageAll((from, to) => {
     let q = getSupabase()
@@ -247,7 +252,7 @@ export async function getLocalStoreRecords(userId: string, store?: string, since
       .order('store', { ascending: true })
       .order('key', { ascending: true })
       .range(from, to);
-  });
+  }, LOCAL_STORE_PAGE_SIZE);
   return ownRows(allRows as Record<string, unknown>[], userId).map(row => rowToLocalStoreRecord(row as Record<string, unknown>));
 }
 

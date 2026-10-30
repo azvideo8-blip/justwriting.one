@@ -17,6 +17,13 @@ export interface UserStatusItem {
   service?: boolean;
 }
 
+/** C-6: неподтверждённое приглашение старше 30 дней. */
+export interface StaleInviteItem {
+  uid: string;
+  email: string;
+  invitedAt: string;
+}
+
 /** R7Q-014: строка следа админских действий (public.admin_actions). */
 export interface AdminActionItem {
   id: number;
@@ -108,6 +115,21 @@ export const AdminUserService = {
 
   async listUsersWithStatus(): Promise<UserStatusItem[]> {
     return callAi<UserStatusItem[]>('listUsersWithStatus', {});
+  },
+
+  /** C-6: список приглашений старше 30 дней — только по кнопке. */
+  async listStaleInvites(): Promise<StaleInviteItem[]> {
+    return callAi<StaleInviteItem[]>('listStaleInvites', {});
+  },
+
+  /** C-6: удалить выбранные просроченные приглашения; сервер перепроверяет условие. */
+  async deleteStaleInvites(uids: string[]): Promise<{ deleted: number }> {
+    // Сервер принимает до 100 за запрос, список — до 500: шлём пачками.
+    let deleted = 0;
+    for (let i = 0; i < uids.length; i += 100) {
+      deleted += (await callAi<{ deleted: number }>('deleteStaleInvites', { uids: uids.slice(i, i + 100) })).deleted;
+    }
+    return { deleted };
   },
 
   /** R7Q-014: последние строки admin_actions. Только чтение, сервер проверяет админа. */

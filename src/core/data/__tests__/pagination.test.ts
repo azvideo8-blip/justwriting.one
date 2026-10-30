@@ -85,8 +85,10 @@ describe('AG-RESTORE-2: Bulk read methods pagination beyond 1000 rows', () => {
     expect(mockRange).toHaveBeenCalledTimes(2);
   });
 
-  it('getLocalStoreRecords pages through multiple batches', async () => {
-    const page1 = Array.from({ length: 1000 }, (_, i) => ({
+  // Журнал владельца 30.10: строки ИИ-сторов тяжёлые — страница по 50 строк, а не
+  // 1000 (десятки МБ одним ответом обрывались в Safari). Мутация: вернуть 1000 → красный.
+  it('getLocalStoreRecords pages through multiple batches of 50', async () => {
+    const page1 = Array.from({ length: 50 }, (_, i) => ({
       user_id: 'user_1',
       store: 'aiDialogues',
       key: `dialogue_${i}`,
@@ -95,8 +97,8 @@ describe('AG-RESTORE-2: Bulk read methods pagination beyond 1000 rows', () => {
     const page2 = Array.from({ length: 10 }, (_, i) => ({
       user_id: 'user_1',
       store: 'aiDialogues',
-      key: `dialogue_${1000 + i}`,
-      payload: { id: `dialogue_${1000 + i}` },
+      key: `dialogue_${50 + i}`,
+      payload: { id: `dialogue_${50 + i}` },
     }));
 
     const mockRange = vi.fn()
@@ -113,8 +115,9 @@ describe('AG-RESTORE-2: Bulk read methods pagination beyond 1000 rows', () => {
     vi.mocked(getSupabase).mockReturnValue({ from: mockFrom } as any);
 
     const records = await getLocalStoreRecords('user_1', 'aiDialogues');
-    expect(records).toHaveLength(1010);
-    expect(mockRange).toHaveBeenCalledTimes(2);
+    expect(records).toHaveLength(60);
+    expect(mockRange).toHaveBeenNthCalledWith(1, 0, 49);
+    expect(mockRange).toHaveBeenNthCalledWith(2, 50, 99);
   });
 
   it('getVersions pages through multiple batches', async () => {
