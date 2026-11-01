@@ -123,13 +123,23 @@ export const AdminUserService = {
   },
 
   /** C-6: удалить выбранные просроченные приглашения; сервер перепроверяет условие. */
-  async deleteStaleInvites(uids: string[]): Promise<{ deleted: number }> {
+  async deleteStaleInvites(uids: string[]): Promise<{ deleted: number; failed: number }> {
     // Сервер принимает до 100 за запрос, список — до 500: шлём пачками.
+    // Дейлик 31.10 (Н-2): сбой пачки не прячет уже удалённые — считаем её несделанной.
     let deleted = 0;
+    let failed = 0;
     for (let i = 0; i < uids.length; i += 100) {
-      deleted += (await callAi<{ deleted: number }>('deleteStaleInvites', { uids: uids.slice(i, i + 100) })).deleted;
+      const batch = uids.slice(i, i + 100);
+      try {
+        const res = await callAi<{ deleted: number; failed: number }>('deleteStaleInvites', { uids: batch });
+        deleted += res.deleted;
+        failed += res.failed;
+      } catch (e) {
+        reportError(e, { action: 'deleteStaleInvites_batch' });
+        failed += batch.length;
+      }
     }
-    return { deleted };
+    return { deleted, failed };
   },
 
   /** R7Q-014: последние строки admin_actions. Только чтение, сервер проверяет админа. */

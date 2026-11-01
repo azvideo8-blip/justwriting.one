@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.11.3 — 2026-11-02
+
+- **[RU]** Синхронизация заметок между устройствами работает по-новому: подтягиваются только изменения, а не весь список заново.
+- **[EN]** Notes now sync between devices in a new way: only changes are fetched, not the whole list again.
+- **[RU]** После «Сохранить» и быстрой перезагрузки больше не появляется «Черновик восстановлен» с уже сохранённым текстом.
+- **[EN]** After «Save» and a quick reload, «Draft restored» no longer brings back text that was already saved.
+- **[RU]** Слова, набранные прямо перед закрытием вкладки, не теряются, даже если основная запись черновика не успела.
+- **[EN]** Words typed right before closing the tab are no longer lost, even if the main draft write did not finish.
+- **[RU]** Если на одном устройстве сменить аккаунт, черновик одного человека не попадает в черновик другого.
+- **[EN]** Switching accounts on one device no longer puts one person's draft into another's.
+- **[RU]** Без входа в аккаунт черновик при закрытии вкладки сохраняется целиком: продолжение заметки не превращается в новую заметку.
+- **[EN]** Without signing in, the draft is saved in full when the tab closes: continuing a note no longer turns into a new note.
+- **[RU]** Выход с галочкой «удалить все данные» стирает и записи, сделанные без входа в аккаунт, и заранее показывает их число.
+- **[EN]** Signing out with «delete all data» also removes entries made without signing in, and shows their number beforehand.
+- **[RU]** Статус сохранения говорит прямо: «Сохранено здесь», если облако обновится позже, и почему облако не принимает черновик, если не примет.
+- **[EN]** The save status is clearer: «Saved here» when the cloud will catch up later, and why the cloud refuses a draft when it does.
+- **[RU]** В журнал на устройстве больше не попадают обрывки текста из сообщений об ошибках.
+- **[EN]** The on-device log no longer keeps fragments of text from error messages.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.11.2 — 2026-10-30
 
 - **[RU]** На компьютере серия и «Продолжить» стоят одной тихой строкой над полем письма, а не плашками посреди экрана.

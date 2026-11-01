@@ -17,6 +17,21 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.3',
+    date: '2026-11-02',
+    items: [
+      { category: 'improvement', ru: 'Синхронизация заметок между устройствами работает по-новому: подтягиваются только изменения, а не весь список заново.', en: 'Notes now sync between devices in a new way: only changes are fetched, not the whole list again.' },
+      { category: 'fix', ru: 'После «Сохранить» и быстрой перезагрузки больше не появляется «Черновик восстановлен» с уже сохранённым текстом.', en: 'After «Save» and a quick reload, «Draft restored» no longer brings back text that was already saved.' },
+      { category: 'fix', ru: 'Слова, набранные прямо перед закрытием вкладки, не теряются, даже если основная запись черновика не успела.', en: 'Words typed right before closing the tab are no longer lost, even if the main draft write did not finish.' },
+      { category: 'fix', ru: 'Если на одном устройстве сменить аккаунт, черновик одного человека не попадает в черновик другого.', en: 'Switching accounts on one device no longer puts one person\'s draft into another\'s.' },
+      { category: 'fix', ru: 'Без входа в аккаунт черновик при закрытии вкладки сохраняется целиком: продолжение заметки не превращается в новую заметку.', en: 'Without signing in, the draft is saved in full when the tab closes: continuing a note no longer turns into a new note.' },
+      { category: 'fix', ru: 'Выход с галочкой «удалить все данные» стирает и записи, сделанные без входа в аккаунт, и заранее показывает их число.', en: 'Signing out with «delete all data» also removes entries made without signing in, and shows their number beforehand.' },
+      { category: 'improvement', ru: 'Статус сохранения говорит прямо: «Сохранено здесь», если облако обновится позже, и почему облако не принимает черновик, если не примет.', en: 'The save status is clearer: «Saved here» when the cloud will catch up later, and why the cloud refuses a draft when it does.' },
+      { category: 'improvement', ru: 'В журнал на устройстве больше не попадают обрывки текста из сообщений об ошибках.', en: 'The on-device log no longer keeps fragments of text from error messages.' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.11.2',
     date: '2026-10-30',
     items: [

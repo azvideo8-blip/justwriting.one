@@ -1000,6 +1000,43 @@ export async function wipeGuestAndAccountFromSharedDb(uid: string): Promise<void
   else resetDbInstance('justwriting-local');
 }
 
+/**
+ * N1-1: счёт «Будет удалено с этого устройства…» считал только базу аккаунта,
+ * поэтому гостевые строки общей базы, которые эта же ветка выхода стирает,
+ * человеку не показывались. Считает то же, что удалит
+ * `wipeGuestAndAccountFromSharedDb` из хранилищ с данными человека.
+ *
+ * DEEP-10: версии — по индексу `by-document`, а не `getAll('versions')`:
+ * строки версий несут полный текст заметки.
+ */
+export async function countGuestEntriesInSharedDb(): Promise<number> {
+  // Ревью 0.11.3: сбой чтения — не «гостевого нет». Ошибка уходит вызывающему,
+  // и диалог выхода говорит «не удалось посчитать», а не прячет строку.
+  const db = await getLocalDb('justwriting-local');
+  const ownerOf = (rec: unknown): string | undefined => {
+    const row = rec as { guestId?: string; userId?: string; ownerId?: string };
+    return row.guestId ?? row.userId ?? row.ownerId;
+  };
+  let total = 0;
+  if (db.objectStoreNames.contains('documents')) {
+    const docs = await db.getAll('documents');
+    for (const doc of docs) {
+      if (!isGuestOwner(ownerOf(doc))) continue;
+      total += 1;
+      try {
+        total += await db.countFromIndex('versions', 'by-document', String((doc as { id?: string }).id));
+      } catch {
+        /* индекса нет в этой версии базы */
+      }
+    }
+  }
+  if (db.objectStoreNames.contains('drafts')) {
+    const drafts = await db.getAll('drafts');
+    total += drafts.filter(rec => isGuestOwner(ownerOf(rec))).length;
+  }
+  return total;
+}
+
 /** DEEP-14: Полное удаление файла БД при удалении аккаунта (indexedDB.deleteDatabase).
  *  Закрывает открытые соединения и гарантирует, что имя justwriting-usr_<uid>
  *  не остаётся на устройстве как артефакт существования аккаунта. */

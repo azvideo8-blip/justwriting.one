@@ -15,6 +15,7 @@ import { Button } from '../../../shared/components/Button';
 import { useDictation } from '../hooks/useDictation';
 import { dictationMicLabel } from '../hooks/dictationMicLabel';
 import { SaveStatus, type SaveStatusKind } from './SaveStatus';
+import type { DraftErrorKind } from '../hooks/useDraftCore';
 
 const PLAY_PATH = "M8 5v14l11-7z";
 const PAUSE_PATH = "M6 19h4V5H6v14zm8-14v14h4V5h-4z";
@@ -33,7 +34,7 @@ interface BottomStatsProps {
   onStop: () => void;
   compact?: boolean;
   saveStatus?: SaveStatusKind | undefined;
-  saveErrorKind?: 'quota' | 'unknown' | null | undefined;
+  saveErrorKind?: DraftErrorKind | undefined;
 }
 
 export function BottomStats({ onPlay, onPause, onStop, compact, saveStatus = 'idle', saveErrorKind }: BottomStatsProps) {

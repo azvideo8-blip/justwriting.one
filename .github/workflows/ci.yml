@@ -381,21 +381,14 @@ jobs:
     # Мобильный набор — самый долгий джоб на единственном раннере. Он нужен, когда
     # меняется то, что видит телефон или чем стенд поднимается; правки документов,
     # других воркфлоу и одних только vitest-тестов его не задевают. Ручной запуск
-    # и push без известной базы гоняют его всегда.
+    # и push без известной базы гоняют его всегда. Решает scripts/ci/e2e-gate.sh.
     - name: Does this push touch the app?
       id: gate
       run: |
-        BASE="${{ github.event.before }}"
-        if [ "${{ github.event_name }}" != "push" ] || [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-          echo "run=true" >> "$GITHUB_OUTPUT"; echo "база неизвестна — гоняем"; exit 0
-        fi
-        CHANGED=$(git diff --name-only "$BASE" "${{ github.sha }}")
-        echo "$CHANGED"
-        if echo "$CHANGED" | grep -v '/__tests__/' | grep -qE '^(src/|e2e/|api/|supabase/|public/|scripts/stand/|scripts/ci/|playwright\.mobile\.config\.ts$|package(-lock)?\.json$|index\.html$|vite\.config\.ts$|tsconfig[^/]*\.json$|\.github/workflows/ci\.yml$)'; then
-          echo "run=true" >> "$GITHUB_OUTPUT"
-        else
-          echo "run=false" >> "$GITHUB_OUTPUT"; echo "::notice::мобильный e2e пропущен: приложение в этом push не менялось"
-        fi
+        # Ветка — против своей базы на main, а не против прошлого push (31.10).
+        OUT=$(bash scripts/ci/e2e-gate.sh "${{ github.event_name }}" "${{ github.ref }}" "${{ github.event.before }}" "${{ github.sha }}")
+        echo "$OUT" >> "$GITHUB_OUTPUT"
+        if [ "$OUT" = "run=false" ]; then echo "::notice::мобильный e2e пропущен: приложение в этой ветке не менялось"; fi
     - name: Use Node.js
       if: steps.gate.outputs.run == 'true'
       uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0

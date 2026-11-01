@@ -213,8 +213,9 @@ export function DiagnosticsPage() {
         cancelLabel: t('common_cancel'),
       });
       if (!ok) return;
-      const { deleted } = await AdminUserService.deleteStaleInvites(list.map(item => item.uid));
-      showToast(t('admin_stale_invites_done', { count: deleted }), 'success');
+      const { deleted, failed } = await AdminUserService.deleteStaleInvites(list.map(item => item.uid));
+      if (failed > 0) showToast(t('admin_stale_invites_partial', { deleted, failed }), 'error');
+      else showToast(t('admin_stale_invites_done', { count: deleted }), 'success');
     } catch (e) {
       reportError(e, { action: 'deleteStaleInvites' });
       showToast(t('admin_stale_invites_failed'), 'error');

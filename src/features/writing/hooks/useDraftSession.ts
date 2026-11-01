@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useLayoutEffect } from 'react';
 import { resetAndClear } from '../store/storeActions';
 import { useTimerStore } from '../store/useTimerStore';
 import { useContentStore } from '../store/useContentStore';
@@ -25,6 +25,11 @@ export function useDraftSession(userId: string, isGuest: boolean): DraftSessionS
   const [hasDraft, setHasDraft] = useState(false);
   const [draftInEditor, setDraftInEditor] = useState(false);
 
+  // DW-F-3: ответ загрузки может прийти после смены аккаунта в этой вкладке —
+  // подставлять его нельзя, текст прежнего человека окажется под новым.
+  const userIdRef = useRef(userId);
+  useLayoutEffect(() => { userIdRef.current = userId; }, [userId]);
+
   const discardDraft = useCallback(async () => {
     if (isGuest) {
       await deleteGuestDraftFromStorage();
@@ -49,15 +54,15 @@ export function useDraftSession(userId: string, isGuest: boolean): DraftSessionS
       draft = await WritingDraftService.loadDraft(userId);
     }
 
+    if (userIdRef.current !== userId) return;
     if (!draft?.content) return;
-
     const currentContent = useContentStore.getState().content;
     if (currentContent.length > 0) {
       setHasDraft(true);
       return;
     }
 
-    applyDraftToStores(draft);
+    applyDraftToStores(draft, isGuest ? null : userId);
     setHasDraft(false);
   }, [userId, isGuest]);
 
@@ -69,12 +74,13 @@ export function useDraftSession(userId: string, isGuest: boolean): DraftSessionS
       draft = await WritingDraftService.loadDraft(userId);
     }
 
+    if (userIdRef.current !== userId) return;
     if (!draft?.content) {
       setHasDraft(false);
       return;
     }
 
-    applyDraftToStores(draft);
+    applyDraftToStores(draft, isGuest ? null : userId);
     setHasDraft(false);
   }, [userId, isGuest]);
 

@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import type { AppUser } from '../../../core/auth/types';
 import { buildLocalDraft, persistDraft } from '../utils/draftPersistence';
+import { mayAccountWriteEditorText, markEditorTextOwnedBy } from '../utils/draftOwnerGuard';
 import { useDraftCore, useVisibilitySave, useSyncUnloadSave, type DraftSaveStatus, type DraftErrorKind, type DraftSaveOutcome } from './useDraftCore';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { WritingDraftService } from '../services/WritingDraftService';
@@ -41,12 +42,62 @@ export function useDraftAutosave(
   // сессии; запись на размонтировании в этом окне с текущим поколением вернула бы
   // уже сохранённый текст «несохранённым черновиком». С этим поколением запись
   // отвергается (saveToLocal сверяет поколение).
+  //
+  // DY10-10: «момент правки» — это изменение текста, а не последний рендер.
+  // `seconds` и `wpm` тикают каждую секунду, объект `draftData` пересоздаётся, и
+  // ссылка обновлялась до текущего поколения раньше, чем отсроченная запись
+  // успевала сработать. На медленной сети сохранение заметки длится секунды,
+  // отсрочка (1 с на телефоне) срабатывает внутри окна между стиранием черновика
+  // и сбросом сессии — и записывает сохранённый текст обратно. Надгробие его не
+  // ловит: `savedDocumentId` к тому моменту заполнен, хэш нагрузки другой, а
+  // метка строки новее отметки удаления.
   const draftGenAtEditRef = useRef<number | undefined>(undefined);
+  const editedRef = useRef<{
+    content: string;
+    title: string;
+    wordCount: number;
+    initialWordCount: number | undefined;
+    pinnedThoughts: string;
+    activeSessionId: string | null;
+    sessionStartTime: number | undefined;
+  } | null>(null);
   const { layoutMode } = useLayoutMode();
+  /**
+   * DW-9: аккаунт на прошлом рендере — «кто сидел за клавиатурой». Нужен, чтобы
+   * отличить правку от смены аккаунта: при переходе к B текст в редакторе тоже
+   * меняется (это текст A), и присвоить его себе B не вправе.
+   */
+  const keyboardUidRef = useRef<string | null>(null);
 
   useEffect(() => {
     draftDataRef.current = draftData;
-    if (userId) draftGenAtEditRef.current = WritingDraftService.getDraftGeneration(userId);
+    if (!userId) return;
+    const edited = {
+      content: draftData.content,
+      title: draftData.title,
+      wordCount: draftData.wordCount,
+      initialWordCount: draftData.initialWordCount,
+      pinnedThoughts: draftData.pinnedThoughts.join('\u0000'),
+      activeSessionId: draftData.activeSessionId,
+      sessionStartTime: draftData.sessionStartTime,
+    };
+    const prev = editedRef.current;
+    const prevUid = keyboardUidRef.current;
+    keyboardUidRef.current = userId;
+    if (prev && (Object.keys(edited) as (keyof typeof edited)[]).every(k => prev[k] === edited[k])) return;
+    editedRef.current = edited;
+    draftGenAtEditRef.current = WritingDraftService.getDraftGeneration(userId);
+    // DW-9: правка под текущим аккаунтом делает текст его — с этого момента
+    // «владельца нет» не означает «текущий аккаунт» ни для одного писателя
+    // (I6 из карты DW-2). Первый рендер экземпляра (prev === null) и смена
+    // аккаунта правкой не считаются: редактор может достаться новому аккаунту
+    // со старым текстом, и присвоить его себе может только тот, кто в нём
+    // печатал. Владелец меняется только вместе с ТЕКСТОМ: кортеж правки содержит
+    // заголовок, закрепления и id сессии, и по одному из них объявлять чужой
+    // текст своим нельзя (направленный тест «правка заголовка под B»).
+    if (prev && prevUid === userId && prev.content !== edited.content) {
+      markEditorTextOwnedBy(userId, edited.content);
+    }
   }, [draftData, userId]);
 
   // Чей текст в редакторе — записано в самом сторе текста (N-47), а не в этом
@@ -67,7 +118,9 @@ export function useDraftAutosave(
       // Только локально: сессия уже принадлежит новому человеку, облачная
       // запись от имени прежнего упрётся в права базы. Черновик уедет в облако,
       // когда прежний владелец войдёт снова (N-73б — пересмотрено).
-      const res = await persistDraft(buildLocalDraft({ uid: prev } as AppUser, current), { remote: false });
+      // Поколение — прежнее: спасение вызвано сменой аккаунта, а не сохранением
+      // заметки, и поколение прежнего владельца никто не поднимал.
+      const res = await persistDraft(buildLocalDraft({ uid: prev } as AppUser, current), { generation: WritingDraftService.getDraftGeneration(prev), remote: false });
       if (res.localOk && !res.localSkipped) { clear(); return; }
       reportError(new Error('DRAFT_RESCUE_FAILED: the previous account\'s draft was not written; kept on screen'),
         { action: 'draftAutosave_saveForPreviousOwner', localOk: res.localOk, localSkipped: res.localSkipped });
@@ -103,17 +156,16 @@ export function useDraftAutosave(
     if (opts?.rescue === false) {
       // AS-1: на размонтировании чужой текст не спасаем — этим занят эффект
       // смены аккаунта, а его побочные записи из cleanup путают следующий монтаж.
-      const contentState = useContentStore.getState();
-      const owner = contentState.ownerUid;
-      if (owner && owner !== user.uid && !owner.startsWith('guest')) return SKIPPED;
-      // Владельца нет, а в редакторе уже другой текст (спасение очистило стор) —
-      // это хвост чужой сессии, подписывать его текущему аккаунту нельзя.
-      if ((!owner || owner.startsWith('guest')) && contentState.content !== current.content) return SKIPPED;
-      if (!owner || owner.startsWith('guest')) useContentStore.setState({ ownerUid: user.uid });
+      // DW-9: правило живёт в одном помощнике вместе с записью при закрытии
+      // вкладки — два писателя одного текста не могут сверять владельца по-разному.
+      if (!mayAccountWriteEditorText(user.uid, current.content)) return SKIPPED;
     } else if (!ownsText(user.uid)) return SKIPPED;
 
     const draft = buildLocalDraft(user, current);
-    const result = await persistDraft(draft, opts?.generation !== undefined ? { remote: false, generation: opts.generation } : { remote: false });
+    const result = await persistDraft(draft, {
+      generation: opts?.generation !== undefined ? opts.generation : draftGenAtEditRef.current,
+      remote: false,
+    });
     if (!result.localOk) {
       throw new Error('Local save failed');
     }
@@ -133,7 +185,10 @@ export function useDraftAutosave(
     if (!ownsText(user.uid)) return SKIPPED;
 
     const draft = buildLocalDraft(user, current);
-    const result = await persistDraft(draft, { remote: true });
+    // DY10-10: тот же токен, что у локальной записи. Уход в фон и 30-секундная
+    // страховка срабатывают по часам, а не по правке, и без поколения они пишут
+    // в облако черновик, который сохранение заметки уже стёрло.
+    const result = await persistDraft(draft, { generation: draftGenAtEditRef.current, remote: true });
     if (!result.localOk) {
       throw new Error('Local save failed');
     }
@@ -162,7 +217,14 @@ export function useDraftAutosave(
   // страницы (ниже) его пропускает, так что это единственный шанс.
   useEffect(() => onBeforeAccountReload(doAutosaveLocal), [doAutosaveLocal]);
 
-  useSyncUnloadSave(user, draftDataRef);
+  /** DY10-10: запись, снятая до сохранения заметки, устарела — поколение поднято. */
+  const isStaleDraftWrite = useCallback(() => {
+    if (!userId) return false;
+    const generation = draftGenAtEditRef.current;
+    return generation !== undefined && generation !== WritingDraftService.getDraftGeneration(userId);
+  }, [userId]);
+
+  useSyncUnloadSave(user, draftDataRef, isStaleDraftWrite);
   useVisibilitySave(wrappedForceSave, () => draftDataRef.current.content);
 
   // Invalidate in-flight autosaves on unmount or when transitioning to idle.

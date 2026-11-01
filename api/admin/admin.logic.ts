@@ -215,7 +215,8 @@ const staleInvitesSql = `
      AND COALESCE(au.confirmed_at, au.email_confirmed_at) IS NULL
      AND (au.encrypted_password IS NULL OR au.encrypted_password = '')
      AND NOT EXISTS (SELECT 1 FROM public.service_accounts sa WHERE sa.uid = au.id)
-   ORDER BY au.invited_at ASC`;
+   ORDER BY au.invited_at ASC
+   LIMIT 500`;
 
 export async function listStaleInvitesLogic(
   ctx: typeof postgresAiContext,
@@ -248,7 +249,7 @@ export async function deleteStaleInvitesLogic(
   ctx: typeof postgresAiContext,
   uid: string,
   data: unknown,
-): Promise<{ deleted: number }> {
+): Promise<{ deleted: number; failed: number }> {
   if (!(await ctx.isAdmin(uid))) {
     throw new AiError('permission-denied', 'Admin access required');
   }
@@ -256,46 +257,47 @@ export async function deleteStaleInvitesLogic(
   if (!parsed.success) throw new AiError('invalid-argument', 'Invalid invite list');
 
   let deleted = 0;
+  let failed = 0;
   for (const target of parsed.data.uids) {
-    // Повторная проверка перед каждым удалением: между показом списка и
-    // подтверждением человек мог активироваться.
-    const still = await pool.query(
-      `SELECT 1 FROM auth.users au
-        WHERE au.id = $1
-          AND au.invited_at IS NOT NULL
-          AND au.invited_at < now() - ($2::int * interval '1 day')
-          AND COALESCE(au.confirmed_at, au.email_confirmed_at) IS NULL
-          AND (au.encrypted_password IS NULL OR au.encrypted_password = '')
-          AND NOT EXISTS (SELECT 1 FROM public.service_accounts sa WHERE sa.uid = au.id)`,
-      [target, STALE_INVITE_DAYS],
-    );
-    if ((still.rowCount ?? 0) === 0) continue;
-    // 30.10 (решение владельца): без FK C-3 удаление аккаунта входа оставляет
-    // строку профиля с почтой — её убираем тоже. И след в журнале админки, как у
-    // приглашения и удаления (DY8-3, DY10-1).
-    // Ревью 0.11.2: профиль и след — одной транзакцией и ДО удаления входа.
-    // Сорвётся удаление входа — повтор найдёт его снова (проверка выше смотрит
-    // auth.users). В обратном порядке сбой оставлял профиль с почтой навсегда.
+    // Дейлик 31.10 (Н-1): тот же набор строк, что у самоудаления и удаления
+    // админом, — общий вход deleteUserRows (с журналом GoTrue, где лежит почта).
+    // Одна транзакция на приглашение: проверка, удаление и след — вместе.
     const client = await pool.connect();
     try {
       await client.query('begin');
-      await client.query('delete from public.users where uid = $1', [target]);
+      // Повторная проверка под транзакцией: между показом списка и
+      // подтверждением человек мог активироваться.
+      const still = await client.query(
+        `SELECT 1 FROM auth.users au
+          WHERE au.id = $1
+            AND au.invited_at IS NOT NULL
+            AND au.invited_at < now() - ($2::int * interval '1 day')
+            AND COALESCE(au.confirmed_at, au.email_confirmed_at) IS NULL
+            AND (au.encrypted_password IS NULL OR au.encrypted_password = '')
+            AND NOT EXISTS (SELECT 1 FROM public.service_accounts sa WHERE sa.uid = au.id)`,
+        [target, STALE_INVITE_DAYS],
+      );
+      // 0 строк из deleteUserRows — параллельный запрос уже удалил.
+      if ((still.rowCount ?? 0) === 0 || (await deleteUserRows(client, target)) === 0) {
+        await client.query('rollback');
+        continue;
+      }
       await client.query(
         'insert into public.admin_actions (admin_uid, action, target_uid) values ($1, $2, $3)',
         [uid, 'delete_stale_invite', target],
       );
       await client.query('commit');
+      deleted++;
     } catch (e) {
+      // Н-2: сбой одного не отменяет уже удалённые — счёт честный.
       await client.query('rollback').catch(() => undefined);
-      throw e;
+      console.error('[deleteStaleInvites] one invite failed:', safeErrorShape(e));
+      failed++;
     } finally {
       client.release();
     }
-    const { error } = await getSupabaseAdmin().auth.admin.deleteUser(target);
-    if (error) throw new AiError('internal', 'Failed to delete a stale invite');
-    deleted++;
   }
-  return { deleted };
+  return { deleted, failed };
 }
 
 

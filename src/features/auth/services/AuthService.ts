@@ -104,10 +104,15 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean; isAcc
       await clearAllLocalStores(currentUid);
       if (opts?.isAccountDeletion && currentUid) {
         await deleteLocalDatabase(currentUid);
-        // S-28 (O-5): вместе с аккаунтом с этого устройства уходят и гостевые
-        // данные общей базы `justwriting-local` — заметки, оставленные локально
-        // при миграции, её черновик и производные ИИ. S-33: записи других
-        // аккаунтов в ней не трогаем.
+      }
+      if (currentUid) {
+        // S-28 (O-5) + N1-1: вместе с данными аккаунта с этого устройства уходят
+        // и гостевые записи общей базы `justwriting-local` — заметки, оставленные
+        // локально при миграции, её черновик и производные ИИ. Раньше этот вход
+        // был только у удаления аккаунта (`wipeDeviceDataForUid` — тоже он), и
+        // «выйти и удалить все данные» оставлял гостевые строки, стерев при
+        // подметании `jw_guest_id`: открыть или удалить их было уже нечем.
+        // S-33: записи других аккаунтов в ней не трогаем.
         await wipeGuestAndAccountFromSharedDb(currentUid);
       }
     } catch (e) {

@@ -54,7 +54,25 @@ export const writingTranslations: Translations = {
   editor_saved_at: { ru: 'Сохранено в {time}', en: 'Saved at {time}' },
   editor_not_saved_yet: { ru: 'Ещё не сохранялось', en: 'Not saved yet' },
   editor_saved: { ru: 'Сохранено', en: 'Saved' },
-  editor_cloud_stale: { ru: 'Только локально', en: 'Local only' },
+  // N1-5: прежний текст «Только локально» читался как поломка, хотя заметка
+  // записана на устройстве и не потеряна. Формулировка называет факт, а
+  // подсказка — обещание, которое приложение действительно выполняет: досылку
+  // повторяет 30-секундный интервал (`useDraftAutosave.ts:271-276`), уход в фон
+  // (`useDraftCore.ts:188-198`) и следующая правка; `_lastCloudSignature`
+  // ставится только на принятой записи (`WritingDraftService.ts:687`), поэтому
+  // после отказа та же нагрузка уходит снова. Десктоп: `SaveStatus` (иконка с
+  // подсказкой); на телефоне наведения нет, поэтому там остаётся короткая строка
+  // той же длины, что была раньше, — в slot с `max-w-[40%] truncate` на 360 px
+  // более длинная ушла бы в многоточие.
+  editor_cloud_stale: { ru: 'Сохранено здесь', en: 'Saved here' },
+  editor_cloud_stale_hint: { ru: 'В облако отправится автоматически', en: 'Will upload to the cloud automatically' },
+  // N1 вопрос 3: облако отказало навсегда (`useDraftCore` PERMANENT_ERRORS) —
+  // досылка остановлена (`useDraftAutosave` remotePermanentError), обещать её нельзя.
+  editor_cloud_too_large: { ru: 'Велик для облака', en: 'Too big for cloud' },
+  editor_cloud_too_large_hint: { ru: 'Черновик или его название слишком большие для облака — он сохранён только на этом устройстве', en: 'The draft or its title is too large for the cloud — it is saved on this device only' },
+  editor_cloud_refused: { ru: 'Не в облаке', en: 'Not in cloud' },
+  editor_cloud_off_hint: { ru: 'Синхронизация выключена — черновик только на этом устройстве', en: 'Sync is off — the draft is on this device only' },
+  editor_cloud_refused_hint: { ru: 'Облако не принимает черновик — он сохранён только на этом устройстве', en: 'The cloud does not accept this draft — it is saved on this device only' },
   editor_error_quota: { ru: 'Недостаточно места на устройстве', en: 'Not enough device storage' },
   editor_error_save: { ru: 'Ошибка сохранения', en: 'Save error' },
 

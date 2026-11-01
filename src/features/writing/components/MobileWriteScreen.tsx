@@ -30,6 +30,7 @@ import { useAutoHideCursor } from '../hooks/useAutoHideCursor';
 import type { SessionType } from '../store/types';
 import type { LifeLogDocument } from '../types/lifeLog';
 import type { ArchiveSession } from '../../../shared/types/common';
+import type { DraftErrorKind } from '../hooks/useDraftCore';
 
 // Ревью 0.9.39: жетон всегда говорил «Поток», хотя первая буква запускает
 // режим, оставшийся от прошлой сессии (таймер, цель по словам, дедлайн).
@@ -37,7 +38,7 @@ interface MobileWriteScreenProps {
   onPlay: () => void;
   onStop: () => void;
   saveStatus?: string;
-  saveErrorKind?: 'quota' | 'unknown' | null;
+  saveErrorKind?: DraftErrorKind;
   keystrokeTrackerRef?: React.RefObject<KeystrokeTracker>;
   renderAiPanel?: (open: boolean, onClose: () => void) => React.ReactNode;
   /** MR-6: «Писать» открывает редактор — экран-заглушка больше не нужен. */
@@ -334,7 +335,7 @@ export function MobileWriteScreen({
             {saveMoment === null && (saveStatus === 'error' || saveStatus === 'cloud-stale') && (
               <span data-testid="save-status-text" className="max-w-[40%] shrink-0 truncate text-[12px] tabular-nums">
                 {saveStatus === 'cloud-stale'
-                  ? <span className="text-[var(--accent-warning)]">{t('editor_cloud_stale')}</span>
+                  ? <span className="text-[var(--accent-warning)]">{t(saveErrorKind === 'cloud-too-large' ? 'editor_cloud_too_large' : saveErrorKind === 'cloud-refused' ? 'editor_cloud_refused' : 'editor_cloud_stale')}</span>
                   : <span className="text-[var(--accent-danger)]">{saveErrorKind === 'quota' ? t('editor_error_quota') : t('editor_error_save')}</span>}
               </span>
             )}
@@ -454,6 +455,11 @@ export function MobileWriteScreen({
             <div className="flex items-center gap-2 rounded-xl border border-[var(--border-light)] bg-[var(--surface-card)] px-3 py-1">
               <span className="flex-1 min-w-0 text-[13px] leading-snug text-text-main/60">
                 {draftInEditor ? t('draft_restored') : t('draft_restore_prompt')}
+                {/* N1-5: гостю обязано сказать про срок — у его черновика он есть
+                    (`GUEST_DRAFT_TTL_MS`); аккаунту строка не показывается. */}
+                {isGuest && (
+                  <span className="block text-[11px] text-text-main/45">{t('draft_restore_guest_ttl')}</span>
+                )}
               </span>
               {!draftInEditor && (
                 <button type="button" onClick={() => restoreDraft?.()} className="press min-h-11 px-3 rounded-lg text-[13px] font-medium text-text-main">

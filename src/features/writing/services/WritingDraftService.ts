@@ -204,6 +204,72 @@ function hasDraftsStore(localDb: { objectStoreNames: DOMStringList }): boolean {
   return localDb.objectStoreNames.contains('drafts');
 }
 
+/**
+ * N1-4: из двух локальных копий — строки IndexedDB и снимка закрытия вкладки
+ * (`draft-<uid>`, W14 `useDraftCore.ts:272-284`) — берётся НОВЕЕ по `updatedAt`.
+ * Прежний выбор `localDraft || legacyDraft` читал копию только когда строки нет
+ * совсем: набранное в отсрочке между правкой и записью в базу проигрывало более
+ * старой строке, а `clearLegacyDraft` (`useSessionPersistence.ts:109`) стирал
+ * ключ с этими словами — потеря окончательная.
+ *
+ * Ничья и «даты нет» — IndexedDB: у строки полная форма, у копии — снимок.
+ *
+ * Поля, которых в снимке нет, доезжают со строкой: без `savedDocumentId`
+ * следующее сохранение завело бы БУКВУ вместо версии (тот же класс, что DW-F-2 у
+ * гостя), а без `_cloudUpdatedAt`/`_cloudAckedHash`/`_cloudSentHashes` следующий
+ * спор с облаком потерял бы память и вернулся к часам (SF-2, SF2-1).
+ *
+ * Это единственная функция выбора локальной копии; спор с облаком
+ * (`decideDraftCopy`) остаётся над ней и работает с уже выбранной копией.
+ */
+const UNLOAD_COPY_GAPS: readonly string[] = [
+  'savedDocumentId', 'accumulatedDuration', 'totalPauseSeconds', 'initialWordCount',
+  '_cloudUpdatedAt', '_cloudAckedHash', '_cloudSentHashes',
+];
+
+/** Копия проигравшего адреса не выбрасывается: поля, которых в ней нет, доезжают. */
+function withCarriedFields(winner: LocalDraft, other: LocalDraft): LocalDraft {
+  const carried: Record<string, unknown> = {};
+  for (const field of UNLOAD_COPY_GAPS) {
+    const key = field as keyof LocalDraft;
+    if (winner[key] === undefined && other[key] !== undefined) {
+      carried[field] = other[key];
+    }
+  }
+  return Object.keys(carried).length > 0
+    ? ({ ...winner, ...carried } as unknown as LocalDraft)
+    : winner;
+}
+
+export function pickNewerLocalCopy(
+  idb: LocalDraft | null,
+  unload: LocalDraft | null,
+): LocalDraft | null {
+  if (!idb) return unload;
+  if (!unload) return idb;
+
+  // Самопроверка (сверка 27): сравнивать можно только часы одного прибора (D1-2).
+  // Метка строки базы бывает СЕРВЕРНОЙ — когда копия была принята из облака
+  // (`saveToLocal({ ...cloudDraft, _cloudUpdatedAt: cloudTs })`, и у такой копии
+  // `updatedAt` = `draftCloudSeen`). На приборе, который отстаёт от сервера,
+  // правило «больше по числу» снова отдавало старую облачную строку и теряло
+  // последние слова, то есть N1-4 работал только при точных часах.
+  // Копия закрытия вкладки штампуется прибором (`useDraftCore.ts:283`) и живёт в
+  // адресе только если после последней принятой локальной записи случилось
+  // закрытие: `persistDraft` снимает ключ на каждой удачной записи
+  // (`draftPersistence.ts:80-82`), а удаление — в обеих половинах. Значит она —
+  // работа более поздняя. Даты в копии нет — не угадываем, остаётся строка.
+  if (!draftStampFromDevice(idb, false)) {
+    return toTimestampMs(unload.updatedAt) === null
+      ? withCarriedFields(idb, unload)
+      : withCarriedFields(unload, idb);
+  }
+
+  const idbTs = toTimestampMs(idb.updatedAt) ?? 0;
+  const unloadTs = toTimestampMs(unload.updatedAt) ?? 0;
+  return unloadTs > idbTs ? withCarriedFields(unload, idb) : withCarriedFields(idb, unload);
+}
+
 interface DraftTombstone { deletedAt: number; hashes: string[] }
 
 function parseTombstone(raw: string | null): DraftTombstone | null {
@@ -436,7 +502,8 @@ export const WritingDraftService = {
       }
     }
 
-    const resolvedLocal = localDraft || legacyDraft;
+    // N1-4: новая из двух локальных копий, а не «IndexedDB, если он вообще есть».
+    const resolvedLocal = pickNewerLocalCopy(localDraft, legacyDraft);
 
     if (resolvedLocal && cloudDraft) {
       const localTs = toTimestampMs(resolvedLocal.updatedAt) ?? 0;

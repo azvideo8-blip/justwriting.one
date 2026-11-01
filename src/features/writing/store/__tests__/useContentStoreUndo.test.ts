@@ -107,7 +107,7 @@ describe('useContentStore Undo/Redo (UNDO-1)', () => {
     // Load draft
     useContentStore.getState().setContent('draft content', 13);
     vi.advanceTimersByTime(600);
-    loadDraftIntoStore({ content: 'restored draft', title: 'Title', wordCount: 2 });
+    loadDraftIntoStore({ content: 'restored draft', title: 'Title', wordCount: 2 }, 'u-owner');
     expect(useContentStore.getState().past).toHaveLength(0);
     expect(useContentStore.getState().future).toHaveLength(0);
   });

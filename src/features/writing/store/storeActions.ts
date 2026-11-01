@@ -88,7 +88,7 @@ export function loadDraftIntoStore(draft: {
   content: string; title: string; wordCount: number;
   savedDocumentId?: string | undefined; accumulatedDuration?: number | undefined;
   initialDuration?: number | undefined;
-}) {
+}, ownerUid: string | null) {
   useContentStore.setState({
     content: draft.content,
     title: draft.title,
@@ -97,6 +97,7 @@ export function loadDraftIntoStore(draft: {
     initialWordCount: draft.wordCount,
     wpm: 0,
     wordSnapshots: [],
+    ownerUid,
   });
   useContentStore.getState().resetHistory();
   useTimerStore.setState({

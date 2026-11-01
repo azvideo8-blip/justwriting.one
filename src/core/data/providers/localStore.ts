@@ -160,6 +160,12 @@ export async function getLocalStoreRecord(userId: string, store: string, key: st
   return rowToLocalStoreRecord(data as Record<string, unknown>);
 }
 
+// Журнал владельца 30.10: строки ИИ-сторов тяжёлые (у владельца 1508 строк на
+// 71 МБ, до 400 КБ на строку). Страница в 1000 строк — десятки мегабайт одним
+// ответом, и Safari на телефоне обрывал его («Load failed»). 50 строк — несколько МБ.
+// Дейлик 31.10: та же страница у всех читателей таблицы, не только у полного прохода.
+const LOCAL_STORE_PAGE_SIZE = 50;
+
 /** S-49: страницы записи — строки `key#…` (оба формата: `key#N` и `key#stamp#N`). */
 export async function getLocalStoreRecordPages(userId: string, store: string, key: string): Promise<LocalStoreRecordRow[]> {
   const rows = await pageAll((from, to) => getSupabase()
@@ -169,7 +175,7 @@ export async function getLocalStoreRecordPages(userId: string, store: string, ke
     .eq('store', store)
     .like('key', likePrefix(key))
     .order('key', { ascending: true })
-    .range(from, to));
+    .range(from, to), LOCAL_STORE_PAGE_SIZE);
   return ownRows(rows as Record<string, unknown>[], userId).map(row => rowToLocalStoreRecord(row as Record<string, unknown>));
 }
 
@@ -184,7 +190,7 @@ export async function getLocalStoreRecordsByKeyPrefix(userId: string, store: str
     .eq('store', store)
     .like('key', likeGlob(prefix))
     .order('key', { ascending: true })
-    .range(from, to));
+    .range(from, to), LOCAL_STORE_PAGE_SIZE);
   return ownRows(rows as Record<string, unknown>[], userId).map(row => rowToLocalStoreRecord(row as Record<string, unknown>));
 }
 
@@ -218,11 +224,6 @@ export async function getLocalStoreStamps(userId: string): Promise<Array<{ store
     return out;
   });
 }
-
-// Журнал владельца 30.10: строки ИИ-сторов тяжёлые (у владельца 1508 строк на
-// 71 МБ, до 400 КБ на строку). Страница в 1000 строк — десятки мегабайт одним
-// ответом, и Safari на телефоне обрывал его («Load failed»). 50 строк — несколько МБ.
-const LOCAL_STORE_PAGE_SIZE = 50;
 
 export async function getLocalStoreRecords(userId: string, store?: string, sinceMs?: number): Promise<LocalStoreRecordRow[]> {
   const allRows = await pageAll((from, to) => {

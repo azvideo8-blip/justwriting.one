@@ -49,14 +49,18 @@ export interface DraftPersistResult {
 
 export async function persistDraft(
   draft: LocalDraft,
-  options: { remote?: boolean; generation?: number } = { remote: true }
+  // DY10-10: поколение черновика обязан назвать вызывающий. Прежняя подстановка
+  // текущего (`options.generation ?? getDraftGeneration(...)`) делала защиту
+  // поколения декоративной: любая отсроченная запись проходила с тем поколением,
+  // которое к моменту записи уже подняло сохранение заметки.
+  options: { generation: number | undefined; remote?: boolean }
 ): Promise<DraftPersistResult> {
   const usageKB = getLocalStorageUsageKB();
   if (usageKB > 4500) {
     logger.warn('draftPersistence', `localStorage usage: ${usageKB.toFixed(0)}KB — approaching limit`);
   }
 
-  const generation = options.generation ?? WritingDraftService.getDraftGeneration(draft.userId);
+  const generation = options.generation;
 
   const shouldRemoteSave = options.remote ?? true;
   const promises: [Promise<unknown>, Promise<unknown>] = [

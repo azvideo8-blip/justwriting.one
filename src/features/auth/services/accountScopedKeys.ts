@@ -155,8 +155,12 @@ const DEVICE_SETTINGS_KEYS = new Set<string>([
   'preview_width',
   'ai_sidebar_width',
   'justwriting_sidebar_collapsed',
-  'focus_swipe_hint_shown',
-  'analytics_consent',
+  // N1-3: `analytics_consent` здесь не стало. Это ключ PostHog-аналитики,
+  // удалённой из приложения 619975e9 (20.09.2026, OUT-1..7 — вместе с
+  // `src/core/analytics/analytics.ts`): в `src/` его никто не читает и не пишет,
+  // а решение об ИИ хранится по аккаунту (`core/ai/aiConsent.ts`,
+  // `privacy_accepted_${uid}`), не по устройству. Мёртвая строка в белом списке
+  // только вечно берегла байт старой версии.
   'diagnostics_unlocked',
   'v2_zenModeEnabled',
 ]);

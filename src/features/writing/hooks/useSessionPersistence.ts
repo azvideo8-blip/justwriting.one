@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import type { AppUser } from '../../../core/auth/types';
 import { WritingDraftService } from '../services/WritingDraftService';
 import { LocalDraft } from '../../../core/storage/localDb';
@@ -75,12 +75,18 @@ export function useSessionPersistence(
     sessionStateRef.current = sessionState;
   }, [sessionState]);
 
+  // Ответ загрузки черновика может прийти уже после смены аккаунта в этой
+  // вкладке. Подставлять его нельзя: текст прежнего человека окажется под
+  // новым (DW-F-3), а спасение уже могло очистить редактор.
+  const userIdRef = useRef(userId);
+  useLayoutEffect(() => { userIdRef.current = userId; }, [userId]);
+
   const { setActiveSessionId, setHasDraft, setDraftInEditor } = actions;
 
   const applyDraftToStore = useCallback((draft: LocalDraft) => {
-    applyDraftToStores(draft);
+    applyDraftToStores(draft, userId || null);
     if (draft.activeSessionId) setActiveSessionId(draft.activeSessionId);
-  }, [setActiveSessionId]);
+  }, [setActiveSessionId, userId]);
 
   const draftLoadedForRef = useRef<string | null>(null);
   /**
@@ -92,6 +98,7 @@ export function useSessionPersistence(
     if (!userId) return;
     
     const draftToLoad = await WritingDraftService.loadDraft(userId);
+    if (userIdRef.current !== userId) return;
     if (draftToLoad) {
       setHasDraft(true);
       const current = useContentStore.getState().content;
@@ -113,6 +120,7 @@ export function useSessionPersistence(
   const restoreDraft = useCallback(async () => {
     if (!userId) return;
     const draftToLoad = await WritingDraftService.loadDraft(userId);
+    if (userIdRef.current !== userId) return;
     if (!draftToLoad) { setHasDraft(false); return; }
     applyDraftToStore(draftToLoad);
     setHasDraft(false);

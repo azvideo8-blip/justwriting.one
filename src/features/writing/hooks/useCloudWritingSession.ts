@@ -4,7 +4,7 @@ import { UserProfile } from '../../../types';
 import { useBaseWritingSession, BaseSessionReturn } from './useBaseWritingSession';
 import { useSessionPersistence } from './useSessionPersistence';
 import { useDraftSession } from './useDraftSession';
-import type { DraftSaveStatus } from './useDraftCore';
+import type { DraftSaveStatus, DraftErrorKind } from './useDraftCore';
 import { useWpm } from './useWpm';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
@@ -17,7 +17,7 @@ export interface CloudSessionReturn extends BaseSessionReturn {
   draftInEditor: boolean;
   setHasDraft: (v: boolean) => void;
   saveStatus: DraftSaveStatus;
-  saveErrorKind: 'quota' | 'unknown' | null;
+  saveErrorKind: DraftErrorKind;
   lastSavedAt: number | null;
   isOnline: boolean;
   handleCancel: () => Promise<void>;

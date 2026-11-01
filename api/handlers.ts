@@ -80,6 +80,13 @@ export interface EndpointResult {
 // forced the dispatcher to fabricate a req/res pair, and pulled in an `express`
 // type import that was never a declared dependency — it resolved only because
 // something else happened to bring Express along.
+// Дейлик 31.10 (Н-3): 503 гейта согласия уходит значением мимо sendError —
+// без строки в журнале монитор (E-8) его не видел. Метка та же, [api-5xx].
+function consentUnavailable(endpoint: string) {
+  console.error(`[api-5xx] 503 unavailable in ${endpoint}`);
+  return { status: 503, body: { error: { code: 'unavailable', message: 'Database temporarily unavailable.' } } };
+}
+
 export async function handleAiEndpoint(
   endpoint: string,
   uid: string,
@@ -99,7 +106,7 @@ export async function handleAiEndpoint(
       // отдельное согласие, отдельная колонка.
       const indexing = await postgresAiContext.getIndexingConsent(uid);
       if (indexing.error === 'unavailable') {
-        return { status: 503, body: { error: { code: 'unavailable', message: 'Database temporarily unavailable.' } } };
+        return consentUnavailable(endpoint);
       }
       if (!indexing.granted) {
         return { status: 403, body: { error: { code: 'INDEXING_CONSENT_REQUIRED', message: 'Indexing consent required.' } } };
@@ -107,7 +114,7 @@ export async function handleAiEndpoint(
     } else {
       const consent = await postgresAiContext.getAiConsent(uid);
       if (consent.error === 'unavailable') {
-        return { status: 503, body: { error: { code: 'unavailable', message: 'Database temporarily unavailable.' } } };
+        return consentUnavailable(endpoint);
       }
       if (!consent.granted) {
         return { status: 403, body: { error: { code: 'AI_CONSENT_REQUIRED', message: 'AI processing consent required.' } } };

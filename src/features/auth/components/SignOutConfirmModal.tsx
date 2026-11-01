@@ -138,6 +138,9 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
                     <div>{t('signout_inv_themes')}<strong className="text-text-main">{inventory.themeCount}</strong></div>
                     <div>{t('signout_inv_beliefs')}<strong className="text-text-main">{inventory.beliefsCount}</strong></div>
                     <div>{t('signout_inv_portrait')}<strong className="text-text-main">{inventory.hasPortrait ? t('signout_yes') : t('signout_no')}</strong></div>
+                    {inventory.guestEntriesCount !== 0 && (
+                      <div>{t('signout_inv_guest')}<strong className="text-text-main">{inventory.guestEntriesCount ?? t('signout_inv_unknown')}</strong></div>
+                    )}
                   </div>
                 ) : null}
               </div>

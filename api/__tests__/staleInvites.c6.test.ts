@@ -29,6 +29,8 @@ describe('C-6: просроченные приглашения', () => {
     expect(list).toEqual([{ uid: 'u-1', email: 'old@test', invitedAt: '2026-01-01T00:00:00.000Z' }]);
     expect(String(query.mock.calls[0]![0])).toContain("interval '1 day'");
     expect(query.mock.calls[0]![1]).toEqual([30]);
+    // Н-2 (дейлик 31.10): список ограничен, как и приём на удаление.
+    expect(String(query.mock.calls[0]![0])).toContain('LIMIT 500');
   });
 
   it('подтверждённый и свежий pending не удаляются, старый — удаляется', async () => {
@@ -42,9 +44,11 @@ describe('C-6: просроченные приглашения', () => {
       uids: ['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3'],
     });
 
-    expect(res).toEqual({ deleted: 1 });
-    expect(deleteUser).toHaveBeenCalledTimes(1);
-    expect(deleteUser).toHaveBeenCalledWith('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1');
+    expect(res).toEqual({ deleted: 1, failed: 0 });
+    const authDeletes = query.mock.calls.filter(c => String(c[0]).includes('delete from auth.users'));
+    expect(authDeletes.map(c => (c[1] as unknown[])[0])).toEqual(['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1']);
+    // Вход удаляется общим deleteUserRows в транзакции, не отдельным вызовом GoTrue.
+    expect(deleteUser).not.toHaveBeenCalled();
   });
 
   it('сбой чтения списка — ошибка, а не пустой список', async () => {
@@ -63,16 +67,29 @@ describe('C-6: просроченные приглашения', () => {
     expect(trail?.[1]).toEqual(['admin', 'delete_stale_invite', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1']);
   });
 
-  // Ревью 0.11.2: сбой записи профиля/следа — аккаунт входа не тронут, повтор
-  // его найдёт. Мутация: удалять вход до транзакции → красный.
-  it('сбой записи в базу — вход не удалён, транзакция откачена', async () => {
-    query.mockImplementation(async (sql: string) => {
-      if (sql.includes('delete from public.users')) throw new Error('MARKER_DB_BLIP');
+  // Ревью 0.11.2 + дейлик 31.10 (Н-2): сбой одного приглашения откатывает только
+  // его, уже удалённые засчитаны. Мутация: throw вместо счёта failed → красный.
+  it('сбой одного — откат его транзакции, остальные засчитаны', async () => {
+    const A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1';
+    const B = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2';
+    query.mockImplementation(async (sql: string, params: unknown[]) => {
+      if (sql.includes('delete from public.users') && params?.[0] === A) throw new Error('MARKER_DB_BLIP');
       return { rowCount: 1, rows: [] };
     });
-    await expect(deleteStaleInvitesLogic(ctx, 'admin', { uids: ['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'] })).rejects.toThrow();
-    expect(deleteUser).not.toHaveBeenCalled();
-    expect(query.mock.calls.map(c => String(c[0]))).toContain('rollback');
+    const res = await deleteStaleInvitesLogic(ctx, 'admin', { uids: [A, B] });
+    expect(res).toEqual({ deleted: 1, failed: 1 });
+    const sqls = query.mock.calls.map(c => String(c[0]));
+    expect(sqls.filter(q => q === 'rollback')).toHaveLength(1);
+    expect(sqls.filter(q => q === 'commit')).toHaveLength(1);
+  });
+
+  // Дейлик 31.10 (Н-1): почта приглашённого живёт в журнале GoTrue — его чистит
+  // только общий вход deleteUserRows. Мутация: вернуть пару «public.users +
+  // auth.admin.deleteUser» → красный.
+  it('журнал GoTrue с почтой приглашённого чищен', async () => {
+    query.mockImplementation(async () => ({ rowCount: 1, rows: [] }));
+    await deleteStaleInvitesLogic(ctx, 'admin', { uids: ['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'] });
+    expect(query.mock.calls.some(c => String(c[0]).includes('auth.audit_log_entries'))).toBe(true);
   });
 });
 

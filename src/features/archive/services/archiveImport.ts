@@ -2,6 +2,7 @@ import { parseNoteMarkdown } from '../../../core/services/noteFormat';
 import { countWords } from '../../../shared/utils/countWords';
 import { SyncService } from '../../../core/services/SyncService';
 import { truncateText } from '../../../shared/utils/textLimits';
+import { watchLocalDbStall } from '../../../core/storage/localDbStall';
 
 export interface ParsedImportFile {
   title: string;
@@ -162,7 +163,8 @@ export async function importNoteFile(
   }
 
   const { LocalStorageService } = await import('../../../core/services/LocalStorageService');
-  const { localId } = await LocalStorageService.saveNew(userId, {
+  // Дейлик 31.10: импорт пишет мимо StorageService — сторож DY10-9 ставим здесь.
+  const { localId } = await watchLocalDbStall('importNote', LocalStorageService.saveNew(userId, {
     title: parsed.title,
     content: parsed.content,
     wordCount: parsed.wordCount,
@@ -175,7 +177,7 @@ export async function importNoteFile(
     documentDate: sessionStartedAt,
     tags: parsed.tags,
     mood: parsed.mood,
-  });
+  }));
 
   if (isSignedIn) {
     try {

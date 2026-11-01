@@ -37,7 +37,7 @@ describe('DA-11: Window completion: time and wpm when continuing old note', () =
       savedDocumentId: 'doc_1',
       accumulatedDuration: 7200,
       initialDuration: 7200,
-    });
+    }, 'u-owner');
 
     const timerState = useTimerStore.getState();
     expect(timerState.accumulatedDuration).toBe(7200);

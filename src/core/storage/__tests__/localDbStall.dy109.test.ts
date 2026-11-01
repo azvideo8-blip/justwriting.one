@@ -3,7 +3,7 @@
 // Мутации: убрать reportError → (1) красный; убрать событие → (1) красный;
 // не снимать таймер по завершении → (2) красный; убрать обёртку в saveNew → (3) красный;
 // убрать обёртку локальной части saveVersion → (4) красный; обернуть весь
-// saveVersion вместе с облаком (ревью 0.11.2) → (5) красный.
+// saveVersion вместе с облаком (ревью 0.11.2) → (5) красный; снять обёртку импорта → (6) красный.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const reported: Array<{ message: string; ctx: unknown; level: unknown }> = [];
@@ -64,6 +64,15 @@ describe('DY10-9: сторож локальной базы', () => {
     void StorageService.saveVersion('u1', 'd4', {} as never);
     await vi.advanceTimersByTimeAsync(LOCAL_DB_STALL_MS + 1);
     expect(events).toEqual(['saveVersion']);
+  });
+
+  // Дейлик 31.10: импорт пишет мимо StorageService. Мутация: снять обёртку → красный.
+  it('(6) импорт заметки под сторожем', async () => {
+    saveNew.mockReturnValue(new Promise(() => {}));
+    const { importNoteFile } = await import('../../../features/archive/services/archiveImport');
+    void importNoteFile(new File(['# Т\n\nтекст'], 'n.md', { type: 'text/markdown' }), 'u1', false);
+    await vi.advanceTimersByTimeAsync(LOCAL_DB_STALL_MS + 1);
+    expect(events).toEqual(['importNote']);
   });
 
   it('(5) локально записано, а дальше медленно — это не «зависшая база»', async () => {

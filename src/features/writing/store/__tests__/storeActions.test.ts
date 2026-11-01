@@ -37,7 +37,7 @@ describe('storeActions', () => {
         wordCount: 2,
         savedDocumentId: 'doc_123',
         accumulatedDuration: 50,
-      });
+      }, 'u-owner');
 
       const contentState = useContentStore.getState();
       expect(contentState.content).toBe('Draft content');
@@ -54,7 +54,7 @@ describe('storeActions', () => {
         title: 'Draft Title',
         wordCount: 2,
         accumulatedDuration: 120,
-      });
+      }, 'u-owner');
 
       const timerState = useTimerStore.getState();
       expect(timerState.status).toBe('idle');
@@ -69,8 +69,18 @@ describe('storeActions', () => {
         title: 'Draft Title',
         wordCount: 2,
         savedDocumentId: 'doc_abc',
-      });
+      }, 'u-owner');
       expect(useSessionMetaStore.getState().savedDocumentId).toBe('doc_abc');
+    });
+
+    it('marks the loaded draft as owned by the account', () => {
+      useContentStore.setState({ ownerUid: 'u-other' });
+      loadDraftIntoStore({
+        content: 'Draft content',
+        title: 'Draft Title',
+        wordCount: 2,
+      }, 'u-owner');
+      expect(useContentStore.getState().ownerUid).toBe('u-owner');
     });
 
     it('defaults accumulatedDuration to 0 when not provided', () => {
@@ -78,7 +88,7 @@ describe('storeActions', () => {
         content: 'Draft content',
         title: 'Draft Title',
         wordCount: 2,
-      });
+      }, 'u-owner');
       expect(useTimerStore.getState().accumulatedDuration).toBe(0);
     });
   });

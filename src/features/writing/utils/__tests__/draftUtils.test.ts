@@ -15,6 +15,7 @@ describe('applyDraftToStores', () => {
       tags: [],
       labelId: undefined,
       initialWordCount: 0,
+      ownerUid: null,
     });
     useTimerStore.setState({
       seconds: 0,
@@ -35,7 +36,7 @@ describe('applyDraftToStores', () => {
       content: 'Hello world',
       title: 'My Title',
       wordCount: 2,
-    });
+    }, 'u-owner');
 
     const contentState = useContentStore.getState();
     expect(contentState.content).toBe('Hello world');
@@ -43,23 +44,31 @@ describe('applyDraftToStores', () => {
     expect(contentState.wordCount).toBe(2);
   });
 
+  it('writes the owner uid with the draft', () => {
+    applyDraftToStores({ content: 'Owned', wordCount: 1 }, 'u-owner');
+    expect(useContentStore.getState().ownerUid).toBe('u-owner');
+
+    applyDraftToStores({ content: 'Guest', wordCount: 1 }, null);
+    expect(useContentStore.getState().ownerUid).toBeNull();
+  });
+
   it('writes pinnedThoughts as array, defaults to []', () => {
     applyDraftToStores({
       pinnedThoughts: ['Thought 1'],
-    });
+    }, 'u-owner');
     expect(useContentStore.getState().pinnedThoughts).toEqual(['Thought 1']);
 
-    applyDraftToStores({});
+    applyDraftToStores({}, 'u-owner');
     expect(useContentStore.getState().pinnedThoughts).toEqual([]);
   });
 
   it('writes tags as array, defaults to []', () => {
     applyDraftToStores({
       tags: ['Tag 1'],
-    });
+    }, 'u-owner');
     expect(useContentStore.getState().tags).toEqual(['Tag 1']);
 
-    applyDraftToStores({});
+    applyDraftToStores({}, 'u-owner');
     expect(useContentStore.getState().tags).toEqual([]);
   });
 
@@ -68,7 +77,7 @@ describe('applyDraftToStores', () => {
       seconds: 120,
       accumulatedDuration: 180,
       totalPauseSeconds: 15,
-    });
+    }, 'u-owner');
 
     const timerState = useTimerStore.getState();
     expect(timerState.seconds).toBe(120);
@@ -79,14 +88,14 @@ describe('applyDraftToStores', () => {
   it('writes savedDocumentId to useSessionMetaStore', () => {
     applyDraftToStores({
       savedDocumentId: 'doc_123',
-    });
+    }, 'u-owner');
     expect(useSessionMetaStore.getState().savedDocumentId).toBe('doc_123');
   });
 
   it('sets activeSessionId when provided', () => {
     applyDraftToStores({
       activeSessionId: 'session_abc',
-    });
+    }, 'u-owner');
     expect(useSessionMetaStore.getState().activeSessionId).toBe('session_abc');
   });
 
@@ -97,7 +106,7 @@ describe('applyDraftToStores', () => {
       pinnedThoughts: undefined,
       tags: undefined,
       savedDocumentId: null,
-    });
+    }, 'u-owner');
 
     const contentState = useContentStore.getState();
     expect(contentState.content).toBe('');

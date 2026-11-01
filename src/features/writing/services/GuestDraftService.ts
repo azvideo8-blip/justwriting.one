@@ -21,10 +21,20 @@ export interface GuestDraftData {
   labelId?: string | undefined;
   accumulatedDuration?: number | undefined;
   totalPauseSeconds?: number | undefined;
+  status?: string | undefined;
+}
+
+/**
+ * Единая форма гостевого черновика: и автосохранение, и запись при закрытии
+ * вкладки кладут один и тот же набор полей, иначе новейшая запись затирает
+ * маркер продолженной заметки (DW-F-2).
+ */
+export function buildGuestDraftPayload(draft: GuestDraftData): GuestDraftData {
+  return { ...draft, updatedAt: Date.now() };
 }
 
 export async function saveGuestDraftToStorage(draft: GuestDraftData): Promise<void> {
-  const withMeta = { ...draft, updatedAt: Date.now() };
+  const withMeta = buildGuestDraftPayload(draft);
   let idbOk = false;
   let lsOk = false;
 

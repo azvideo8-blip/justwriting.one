@@ -35,6 +35,10 @@ export const authTranslations: Translations = {
   guest_saved_locally: { ru: 'Сохранено на устройстве', en: 'Saved on this device' },
   guest_sync_hint: { ru: 'Войди, чтобы синхронизировать между устройствами', en: 'Sign in to sync across devices' },
   draft_restore_prompt:       { ru: 'Найден несохранённый черновик.', en: 'An unsaved draft was found.' },
+  // N1-5: у гостя срок есть — `GUEST_DRAFT_TTL_MS` (`shared/constants/storageKeys.ts:3`),
+  // и плашка обязана о нём сказать. Аккаунту строка не показывается: облачная
+  // копия черновика не истекает никогда (решение по D1-6, `report-2026-10-21-daily-1.md`).
+  draft_restore_guest_ttl:    { ru: 'Без входа в аккаунт черновик хранится 7 дней.', en: 'Without signing in, a draft is kept for 7 days.' },
   draft_restore:              { ru: 'Восстановить',                   en: 'Restore' },
   draft_discard:              { ru: 'Удалить',                        en: 'Discard' },
   draft_discard_confirm:      { ru: 'Удалить черновик? Текст пропадёт.', en: 'Delete the draft? The text will be gone.' },

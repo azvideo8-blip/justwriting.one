@@ -154,7 +154,13 @@ export function DesktopWritingLayout() {
                 className="shrink-0 flex items-center justify-center overflow-hidden"
               >
                 <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-text-main/10 bg-surface-card/90 backdrop-blur-xl shadow-lg text-sm text-text-main/60 whitespace-nowrap">
-                  <span>{t('draft_restore_prompt')}</span>
+                  <div className="flex flex-col leading-tight">
+                    <span>{t('draft_restore_prompt')}</span>
+                    {/* N1-5: срок гостевого черновика (`GUEST_DRAFT_TTL_MS`) — только гостю. */}
+                    {session.isGuest && (
+                      <span className="text-xs text-text-main/45">{t('draft_restore_guest_ttl')}</span>
+                    )}
+                  </div>
                   <div className="flex gap-2">
                     <Button onClick={() => void session.restoreDraft()} className="text-text-main font-medium hover:opacity-70 transition-opacity">
                       {t('draft_restore')}

@@ -73,13 +73,13 @@ describe('persistDraft', () => {
 
   it('calls saveToLocal and saveDraftToCloud in parallel with generation', async () => {
     const draft = { userId: 'u1', content: 'test' } as any;
-    await persistDraft(draft);
+    await persistDraft(draft, { generation: 0 });
     expect(WritingDraftService.saveToLocal).toHaveBeenCalledWith(draft, 0);
     expect(WritingDraftService.saveDraftToCloud).toHaveBeenCalledWith(draft, 0);
   });
 
   it('localOk=true when saveToLocal resolves', async () => {
-    const result = await persistDraft({ userId: 'u1' } as any);
+    const result = await persistDraft({ userId: 'u1' } as any, { generation: 0 });
     expect(result.localOk).toBe(true);
     expect(result.remoteOk).toBe(true);
   });
@@ -87,7 +87,7 @@ describe('persistDraft', () => {
   it('remoteOk=false when saveDraftToCloud rejects, localOk still true', async () => {
     const mockError = new Error('fail');
     (WritingDraftService.saveDraftToCloud as any).mockRejectedValueOnce(mockError);
-    const result = await persistDraft({ userId: 'u1' } as any);
+    const result = await persistDraft({ userId: 'u1' } as any, { generation: 0 });
     expect(result.localOk).toBe(true);
     expect(result.remoteOk).toBe(false);
     expect(result.remoteError).toBe(mockError);
@@ -95,14 +95,14 @@ describe('persistDraft', () => {
 
   it('remoteOk=false when saveDraftToCloud returns false', async () => {
     (WritingDraftService.saveDraftToCloud as any).mockResolvedValueOnce(false);
-    const result = await persistDraft({ userId: 'u1' } as any);
+    const result = await persistDraft({ userId: 'u1' } as any, { generation: 0 });
     expect(result.localOk).toBe(true);
     expect(result.remoteOk).toBe(false);
   });
 
   it('D-1: localOk=false when saveToLocal rejects (no false-positive "Saved")', async () => {
     (WritingDraftService.saveToLocal as any).mockRejectedValueOnce(new Error('IDB fail'));
-    const result = await persistDraft({ userId: 'u1' } as any);
+    const result = await persistDraft({ userId: 'u1' } as any, { generation: 0 });
     expect(result.localOk).toBe(false);
   });
 
@@ -110,8 +110,31 @@ describe('persistDraft', () => {
     const { getLocalStorageUsageKB } = await import('../../../../shared/lib/localStorageUtils');
     (getLocalStorageUsageKB as any).mockReturnValue(5000);
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    await persistDraft({ userId: 'u1' } as any);
+    await persistDraft({ userId: 'u1' } as any, { generation: 0 });
     expect(warnSpy).toHaveBeenCalled();
     warnSpy.mockRestore();
+  });
+
+  // DY10-10: прежнее `options.generation ?? getDraftGeneration(...)` подставляло
+  // текущее поколение, и отсроченная запись после сохранения заметки проходила.
+  // Мутация: вернуть подстановку — красный.
+  it('не подставляет текущее поколение вместо названного вызывающим', async () => {
+    (WritingDraftService.getDraftGeneration as any).mockReturnValue(7);
+    await persistDraft({ userId: 'u1' } as any, { generation: 3 });
+    expect(WritingDraftService.saveToLocal).toHaveBeenCalledWith(expect.objectContaining({ userId: 'u1' }), 3);
+    expect(WritingDraftService.saveDraftToCloud).toHaveBeenCalledWith(expect.objectContaining({ userId: 'u1' }), 3);
+    expect(WritingDraftService.getDraftGeneration).not.toHaveBeenCalled();
+  });
+
+  // DY10-10: вызывающий, который не знает поколения, обязан получить `undefined`
+  // — тогда страж `saveToLocal` решает сам. Прежняя подстановка
+  // `options.generation ?? getDraftGeneration(...)` возвращала текущее, то есть
+  // всегда «свежее», и защита поколения не отвергала ничего.
+  it('не выдумывает поколение, когда вызывающий его не назвал', async () => {
+    (WritingDraftService.getDraftGeneration as any).mockReturnValue(7);
+    await persistDraft({ userId: 'u1' } as any, { generation: undefined });
+    expect(WritingDraftService.saveToLocal).toHaveBeenCalledWith(expect.objectContaining({ userId: 'u1' }), undefined);
+    expect(WritingDraftService.saveDraftToCloud).toHaveBeenCalledWith(expect.objectContaining({ userId: 'u1' }), undefined);
+    expect(WritingDraftService.getDraftGeneration).not.toHaveBeenCalled();
   });
 });

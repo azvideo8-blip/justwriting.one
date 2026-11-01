@@ -4,6 +4,7 @@ import { useReducedMotion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 import { useWritingSettings } from '../../../core/settings/WritingSettingsContext';
+import type { DraftErrorKind } from '../hooks/useDraftCore';
 
 export type SaveStatusKind = 'idle' | 'saving' | 'saved' | 'cloud-stale' | 'error';
 
@@ -32,7 +33,7 @@ export function SaveStatus({
   hideWhenIdle,
 }: {
   saveStatus: SaveStatusKind;
-  saveErrorKind?: 'quota' | 'unknown' | null | undefined;
+  saveErrorKind?: DraftErrorKind | undefined;
   // На телефоне статус показывается только вокруг сохранения: на idle иконки в
   // строке быть не должно (MQ-4). Десктоп оставляет дискету всегда (DC-W4).
   hideWhenIdle?: boolean;
@@ -98,7 +99,15 @@ export function SaveStatus({
   const tip = isError
     ? (saveErrorKind === 'quota' ? t('editor_error_quota') : t('editor_error_save'))
     : isStale
-      ? t('editor_cloud_stale')
+      // N1-5: на телефоне эта пара живёт в одном слоте с обрезкой, поэтому
+      // обещание досылки — здесь, в подсказке десктопа (наведения на телефоне нет).
+      ? saveErrorKind === 'cloud-too-large'
+        ? t('editor_cloud_too_large_hint')
+        : saveErrorKind === 'cloud-refused'
+          ? t('editor_cloud_refused_hint')
+          : saveErrorKind === 'cloud-off'
+            ? t('editor_cloud_off_hint')
+          : `${t('editor_cloud_stale')}. ${t('editor_cloud_stale_hint')}`
       : saveStatus === 'saving'
         ? t('editor_saving')
         : savedAt

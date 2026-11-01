@@ -20,14 +20,14 @@ export interface DraftDataToApply {
   labelId?: string | undefined;
 }
 
-export function applyDraftToStores(draft: DraftDataToApply) {
+export function applyDraftToStores(draft: DraftDataToApply, ownerUid: string | null) {
   loadDraftIntoStore({
     content: draft.content || '',
     title: draft.title || '',
     wordCount: draft.wordCount || 0,
     savedDocumentId: draft.savedDocumentId ?? undefined,
     accumulatedDuration: draft.accumulatedDuration ?? 0,
-  });
+  }, ownerUid);
 
   useContentStore.setState({
     pinnedThoughts: Array.isArray(draft.pinnedThoughts) ? draft.pinnedThoughts : [],

@@ -29,7 +29,10 @@ describe('useDraftAutosave', () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     useTimerStore.setState({ status: 'writing' });
-    useContentStore.setState({ content: '', title: '', wordCount: 0 });
+    // DW-9: стор текста держит владельца (`ownerUid`, N-47), а не только текст —
+    // без его сброса следующий тест стартует с чужим владельцем и спасение
+    // отрабатывает не там, где его задал тест.
+    useContentStore.setState({ content: '', title: '', wordCount: 0, ownerUid: null });
     useSessionMetaStore.getState().resetSessionMetadata();
     localStorage.clear();
   });
@@ -59,7 +62,7 @@ describe('useDraftAutosave', () => {
 
     expect(persistDraft).toHaveBeenCalledWith(
       expect.objectContaining({ content: 'Some draft text changed', wordCount: 4 }),
-      { remote: false }
+      { generation: expect.any(Number), remote: false }
     );
     expect(result.current.saveStatus).toBe('saved');
 
@@ -89,7 +92,7 @@ describe('useDraftAutosave', () => {
 
     expect(persistDraft).toHaveBeenCalledWith(
       expect.objectContaining({ content: 'changed text' }),
-      { remote: false }
+      { generation: expect.any(Number), remote: false }
     );
   });
 
@@ -108,7 +111,7 @@ describe('useDraftAutosave', () => {
 
     expect(persistDraft).toHaveBeenCalledWith(
       expect.objectContaining({ content: 'Some draft text', title: 'Autosave Title' }),
-      { remote: true }
+      { generation: expect.any(Number), remote: true }
     );
   });
 
@@ -409,7 +412,7 @@ describe('useDraftAutosave', () => {
 
       expect(persistDraft).toHaveBeenCalledWith(
         expect.objectContaining({ content: 'Original loaded note body!' }),
-        { remote: false }
+        { generation: expect.any(Number), remote: false }
       );
     });
   });
@@ -527,7 +530,7 @@ describe('useDraftAutosave', () => {
     vi.mocked(persistDraft).mockResolvedValue({ localOk: true, localSkipped: true, remoteOk: true });
     const { result } = renderHook(() => useDraftAutosave(mockUser, initialData));
     await act(async () => { await vi.advanceTimersByTimeAsync(31_000); });
-    expect(vi.mocked(persistDraft)).toHaveBeenCalledWith(expect.anything(), { remote: true });
+    expect(vi.mocked(persistDraft)).toHaveBeenCalledWith(expect.anything(), { generation: expect.any(Number), remote: true });
     expect(result.current.saveStatus).not.toBe('saved');
   });
 

@@ -7,7 +7,7 @@ import {
   saveGuestDraftToStorage,
 } from '../services/GuestDraftService';
 import { useDraftManager, DraftData } from './useDraftManager';
-import type { DraftSaveStatus } from './useDraftCore';
+import type { DraftSaveStatus, DraftErrorKind } from './useDraftCore';
 import { useDraftSession } from './useDraftSession';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
@@ -19,7 +19,7 @@ export interface GuestSessionReturn extends ReturnType<typeof useBaseWritingSess
   hasDraft: boolean;
   setHasDraft: (v: boolean) => void;
   saveStatus: DraftSaveStatus;
-  saveErrorKind: 'quota' | 'unknown' | null;
+  saveErrorKind: DraftErrorKind;
   lastSavedAt: number | null;
   isOnline: boolean;
   handleCancel: () => Promise<void>;
@@ -72,22 +72,7 @@ export function useGuestWritingSession(): GuestSessionReturn {
   const getDraftData = useCallback(() => draftDataRef.current, []);
 
   const onSaveDraft = useCallback(async (data: DraftData) => {
-    await saveGuestDraftToStorage({
-      content: data.content,
-      title: data.title,
-      pinnedThoughts: data.pinnedThoughts,
-      seconds: data.seconds,
-      wordCount: data.wordCount,
-      initialWordCount: data.initialWordCount,
-      sessionStartTime: data.sessionStartTime,
-      activeSessionId: data.activeSessionId,
-      savedDocumentId: data.savedDocumentId,
-      tags: data.tags,
-      labelId: data.labelId,
-      accumulatedDuration: data.accumulatedDuration,
-      totalPauseSeconds: data.totalPauseSeconds,
-      timestamp: Date.now(),
-    });
+    await saveGuestDraftToStorage({ ...data, timestamp: Date.now() });
   }, []);
 
   const draftManager = useDraftManager(guestId, getDraftData, { onSaveDraft });

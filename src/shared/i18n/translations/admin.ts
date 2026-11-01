@@ -55,6 +55,7 @@ export const adminTranslations: Translations = {
   admin_stale_invites_confirm: { ru: 'Будут удалены {count} неподтверждённых приглашений:', en: '{count} unconfirmed invites will be deleted:' },
   admin_stale_invites_none: { ru: 'Приглашений старше 30 дней нет', en: 'No invites older than 30 days' },
   admin_stale_invites_done: { ru: 'Удалено приглашений: {count}', en: 'Invites deleted: {count}' },
+  admin_stale_invites_partial: { ru: 'Удалено приглашений: {deleted}, не удалось: {failed}', en: 'Invites deleted: {deleted}, failed: {failed}' },
   admin_stale_invites_failed: { ru: 'Не удалось удалить приглашения', en: 'Failed to delete invites' },
   admin_actions_hint: { ru: 'Последние записи таблицы admin_actions. Здесь их можно только прочитать.', en: 'Latest admin_actions rows. Read-only.' },
   admin_actions_col_at: { ru: 'Когда', en: 'When' },

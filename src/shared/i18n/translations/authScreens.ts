@@ -220,6 +220,16 @@ export const authScreensTranslations: Translations = {
     ru: 'Портрет: ',
     en: 'Portrait: ',
   },
+  // N1-1: гостевые строки общей базы уходят этой же веткой выхода — показывать их
+  // отдельной строкой, иначе счёт называет меньше, чем реально стирается.
+  signout_inv_guest: {
+    ru: 'Записи без входа: ',
+    en: 'Guest entries: ',
+  },
+  signout_inv_unknown: {
+    ru: 'не удалось посчитать',
+    en: 'could not count',
+  },
   signout_yes: {
     ru: 'да',
     en: 'yes',

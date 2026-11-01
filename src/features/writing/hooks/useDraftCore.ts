@@ -7,10 +7,16 @@ import { reportError } from '../../../shared/errors/reportError';
 import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { isAccountReloadPending } from '../../../core/auth/accountReload';
+import { buildGuestDraftPayload, type GuestDraftData } from '../services/GuestDraftService';
+import { mayAccountWriteEditorText } from '../utils/draftOwnerGuard';
+import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 
 
 export type DraftSaveStatus = 'idle' | 'saving' | 'saved' | 'cloud-stale' | 'error';
-export type DraftErrorKind = 'quota' | 'unknown' | null;
+// N1 вопрос 3 (владелец 02.11): облако отказало навсегда — экран не обещает
+// досылку. `cloud-too-large` — проверка размера в базе (23514), `cloud-refused` — прочее.
+// `cloud-off` — синхронизация выключена человеком: облака нет, досылки тоже (ревью 0.11.3).
+export type DraftErrorKind = 'quota' | 'unknown' | 'cloud-too-large' | 'cloud-refused' | 'cloud-off' | null;
 
 /** What a save reports back. Omitting `remoteOk` means "no remote save was attempted". */
 export interface DraftSaveOutcome {
@@ -49,6 +55,8 @@ export function useDraftCore({ userId, onError }: UseDraftCoreOptions) {
   // Sticky. Only a remote save that actually succeeded clears it — a local-only
   // save carries no information about the cloud copy and must not reset it.
   const cloudStaleRef = useRef(false);
+  // Почему облако отказало навсегда; снимается той же удачной записью, что и cloudStaleRef.
+  const permanentKindRef = useRef<DraftErrorKind>(null);
   const isMountedRef = useRef(true);
   const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
@@ -83,7 +91,7 @@ export function useDraftCore({ userId, onError }: UseDraftCoreOptions) {
     if (isMountedRef.current) {
       setSaveStatus(isCloudStale ? 'cloud-stale' : 'saved');
       setLastSavedAt(Date.now());
-      setSaveErrorKind(null);
+      setSaveErrorKind(isCloudStale ? permanentKindRef.current : null);
       if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
       // "Saved" is transient — it confirms one write and fades. The stale
       // warning is a standing condition, so it must not fade back to a blank
@@ -144,15 +152,22 @@ export function useDraftCore({ userId, onError }: UseDraftCoreOptions) {
           message.includes('23514') ||
           details.includes('check constraint');
 
-        if (isPermanent) setRemotePermanentError(true);
+        if (isPermanent) {
+          setRemotePermanentError(true);
+          const tooLarge = code === '23514' || message.includes('23514')
+            || message.includes('check constraint') || details.includes('check constraint');
+          permanentKindRef.current = tooLarge ? 'cloud-too-large' : 'cloud-refused';
+        }
 
         remoteFailCountRef.current += 1;
+        if (!isPermanent && userId && !cloudSyncEnabled(userId)) permanentKindRef.current = 'cloud-off';
         if (isPermanent || remoteFailCountRef.current >= 3) {
           cloudStaleRef.current = true;
         }
       } else if (res && res.remoteOk === true) {
         remoteFailCountRef.current = 0;
         cloudStaleRef.current = false;
+        permanentKindRef.current = null;
         setRemotePermanentError(false);
       }
 
@@ -167,7 +182,7 @@ export function useDraftCore({ userId, onError }: UseDraftCoreOptions) {
       rerunRef.current = null;
       if (rerun && isMountedRef.current) void wrapSaveRef.current(rerun.saveFn, rerun.action);
     }
-  }, [markSaving, markSaved, markError]);
+  }, [markSaving, markSaved, markError, userId]);
   const wrapSaveRef = useRef(wrapSave);
   useEffect(() => { wrapSaveRef.current = wrapSave; }, [wrapSave]);
 
@@ -204,11 +219,19 @@ export function useSyncUnloadSave(
     sessionStartTime?: number | undefined;
     activeSessionId: string | null;
     [key: string]: unknown;
-  }>
+  }>,
+  /** DY10-10: запись устарела — черновик стёрт сохранением заметки после правки. */
+  isStaleWrite?: () => boolean,
 ) {
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (isAccountReloadPending()) return;
+      // Сохранение заметки поднимает поколение черновика и стирает его ДО сброса
+      // сессии. Уход со страницы в этом окне писал уже сохранённый текст в
+      // унаследованный ключ, а следующая загрузка поднимала его как черновик:
+      // надгробие не ловит — хэш нагрузки другой (`savedDocumentId` заполнен), а
+      // метка строки новее отметки удаления.
+      if (isStaleWrite?.()) return;
       const contentState = useContentStore.getState();
       const timerState_ = useTimerStore.getState();
       const meta = useSessionMetaStore.getState();
@@ -232,6 +255,33 @@ export function useSyncUnloadSave(
             localStorage.removeItem(`draft-${user.uid}`);
             return;
           }
+          if (isGuest) {
+            // DW-F-2: та же полная форма, что у GuestDraftService — иначе эта
+            // запись новее и при возврате затирает маркер продолженной заметки.
+            const payload = buildGuestDraftPayload({
+              ...(draftDataRef.current as GuestDraftData),
+              content: contentState.content,
+              title: contentState.title,
+              seconds: timerState_.seconds,
+              status: timerState_.status,
+              wordCount: contentState.wordCount,
+              tags: contentState.tags ?? [],
+              labelId: contentState.labelId ?? undefined,
+              timestamp: Date.now(),
+            });
+            localStorage.setItem(key, JSON.stringify(payload));
+            return;
+          }
+          // DW-9 (сид 191): в этой же вкладке без перезагрузки мог включиться
+          // другой аккаунт, а редактор всё ещё держит текст прежнего. Ключ
+          // `draft-<uid>` читается при следующем входе (`pickNewerLocalCopy`,
+          // N1-4) — текст прежнего аккаунта восстанавливался у нового. Сверка та же,
+          // что у записи на размонтировании (AS-1), и из одного помощника.
+          // Писатель приносит СВОЙ снимок текста (`draftDataRef`), иначе второе
+          // плечо правила — «владельца нет, а в сторе уже другой текст» — было
+          // бы мертво: сравнивать стор с самим собой бессмысленно.
+          const sessionContent = (draftDataRef.current as { content?: unknown }).content;
+          if (!mayAccountWriteEditorText(user.uid, typeof sessionContent === 'string' ? sessionContent : contentState.content)) return;
           localStorage.setItem(key, JSON.stringify({
             content: contentState.content,
             title: contentState.title,
@@ -258,5 +308,5 @@ export function useSyncUnloadSave(
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('pagehide', handleBeforeUnload);
     };
-  }, [user, draftDataRef]);
+  }, [user, draftDataRef, isStaleWrite]);
 }

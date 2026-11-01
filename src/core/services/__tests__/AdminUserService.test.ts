@@ -171,12 +171,24 @@ describe('AdminUserService', () => {
   // Мутация: одним запросом → красный.
   it('deleteStaleInvites шлёт пачками по 100 и суммирует удалённое', async () => {
     vi.mocked(callAi).mockReset();
-    vi.mocked(callAi).mockImplementation(async (_e: string, d: unknown) => ({ deleted: (d as { uids: string[] }).uids.length }) as never);
+    vi.mocked(callAi).mockImplementation(async (_e: string, d: unknown) => ({ deleted: (d as { uids: string[] }).uids.length, failed: 0 }) as never);
     const uids = Array.from({ length: 250 }, (_, i) => `u${i}`);
     const res = await AdminUserService.deleteStaleInvites(uids);
-    expect(res).toEqual({ deleted: 250 });
+    expect(res).toEqual({ deleted: 250, failed: 0 });
     const sizes = vi.mocked(callAi).mock.calls.map(c => (c[1] as { uids: string[] }).uids.length);
     expect(sizes).toEqual([100, 100, 50]);
+  });
+
+  // Дейлик 31.10 (Н-2): упавшая пачка не прячет уже удалённые. Мутация: не ловить
+  // ошибку пачки → красный (исключение вместо счёта).
+  it('deleteStaleInvites: пачка упала — удалённое до неё засчитано, пачка — в неудачных', async () => {
+    vi.mocked(callAi).mockReset();
+    vi.mocked(callAi)
+      .mockResolvedValueOnce({ deleted: 100, failed: 0 } as never)
+      .mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValueOnce({ deleted: 49, failed: 1 } as never);
+    const res = await AdminUserService.deleteStaleInvites(Array.from({ length: 250 }, (_, i) => `u${i}`));
+    expect(res).toEqual({ deleted: 149, failed: 101 });
   });
 });
 

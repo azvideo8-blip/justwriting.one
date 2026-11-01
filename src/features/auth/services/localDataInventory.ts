@@ -1,4 +1,4 @@
-import { getLocalDb, isSyncRevCursorKey, syncRevCursorKey } from '../../../core/storage/localDb';
+import { getLocalDb, isSyncRevCursorKey, syncRevCursorKey, countGuestEntriesInSharedDb } from '../../../core/storage/localDb';
 import { countUnsyncedLocalData } from './unsyncedLocalData';
 
 export interface LocalDataInventory {
@@ -17,6 +17,8 @@ export interface LocalDataInventory {
   threadsCount: number;
   personasCount: number;
   unsyncedNotesCount: number;
+  /** Rows in this browser's shared `justwriting-local` that belong to no account; null — could not count. */
+  guestEntriesCount: number | null;
   totalItems: number;
 }
 
@@ -104,6 +106,15 @@ export async function countLocalDataInventory(userId?: string): Promise<LocalDat
     /* ignore */
   }
 
+  // N1-1: выход с галочкой стирает из общей базы и гостевые строки — человек
+  // обязан видеть их в счёте, а не узнать о них постфактум.
+  let guestEntriesCount: number | null = null;
+  try {
+    guestEntriesCount = await countGuestEntriesInSharedDb();
+  } catch {
+    /* ревью 0.11.3: не прочиталось — null, а не 0: выход всё равно их сотрёт */
+  }
+
   const totalItems =
     notesCount +
     versionsCount +
@@ -136,6 +147,7 @@ export async function countLocalDataInventory(userId?: string): Promise<LocalDat
     threadsCount,
     personasCount,
     unsyncedNotesCount,
+    guestEntriesCount,
     totalItems,
   };
 }

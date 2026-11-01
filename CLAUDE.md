@@ -16,6 +16,7 @@ Rules for `/code-review`, `/security-review`, and any reviewer agent. (`REVIEW.m
 
 **Known bug classes to hunt for first (each has bitten this repo):**
 - A failed read treated as "nothing there" — "no" vs "no answer" must stay distinct; same on writes.
+- A sweep or delete keyed on "absent from a listing" — name the source of truth that the item is really gone (a tombstone, `deleted_at`); an empty or truncated listing is "no answer", not "all gone".
 - A fix in one of two entry points while prod goes through the other — grep callers before accepting a fix.
 - A new test that was never red — ask what mutation would make it fail.
 - A mock whose insertion order hides a real `order by` dependency — when the reader sorts by key, the mock must return rows out of insertion order.

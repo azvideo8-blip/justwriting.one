@@ -1,5 +1,6 @@
 import { getOrCreateGuestId, getLocalDb, type LocalDraft } from '../../../core/storage/localDb';
 import { LocalStorageService } from '../../../core/services/LocalStorageService';
+import { watchLocalDbStall } from '../../../core/storage/localDbStall';
 import { GUEST_DRAFT_TTL_MS, STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { emitDomainEvent } from '../../../core/events/domainEvents';
 import { getFrozenDates, saveFrozenDates, clearFrozenDates } from '../../../core/utils/streakFreeze';
@@ -77,7 +78,8 @@ export async function migrateDocuments(userId: string): Promise<MigrateResult> {
       // выбрасывается, а становится обычной заметкой. Раньше он удалялся под
       // сообщением «перенесено 1». S-63: черновик только с названием — тоже
       // заметка; своё название черновика важнее «Черновик гостя, <дата>».
-      await LocalStorageService.saveNew(userId, {
+      // Дейлик 31.10: запись мимо StorageService — сторож DY10-9 здесь.
+      await watchLocalDbStall('migrateGuestDraft', LocalStorageService.saveNew(userId, {
         title: guestDraft.title?.trim() || guestDraftNoteTitle(ts(guestDraft) || Date.now()),
         content: guestDraft.content,
         wordCount: guestDraft.wordCount ?? 0,
@@ -87,7 +89,7 @@ export async function migrateDocuments(userId: string): Promise<MigrateResult> {
         sessionStartedAt: new Date(ts(guestDraft) || Date.now()),
         // Дата заметки — когда черновик писали, а не момент входа.
         documentDate: new Date(ts(guestDraft) || Date.now()),
-      });
+      }));
       draftMigrated = true;
       draftNote = true;
     }

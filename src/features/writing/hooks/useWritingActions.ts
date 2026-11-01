@@ -102,7 +102,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
         savedDocumentId: localId,
         accumulatedDuration: doc.totalDuration,
         initialDuration: doc.totalDuration,
-      });
+      }, isGuest ? null : userId);
 
       // Reset goals so no false "goal reached" toast fires when loading a large doc
       useTimerStore.setState({ wordGoal: 0, timerDuration: 0, sessionStartWords: baseline });
@@ -126,7 +126,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
         showToast(t('error_load_failed'), 'error');
       }
     }
-  }, [userId, setLifeLogVisible, showToast, t, flow, confirm, session]);
+  }, [userId, isGuest, setLifeLogVisible, showToast, t, flow, confirm, session]);
 
   const handleContinueSessionOrDoc = React.useCallback(async (sessionOrDoc: Session | LifeLogDocument) => {
     try {

@@ -6,7 +6,7 @@ import { getUserDocuments, getCloudVersionDiscrepancyCount } from '../documents'
 import { getVersions, getAllVersionsForUser } from '../versions';
 import { getUserEmbeddings } from '../embeddings';
 import { getUserSummaries } from '../summaries';
-import { getLocalStoreRecords } from '../localStore';
+import { getLocalStoreRecords, getLocalStoreRecordPages, getLocalStoreRecordsByKeyPrefix } from '../localStore';
 import { getSupabase } from '../../../supabase/client';
 
 vi.mock('../../../supabase/client', () => ({
@@ -153,6 +153,21 @@ describe('DUP-5: pageAll PostgREST pagination convergence', () => {
         }),
         extractKey: (item) => (item as { key: string }).key,
       },
+      // Дейлик 31.10: страницы записи и сегменты диалога — та же тяжёлая таблица.
+      {
+        name: 'getLocalStoreRecordPages',
+        run: () => getLocalStoreRecordPages('user_test', 'aiDialogues', 'd1'),
+        pageSize: 50,
+        generateRow: (i) => ({ store: 'aiDialogues', key: `d1#${String(i).padStart(5, '0')}`, user_id: 'user_test', payload: { val: i } }),
+        extractKey: (item) => (item as { key: string }).key,
+      },
+      {
+        name: 'getLocalStoreRecordsByKeyPrefix',
+        run: () => getLocalStoreRecordsByKeyPrefix('user_test', 'aiDialogues', 'd1@seg'),
+        pageSize: 50,
+        generateRow: (i) => ({ store: 'aiDialogues', key: `d1@seg${String(i).padStart(5, '0')}`, user_id: 'user_test', payload: { val: i } }),
+        extractKey: (item) => (item as { key: string }).key,
+      },
     ];
 
     for (const { name, run, generateRow, extractKey, pageSize = 1000 } of cases) {
@@ -168,6 +183,7 @@ describe('DUP-5: pageAll PostgREST pagination convergence', () => {
         const mockQueryBuilder = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
+          like: vi.fn().mockReturnThis(),
           is: vi.fn().mockReturnThis(),
           order: vi.fn().mockReturnThis(),
           range: mockRange,
