@@ -156,6 +156,26 @@ export const authScreensTranslations: Translations = {
     ru: 'Не удалось удалить данные с устройства — очисти данные сайта в браузере вручную',
     en: 'Could not delete the data from this device — clear this site’s data in your browser manually',
   },
+  // CK-2/CK-3: часы устройства спешат — токен кажется просроченным с рождения,
+  // обновления идут подряд, первый сбой обновления рвёт сессию. Человеку говорят
+  // причину и что делать; стирать ничего не предлагается (данные целы и свои).
+  auth_clock_skew_notice: {
+    ru: 'Часы устройства расходятся с точным временем примерно на {duration}. Из-за этого вход может слетать. Включите автоматическую установку времени и часового пояса.',
+    en: 'Your device clock is off from the correct time by about {duration}. This can sign you out unexpectedly. Turn on automatic date, time and time zone.',
+  },
+  auth_clock_skew_sign_in_again: {
+    ru: 'Войдите снова.',
+    en: 'Please sign in again.',
+  },
+  // единицы расхождения: текст выбирает перевод, величину — clockSkewParts()
+  auth_clock_skew_hours: {
+    ru: '{count} ч',
+    en: '{count} h',
+  },
+  auth_clock_skew_minutes: {
+    ru: '{count} мин',
+    en: '{count} min',
+  },
   signout_unsynced_error: {
     ru: 'Есть несинхронизированные данные. Подтверди принудительное удаление или отмени выход.',
     en: 'There is unsynced data. Confirm forced deletion or cancel sign-out.',

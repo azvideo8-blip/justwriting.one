@@ -9,8 +9,9 @@
 // · пустой финал сдвигал счёт, и фраза после перезапуска затирала прежнюю (Z4).
 //
 // Мутации: isCurrent → всегда true — Z3, Z5 красные; убрать deliveredRef в onend
-// — Z2; вернуть filter(Boolean).length — Z4. Z1 защищён дважды (isCurrent и
-// cancelledRef в cleanup) и краснеет при возврате прежнего cleanup.
+// — Z2; вернуть filter(Boolean).length — Z4. Z1 и Z6 защищены прежним cleanup
+// (cancelledRef + abort без отдачи текста) и краснеют при его возврате; Z7
+// краснеет, если отдача на размонтировании начнёт срабатывать и после cancel().
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useSpeechInput } from '../useSpeechInput';
@@ -34,15 +35,42 @@ beforeEach(() => { instances.length = 0; vi.useFakeTimers(); (window as unknown 
 afterEach(() => { vi.useRealTimers(); delete (window as unknown as { SpeechRecognition?: unknown }).SpeechRecognition; });
 
 describe('распознавание: жизненный цикл экземпляра', () => {
-  it('Z1: уход со страницы во время записи не перезапускает распознавание', () => {
-    const { result, unmount } = renderHook(() => useSpeechInput({ onSessionEnd: vi.fn() }), { wrapper: LanguageProvider });
+  it('Z1: уход со страницы во время записи не перезапускает распознавание, а сказанное отдаётся человеку', () => {
+    const onUnmountText = vi.fn();
+    const { result, unmount } = renderHook(() => useSpeechInput({ onSessionEnd: vi.fn(), onUnmountText }), { wrapper: LanguageProvider });
     act(() => { result.current.startListening(); });
     const rec = instances[0]!;
-    act(() => { rec.onstart?.(); rec.onresult?.(ev(0, 'привет')); });
+    act(() => { rec.onstart?.(); rec.onresult?.(ev(0, 'MARKER_D12_привет')); });
     expect(rec.start).toHaveBeenCalledTimes(1);
     unmount();
     vi.advanceTimersByTime(10);
     expect(rec.start).toHaveBeenCalledTimes(1);
+    // Слова уже видел человек в панели записи — они не должны исчезнуть молча.
+    expect(onUnmountText).toHaveBeenCalledWith('MARKER_D12_привет');
+  });
+
+  it('Z6: незакреплённый хвост (interim) на размонтировании тоже не теряется', () => {
+    const onUnmountText = vi.fn();
+    const { result, unmount } = renderHook(() => useSpeechInput({ onSessionEnd: vi.fn(), onUnmountText }), { wrapper: LanguageProvider });
+    act(() => { result.current.startListening(); });
+    const rec = instances[0]!;
+    const interim = { resultIndex: 0, results: Object.assign([{ 0: { transcript: 'MARKER_D12_хвост' }, isFinal: false }], { length: 1 }) };
+    act(() => { rec.onstart?.(); rec.onresult?.(interim); });
+    act(() => { unmount(); vi.advanceTimersByTime(50); });
+    expect(onUnmountText).toHaveBeenCalledWith('MARKER_D12_хвост');
+  });
+
+  it('Z7: Esc/отмена — ничего не отдаётся и тоста с текстом нет', () => {
+    const onSessionEnd = vi.fn();
+    const onUnmountText = vi.fn();
+    const { result, unmount } = renderHook(() => useSpeechInput({ onSessionEnd, onUnmountText }), { wrapper: LanguageProvider });
+    act(() => { result.current.startListening(); });
+    const rec = instances[0]!;
+    act(() => { rec.onstart?.(); rec.onresult?.(ev(0, 'MARKER_D12_отмена')); });
+    act(() => { result.current.cancel(); });
+    act(() => { unmount(); vi.advanceTimersByTime(50); });
+    expect(onSessionEnd).not.toHaveBeenCalled();
+    expect(onUnmountText).not.toHaveBeenCalled();
   });
 
   it('Z2: после непродолжаемого сбоя (с доставкой) onend не перезапускает движок', () => {

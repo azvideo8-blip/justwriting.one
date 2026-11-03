@@ -45,6 +45,10 @@ interface UseSpeechInputProps {
   /** Вызывается ОДИН раз на сессию: после stop'а, нажатого человеком, или после
    *  сбоя, когда часть текста уже распознана. Пустой текст не доставляется. */
   onSessionEnd: (fullText: string) => void;
+  /** Экран письма размонтирован во время записи (смена маршрута, панель LifeLog):
+   *  собранное, включая interim-хвост, отдаётся человеку, а не пропадает. В стор
+   *  здесь не вставляем — за размонтированным экраном некому вести автосохранение. */
+  onUnmountText?: ((fullText: string) => void) | undefined;
 }
 
 // Chrome обрывает continuous-сессию сам после длинной паузы. Мы перезапускаем её
@@ -68,7 +72,7 @@ function sameOrGrowing(prev: string, next: string): boolean {
   return a === b || b.startsWith(a) || a.startsWith(b);
 }
 
-export function useSpeechInput({ onSessionEnd, onError }: UseSpeechInputProps) {
+export function useSpeechInput({ onSessionEnd, onError, onUnmountText }: UseSpeechInputProps) {
   const [isListening, setIsListening] = useState(false);
   const [liveText, setLiveText] = useState('');
   // Хвост-черновик отдельным полем: панель записи (D-4) показывает его светлее
@@ -100,12 +104,20 @@ export function useSpeechInput({ onSessionEnd, onError }: UseSpeechInputProps) {
   // возврата из фона микрофон писал снова сам (findings-G G3: starts: 2).
   const abortedRef = useRef(false);
   const cancelledRef = useRef(false);
+  // Размонтирование — отдельный исход, а не отмена человеком: Esc и смена заметки
+  // текст выбрасывают намеренно, а уход с экрана обязан его сохранить.
+  const unmountedRef = useRef(false);
   const deliveredRef = useRef(false);
   const resultsSinceRestartRef = useRef(0);
   const lastRestartAtRef = useRef<number | null>(null);
   const emptyRestartsRef = useRef(0);
   const { language, t } = useLanguage();
   const { showToast } = useToast();
+  // Последний колбэк, не перезапуская cleanup размонтирования на каждом рендере.
+  const onUnmountTextRef = useRef(onUnmountText);
+  useEffect(() => {
+    onUnmountTextRef.current = onUnmountText;
+  }, [onUnmountText]);
 
   const joinSession = useCallback((): string => {
     const finals = finalsRef.current.filter(Boolean);
@@ -271,9 +283,9 @@ export function useSpeechInput({ onSessionEnd, onError }: UseSpeechInputProps) {
 
     recognition.onend = () => {
       if (!isCurrent()) return;
-      // Отмена или уже доставленная сессия (сбой в onerror): перезапуск здесь
-      // оживил бы движок, текст которого никто больше не примет.
-      if (cancelledRef.current || deliveredRef.current) {
+      // Отмена, размонтирование или уже доставленная сессия (сбой в onerror):
+      // перезапуск здесь оживил бы движок, текст которого никто больше не примет.
+      if (unmountedRef.current || cancelledRef.current || deliveredRef.current) {
         setIsListening(false);
         return;
       }
@@ -327,13 +339,18 @@ export function useSpeechInput({ onSessionEnd, onError }: UseSpeechInputProps) {
   }, [isListening, stopListening]);
 
   useEffect(() => {
+    unmountedRef.current = false;
     return () => {
+      unmountedRef.current = true;
+      const text = joinSession();
       const recognition = recognitionRef.current;
       cancelledRef.current = true;
       recognitionRef.current = null;
       recognition?.abort();
+      // cancel() уже очистил refs — отменённое человеком не отдаём.
+      if (text) onUnmountTextRef.current?.(text);
     };
-  }, []);
+  }, [joinSession]);
 
   return {
     isListening,

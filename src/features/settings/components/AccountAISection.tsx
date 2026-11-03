@@ -27,7 +27,7 @@ interface AccountAISectionProps {
 
 export function AccountAISection({ userId, onIndexPending }: AccountAISectionProps) {
   const { t } = useLanguage();
-  const { profile } = useProfile();
+  const { profile, refreshProfile } = useProfile();
   const { showToast } = useToast();
   const { confirm: confirmDialog } = useConfirmDialog();
   const [loading, setLoading] = useState(false);
@@ -64,6 +64,9 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
         aiConsentVersion: AI_CONSENT_VERSION_REQUIRED,
       });
       setAiConsent(userId, true);
+      // GT Н-1: статус секции считается из профиля — без перечитывания он
+      // оставался «Не предоставлено» до перезагрузки страницы.
+      await refreshProfile();
       showToast(t('settings_ai_consent_granted'), 'success');
     } catch (e) {
       reportError(e, { action: 'grantAiConsent', userId });
@@ -87,6 +90,7 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
         aiConsentVersion: null,
       });
       setAiConsent(userId, false);
+      await refreshProfile();
       showToast(t('settings_ai_consent_withdrawn'));
     } catch (e) {
       reportError(e, { action: 'withdrawAiConsent', userId });

@@ -6,6 +6,7 @@ import { useContentStore } from '../store/useContentStore';
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
 import { useDraftCore, useVisibilitySave, useSyncUnloadSave, type DraftSaveStatus, type DraftErrorKind, type DraftSaveOutcome } from './useDraftCore';
 import { resetAndClear, resetAllSessionMetadata } from '../store/storeActions';
+import { WritingDraftService } from '../services/WritingDraftService';
 
 export interface DraftData {
   content: string;
@@ -119,12 +120,26 @@ export function useDraftManager(
 
   useVisibilitySave(doAutosave, () => getDraftData().content);
 
+  // Дейлик 03.11 Н-1: поколение на момент правки — как у писателя аккаунта
+  // (useDraftAutosave, DY10-10). Сохранение заметки поднимает его, и запись при
+  // закрытии вкладки в окне до сброса сессии отвергается.
+  const genAtEditRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (userId) genAtEditRef.current = WritingDraftService.getDraftGeneration(userId);
+  }, [content, title, userId]);
+  const isStaleWrite = useCallback(() => {
+    if (!userId) return false;
+    const generation = genAtEditRef.current;
+    return generation !== undefined && generation !== WritingDraftService.getDraftGeneration(userId);
+  }, [userId]);
+
   // D-2: guests (and cloud users via this manager) get a beforeunload/pagehide
   // localStorage fallback so closing the tab between 30s autosaves doesn't lose
   // recent typing.
   useSyncUnloadSave(
     userId ? ({ uid: userId } as AppUser) : null,
     liveDraftRef as unknown as RefObject<{ pinnedThoughts: string[]; sessionStartTime?: number | undefined; activeSessionId: string | null; [key: string]: unknown }>,
+    isStaleWrite,
   );
 
   const forceSave = useCallback(async () => {

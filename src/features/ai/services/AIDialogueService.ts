@@ -164,7 +164,9 @@ export const AIDialogueService = {
     assistantMsg: string,
     reasoning?: string,
     searchRequest?: string | null,
-    degradedReason?: string | null
+    degradedReason?: string | null,
+    contextDocIds?: string[] | null,
+    notesClaimNoRef?: boolean | null,
   ): Promise<void> {
     const truncate = (s: string) => s.length > MAX_MSG_LENGTH ? truncateText(s, MAX_MSG_LENGTH, { maxCodeUnits: MAX_MSG_LENGTH }) + '\n[...truncated]' : s;
     const db = await getLocalDb();
@@ -185,6 +187,8 @@ export const AIDialogueService = {
         ...(reasoning ? { reasoning: truncate(reasoning) } : {}),
         ...(searchRequest ? { searchRequest: truncate(searchRequest) } : {}),
         ...(degradedReason ? { degradedReason } : {}),
+        ...(contextDocIds?.length ? { contextDocIds } : {}),
+        ...(notesClaimNoRef ? { notesClaimNoRef: true } : {}),
       }, now + 1),
     );
     existing.updatedAt = now;
@@ -211,6 +215,8 @@ export const AIDialogueService = {
     reasoning?: string,
     searchRequest?: string | null,
     degradedReason?: string | null,
+    contextDocIds?: string[] | null,
+    notesClaimNoRef?: boolean | null,
   ): Promise<void> {
     const truncate = (s: string) => s.length > MAX_MSG_LENGTH ? truncateText(s, MAX_MSG_LENGTH, { maxCodeUnits: MAX_MSG_LENGTH }) + '\n[...truncated]' : s;
     const db = await getLocalDb();
@@ -228,6 +234,8 @@ export const AIDialogueService = {
       ...(reasoning ? { reasoning: truncate(reasoning) } : {}),
       ...(searchRequest ? { searchRequest: truncate(searchRequest) } : {}),
       ...(degradedReason ? { degradedReason } : {}),
+      ...(contextDocIds?.length ? { contextDocIds } : {}),
+      ...(notesClaimNoRef ? { notesClaimNoRef: true } : {}),
     };
     const userIdx = existing.messages.findIndex(m => m.id === replaceUserId);
     // Ответ хода — первая реплика ассистента после вопроса; служебные

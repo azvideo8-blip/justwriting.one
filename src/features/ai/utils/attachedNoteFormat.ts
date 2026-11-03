@@ -8,12 +8,17 @@ import { cleanAttachedTitle } from './aiChatTransport';
 // DY5: сам ход больше не разбирается на блоки — список заметок едет данными.
 export const ATTACHED_BLOCK_SEP = '\n\n---\n\n';
 
+/** К21-5: строка в блоке заметки, которую человек оговорил как текст ИИ. */
+export const AI_WRITTEN_LINE = 'Текст написан ИИ, а не человеком; его формулировки не приписывай человеку.';
+
 export interface AttachedNoteBlock {
   documentId: string;
   lastSessionAt?: number | undefined;
   title: string;
   /** Нет тела — ход «не влез»: остаётся только шапка с названием и датой. */
   content?: string | undefined;
+  /** К21-5: человек оговорил, что этот текст написал ИИ (см. aiAuthorship). */
+  aiWritten?: boolean | undefined;
 }
 
 type FullBlock = AttachedNoteBlock & { content: string };
@@ -24,7 +29,8 @@ export function refHead(a: Pick<AttachedNoteBlock, 'documentId' | 'lastSessionAt
 }
 
 export function formatRefTag(a: FullBlock): string {
-  return `${refHead(a)}\n${a.content}`;
+  const mark = a.aiWritten ? `\n${AI_WRITTEN_LINE}` : '';
+  return `${refHead(a)}${mark}\n${a.content}`;
 }
 
 /**

@@ -17,6 +17,24 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.4',
+    date: '2026-11-03',
+    items: [
+      { category: 'fix', ru: 'Диктовка: если уйти с экрана письма во время записи, сказанное не пропадает — его можно скопировать.', en: 'Dictation: if you leave the writing screen while recording, what you said is not lost — you can copy it.' },
+      { category: 'fix', ru: 'Диктовка не ломается после пустой записи и продолжает работать, если открыть или закрыть боковую панель.', en: 'Dictation no longer breaks after an empty recording and keeps working when you open or close the side panel.' },
+      { category: 'fix', ru: 'Первая загрузка на новом устройстве докачивает все заметки, даже если сервер просит притормозить.', en: 'The first download on a new device fetches all notes, even when the server asks to slow down.' },
+      { category: 'improvement', ru: 'Если часы устройства сильно расходятся с точным временем, приложение говорит об этом, а не просто «вы вышли», и не предлагает стереть данные.', en: 'If the device clock is far off, the app says so instead of just «you were signed out», and does not offer to wipe your data.' },
+      { category: 'fix', ru: 'Серия дней в архиве учитывает дату, которую вы поставили заметке сами.', en: 'The streak in the archive counts the date you set on a note yourself.' },
+      { category: 'fix', ru: 'Статус согласия на ИИ меняется сразу после нажатия.', en: 'The AI consent status updates right after you tap the button.' },
+      { category: 'improvement', ru: 'На вопрос «откуда ты это взял?» ИИ смотрит в те же записи, а под ответом видно, какие заметки он видел.', en: 'When asked «where did you get that?», the AI looks at the same entries, and the answer shows which notes it saw.' },
+      { category: 'improvement', ru: 'ИИ отмечает ответ, где пересказаны записи без ссылок, и не приписывает вам слова текста, который, по вашим словам, написал другой ИИ.', en: 'The AI flags answers that retell entries without links, and no longer attributes to you the words of a text you said another AI wrote.' },
+      { category: 'fix', ru: 'Без входа в аккаунт: после «Сохранить» и быстрого закрытия вкладки сохранённый текст не возвращается черновиком.', en: 'Without signing in: after «Save» and quickly closing the tab, the saved text no longer comes back as a draft.' },
+      { category: 'fix', ru: 'С включённым сейфом слова, набранные прямо перед закрытием вкладки, сохраняются.', en: 'With the vault on, words typed right before closing the tab are kept.' },
+      { category: 'fix', ru: 'Число «Записи без входа» при выходе совпадает с тем, что будет стёрто.', en: 'The «Entries without sign-in» count at sign-out matches what will be deleted.' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.11.3',
     date: '2026-11-02',
     items: [

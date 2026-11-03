@@ -56,8 +56,14 @@ describe('BR-11 (а): прощённый день «позавчера» сох�
   });
 
   it('второй прощент в том же месяце не берётся: серия без права на мост — 0', () => {
-    // Уже заморожен другой день этого месяца.
-    const other = dayKey(subDays(TODAY, 10));
+    // Уже заморожен другой день месяца, в котором пропущено вчера. Не TODAY−10:
+    // 1–10-го он попадает в прошлый месяц, и тест краснел по календарю
+    // (02.11: серия 2 вместо 0).
+    const other = dayKey(new Date(
+      YESTERDAY.getFullYear(),
+      YESTERDAY.getMonth(),
+      YESTERDAY.getDate() === 1 ? 2 : 1,
+    ));
     localStorage.setItem(`jw_streak_freezes_${UID}`, JSON.stringify([other]));
 
     const info = calculateStreakInfo([sessionOn(TWO_DAYS_AGO)], undefined, UID);

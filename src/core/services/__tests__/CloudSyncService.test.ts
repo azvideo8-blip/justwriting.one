@@ -28,7 +28,7 @@ describe('CloudSyncService', () => {
       const addLocalCopySpy = vi.spyOn(CloudSyncService, 'addLocalCopy').mockResolvedValue('local_1');
 
       const result = await CloudSyncService.restoreMissingDocuments('user_1');
-      expect(result).toEqual({ restored: 2, hasMore: false });
+      expect(result).toEqual({ restored: 2, failed: 0, hasMore: false });
       expect(addLocalCopySpy).toHaveBeenCalledTimes(2);
     });
 
@@ -47,7 +47,7 @@ describe('CloudSyncService', () => {
 
       expect(updateLink).toHaveBeenCalledWith('local_1', 'cloud_1', 'user_1');
       expect(addLocalCopySpy).not.toHaveBeenCalled();
-      expect(result).toEqual({ restored: 0, hasMore: false });
+      expect(result).toEqual({ restored: 0, failed: 0, hasMore: false });
     });
   });
 

@@ -154,4 +154,24 @@ describe('DEEP-2: multi-sitting note history', () => {
     expect(allGroupedNotes.length).toBe(1);
     expect(allGroupedNotes[0]!.id).toBe(docId);
   });
+
+  it('перенесённая дата заметки считается днём серии вместе с днём подхода (02.11)', () => {
+    const today = startOfDay(new Date());
+    const mk = (id: string, noteDay: Date, wroteAt: Date): Session => ({
+      id, userId, content: 'x', duration: 60, wordCount: 10, sessionWordsAdded: 10, charCount: 0, wpm: 0,
+      createdAt: noteDay, sessionStartTime: noteDay.getTime(),
+      sittings: [{ id: `${id}-v1`, documentId: id, version: 1, sessionStartedAt: wroteAt.getTime(), savedAt: wroteAt.getTime(), wordsAdded: 10, duration: 60 }],
+    });
+    // Две заметки написаны сегодня и перенесены на вчера и позавчера; до них — два обычных дня.
+    const sessions = [
+      mk('d0', today, today),
+      mk('d1', subDays(today, 1), today),
+      mk('d2', subDays(today, 2), today),
+      mk('d3', subDays(today, 3), subDays(today, 3)),
+      mk('d4', subDays(today, 4), subDays(today, 4)),
+    ];
+    expect(getSessionDates(sessions[1]!).map(d => d.getTime()).sort()).toEqual([subDays(today, 1).getTime(), today.getTime()]);
+    expect(calculateStreak(sessions, new Set())).toBe(5);
+  });
 });
+

@@ -19,6 +19,7 @@
  */
 
 import { countAbsentQuotes } from './quoteGuard';
+import { ANSWER_REF_RE, RESULTS_FOUND_RE, RESULTS_HEAD_RE, notesClaimWithoutRef } from './notesRefRule';
 
 const fold = (s: string): string => s.toLowerCase().replace(/ё/g, 'е');
 
@@ -43,16 +44,9 @@ const EMPTY_CLAIM_RE = new RegExp(
 // «заметка диалога» (sticky) и маркер хранящегося хода `Прикреплена заметка: "…"`.
 const ATTACHED_NOTE_RE = /\[(?:Прикреплен(?:ная|а) заметка|Заметка, к которой привязан этот диалог)/;
 
-// Блок результатов поиска пуст, если в нём нет ни одной найденной заметки:
-// либо «Найдено заметок: 0», либо шапок «Заметка N: "…"» нет вовсе. Пустой блок
-// — это законное «ничего не нашлось», и считать его провалом нельзя.
-const RESULTS_HEAD_RE = /Результаты поиска по архиву заметок/;
-const RESULTS_FOUND_RE = /Найдено заметок: [1-9]\d*|Заметка \d+:\s*"/;
-
-// Ссылка ответа: `[#id]`, `[#id · 20261006]` (модель копирует шапку — R-2) и
-// голые скобки без `#` не трогает: их чистит клиент. Имя — до первой точки с
-// запятой/пробела, id импортированных заметок сам с точкой («1720194283.716586»).
-const ANSWER_REF_RE = /\[#([^\]\s]{1,120}?)(?:\s*·[^\]]*)?\]/g;
+// Блок результатов поиска, его непустота и ссылка ответа (`[#id]`) описаны в
+// notesRefRule — том же модуле, по которому клиент рисует пометку «нет ссылок на
+// записи» (К21-4). Формы обязаны быть одни на сервер и клиент.
 
 export interface AnswerAudit {
   note_text_denied: boolean;
@@ -60,6 +54,11 @@ export interface AnswerAudit {
   foreign_ids: number;
   /** MD-3: сколько кавычек клиент снимет как отсутствующие в материалах. */
   quote_unquoted: number;
+  /**
+   * К21-4: ответ пересказывает найденные записи, но не ссылается ни на одну —
+   * 1, иначе 0. Тот же признак рисует пометку под ответом на клиенте.
+   */
+  notes_claim_no_ref: number;
 }
 
 /**
@@ -89,5 +88,6 @@ export function auditAnswer(
     empty_claim_with_results: RESULTS_HEAD_RE.test(doc) && RESULTS_FOUND_RE.test(doc) && EMPTY_CLAIM_RE.test(low),
     foreign_ids: refs.size,
     quote_unquoted: countAbsentQuotes(answer, quoteMaterials ?? doc),
+    notes_claim_no_ref: notesClaimWithoutRef(answer, doc) ? 1 : 0,
   };
 }

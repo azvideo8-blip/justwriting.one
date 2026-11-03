@@ -83,7 +83,7 @@ describe('AUD-12 restore modal reports failure', () => {
   });
 
   it('never shows completion for a pass that restored nothing', async () => {
-    vi.mocked(CloudSyncService.restoreMissingDocuments).mockResolvedValue({ restored: 0, hasMore: false });
+    vi.mocked(CloudSyncService.restoreMissingDocuments).mockResolvedValue({ restored: 0, failed: 0, hasMore: false });
 
     render(<RestoreFromCloudModal open onClose={() => {}} />);
 
@@ -96,7 +96,7 @@ describe('AUD-12 restore modal reports failure', () => {
   });
 
   it('reports numbers on a real success', async () => {
-    vi.mocked(CloudSyncService.restoreMissingDocuments).mockResolvedValue({ restored: 3, hasMore: false });
+    vi.mocked(CloudSyncService.restoreMissingDocuments).mockResolvedValue({ restored: 3, failed: 0, hasMore: false });
 
     render(<RestoreFromCloudModal open onClose={() => {}} />);
 
@@ -107,7 +107,7 @@ describe('AUD-12 restore modal reports failure', () => {
   });
 
   it('AG-RESTORE-3: notes already present (restored: 0) but AI data restored: finishes on completed and dismisses empty device prompt', async () => {
-    vi.mocked(CloudSyncService.restoreMissingDocuments).mockResolvedValue({ restored: 0, hasMore: false });
+    vi.mocked(CloudSyncService.restoreMissingDocuments).mockResolvedValue({ restored: 0, failed: 0, hasMore: false });
     const onRestoreAIData = vi.fn().mockResolvedValue({
       summaries: 5,
       embeddings: 10,
@@ -127,7 +127,7 @@ describe('AUD-12 restore modal reports failure', () => {
   });
 
   it('AG-RESTORE-3: genuinely empty cloud (0 notes, 0 AI records): ends on failed and does not dismiss prompt', async () => {
-    vi.mocked(CloudSyncService.restoreMissingDocuments).mockResolvedValue({ restored: 0, hasMore: false });
+    vi.mocked(CloudSyncService.restoreMissingDocuments).mockResolvedValue({ restored: 0, failed: 0, hasMore: false });
     const onRestoreAIData = vi.fn().mockResolvedValue({
       summaries: 0,
       embeddings: 0,

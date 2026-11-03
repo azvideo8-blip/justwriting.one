@@ -42,6 +42,12 @@ export class FaultInterceptor {
   public faultFiredCount: number = 0;
   private clockBackwardsFired: boolean = false;
   private originalIdbGet: typeof IDBObjectStore.prototype.get | null = null;
+  // FD-2: оконный лимит вместо «один armed-сбой». `perWindow` — сколько запросов
+  // проходит, после чего всё в окне упирается в 429. Форма ответа — КАК НА ПРОДЕ:
+  // nginx limit_req отдаёт text/html, и supabase-js 2.118 (замер на стенде
+  // 02.11, gt-logs/exp429.sh) кладёт в ошибку ТОЛЬКО `message` — ни `code`,
+  // ни `status`, ни `statusCode`. Поэтому лимитер не выдаёт `code: '429'`.
+  private rateLimit: { perWindow: number; windowMs: number; windowStart: number; seen: number; blocked: number } | null = null;
 
   constructor(postgres?: InMemoryPostgres) {
     this.postgres = postgres || new InMemoryPostgres();
@@ -224,10 +230,29 @@ export class FaultInterceptor {
 
   public clearArmedFault(): void {
     this.armedFault = null;
+    this.rateLimit = null;
     this.restoreIdbQuotaPatch();
     this.restoreIdbAutoclosePatch();
     this.clockOffsetMs = 0;
     this.clockBackwardsFired = false;
+  }
+
+  /**
+   * FD-2: оконный лимит — `perWindow` запросов на окно `windowMs`, дальше 429.
+   * Окно катится по часам (как `limit_req rate=… per 1m` у nginx), поэтому
+   * клиент, который подождал и повторил, попадает в свежее окно и проходит.
+   */
+  public setRateLimit(perWindow: number, windowMs = 1_000): void {
+    this.rateLimit = { perWindow, windowMs, windowStart: Date.now(), seen: 0, blocked: 0 };
+  }
+
+  public clearRateLimit(): void {
+    this.rateLimit = null;
+  }
+
+  /** Сколько запросов было отбито лимитом — для отчёта «шквал был, клиент жил». */
+  public getRateLimitBlocked(): number {
+    return this.rateLimit?.blocked ?? 0;
   }
 
   public setStep(step: StepName): void {
@@ -645,6 +670,21 @@ export class FaultInterceptor {
           if (fault === 'decrypt_corrupt_single') {
             this.fireFault();
             await this.corruptSingleCloudVersion();
+          }
+
+          // FD-2: оконный лимит. Ответ — ровно то, что даёт nginx limit_req:
+          // text/html, и в ошибке supabase-js остаётся только `message`.
+          if (this.rateLimit) {
+            const rl = this.rateLimit;
+            if (Date.now() - rl.windowStart >= rl.windowMs) { rl.windowStart = Date.now(); rl.seen = 0; }
+            rl.seen++;
+            if (rl.seen > rl.perWindow) {
+              rl.blocked++;
+              return {
+                data: null,
+                error: { message: '<html>\r\n<head><title>429 Too Many Requests</title></head>\r\n<body>\r\n<center><b>429 Too Many Requests</b></center>\r\n</body>\r\n</html>\r\n' },
+              };
+            }
           }
 
           if (this.rls) {

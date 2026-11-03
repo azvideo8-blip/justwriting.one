@@ -222,6 +222,9 @@ export function useSyncUnloadSave(
   }>,
   /** DY10-10: запись устарела — черновик стёрт сохранением заметки после правки. */
   isStaleWrite?: () => boolean,
+  /** Дейлик 03.11 Н-2: сейф включён — открытый снимок не пишем, но запускаем
+   *  обычную локальную запись черновика (best effort: браузер может не дождаться). */
+  onEncryptedUnload?: () => void,
 ) {
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -253,6 +256,7 @@ export function useSyncUnloadSave(
           if (!isGuest && getEncryptionEnabled(user.uid)) {
             // SEC-56: E2E is enabled — skip writing unencrypted draft to localStorage and clean legacy key
             localStorage.removeItem(`draft-${user.uid}`);
+            onEncryptedUnload?.();
             return;
           }
           if (isGuest) {
@@ -308,5 +312,5 @@ export function useSyncUnloadSave(
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('pagehide', handleBeforeUnload);
     };
-  }, [user, draftDataRef, isStaleWrite]);
+  }, [user, draftDataRef, isStaleWrite, onEncryptedUnload]);
 }

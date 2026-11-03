@@ -24,6 +24,7 @@ const { guarded, meter, punctuate, willPunctuate, isNoteHidden, append, showToas
     },
     props: { onSessionEnd: (_t: string): void => undefined } as {
       onSessionEnd: (t: string) => void; onError?: ((e: string) => void) | undefined;
+      onUnmountText?: ((t: string) => void) | undefined;
     },
   },
   meter: { level: 0.3, failed: false },
@@ -36,7 +37,7 @@ const { guarded, meter, punctuate, willPunctuate, isNoteHidden, append, showToas
 }));
 
 vi.mock('../useGuardedSpeechInput', () => ({
-  useGuardedSpeechInput: (props: { onSessionEnd: (t: string) => void; onError?: (e: string) => void }) => {
+  useGuardedSpeechInput: (props: { onSessionEnd: (t: string) => void; onError?: (e: string) => void; onUnmountText?: (t: string) => void }) => {
     guarded.props = props;
     return guarded.current;
   },
@@ -286,6 +287,20 @@ describe('D-4: useDictation', () => {
     await waitFor(() => expect(append).toHaveBeenCalledWith('Сказано вслух.'));
   });
 
+  it('уход с экрана во время записи отдаёт сказанное копированием, а не вставляет', () => {
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const started = renderHook(() => useDictation());
+    act(() => { guarded.props.onUnmountText?.('MARKER_D12_ушёл'); });
+    expect(append).not.toHaveBeenCalled();
+    const call = showToast.mock.calls.find(c => c[0] === 'voice_left_screen_copy') as [string, string, { label: string; onClick: () => void }] | undefined;
+    expect(call?.[1]).toBe('warning');
+    expect(call?.[2].label).toBe('voice_copy_text');
+    call?.[2].onClick();
+    expect(writeText).toHaveBeenCalledWith('MARKER_D12_ушёл');
+    started.unmount();
+  });
+
   it('(e из D-2) конфликт микрофона: метр уступает, распознавание стартует ещё раз', async () => {
     punctuate.mockResolvedValue({ text: 'x', punctuated: true });
     const started = renderHook(() => useDictation());
@@ -301,6 +316,43 @@ describe('D-4: useDictation', () => {
     await waitFor(() => expect(guarded.current.startListening).toHaveBeenCalledTimes(1), { timeout: 200 });
   });
 
+  it('(e из D-2) сессия без единого слова не съедает единственную уступку — второй конфликт тоже лечится', async () => {
+    const started = renderHook(() => useDictation());
+    // Сессия 1: конфликт микрофона, метр уступил, распознавание перезапущено.
+    act(() => { started.result.current.toggle(); });
+    setListening(true);
+    started.rerender();
+    act(() => { guarded.props.onError?.('audio-capture'); });
+    await waitFor(() => expect(guarded.current.startListening).toHaveBeenCalledTimes(1));
+    // Сессия 1 умерла молча: «Стоп» без единого слова.
+    setListening(false);
+    act(() => { guarded.props.onSessionEnd(''); });
+
+    // Сессия 2 на том же экране: тот же конфликт обязан лечиться снова.
+    act(() => { started.result.current.toggle(); });
+    setListening(true);
+    started.rerender();
+    act(() => { guarded.props.onError?.('audio-capture'); });
+    await waitFor(() => expect(guarded.current.startListening).toHaveBeenCalledTimes(2));
+    started.unmount();
+  });
+
+  it('(e из D-2) пустая сессия не гасит волну на всё оставшееся время письма', async () => {
+    const started = renderHook(() => useDictation());
+    act(() => { started.result.current.toggle(); });
+    setListening(true);
+    started.rerender();
+    act(() => { guarded.props.onError?.('audio-capture'); });
+    setListening(false);
+    act(() => { guarded.props.onSessionEnd(''); });
+
+    act(() => { started.result.current.toggle(); });
+    setListening(true);
+    started.rerender();
+    expect(started.result.current.levelFailed).toBe(false);
+    started.unmount();
+  });
+
   it('кнопка на не-хосте проксирует команды хосту и показывает его снимок', async () => {
     punctuate.mockResolvedValue({ text: 'Сказано вслух.', punctuated: true });
     const host = renderHook(() => useDictation());
@@ -309,5 +361,22 @@ describe('D-4: useDictation', () => {
     act(() => { second.result.current.stop(); });
     await waitFor(() => expect(guarded.current.stopListening).toHaveBeenCalled());
     expect(second.result.current.liveText).toBe(host.result.current.liveText);
+  });
+
+  it('после размонтирования хоста оставшаяся кнопка по-прежнему начинает запись', async () => {
+    // Toolbar (шапка) монтируется раньше BottomStats и становится хостом; при
+    // включении LifeLog шапка уходит в другую ветку и размонтируется, а кнопка
+    // внизу экрана остаётся. Прежде она молча получала undefined.
+    const hostButton = renderHook(() => useDictation());
+    const survivingButton = renderHook(() => useDictation());
+    await act(async () => { hostButton.result.current.toggle(); });
+    expect(guarded.current.toggleListening).toHaveBeenCalledTimes(1);
+    vi.clearAllMocks();
+
+    hostButton.unmount();
+
+    await act(async () => { survivingButton.result.current.toggle(); });
+    expect(guarded.current.toggleListening).toHaveBeenCalledTimes(1);
+    survivingButton.unmount();
   });
 });

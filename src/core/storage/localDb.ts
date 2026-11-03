@@ -198,6 +198,19 @@ export interface DialogueMessage {
    * и ответ, чей вопрос удалён, на разных устройствах вставал по-разному.
    */
   turnId?: string | undefined;
+  /**
+   * К21-3: id заметок, которые модель видела в материалах этого ответа. Без
+   * них «откуда ты это взял?» на следующем ходу не восстановить: поиск уже
+   * другой, а материалы прошлого ответа нигде не лежат.
+   */
+  contextDocIds?: string[] | undefined;
+  /**
+   * К21-4: ответ пересказал найденные записи, но не сослался ни на одну — по
+   * этому полю под ответом рисуется пометка «источник не указан». Признак
+   * считается один раз при сохранении (общее правило notesRefRule, то же, что
+   * считает сервер): материалы хода не хранятся, и пересчитать его потом нечем.
+   */
+  notesClaimNoRef?: boolean | undefined;
 }
 
 export interface AIDialogue {
@@ -1004,36 +1017,30 @@ export async function wipeGuestAndAccountFromSharedDb(uid: string): Promise<void
  * N1-1: счёт «Будет удалено с этого устройства…» считал только базу аккаунта,
  * поэтому гостевые строки общей базы, которые эта же ветка выхода стирает,
  * человеку не показывались. Считает то же, что удалит
- * `wipeGuestAndAccountFromSharedDb` из хранилищ с данными человека.
+ * `wipeGuestAndAccountFromSharedDb` из гостевого: те же хранилища и тот же
+ * предикат владельца (дейлик 03.11 Н-3: прежний обход по `documents`/`drafts`
+ * пропускал гостевой профиль и очередь — показывал 3, стирал 6).
  *
- * DEEP-10: версии — по индексу `by-document`, а не `getAll('versions')`:
- * строки версий несут полный текст заметки.
+ * DEEP-10: курсор, а не `getAll` — строки версий несут полный текст заметки,
+ * в память они по одной, как и при стирании.
  */
 export async function countGuestEntriesInSharedDb(): Promise<number> {
   // Ревью 0.11.3: сбой чтения — не «гостевого нет». Ошибка уходит вызывающему,
   // и диалог выхода говорит «не удалось посчитать», а не прячет строку.
   const db = await getLocalDb('justwriting-local');
-  const ownerOf = (rec: unknown): string | undefined => {
-    const row = rec as { guestId?: string; userId?: string; ownerId?: string };
-    return row.guestId ?? row.userId ?? row.ownerId;
-  };
+  const names = Array.from(db.objectStoreNames).filter(name => OWNED_SHARED_STORES.has(name));
+  if (names.length === 0) return 0;
+  const tx = db.transaction(names, 'readonly');
   let total = 0;
-  if (db.objectStoreNames.contains('documents')) {
-    const docs = await db.getAll('documents');
-    for (const doc of docs) {
-      if (!isGuestOwner(ownerOf(doc))) continue;
-      total += 1;
-      try {
-        total += await db.countFromIndex('versions', 'by-document', String((doc as { id?: string }).id));
-      } catch {
-        /* индекса нет в этой версии базы */
-      }
+  for (const name of names) {
+    let cursor = await tx.objectStore(name).openCursor();
+    while (cursor) {
+      const rec = cursor.value as { guestId?: string; userId?: string; ownerId?: string };
+      if (isGuestOwner(rec.guestId ?? rec.userId ?? rec.ownerId)) total += 1;
+      cursor = await cursor.continue();
     }
   }
-  if (db.objectStoreNames.contains('drafts')) {
-    const drafts = await db.getAll('drafts');
-    total += drafts.filter(rec => isGuestOwner(ownerOf(rec))).length;
-  }
+  await tx.done;
   return total;
 }
 

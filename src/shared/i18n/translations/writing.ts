@@ -194,6 +194,8 @@ export const writingTranslations: Translations = {
   voice_no_punctuation_reason_too_long: { ru: 'слишком длинный кусок', en: 'chunk too long' },
   voice_not_inserted_note_changed: { ru: 'Текст диктовки не вставлен: открыта другая заметка. Скопируй его и вставь куда нужно', en: 'Dictation was not inserted: another note is open. Copy it and paste where needed' },
   voice_cancelled_note_changed: { ru: 'Запись остановлена: открыта другая заметка. Сказанное можно скопировать', en: 'Recording stopped: another note is open. You can copy what you said' },
+  voice_left_screen_copy: { ru: 'Запись прервана уходом с экрана. Сказанное не вставлено — его можно скопировать', en: 'Recording was interrupted by leaving the screen. What you said was not inserted — you can copy it' },
+  voice_not_ready: { ru: 'Диктовка ещё не готова — попробуй ещё раз', en: 'Dictation is not ready yet — try again' },
   voice_copy_text: { ru: 'Скопировать', en: 'Copy' },
   voice_ai_request_notice: { ru: 'Будет потрачен 1 запрос к ИИ (осталось {remaining})', en: 'One AI request will be spent ({remaining} left)' },
   voice_ai_mic_label: { ru: 'Диктовка с ИИ: расставит знаки препинания', en: 'AI dictation: will add punctuation' },

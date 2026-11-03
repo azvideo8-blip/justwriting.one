@@ -17,7 +17,7 @@ import {
   ATTACHED_FILE_RE,
 } from '../AIChatPresentational';
 import type { PersonaVisual } from '../../constants/personaVisuals';
-import { useCitationMeta, type ChatMessage } from './useCitationMeta';
+import { useCitationMeta, buildDocIndex, type ChatMessage } from './useCitationMeta';
 import { ThinkingIndicator } from './ThinkingIndicator';
 import type { ConsentCode } from '../../hooks/useAIChat';
 import { diffPostAgainstNote, postBody } from '../../utils/editorDiff';
@@ -118,8 +118,65 @@ function findSourceNote(messages: readonly ChatMessage[], before: number): Sourc
   return null;
 }
 
-function EditorPostDiff({ answer, source, dialogueDocumentId }: { answer: string; source: SourceNote | null; dialogueDocumentId?: string | undefined }) {
-  const { t } = useLanguage();
+// К21-3: строка под ответом — какие заметки модель видела в этом ходу. Скрытые,
+// удалённые и отсутствующие на устройстве в список не попадают: показывать их —
+// значит раскрывать то, что человек от ИИ спрятал.
+function ContextNotesRow({ ids, onOpenNote }: { ids: string[]; onOpenNote: (id: string) => void }) {
+  const { t, tp } = useLanguage();
+  const [notes, setNotes] = useState<{ id: string; title: string }[] | null>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const db = await getLocalDb();
+        const index = await buildDocIndex(db);
+        const visible: { id: string; title: string }[] = [];
+        for (const id of ids) {
+          const doc = index.get(id);
+          if (!doc || isExcludedFromAI(doc)) continue;
+          visible.push({ id, title: doc.title || t('archive_untitled') });
+        }
+        if (!cancelled) setNotes(visible);
+      } catch (e) {
+        console.warn('[AIChat] failed to resolve context notes:', e);
+        if (!cancelled) setNotes([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [ids, t]);
+
+  if (!notes || notes.length === 0) return null;
+  return (
+    <details
+      data-testid="ai-context-notes"
+      open={open}
+      onToggle={e => setOpen((e.target as HTMLDetailsElement).open)}
+      className="mb-3 rounded-xl border border-border-subtle bg-surface-card/50 overflow-hidden"
+    >
+      <summary className="px-4 py-2 text-xs font-medium text-text-main/60 cursor-pointer hover:text-text-main transition-colors select-none">
+        {tp('ai_context_notes_row', notes.length)}
+      </summary>
+      {open && (
+        <div className="px-4 py-2 border-t border-border-subtle flex flex-col gap-1">
+          {notes.map(n => (
+            <button
+              key={n.id}
+              type="button"
+              onClick={() => onOpenNote(n.id)}
+              className="text-left text-xs text-text-main/70 hover:text-text-main transition-colors truncate"
+            >
+              {n.title}
+            </button>
+          ))}
+        </div>
+      )}
+    </details>
+  );
+}
+
+function EditorPostDiff({ answer, source, dialogueDocumentId }: { answer: string; source: SourceNote | null; dialogueDocumentId?: string | undefined }) {  const { t } = useLanguage();
   const [noteText, setNoteText] = useState<string | null>(null);
 
   useEffect(() => {
@@ -388,6 +445,20 @@ export function AIChatMessages(props: AIChatMessagesProps) {
                     </div>
                   )}
                   <MarkdownRenderer content={processCitations(msg.content)} onCitationClick={handleCitationClick} />
+                  {/* К21-4: пересказ найденных записей без единой ссылки. Признак
+                      сохранён в реплике — пересчитать его на клиенте нечем. */}
+                  {msg.notesClaimNoRef && (
+                    <div
+                      data-testid="ai-no-note-refs"
+                      className="mt-2 mb-3 px-3 py-1.5 rounded-xl bg-accent-warning/10 border border-accent-warning/20 text-xs text-accent-warning/90 font-medium flex items-center gap-2 w-fit max-w-full"
+                    >
+                      <AlertTriangle size={13} className="shrink-0 text-accent-warning" />
+                      <span>{t('ai_no_note_refs')}</span>
+                    </div>
+                  )}
+                  {msg.contextDocIds && msg.contextDocIds.length > 0 && (
+                    <ContextNotesRow ids={msg.contextDocIds} onOpenNote={handleCitationClick} />
+                  )}
                   {convPersonaId === 'editor' && msg.content.includes('— — —') && (
                     <EditorPostDiff
                       answer={msg.content}

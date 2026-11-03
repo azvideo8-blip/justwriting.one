@@ -14,6 +14,9 @@ import { reportError } from '../../shared/errors/reportError';
 
 const FLUSH_LIMIT_MS = 1500;
 const NOTICE_KEY = 'jw_account_change_notice';
+// CK-3: кому принадлежит сообщение. После выхода `user` уже null, а расхождение
+// часов лежит под ключом аккаунта — без этого uid новая страница не узнала бы причину.
+const NOTICE_UID_KEY = 'jw_account_change_notice_uid';
 
 const flushers = new Set<() => Promise<unknown>>();
 let pending = false;
@@ -41,11 +44,20 @@ export function skipFlushOnAccountReload(skip = true): void {
   skipFlush = skip;
 }
 
-export type AccountChangeNotice = 'signed_out' | 'signed_out_wiped' | 'wipe_failed' | 'account_deleted' | 'account_deleted_wipe_failed' | 'lost_session';
+export type AccountChangeNotice = 'signed_out' | 'signed_out_wiped' | 'wipe_failed' | 'account_deleted' | 'account_deleted_wipe_failed' | 'lost_session' | 'clock_skew';
 
 /** Сообщение, которое покажется уже на новой странице. */
-export function setAccountChangeNotice(notice: AccountChangeNotice): void {
-  try { sessionStorage.setItem(NOTICE_KEY, notice); } catch { /* намеренно: без сообщения выход всё равно состоится */ }
+export function setAccountChangeNotice(notice: AccountChangeNotice, uid?: string | null): void {
+  try {
+    sessionStorage.setItem(NOTICE_KEY, notice);
+    if (uid) sessionStorage.setItem(NOTICE_UID_KEY, uid);
+    else sessionStorage.removeItem(NOTICE_UID_KEY);
+  } catch { /* намеренно: без сообщения выход всё равно состоится */ }
+}
+
+/** Аккаунт, к которому относится сообщение (CK-3: расхождение часов — по uid). */
+export function getAccountChangeNoticeUid(): string | null {
+  try { return sessionStorage.getItem(NOTICE_UID_KEY); } catch { return null; }
 }
 
 export function takeAccountChangeNotice(): AccountChangeNotice | null {

@@ -39,8 +39,8 @@ describe('SYNC-D1: downloadAllFromCloud', () => {
 
     expect(result).toEqual({ downloaded: 2, skipped: 0, failed: 0 });
     expect(addLocalCopySpy).toHaveBeenCalledTimes(2);
-    expect(addLocalCopySpy).toHaveBeenCalledWith(userId, 'cloud_1');
-    expect(addLocalCopySpy).toHaveBeenCalledWith(userId, 'cloud_2');
+    expect(addLocalCopySpy).toHaveBeenCalledWith(userId, 'cloud_1', expect.objectContaining({ id: 'cloud_1' }));
+    expect(addLocalCopySpy).toHaveBeenCalledWith(userId, 'cloud_2', expect.objectContaining({ id: 'cloud_2' }));
     // Task 3: verify it does NOT call addCloudCopy on download
     expect(addCloudCopySpy).not.toHaveBeenCalled();
     expect(addActivitySpy).toHaveBeenCalledWith(
@@ -69,7 +69,7 @@ describe('SYNC-D1: downloadAllFromCloud', () => {
 
     expect(result).toEqual({ downloaded: 1, skipped: 1, failed: 0 });
     expect(addLocalCopySpy).toHaveBeenCalledTimes(1);
-    expect(addLocalCopySpy).toHaveBeenCalledWith(userId, 'cloud_2');
+    expect(addLocalCopySpy).toHaveBeenCalledWith(userId, 'cloud_2', expect.objectContaining({ id: 'cloud_2' }));
     expect(addCloudCopySpy).not.toHaveBeenCalled();
   });
 

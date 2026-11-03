@@ -33,6 +33,98 @@ let isVoluntarySignOut = false;
 // офлайн-старт сюда не попадает. Снимок одноразовый: его гасит первое событие.
 let storedUidAtSubscribe: string | null = null;
 
+// CK-1: расхождение часов устройства и сервера.
+//
+// Замер на живом стенде (auth-js 2.118, `gt-logs/ck-probe.mjs`, 03.11):
+//   вход                  → INITIAL_SESSION (без токена), SIGNED_IN (с токеном)
+//   перезагрузка с сохранённой сессией → SIGNED_IN (с токеном), INITIAL_SESSION (с токеном)
+// Первый SIGNED_IN во вкладке поэтому вход ОТ восстановления НЕ отличает: при
+// перезагрузке в нём лежит старый токен, и его `iat` дал бы ложное «расхождение»
+// на величину времени жизни токена. Отличающий признак есть, но другой: был ли
+// сохранённый uid в хранилище на момент подписки (`storedUidAtSubscribe`).
+// Свежими считаются SIGNED_IN при пустом хранилище и TOKEN_REFRESHED.
+//
+// Время сервера берём из `iat` токена: заголовок `Date` в ответ не годится — он
+// не входит в CORS-safelisted, а клиент ходит на VITE_SUPABASE_URL.
+export const CLOCK_SKEW_THRESHOLD_SEC = 300;
+
+let clockSkewSec: number | null = null;
+// CK-2: предупреждение показывается один раз на вкладку, а не на каждое
+// обновление токена — при спешащих часах обновлений бывает десятки подряд.
+let clockSkewWarnedThisTab = false;
+// Ревью CK: auth-js шлёт SIGNED_IN со СТАРЫМ токеном и при каждом возврате на
+// вкладку (`_onVisibilityChanged` → `_recoverAndRefresh`) и из соседней вкладки.
+// Свежим SIGNED_IN считается только первое событие с сессией в этой вкладке.
+let sessionSeenThisTab = false;
+// Ревью CK: замер старше этого не объясняет сегодняшний выход — часы могли
+// поправить, а обновления токена с тех пор не было.
+const CLOCK_SKEW_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+
+const clockSkewKey = (uid: string): string => `jw_clock_skew_${uid}`;
+
+/** `iat` из access-токена; битый токен — «не знаю», а не 0 и не ошибка. */
+function tokenIatSec(accessToken: unknown): number | null {
+  const part = String(accessToken ?? '').split('.')[1];
+  if (!part) return null;
+  try {
+    const claims = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/'))) as { iat?: unknown };
+    return typeof claims.iat === 'number' && Number.isFinite(claims.iat) ? claims.iat : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Запомнить расхождение: в памяти модуля и под ключом аккаунта (переживёт перезагрузку по выходу). */
+function rememberClockSkew(uid: string, skewSec: number): void {
+  clockSkewSec = skewSec;
+  try { localStorage.setItem(clockSkewKey(uid), JSON.stringify({ s: skewSec, at: Date.now() })); } catch { /* приватный режим: вход не ломаем */ }
+}
+
+/**
+ * Вызывается из подписки на auth-события. `fresh` — false для событий,
+ * восстановивших уже сохранённую сессию: их токен старый, замер по нему врал бы.
+ */
+function noteClockSkew(uid: string | null, accessToken: unknown, fresh: boolean): void {
+  if (!uid || !fresh) return;
+  const iat = tokenIatSec(accessToken);
+  if (iat === null) return;
+  rememberClockSkew(uid, Math.round(Date.now() / 1000 - iat));
+}
+
+/** Последнее известное расхождение этого аккаунта; null — «не знаю». */
+export function getClockSkewSec(uid?: string | null): number | null {
+  if (clockSkewSec !== null) return clockSkewSec;
+  if (!uid) return null;
+  let raw: string | null = null;
+  try { raw = localStorage.getItem(clockSkewKey(uid)); } catch { return null; }
+  if (raw === null) return null;
+  try {
+    const rec = JSON.parse(raw) as { s?: unknown; at?: unknown };
+    if (typeof rec.s !== 'number' || !Number.isFinite(rec.s) || typeof rec.at !== 'number') return null;
+    return Date.now() - rec.at <= CLOCK_SKEW_MAX_AGE_MS ? rec.s : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Часы ушли достаточно, чтобы это объясняло отвал сессии. */
+export function isClockSkewed(uid?: string | null): boolean {
+  const skew = getClockSkewSec(uid);
+  return skew !== null && Math.abs(skew) >= CLOCK_SKEW_THRESHOLD_SEC;
+}
+
+/**
+ * CK-2: можно ли показать предупреждение про часы. Истинно один раз на вкладку и
+ * только когда расхождение известно и не меньше порога.
+ */
+export function takeClockSkewWarning(uid: string | null): boolean {
+  if (clockSkewWarnedThisTab) return false;
+  if (!isClockSkewed(uid)) return false;
+  clockSkewWarnedThisTab = true;
+  return true;
+}
+
+
 import { reportError } from '../../shared/errors/reportError';
 import { reloadForAccountChange, isAccountReloadPending, setAccountChangeNotice, _resetAccountReloadForTesting } from './accountReload';
 
@@ -46,26 +138,45 @@ function ensureSubscribed(): void {
   sweepStaleVoluntarySignoutMarks();
   getSupabase().auth.onAuthStateChange((event, session) => {
     const nextUid = session?.user?.id ?? null;
+    // CK-1: был ли сохранённый uid на момент подписки. Если был — это
+    // восстановление сессии, и токен в первых событиях старый (замер на стенде:
+    // при перезагрузке прилетают и SIGNED_IN, и INITIAL_SESSION — оба с токеном).
+    const restoring = storedUidAtSubscribe !== null;
     if (event === 'SIGNED_OUT') {
       const lostUid = currentUser?.uid ?? storedUidAtSubscribe;
       if (lostUid !== null && !isVoluntarySignOut && !signedOutElsewhereJustNow(lostUid)) {
+        // CK-1/CK-3: если часы спешат, токен выглядит просроченным с рождения,
+        // auth-js шлёт обновления подряд и первый сбой обновления рвёт сессию
+        // (`_removeSession` → SIGNED_OUT). Это не отзыв сессии сервером.
+        const skewSec = getClockSkewSec(lostUid);
         reportError(
           new Error('SESSION_TERMINATED: auth session signed out unexpectedly'),
-          { action: 'auth_session_signed_out', previousUid: lostUid },
+          { action: 'auth_session_signed_out', previousUid: lostUid, ...(skewSec !== null ? { skewSec } : {}) },
           'warning',
         );
-        // S-28: отличить «аккаунт удалён» от «сессию отозвали» по ответу сервера
-        // нельзя (verifyJwt проверяет только подпись), поэтому предложение стереть
-        // данные показываем при любом нечаянном выходе — и только если локальная
-        // база этого uid на устройстве осталась.
-        setAccountChangeNotice('lost_session');
-        try { localStorage.setItem(STORAGE_KEYS.LOST_SESSION_UID, lostUid); } catch { /* приватный режим */ }
+        if (skewSec !== null && Math.abs(skewSec) >= CLOCK_SKEW_THRESHOLD_SEC) {
+          // CK-3: человеку говорят правду про часы, а не «сессия потеряна, сотри
+          // данные». S-28 (предложение стирания) при известном расхождении НЕ
+          // показывается: здесь стирать нечего, локальные данные целы и свои.
+          setAccountChangeNotice('clock_skew', lostUid);
+        } else {
+          // S-28: отличить «аккаунт удалён» от «сессию отозвали» по ответу сервера
+          // нельзя (verifyJwt проверяет только подпись), поэтому предложение стереть
+          // данные показываем при любом нечаянном выходе — и только если локальная
+          // база этого uid на устройстве осталась.
+          setAccountChangeNotice('lost_session');
+          try { localStorage.setItem(STORAGE_KEYS.LOST_SESSION_UID, lostUid); } catch { /* приватный режим */ }
+        }
         // Вошедшего во вкладке не было — перезагрузки по смене аккаунта ниже не
         // будет, а предложение стереть данные читает только новая страница.
         if (currentUser === null) void reloadForAccountChange();
       }
       isVoluntarySignOut = false;
     }
+    // CK-1: замер расхождения — только по свежему токену.
+    if (event === 'TOKEN_REFRESHED') noteClockSkew(nextUid, session?.access_token, true);
+    else if (event === 'SIGNED_IN') noteClockSkew(nextUid, session?.access_token, !restoring && !sessionSeenThisTab);
+    if (session) sessionSeenThisTab = true;
     storedUidAtSubscribe = null;
     // Аккаунт вкладки сменился (выход, вход другим, ссылка из письма, то же в
     // соседней вкладке) — перезагрузка: память вкладки принадлежит прежнему
@@ -218,6 +329,9 @@ export function _resetAuthStateForTesting(): void {
   subscribed = false;
   isVoluntarySignOut = false;
   storedUidAtSubscribe = null;
+  clockSkewSec = null;
+  clockSkewWarnedThisTab = false;
+  sessionSeenThisTab = false;
 }
 
 export async function sendPasswordResetEmail(email: string): Promise<void> {

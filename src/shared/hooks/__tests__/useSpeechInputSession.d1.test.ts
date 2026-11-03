@@ -102,6 +102,22 @@ describe('D-1: сессия диктовки', () => {
     expect(result.current.isListening).toBe(false);
   });
 
+  it('(b2) Stop при незакреплённом хвосте доставляет и финалы, и interim', () => {
+    const { result, onSessionEnd } = mount();
+    act(() => { result.current.startListening(); });
+    const rec = instances[0]!;
+    act(() => { rec.onstart?.(); });
+    act(() => {
+      rec.onresult?.(resultEvent(0, [
+        { transcript: 'MARKER_MS1_финал.', isFinal: true },
+        { transcript: 'MARKER_MS1_хвост', isFinal: false },
+      ]));
+    });
+
+    act(() => { result.current.stopListening(); rec.onend?.(); });
+    expect(onSessionEnd).toHaveBeenCalledWith('MARKER_MS1_финал. MARKER_MS1_хвост');
+  });
+
   it('(c) Cancel → ни доставки, ни вставки', () => {
     const { result, onSessionEnd } = mount();
     act(() => { result.current.startListening(); });
@@ -116,6 +132,18 @@ describe('D-1: сессия диктовки', () => {
 
     act(() => { rec.onend?.(); });
     expect(onSessionEnd).not.toHaveBeenCalled();
+  });
+
+  it('(c2) Cancel → onend не оживляет движок', () => {
+    const { result } = mount();
+    act(() => { result.current.startListening(); });
+    const rec = instances[0]!;
+    act(() => { rec.onstart?.(); });
+    act(() => { rec.onresult?.(resultEvent(0, [{ transcript: 'MARKER_MS1_отмена', isFinal: true }])); });
+
+    act(() => { result.current.cancel(); });
+    act(() => { rec.onend?.(); });
+    expect(rec.start).toHaveBeenCalledTimes(1);
   });
 
   it('(d) браузер оборвал сессию сам → второй start на том же экземпляре, финалы сохранены, доставки нет', () => {
@@ -191,6 +219,17 @@ describe('D-1: сессия диктовки', () => {
     act(() => { recB.onerror?.({ error: 'no-speech' }); });
     expect(showToastMock).not.toHaveBeenCalled();
     expect(second.onSessionEnd).not.toHaveBeenCalled();
+  });
+
+  it('(f2) непродолжаемый сбой при одном interim отдаёт хвост, а не пустоту', () => {
+    const { result, onSessionEnd } = mount();
+    act(() => { result.current.startListening(); });
+    const rec = instances[0]!;
+    act(() => { rec.onstart?.(); });
+    act(() => { rec.onresult?.(resultEvent(0, [{ transcript: 'MARKER_MS1_хвост_сбоя', isFinal: false }])); });
+
+    act(() => { rec.onerror?.({ error: 'service-not-allowed' }); });
+    expect(onSessionEnd).toHaveBeenCalledWith('MARKER_MS1_хвост_сбоя');
   });
 });
 

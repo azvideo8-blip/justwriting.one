@@ -70,13 +70,13 @@ vi.mock('../../../../shared/components/Toast', () => ({
   }),
 }));
 
+const profileState = vi.hoisted(() => ({
+  profile: { aiConsentAt: new Date().toISOString() as string | null, aiConsentVersion: 1 as number | null },
+  refreshProfile: vi.fn(async () => {}),
+}));
+
 vi.mock('../../../auth/contexts/ProfileContext', () => ({
-  useProfile: () => ({
-    profile: {
-      aiConsentAt: new Date().toISOString(),
-      aiConsentVersion: 1,
-    },
-  }),
+  useProfile: () => profileState,
 }));
 
 vi.mock('../../../../core/ai/indexingConsent', () => ({
@@ -195,5 +195,43 @@ describe('AccountAISection — portrait-in-dialogue switch (backlog-ideas-2026-0
 
     expect(toggle).toHaveAttribute('aria-checked', 'false');
     expect(getSendPortraitInDialogue(userId)).toBe(false);
+  });
+});
+
+describe('AccountAISection — статус согласия после клика (GT Н-1)', () => {
+  const userId = 'test_user_consent_status';
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockConfirm.mockResolvedValue(true);
+    mockUpdateProfile.mockResolvedValue(undefined);
+  });
+
+  it('после «Предоставить согласие» профиль перечитывается — после записи', async () => {
+    profileState.profile = { aiConsentAt: null, aiConsentVersion: null };
+    const order: string[] = [];
+    mockUpdateProfile.mockImplementation(async () => { order.push('update'); });
+    profileState.refreshProfile.mockImplementation(async () => { order.push('refresh'); });
+    renderWithProviders(<AccountAISection userId={userId} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Предоставить согласие' }));
+    await waitFor(() => expect(order).toEqual(['update', 'refresh']));
+  });
+
+  it('после отзыва согласия профиль тоже перечитывается', async () => {
+    profileState.profile = { aiConsentAt: new Date().toISOString(), aiConsentVersion: 99 };
+    const order: string[] = [];
+    mockUpdateProfile.mockImplementation(async () => { order.push('update'); });
+    profileState.refreshProfile.mockImplementation(async () => { order.push('refresh'); });
+    renderWithProviders(<AccountAISection userId={userId} />);
+    fireEvent.click(screen.getByRole('button', { name: /Отозвать согласие/i }));
+    await waitFor(() => expect(order).toEqual(['update', 'refresh']));
+  });
+
+  it('запись не прошла — профиль не перечитывается, тост ошибки', async () => {
+    profileState.profile = { aiConsentAt: null, aiConsentVersion: null };
+    mockUpdateProfile.mockRejectedValue(new Error('network'));
+    renderWithProviders(<AccountAISection userId={userId} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Предоставить согласие' }));
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith(expect.any(String), 'error'));
+    expect(profileState.refreshProfile).not.toHaveBeenCalled();
   });
 });

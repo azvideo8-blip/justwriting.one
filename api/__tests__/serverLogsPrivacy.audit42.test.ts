@@ -290,9 +290,9 @@ describe('W-4: места печати сбоя провайдера', () => {
     const line = logs.find(l => l.includes('[chat-end]')) ?? '';
     const parsed = JSON.parse(line.split('[chat-end]')[1]!.trim()) as Record<string, unknown>;
     // MD-2 и MD-3: ход с материалами дополняет строку четырьмя полями — два
-    // булевых и два числа.
+    // булевых и два числа. К21-4 добавляет пятое число — пересказ без ссылок.
     expect(Object.keys(parsed).sort()).toEqual([
-      'empty_claim_with_results', 'finish', 'foreign_ids', 'ms', 'note_text_denied', 'out_tokens', 'quote_unquoted',
+      'empty_claim_with_results', 'finish', 'foreign_ids', 'ms', 'note_text_denied', 'notes_claim_no_ref', 'out_tokens', 'quote_unquoted',
     ]);
     expect(parsed.finish).toBe('stop');
     expect(parsed.note_text_denied).toBe(false);

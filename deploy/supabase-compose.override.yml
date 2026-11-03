@@ -54,6 +54,14 @@ services:
       # создавались бы без подтверждения.
       GOTRUE_EXTERNAL_PHONE_ENABLED: "false"
       GOTRUE_SMS_AUTOCONFIRM: "false"
+    # E-3 (аудит запуска): GoTrue пишет вход (почта, IP, браузер) в stdout.
+    # json-file ротируется только по объёму — записи жили бы месяцами, а
+    # политика обещает 30 дней. journald на хосте держит MaxRetentionSec=30d
+    # (/etc/systemd/journald.conf.d/retention.conf, ops.md).
+    logging:
+      driver: journald
+      options:
+        tag: supabase-auth
 
   # Без этого Kong подменяет X-Real-IP своим видом адреса — адресом nginx, и
   # лимиты GoTrue (GOTRUE_RATE_LIMIT_HEADER выше) снова общие на всех. Kong

@@ -64,6 +64,80 @@ export interface ReconcileSummary {
 const _activeReconcilePromises = new Map<string, Promise<ReconcileSummary>>();
 const downloadLimit = pLimit(5);
 
+// FD-1: окно между полными проходами восстановления. Полному — полчаса;
+// неполному (что-то отбито или список кривой) — короткое, чтобы повтор не
+// ждал получаса, но и не молотил каждые 120 с.
+const RESTORE_LISTING_WINDOW_MS = 30 * 60 * 1000;
+const RESTORE_RETRY_WINDOW_MS = 5 * 60 * 1000;
+
+/**
+ * FD-2: `429` — не «сбой заметки», а «притормози».
+ *
+ * Распознавание — по ТЕКСТУ. Замер на стенде (supabase-js 2.118.0, nginx-подобный
+ * 429 с телом text/html): в объекте ошибки есть ТОЛЬКО `message` с HTML-страницей;
+ * при теле JSON — `error` + `message`. `status`, `statusCode` и `code` PostgREST-js
+ * не отдаёт, когда тело не распознано как JSON-ошибка. Проверка по коду поэтому
+ * молча не сработала бы на проде — но оставлена: harness отдаёт `code: '429'`, а
+ * живой PostgREST мог бы начать отдавать статус.
+ */
+export function isRateLimitedError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const e = err as { code?: unknown; status?: unknown; statusCode?: unknown; message?: unknown };
+  if (e.code === '429' || e.code === 429 || e.status === 429 || e.statusCode === 429) return true;
+  const msg = String(e.message ?? '');
+  // Ревью FD: голое «429» в тексте не признак — `DECRYPT_FAILED_LATEST … version 429`
+  // повторялся бы шесть раз и тормозил все скачивания. Страница nginx несёт фразу.
+  return /too many requests|rate limit/i.test(msg);
+}
+
+// Темп общий на процесс: одна отбитая заметка закрывает очередь для всех, а не
+// только для себя, — иначе 5 воркеров `downloadLimit` продолжают долбить лимит.
+// Значения — из тикета (2 → 4 → 8 → 16 с); наружу выставлены для тестов, чтобы
+// юнит не спал минуту.
+export const rateLimitTuning = { baseMs: 2_000, maxMs: 16_000, maxAttempts: 6 };
+
+let rateGateUntilMs = 0;
+let ratePauseMs = rateLimitTuning.baseMs;
+
+/** Пауза, которую все скачивания обязаны выдержать перед следующим запросом. */
+async function waitRateGate(): Promise<void> {
+  for (;;) {
+    const wait = rateGateUntilMs - Date.now();
+    if (wait <= 0) return;
+    await new Promise(res => setTimeout(res, Math.min(wait, 250)));
+  }
+}
+
+/** Закрыть очередь на текущую паузу и удвоить её (с потолком). */
+function openRateGate(): void {
+  rateGateUntilMs = Date.now() + ratePauseMs;
+  ratePauseMs = Math.min(ratePauseMs * 2, rateLimitTuning.maxMs);
+}
+
+/** Проход без единого 429 — темп можно вернуть к базовому. */
+function resetRateGate(): void {
+  ratePauseMs = rateLimitTuning.baseMs;
+}
+
+/**
+ * Выполнить `fn`, а если сервер ответил 429 — подождать общий тормоз и повторить
+ * ТО ТО ЖЕ самое. В ошибку значение выходит только после исчерпания повторов.
+ */
+export async function withRateLimitRetry<T>(fn: () => Promise<T>, attempts = rateLimitTuning.maxAttempts): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    await waitRateGate();
+    try {
+      const res = await fn();
+      resetRateGate();
+      return res;
+    } catch (e) {
+      if (!isRateLimitedError(e)) throw e;
+      openRateGate();
+      if (attempt + 1 >= attempts) throw e;
+    }
+  }
+}
+
 // S1-6: один забор по rev на пользователя за раз — второй вызывающий
 // присоединяется к идущему, как у downloadAllFromCloud.
 export interface PullNotesResult {
@@ -531,26 +605,44 @@ export const CloudSyncService = {
   async restoreMissingDocuments(
     userId: string,
     opts?: { force?: boolean; onProgress?: (current: number, total: number) => void },
-  ): Promise<{ restored: number; hasMore: boolean; locked?: boolean; throttled?: boolean }> {
+  ): Promise<{ restored: number; failed: number; hasMore: boolean; locked?: boolean; throttled?: boolean }> {
     if (getEncryptionEnabled(userId) && !getSessionKey()) {
-      return { restored: 0, hasMore: false, locked: true };
+      return { restored: 0, failed: 0, hasMore: false, locked: true };
     }
 
     if (!opts?.force) {
       const lastListingTs = parseInt(localStorage.getItem(`last_restore_listing_ts_${userId}`) || '0', 10);
-      if (Date.now() - lastListingTs < 30 * 60 * 1000) {
-        return { restored: 0, hasMore: false, throttled: true };
+      if (Date.now() - lastListingTs < RESTORE_LISTING_WINDOW_MS) {
+        return { restored: 0, failed: 0, hasMore: false, throttled: true };
       }
     }
     
-    // We update the timestamp only if we are actually going to list.
-    localStorage.setItem(`last_restore_listing_ts_${userId}`, Date.now().toString());
-
-    const res = await CloudSyncService.downloadAllFromCloud(userId, opts?.onProgress ? { onProgress: opts.onProgress } : undefined);
+    let res: Awaited<ReturnType<typeof CloudSyncService.downloadAllFromCloud>>;
+    try {
+      res = await CloudSyncService.downloadAllFromCloud(userId, opts?.onProgress ? { onProgress: opts.onProgress } : undefined);
+    } catch (e) {
+      // Ревью FD: упавший проход (relink, список, сеть) — то же короткое окно, что у
+      // неполного, иначе фон каждые 120 с заново гонит relink и полный листинг.
+      localStorage.setItem(`last_restore_listing_ts_${userId}`, String(Date.now() - (RESTORE_LISTING_WINDOW_MS - RESTORE_RETRY_WINDOW_MS)));
+      throw e;
+    }
+    // FD-1: отметку листинга ставим ПОСЛЕ прохода, а не до него. Прежняя запись до
+    // листинга глушила повтор упавшего или отбитого лимитом прохода на 30 минут —
+    // тот же класс, что и суточная отметка ниже.
+    // Неполному проходу оставляем короткое окно: перечитывать сотни заметок каждые
+    // 120 с тоже нельзя. Окно шифруем в том же значении — читатель сравнивает
+    // `Date.now() - ts < RESTORE_LISTING_WINDOW_MS`, поэтому запись «в прошлом»
+    // укорачивает ожидание ровно на нужное.
+    const complete = res.failed === 0 && res.incomplete !== true && res.locked !== true;
+    const backdateMs = complete ? 0 : RESTORE_LISTING_WINDOW_MS - RESTORE_RETRY_WINDOW_MS;
+    localStorage.setItem(`last_restore_listing_ts_${userId}`, String(Date.now() - backdateMs));
     return {
       restored: res.downloaded,
+      // FD-1: отбитые скачивания — не «полный проход». Раньше `failed` наружу не
+      // выходил, и проход, где 200 скачиваний отбил лимит, ставил суточную отметку.
+      failed: res.failed,
       // R-2: неполный список — не всё скачано; суточная отметка полного прохода не ставится.
-      hasMore: res.incomplete === true,
+      hasMore: res.incomplete === true || res.failed > 0,
       ...(res.locked !== undefined ? { locked: res.locked } : {}),
     };
   },
@@ -576,7 +668,7 @@ export const CloudSyncService = {
       await CloudSyncService.relinkOrphanedDocuments(userId);
 
       const [cloudList, localDocs] = await Promise.all([
-        readCloudDocumentsPartial(userId),
+        withRateLimitRetry(() => readCloudDocumentsPartial(userId)),
         LocalStorageService.getDocumentsByOwner(userId),
       ]);
       const cloudDocs = cloudList.docs;
@@ -612,7 +704,10 @@ export const CloudSyncService = {
       const downloadResults = await Promise.allSettled(
         toDownload.map((cloudDoc, idx) => downloadLimit(async () => {
           opts?.onProgress?.(idx + 1, toDownload.length);
-          return CloudSyncService.addLocalCopy(userId, cloudDoc.id);
+          // FD-2: 429 — пауза и повтор той же заметки, а не «заметка не скачалась».
+          // FD-3: строка уже в руках (её читал `readCloudDocumentsPartial`) —
+          // повторного чтения по uuid нет.
+          return withRateLimitRetry(() => CloudSyncService.addLocalCopy(userId, cloudDoc.id, cloudDoc));
         }))
       );
 
@@ -756,7 +851,7 @@ export const CloudSyncService = {
           // вторую не создаём — так же, как uuid-страж старого прохода.
           skipped++;
         } else {
-          await downloadLimit(() => CloudSyncService.addLocalCopy(userId, uuid));
+          await withRateLimitRetry(() => downloadLimit(() => CloudSyncService.addLocalCopy(userId, uuid, cloudDoc)));
           downloaded++;
         }
         handled.add(uuid);
@@ -802,7 +897,7 @@ export const CloudSyncService = {
         }
 
         for (;;) {
-          const page = await pullChangesSince(userId, 'documents', docSince, PULL_PAGE_SIZE);
+          const page = await withRateLimitRetry(() => pullChangesSince(userId, 'documents', docSince, PULL_PAGE_SIZE));
           if (page.rows.length === 0) break;
           let lastApplied = docSince;
           try {
@@ -826,15 +921,22 @@ export const CloudSyncService = {
             // Неизвестные заметки качаем заранее, с потолком downloadLimit, как
             // старый проход; результат разбирается по порядку rev, поэтому курсор
             // по-прежнему встаёт на первой неприменённой строке.
-            const unknown = [...new Set(prepared
-              .filter((p): p is { kind: 'doc'; uuid: string; doc: Document } => p.kind === 'doc')
+            const unknownDocs = prepared.filter((p): p is { kind: 'doc'; uuid: string; doc: Document } => p.kind === 'doc');
+            // FD-3: та же строка, что уже разобрана для применения, — без второго
+            // чтения по uuid. Надгробия здесь нет: `kind` отфильтрован, и
+            // `unknownDocs.get(uuid)` для tombstone не вызывается вовсе.
+            const docByUuid = new Map(unknownDocs.map(p => [p.uuid, p.doc] as const));
+            const unknown = [...new Set(unknownDocs
               .map(p => p.uuid)
               .filter(uuid => !linkedCloudMap.has(uuid) && !localUuidSet.has(uuid)))];
             const downloadedOk = new Set<string>();
             const downloadFailed = new Map<string, unknown>();
             await Promise.all(unknown.map(async uuid => {
               try {
-                await downloadLimit(() => CloudSyncService.addLocalCopy(userId, uuid));
+                // FD-2: 429 на заметке — общий тормоз и повтор, а не «заметка
+                // не скачалась»; в downloadFailed значение попадает только после
+                // исчерпания повторов.
+                await withRateLimitRetry(() => downloadLimit(() => CloudSyncService.addLocalCopy(userId, uuid, docByUuid.get(uuid))));
                 downloadedOk.add(uuid);
               } catch (e) {
                 downloadFailed.set(uuid, e);
@@ -897,7 +999,7 @@ export const CloudSyncService = {
 
         let verSince = start.versions;
         for (;;) {
-          const page = await pullChangesSince(userId, 'versions', verSince, PULL_PAGE_SIZE);
+          const page = await withRateLimitRetry(() => pullChangesSince(userId, 'versions', verSince, PULL_PAGE_SIZE));
           if (page.rows.length === 0) break;
           let lastApplied = verSince;
           try {
@@ -1127,13 +1229,20 @@ export const CloudSyncService = {
     return { relinked: res.relinked, skippedIds: Array.from(skipped) };
   },
 
-  async addLocalCopy(userId: string, cloudDocumentId: string): Promise<string> {
+  /**
+   * FD-3: `preRead` — строка документа, уже прочитанная вызывающим (оба вызова
+   * забора держат полную строку из `select=*`). Без неё чтение по uuid остаётся
+   * там, где строки в руках нет (`archiveCrud`, действия заметки, диагностика).
+   * Проверки `_locked` / `_decryptionError` / пустых версий — те же, на переданной
+   * строке. Надгробие сюда не передаётся: у него нет читаемой головы.
+   */
+  async addLocalCopy(userId: string, cloudDocumentId: string, preRead?: Document): Promise<string> {
     return withDocumentLock(cloudDocumentId, async () => {
       const allLocal = await LocalStorageService.getDocumentsByOwner(userId);
       const existing = allLocal.find(d => d.linkedCloudId === cloudDocumentId);
       if (existing) return existing.id;
 
-      const cloudDoc = await DocumentService.getDocument(userId, cloudDocumentId);
+      const cloudDoc = preRead ?? await DocumentService.getDocument(userId, cloudDocumentId);
       if (!cloudDoc) throw new Error('Cloud document not found');
       if (cloudDoc._locked) throw new Error('LOCKED: cannot add local copy of locked document');
       if (cloudDoc._decryptionError) throw new Error('DECRYPTION_ERROR: cannot add local copy of unreadable document');
@@ -1283,7 +1392,9 @@ export const CloudSyncService = {
 
         return localId;
       } catch (e) {
-        reportError(e, { action: 'addLocalCopy', cloudDocumentId });
+        // Ревью FD: 429 — не ошибка заметки, его повторит withRateLimitRetry; в журнал
+        // ушло бы до шести строк на заметку со страницей nginx в каждой.
+        if (!isRateLimitedError(e)) reportError(e, { action: 'addLocalCopy', cloudDocumentId });
         if (localId) {
           try { await LocalStorageService.deleteDocument(localId, userId); } catch (cleanupErr) { // намеренно: откат локальной копии при ошибке загрузки
             reportError(cleanupErr, { action: 'addLocalCopy_cleanup', localId });

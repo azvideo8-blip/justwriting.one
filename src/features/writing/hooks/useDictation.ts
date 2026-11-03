@@ -165,6 +165,14 @@ export function useDictation(): DictationApi {
   const startRef = useRef<() => void>(() => undefined);
   // Сказанное к моменту автоотмены — чтобы отдать его человеку, а не выбросить.
   const liveTextRef = useRef('');
+  // П-1: экран ушёл раньше ответа пунктуации. Вставлять в стор уже некому
+  // сохранять — автосохранение размонтировано вместе с экраном.
+  const unmountedRef = useRef(false);
+
+  useEffect(() => {
+    unmountedRef.current = false;
+    return () => { unmountedRef.current = true; };
+  }, []);
 
   const claimed = useSyncExternalStore(subscribeToStore, readOwner, readOwner);
   const isHost = claimed === token;
@@ -201,6 +209,10 @@ export function useDictation(): DictationApi {
           DICTATION_PUNCTUATE_TIMEOUT_MS,
         );
         if (seq !== deliverySeqRef.current) return;
+        if (unmountedRef.current) {
+          offerCopy(result.text || raw, 'voice_left_screen_copy');
+          return;
+        }
         if (!deliverToStartNote(result.text || raw)) return;
         if (!result.punctuated && result.reason && TOAST_REASONS.has(result.reason)) {
           showToast(t('voice_no_punctuation_toast', { reason: t(REASON_KEYS[result.reason] ?? 'voice_no_punctuation_reason_error') }), 'info');
@@ -209,19 +221,20 @@ export function useDictation(): DictationApi {
         // Сюда приходит только таймаут (пунктуация сама не бросает): текст
         // вставляется как есть, и человек узнаёт, почему без знаков.
         if (seq !== deliverySeqRef.current) return;
+        if (unmountedRef.current) {
+          offerCopy(raw, 'voice_left_screen_copy');
+          return;
+        }
         if (!deliverToStartNote(raw)) return;
         showToast(t('voice_no_punctuation_toast', { reason: t('voice_no_punctuation_reason_error') }), 'info');
       } finally {
-        if (seq === deliverySeqRef.current) {
+        if (seq === deliverySeqRef.current && !unmountedRef.current) {
           setProcessing(false);
           setSeconds(0);
-          setYielded(false);
-          yieldedRef.current = false;
-          restartTriedRef.current = false;
         }
       }
     })();
-  }, [showToast, t, deliverToStartNote]);
+  }, [showToast, t, deliverToStartNote, offerCopy]);
 
   const handleRecognitionError = useCallback((error: string) => {
     // Guard двух потребителей: на части Android второй getUserMedia отнимает
@@ -237,9 +250,17 @@ export function useDictation(): DictationApi {
     }
   }, []);
 
+  // Уход с экрана во время записи: вставки в стор нет (автосохранение уже не
+  // смонтировано), поэтому текст отдаётся человеку тем же тостом с копированием,
+  // что и при смене заметки.
+  const handleUnmountText = useCallback((text: string) => {
+    offerCopy(text, 'voice_left_screen_copy');
+  }, [offerCopy]);
+
   const session = useGuardedSpeechInput({
     onSessionEnd: handleSessionEnd,
     onError: handleRecognitionError,
+    onUnmountText: handleUnmountText,
   });
 
   // Видео владельца 2026-10-17: на iOS (любой браузер — это WebKit) волна через
@@ -261,20 +282,25 @@ export function useDictation(): DictationApi {
     waveLevels = [...waveLevels.slice(1), meter.level];
   }, [meter.level]);
 
-  // Заявка на хостинг и её снятие.
+  // Заявка на хостинг: свободен — заявляемся, и не только на монтаже. Прежний
+  // хост мог размонтироваться (включили LifeLog), и без второй заявки оставшиеся
+  // кнопки навсегда получали undefined. Снятие — отдельным эффектом только на
+  // размонтирование: cleanup смены `claimed` иначе отпускал бы только что
+  // полученный хостинг.
   useEffect(() => {
-    if (ownerToken === null) {
-      ownerToken = token;
-      notify();
-    }
+    if (claimed !== null || ownerToken !== null) return;
+    ownerToken = token;
+    notify();
+  }, [claimed, token]);
+
+  useEffect(() => {
     return () => {
-      if (ownerToken === token) {
-        ownerToken = null;
-        hostCommands = null;
-        waveLevels = EMPTY_LEVELS;
-        snapshot = IDLE;
-        notify();
-      }
+      if (ownerToken !== token) return;
+      ownerToken = null;
+      hostCommands = null;
+      waveLevels = EMPTY_LEVELS;
+      snapshot = IDLE;
+      notify();
     };
   }, [token]);
 
@@ -306,6 +332,13 @@ export function useDictation(): DictationApi {
       session.stopListening();
       return;
     }
+    // Н-3: уступка метру и перезапуск — «на сессию». Прежний сброс жил в finally
+    // доставки, а пустая сессия (Стоп без слов, Esc, смена заметки) туда не
+    // доходит: единственный перезапуск сгорал на весь экран. Сброс на старте
+    // покрывает все исходы предыдущей сессии разом.
+    yieldedRef.current = false;
+    restartTriedRef.current = false;
+    setYielded(false);
     // N-1 (решение владельца 2026-10-18): правда — до старта, а не после обрыва.
     // Без сети распознавание может работать частично (на iOS — на устройстве),
     // поэтому запись не блокируется, но человек сразу слышит, что текст
@@ -376,14 +409,33 @@ export function useDictation(): DictationApi {
     return () => clearInterval(id);
   }, [isHost, session.isListening, cancel, offerCopy]);
 
+  // Команда не-хоста без живого хоста не может молча вернуть undefined: если
+  // хостинг свободен, заявляемся и выполняем команду локально, иначе говорим.
+  const proxyOrTakeOver = useCallback((
+    runRemote: (commands: NonNullable<typeof hostCommands>) => void,
+    runLocal: () => void,
+  ) => {
+    if (hostCommands) {
+      runRemote(hostCommands);
+      return;
+    }
+    if (ownerToken === null) {
+      ownerToken = token;
+      notify();
+      runLocal();
+      return;
+    }
+    showToast(t('voice_not_ready'), 'info');
+  }, [showToast, t, token]);
+
   const remote = useSyncExternalStore(subscribeToStore, readSnapshot, readSnapshot);
   if (!isHost) {
     return {
       ...remote,
-      toggle: () => { hostCommands?.toggle(); },
-      startAfterNotice: (offlineShown?: boolean) => { hostCommands?.startAfterNotice(offlineShown); },
-      stop: () => { hostCommands?.stop(); },
-      cancel: () => { hostCommands?.cancel(); },
+      toggle: () => { proxyOrTakeOver(c => c.toggle(), toggle); },
+      startAfterNotice: (offlineShown?: boolean) => { proxyOrTakeOver(c => c.startAfterNotice(offlineShown), () => startAfterNotice(offlineShown)); },
+      stop: () => { proxyOrTakeOver(c => c.stop(), stop); },
+      cancel: () => { proxyOrTakeOver(c => c.cancel(), cancel); },
     };
   }
 

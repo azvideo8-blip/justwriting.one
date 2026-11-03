@@ -38,4 +38,11 @@ export interface BuildContextParams {
   attachedIsSticky?: boolean | undefined;
   /** Режим хода при заметке-теме (turnScope). 'note' — в контекст идёт только она. */
   scope?: 'note' | 'wide' | undefined;
+  /**
+   * К21-1: id заметок, которые модель видела в материалах прошлого ответа
+   * (`contextDocIds` его реплики). По ним ход «откуда ты это взял?» поднимает те
+   * же записи. Отдельное поле, а не часть messageHistory: история уходит модели
+   * на провод, а это — данные хода.
+   */
+  prevTurnDocIds?: string[] | undefined;
 }

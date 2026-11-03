@@ -43,6 +43,7 @@ import type { AttachedNoteBlock } from '../utils/attachedNoteFormat';
 import { extractCitationIds } from '../services/chatContext/citations';
 import { sanitizeFirstSeenDates } from '../utils/dateGuard';
 import { normalizeQuoteText, unquoteAbsent } from '../../../shared/ai/quoteGuard';
+import { notesClaimWithoutRef } from '../../../shared/ai/notesRefRule';
 import { CITATION_RE, isRecognisedCitation, extractSearchRequest } from '../shared/citationPatterns';
 import { setAIStage } from '../store/useAIStageStore';
 import { aiErrorToText } from '../../../shared/ai/aiErrorUtils';
@@ -596,6 +597,10 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
       const isFirstTurn = baseMessages.filter(m => m.type !== 'system').length === 0;
 
+      // К21-1: материалы прошлого ответа — по id из его реплики (К21-3). Ход
+      // «откуда ты это взял?» поднимает те же записи, а не ищет по тексту вопроса.
+      const prevTurnDocIds = [...baseMessages].reverse().find(m => m.role === 'assistant')?.contextDocIds;
+
       const {
         userPortrait,
         customPersona,
@@ -620,6 +625,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         dialogueId: effectiveDialogueId,
         forcedSearchQuery,
         attachedIsSticky: stickyAttached,
+        prevTurnDocIds,
       });
 
       // Телефоны помощи показывает интерфейс, а не только модель в тексте ответа.
@@ -642,6 +648,10 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // от сборщика — DY5, без разбора текста). Скрыты все — заглушка без названия
       // и без даты (владелец 24.10).
       const isHiddenId = (id: string) => !isPastedAttachmentId(id) && hiddenCiteIds.has(id);
+      // К21-3: что модель видела в этом ходу — в реплику, чтобы «откуда ты это
+      // взял?» на следующем ходу не искало материалы заново. Скрытые и удалённые
+      // не пишем: список виден в интерфейсе.
+      const savedContextDocIds = (injectedDocumentIds ?? []).filter(id => !isHiddenId(id));
       const blocks = subjectNote?.blocks ?? [];
       const visibleBlocks = blocks.filter(b => !isHiddenId(b.documentId));
       const scopeNote = !subjectNote ? subjectNote
@@ -850,10 +860,15 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       if (controller.signal.aborted) {
         savedText = `${savedText.trim()}${INTERRUPTED_STREAM_MARKER}`;
       }
+      // К21-4: признак «пересказал записи, но не сослался ни на одну» считается
+      // здесь — тем же общим правилом, что и счётчик сервера, по тем же
+      // материалам, что ушли модели. Позже пересчитать его нечем: материалы хода
+      // не хранятся, а пометка под ответом обязана пережить перезагрузку.
+      const savedNoRefClaim = notesClaimWithoutRef(savedText, searchContext);
       if (options?.replaceUserId !== undefined) {
-        await AIDialogueService.replaceLastTurn(currentDialogue.id, options.replaceUserId, text, savedText, savedReasoning, searchReq, degradedReason);
+        await AIDialogueService.replaceLastTurn(currentDialogue.id, options.replaceUserId, text, savedText, savedReasoning, searchReq, degradedReason, savedContextDocIds, savedNoRefClaim);
       } else {
-        await AIDialogueService.appendMessage(currentDialogue.id, text, savedText, savedReasoning, searchReq, degradedReason);
+        await AIDialogueService.appendMessage(currentDialogue.id, text, savedText, savedReasoning, searchReq, degradedReason, savedContextDocIds, savedNoRefClaim);
       }
       if (contextCut) {
         await AIDialogueService.appendSystemMessage(currentDialogue.id, t('ai_context_cut_notice', contextCut), { once: true });

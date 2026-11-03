@@ -48,6 +48,11 @@ export function getSessionDates(session: Session): Date[] {
         }
       }
     }
+    // День, который человек поставил заметке сам (перенос даты в архиве меняет
+    // lastSessionAt, но не подходы), — тоже день письма: иначе архив и экран
+    // письма считали серию по-разному (02.11: «1 день подряд» против «5 дней»).
+    const own = getSessionDate(session);
+    if (own && !dates.some(d => d.getTime() === own.getTime())) dates.push(own);
     if (dates.length > 0) return dates;
   }
   const single = getSessionDate(session);

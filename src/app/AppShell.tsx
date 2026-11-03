@@ -11,8 +11,8 @@ import { useLoginModal } from '../features/auth/contexts/LoginModalContext';
 import { useSyncStatus } from '../core/sync/useSyncStatus';
 import { useToast } from '../shared/components/Toast';
 import { VAULT_PASSWORD_CONVERGED_EVENT } from '../core/crypto/vaultEvents';
-import { takeAccountChangeNotice } from '../core/auth/accountReload';
-import { offerLostSessionWipe } from '../features/auth/services/lostSessionWipe';
+import { takeAccountChangeNotice, getAccountChangeNoticeUid } from '../core/auth/accountReload';
+import { getClockSkewSec, takeClockSkewWarning } from '../core/auth/supabaseAuthProvider';
 
 import { AppLayout } from '../shared/components/Layout/AppLayout';
 import { Sidebar } from '../features/navigation/components/Sidebar';
@@ -102,8 +102,27 @@ export function AppShell() {
     else if (notice === 'wipe_failed') showToast(t('settings_sign_out_notice_wipe_failed'), 'error');
     else if (notice === 'account_deleted') showToast(t('settings_delete_account_success'), 'success');
     else if (notice === 'account_deleted_wipe_failed') showToast(t('settings_delete_account_wipe_failed'), 'error');
-    else if (notice === 'lost_session') void offerLostSessionWipe(showToast, t, confirmDialog);
+    // Бюджет стартового чанка (ci.yml): предложение стирания и тост про часы — по
+    // требованию, они нужны только странице после нечаянного выхода.
+    else if (notice === 'lost_session') void import('../features/auth/services/lostSessionWipe').then(m => m.offerLostSessionWipe(showToast, t, confirmDialog));
+    else if (notice === 'clock_skew') {
+      // CK-3: часы спешат — вход оборвался не потому, что сессию отозвали.
+      // Стирать здесь нечего: локальные данные целы и принадлежат этому человеку,
+      // поэтому предложение стирания (S-28) не показывается вовсе.
+      const skewSec = getClockSkewSec(getAccountChangeNoticeUid());
+      void import('../features/auth/services/clockSkewToast').then(m => m.showClockSkewToast(showToast, t, skewSec, true));
+    }
   }, [showToast, t, confirmDialog]);
+
+  // CK-2: часы спешат — сказать сразу после входа, а не ждать, пока сессия
+  // оборвётся. Один тост на вкладку: при просроченном по часам токене обновлений
+  // бывает десятки подряд, и каждый с тостом превратил бы экран в мелькание.
+  useEffect(() => {
+    const uid = user?.uid ?? null;
+    if (!takeClockSkewWarning(uid)) return;
+    const skewSec = getClockSkewSec(uid);
+    void import('../features/auth/services/clockSkewToast').then(m => m.showClockSkewToast(showToast, t, skewSec, false));
+  }, [user?.uid, showToast, t]);
 
   const currentPath = location.pathname;
   // SA-20 (N-1): экраны входа гостя на телефоне — без навигации и без отступов

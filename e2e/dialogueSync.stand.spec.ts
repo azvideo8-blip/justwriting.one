@@ -164,23 +164,74 @@ async function unlockVaultIfAsked(page: Page, password: string, wait = 1_500): P
   console.warn('[vault] unlocked on demand');
 }
 
+/**
+ * GT-2: страница обязана стоять на /settings — явный переход перекрывает то
+ * модалкой автоблокировки сейфа (AppShell.tsx:201-209), то навигацией первого
+ * входа; и там, и там кнопки согласия нет.
+ */
+async function ensureSettings(page: Page): Promise<boolean> {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    if (new URL(page.url()).pathname === '/settings') return true;
+    console.warn(`[consent] страница ушла на ${page.url()} — открываю /settings заново (попытка ${attempt}/3)`);
+    await page.goto('/settings#security');
+  }
+  return new URL(page.url()).pathname === '/settings';
+}
+
 async function grantAiConsent(page: Page): Promise<void> {
   // Секции настроек выбираются хэшем (SettingsPage); согласие на ИИ — в «security».
   await page.goto('/settings#security');
   const grant = page.getByRole('button', { name: 'Предоставить согласие' });
-  const granted = page.getByText('Предоставлено').first();
+  // GT-2: статус ищем только точным совпадением. `getByText('Предоставлено')` без
+  // `exact` ловит подстроку: у нового аккаунта в секции написано «Не предоставлено»,
+  // а тост успеха — «Согласие на использование ИИ предоставлено». Ожидание статуса
+  // проходило мгновенно и не проверяло ничего (режим A, report-2026-11-02-ms-docker §4).
+  const granted = page.getByText('Предоставлено', { exact: true }).first();
   // Согласие живёт на аккаунте, не на устройстве: на сборке другого тега
   // (0.9.28/0.9.29) секция может выглядеть иначе — поэтому проверяем не надпись,
   // а факт в базе (см. aiConsentGranted ниже).
   await expect(grant.or(granted).first()).toBeVisible({ timeout: 30_000 }).catch(() => {
     console.warn('[consent] секция согласия не найдена — проверяю согласие по базе');
   });
-  if (await grant.isVisible().catch(() => false)) {
+  let done = false;
+  for (let attempt = 1; attempt <= 3 && !done; attempt++) {
+    // GT-2 (режим B, спек 12): на устройстве с часами +1 сутки сейф автозапирается
+    // уже после открытия настроек — модалка разблокировки ложится поверх страницы,
+    // локатор кнопки перестаёт находиться, `click` ждёт свои 15 с, а прежний
+    // `dispatchEvent` без таймаута доживал до конца бюджета теста (240 с).
+    await unlockVaultIfAsked(page, user.password);
+    if (!(await ensureSettings(page))) {
+      console.warn(`[consent] попытка ${attempt}/3: не удержался на /settings (${page.url()}) — решающим будет опрос базы`);
+      break;
+    }
+    if (!(await grant.isVisible().catch(() => false))) {
+      // Кнопки нет: согласие уже дано, или секция другого билда выглядит иначе.
+      done = await granted.isVisible().catch(() => false);
+      break;
+    }
     // force/dispatchEvent: под нагрузкой кнопки настроек дёргаются анимациями, и
     // обычный клик ждёт «стабильности» минутами (так упали прогоны 12-го сценария).
-    await grant.click({ force: true, timeout: 15_000 }).catch(() => grant.dispatchEvent('click'));
-    await expect(granted).toBeVisible({ timeout: 20_000 });
+    const clicked = await grant.click({ force: true, timeout: 15_000 })
+      .then(() => true)
+      .catch(() => grant.dispatchEvent('click', undefined, { timeout: 5_000 }).then(() => true, () => false));
+    if (!clicked) {
+      console.warn(`[consent] попытка ${attempt}/3: клик не прошёл (URL ${page.url()}) — страница снова не про настройки`);
+      if (await aiConsentGranted(user.uid)) break;
+      continue;
+    }
+    done = await granted.waitFor({ state: 'visible', timeout: 10_000 }).then(() => true, () => false);
+    if (done) break;
+    // GT-2: на этом стенде надпись в секции не обновляется (Н-1: handleGrantConsent
+    // не перезагружает профиль, а realtime-контейнера в стенде нет) — сверяемся с
+    // базой ДО повтора, иначе три попытки означают три лишних записи согласия.
+    if (await aiConsentGranted(user.uid)) {
+      console.warn(`[consent] попытка ${attempt}/3: точного статуса нет, но согласие уже в базе — повторять клик ни к чему`);
+      done = true;
+      break;
+    }
+    console.warn(`[consent] попытка ${attempt}/3: кликнул «Предоставить согласие», точный статус не появился за 10 с и согласия в базе нет (URL ${page.url()}) — повторяю клик`);
   }
+  if (!done) console.warn('[consent] точный статус «Предоставлено» не появился — сверяюсь с базой');
   // Молчаливое «считаю, что дано» стоило прогона: без согласия API отвечает
   // 403 AI_CONSENT_REQUIRED, а тест видит «ход не принят» и падает по таймауту,
   // где это выглядит как сломанная синхронизация (так упал сценарий 8).
@@ -843,8 +894,19 @@ test('12. B’s clock +1 day — order and no loss', async ({ browser }) => {
   await sendTurn(A.page, 'Ход A с нормальных часов');
   await waitFlushed(A.page, user.uid, dlg.id);
   await pass(A.page); await pass(Bfast.page); await pass(A.page);
-  const a = texts((await dialogues(A.page, user.uid)).find(d => d.id === dlg.id));
-  const b = texts((await dialogues(Bfast.page, user.uid)).find(d => d.id === dlg.id));
+  let a = texts((await dialogues(A.page, user.uid)).find(d => d.id === dlg.id));
+  let b = texts((await dialogues(Bfast.page, user.uid)).find(d => d.id === dlg.id));
+  // GT-2: трёх проходов не всегда хватает, чтобы порядок сошёлся — на быстрой
+  // машине спек 12 краснел ровно здесь (прогоны 1, 3 и 4: у A раньше идёт свой ход,
+  // у skewed-устройства — свой), на занятой сходился (прогон 2, 25 passed).
+  // Проверка та же (копии обязаны сойтись), но ждём состояние, а не число проходов,
+  // — как `syncUntil` в остальных спеках этого файла.
+  const until = Date.now() + 90_000;
+  while (JSON.stringify(a) !== JSON.stringify(b) && Date.now() < until) {
+    await pass(A.page); await pass(Bfast.page);
+    a = texts((await dialogues(A.page, user.uid)).find(d => d.id === dlg.id));
+    b = texts((await dialogues(Bfast.page, user.uid)).find(d => d.id === dlg.id));
+  }
   console.warn('[12] A:', JSON.stringify(a));
   expect(a).toEqual(b);
   expect(countText(a, 'Ход с часов, ушедших на сутки вперёд')).toBe(1);
@@ -1505,8 +1567,13 @@ test('18. head называет окно, которого в облаке не�
   // Новое устройство обязано ОТКАЗАТЬСЯ, а не показать укороченный дневник:
   // укороченная копия потом уехала бы в облако поверх целого. Ждём именно
   // попытки забора (иначе ассерт прошёл бы и когда забор просто не успел).
+  // Ошибка — только УКОРОЧЕННАЯ копия на D. Целую D имеет право получить: любой
+  // писатель с полной локальной копией (A, B, C) чинит облако, увидев неполный
+  // набор (LocalStoreSyncService.uploadDialogue, ветка incomplete). Прежняя
+  // проверка «диалога на D нет вовсе» краснела на такой починке (GT Н-3, 02.11).
+  const full = got.find(d => d.id === id)!.messages.length;
   const D = await device(await browser.newContext());
-  const partialSeen = (x: Dlg[]) => x.some(d => d.id === id);
+  const partialSeen = (x: Dlg[]) => x.some(d => d.id === id && d.messages.length < full);
   const dList = await syncUntil(D.page, partialSeen, 'D получает диалог из неполного набора');
   expect(partialSeen(dList), 'D собрал диалог из неполного набора окон').toBe(false);
 

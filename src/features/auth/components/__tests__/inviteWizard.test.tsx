@@ -226,6 +226,15 @@ describe('InviteWizard continues after a reload', () => {
     fireEvent.change(screen.getByLabelText('Повтори пароль'), { target: { value: 'long-password-1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Далее' }));
     await screen.findByText('Хранить заметки в облаке?');
+    // F-3: мастер пишет снапшот шага в passive-effect (InviteWizard.tsx:65-67), и
+    // он может ещё не быть сброшен в момент клика. Тогда `finish` стирает ключ
+    // (InviteWizard.tsx:110), а следом сбрасывается эффект и записывает шаг
+    // обратно — проверка «сбросился прогресс» ловит гонку эффектов, а не потерю
+    // прогресса (так краснел CI ms-tests 41386649508 attempt 1:
+    // `expected '{"step":"sync","policy":true,"aiConsent":false}' to be null`).
+    // Ждём запись именно шага sync: снапшот прошлого шага лежит с монтирования,
+    // и «не null» выполнялось бы сразу — ровно в той гонке, которую ловим.
+    await waitFor(() => expect(sessionStorage.getItem('jw_invite_wizard_tok-finish')).toContain('"step":"sync"'));
     fireEvent.click(screen.getByRole('button', { name: 'Не сейчас' }));
     await screen.findByText('EDITOR');
     expect(sessionStorage.getItem('jw_invite_wizard_tok-finish')).toBeNull();

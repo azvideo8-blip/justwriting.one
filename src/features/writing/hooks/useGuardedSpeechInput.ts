@@ -9,10 +9,11 @@ import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 interface UseGuardedSpeechInputProps {
   onSessionEnd: (fullText: string) => void;
   onError?: ((error: string) => void) | undefined;
+  onUnmountText?: ((fullText: string) => void) | undefined;
 }
 
-export function useGuardedSpeechInput({ onSessionEnd, onError }: UseGuardedSpeechInputProps) {
-  const { isListening, liveText, interimText, startListening, stopListening, cancel, hasSupport } = useSpeechInput({ onSessionEnd, onError });
+export function useGuardedSpeechInput({ onSessionEnd, onError, onUnmountText }: UseGuardedSpeechInputProps) {
+  const { isListening, liveText, interimText, startListening, stopListening, cancel, hasSupport } = useSpeechInput({ onSessionEnd, onError, onUnmountText });
   const { confirm } = useConfirmDialog();
   const { t } = useLanguage();
   const { user } = useAuthStatus();

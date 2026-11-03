@@ -77,7 +77,8 @@ describe('N1-1: гостевые записи видны в инвентаре �
   it('не прочиталось — счёт null и строка «не удалось посчитать», а не скрыта', async () => {
     await seedGuestEntries();
     const shared = await getLocalDb('justwriting-local');
-    const spy = vi.spyOn(shared, 'getAll').mockRejectedValue(new Error('idb stalled'));
+    // Счёт идёт курсором в транзакции (дейлик 03.11 Н-3) — сбой ставим на неё.
+    const spy = vi.spyOn(shared, 'transaction').mockImplementation(() => { throw new Error('idb stalled'); });
     try {
       const inv = await countLocalDataInventory(USER);
       expect(inv.guestEntriesCount).toBeNull();

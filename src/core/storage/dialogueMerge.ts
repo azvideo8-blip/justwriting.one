@@ -133,6 +133,20 @@ function mergePair(x: DialogueMessage, y: DialogueMessage): DialogueMessage {
     ...base,
     ...(variants ? { variants, variantIndex: variants.indexOf(base.content) } : {}),
     ...(base.reasoning === undefined && other.reasoning !== undefined ? { reasoning: other.reasoning } : {}),
+    // К21-3: список материалов хода пишет только новый клиент — у копии со
+    // старого устройства поля нет, и оно не должно затирать сохранённое.
+    // Ревью К21: и только при том же тексте — «Ответить иначе» держит id реплики,
+    // и список старого ответа под новым был бы ложным (и вернул бы его материалы
+    // в следующий ход «откуда ты это взял»).
+    ...(base.contextDocIds === undefined && other.contextDocIds !== undefined && base.content === other.content ? { contextDocIds: other.contextDocIds } : {}),
+    // К21-4: признак «пересказ без ссылок» пишет тот же новый клиент — копия со
+    // старого устройства его не несёт, и затирать сохранённое она не должна.
+    // Перенос только при том же тексте ответа: перегенерация на другом
+    // устройстве даёт новую реплику с большим updatedAt и без признака, и
+    // прежняя пометка под новым ответом была бы ложной.
+    ...(base.notesClaimNoRef === undefined && other.notesClaimNoRef !== undefined && base.content === other.content
+      ? { notesClaimNoRef: other.notesClaimNoRef }
+      : {}),
   };
 }
 

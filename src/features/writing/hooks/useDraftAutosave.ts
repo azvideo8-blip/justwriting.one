@@ -224,7 +224,14 @@ export function useDraftAutosave(
     return generation !== undefined && generation !== WritingDraftService.getDraftGeneration(userId);
   }, [userId]);
 
-  useSyncUnloadSave(user, draftDataRef, isStaleDraftWrite);
+  // Дейлик 03.11 Н-2: у сейфа снимка в localStorage нет (SEC-56) — хвост,
+  // не дождавшийся отсрочки, уходит той же локальной записью, что и на размонтировании.
+  const flushLocalOnUnload = useCallback(() => {
+    void doAutosaveLocal({ rescue: false, generation: draftGenAtEditRef.current })
+      .catch(e => reportError(e, { action: 'draftAutosave_unloadEncrypted', userId }, 'warning'));
+  }, [doAutosaveLocal, userId]);
+
+  useSyncUnloadSave(user, draftDataRef, isStaleDraftWrite, flushLocalOnUnload);
   useVisibilitySave(wrappedForceSave, () => draftDataRef.current.content);
 
   // Invalidate in-flight autosaves on unmount or when transitioning to idle.

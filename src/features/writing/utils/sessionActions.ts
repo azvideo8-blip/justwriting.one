@@ -34,6 +34,10 @@ export async function cleanupDraftsAfterSave(
 ): Promise<{ cloudSynced: boolean }> {
   let cloudSynced = false;
   if (isGuest) {
+    // Дейлик 03.11 Н-1: то же вето DY10-10, что у аккаунта — без подъёма
+    // поколения закрытие вкладки в окне сохранения возвращало сохранённый текст
+    // гостевым черновиком.
+    WritingDraftService.bumpDraftGeneration(userId);
     await clearGuestDraft();
   } else {
     // N-54: deleteDraft не бросает — результат читается, а не ловится.

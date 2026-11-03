@@ -21,17 +21,17 @@ describe('LS-3: restoreMissingDocuments listing throttle scoping', () => {
 
     // 1. First call for User A
     const resA1 = await CloudSyncService.restoreMissingDocuments('user_A');
-    expect(resA1).toEqual({ restored: 5, hasMore: false });
+    expect(resA1).toEqual({ restored: 5, failed: 0, hasMore: false });
     expect(downloadSpy).toHaveBeenCalledWith('user_A', undefined);
 
     // 2. Immediate second call for User A should be throttled
     const resA2 = await CloudSyncService.restoreMissingDocuments('user_A');
-    expect(resA2).toEqual({ restored: 0, hasMore: false, throttled: true });
+    expect(resA2).toEqual({ restored: 0, failed: 0, hasMore: false, throttled: true });
     expect(downloadSpy).toHaveBeenCalledTimes(1);
 
     // 3. User B calls immediately: should NOT be throttled, listing runs for B
     const resB1 = await CloudSyncService.restoreMissingDocuments('user_B');
-    expect(resB1).toEqual({ restored: 5, hasMore: false });
+    expect(resB1).toEqual({ restored: 5, failed: 0, hasMore: false });
     expect(downloadSpy).toHaveBeenCalledWith('user_B', undefined);
     expect(downloadSpy).toHaveBeenCalledTimes(2);
   });
@@ -45,6 +45,6 @@ describe('LS-3: restoreMissingDocuments listing throttle scoping', () => {
 
     await CloudSyncService.restoreMissingDocuments('user_A');
     const resForced = await CloudSyncService.restoreMissingDocuments('user_A', { force: true });
-    expect(resForced).toEqual({ restored: 3, hasMore: false });
+    expect(resForced).toEqual({ restored: 3, failed: 0, hasMore: false });
   });
 });

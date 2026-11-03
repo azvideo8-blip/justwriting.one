@@ -34,7 +34,8 @@ import { buildTemporalBlocks } from './chatContext/temporalBlocks';
 import { buildAggregateThemeBlock } from './chatContext/aggregateStats';
 import { buildLiteRetrievalBlock } from './chatContext/liteRetrieval';
 import { buildRelatedDaysBlock } from './chatContext/relatedDays';
-import { ATTACHED_BLOCK_SEP, formatRefTag, type AttachedNoteBlock } from '../utils/attachedNoteFormat';
+import { AI_WRITTEN_LINE, ATTACHED_BLOCK_SEP, formatRefTag, type AttachedNoteBlock } from '../utils/attachedNoteFormat';
+import { markAiWritten } from '../utils/aiAuthorship';
 import { strictTurnPortrait } from '../../../shared/ai/portraitSections';
 import { isExcludedFromAI, isPastedAttachmentId } from '../utils/isExcludedFromAI';
 import { hiddenNoteIdsFromDocs } from '../utils/hiddenNoteIds';
@@ -60,6 +61,7 @@ export interface AttachedNoteRef {
  * IndexedDB (см. X-5 и П-6). Заметки берутся самые свежие.
  */
 const NAME_SCAN_NO_VECTOR_LIMIT = 200;
+
 export async function hideExcludedNotes(
   blocks: readonly AttachedNoteBlock[],
   db: Pick<Awaited<ReturnType<typeof getLocalDb>>, 'get'>,
@@ -141,6 +143,62 @@ function endsWithProposal(reply: string): boolean {
   const tail = reply.trim().slice(-200);
   return /\?\s*$/.test(tail) || PROPOSAL_TAIL.test(tail);
 }
+
+/**
+ * К21-1: вопрос о происхождении сказанного («откуда ты это взял?») — не новая
+ * тема и не строгий разбор заметки, а просьба подтвердить прошлый ответ. Список
+ * форм короткий, как CONSENT_WORDS: это дословные вопросы о источнике. «Откуда»
+ * внутри темы («откуда взялась эта привычка») провенансом не считается — его
+ * отсекают и порог длины, и требуемая рамка (кто взял/нашёл/придумал).
+ * Дефис схлопывается, а не заменяется пробелом: «откуда-то» не должно читаться
+ * как «откуда», «из какой-то записи» — как «из какой записи».
+ */
+const PROVENANCE_MAX_WORDS = 10;
+const PROVENANCE_LEAD_RE = /^(?:(?:а|ну|и|так|тогда|слушай)\s+)+/;
+// `\b` в JS — только ASCII: у кириллицы границы слова нет вовсе, и «взял\b» не
+// матчил ничего. Граница — своя, как в POINTS_AT_ONE_NOTE.
+const PROVENANCE_W_END = '(?![а-яё])';
+const PROVENANCE_TAKING = '(?:взял|взяла|взяли|взято|узнал|узнала|узнали|почерпнул|почерпнула|почерпнули|вычитал|вычитала|вычитали|прочитал|прочитала|прочитали|нашел|нашла|нашли|знаешь|знаете)';
+const PROVENANCE_INVENTED = '(?:придумал|придумала|придумали|выдумал|выдумала|выдумали|сочинил|сочинила|сочинили)';
+const PROVENANCE_SUBJECT = '(?:это|этот вывод|это утверждение|эта информация|эта цитата|эти сведения|эти слова|эти данные)';
+const PROVENANCE_RES: readonly RegExp[] = [
+  new RegExp(`^откуда (?:ты |вы )?(?:это |эти |этот |эту |информацию |сведения )?${PROVENANCE_TAKING}${PROVENANCE_W_END}`),
+  new RegExp(`^откуда ${PROVENANCE_SUBJECT}$`),
+  // Ревью К21: только целиком «это откуда» — «это откуда у меня тревога» про тему.
+  new RegExp(`^${PROVENANCE_SUBJECT} откуда$`),
+  new RegExp(`^где (?:ты |вы )?(?:это |эти |этот |эту |информацию )?(?:нашел|нашла|нашли|взял|взяла|взяли|вычитал|вычитала|прочитал|прочитала|увидел|увидела|увидели)${PROVENANCE_W_END}`),
+  // Ревью К21: «ты придумал/сочинил» — только с «это» про сказанное: «ты сочинил
+  // стихотворение», «вы придумали мне план» — просьбы, а не вопрос об источнике.
+  new RegExp(`^(?:ты|вы) (?:сам |сама |сами )?(?:это|эти слова|этот вывод|это утверждение) (?:сам |сама |сами )?${PROVENANCE_INVENTED}${PROVENANCE_W_END}`),
+  new RegExp(`^это (?:ты|вы) (?:сам |сама |сами )?${PROVENANCE_INVENTED}${PROVENANCE_W_END}`),
+  new RegExp(`^на чем (?:это |этот вывод |твой ответ |твое утверждение |ответ )?основан(?:о|а|ы)?${PROVENANCE_W_END}`),
+  new RegExp(`^из как(?:ой|их) (?:это )?(?:записи|записей|заметки|заметок|дня|дней)${PROVENANCE_W_END}`),
+  new RegExp(`^в как(?:ой|их) (?:это )?(?:записи|записях|заметке|заметках)${PROVENANCE_W_END}`),
+  new RegExp(`^какая (?:это )?(?:запись|заметка)${PROVENANCE_W_END}`),
+];
+
+export function isProvenanceTurn(text: string): boolean {
+  const folded = text
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/[-—–]/g, '')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(PROVENANCE_LEAD_RE, '')
+    .trim();
+  const words = folded.split(' ').filter(Boolean);
+  if (words.length === 0 || words.length > PROVENANCE_MAX_WORDS) return false;
+  return PROVENANCE_RES.some(re => re.test(folded));
+}
+
+/**
+ * К21-1: окно на заметку и потолок блока в ходе о происхождении — те же числа,
+ * что у выдачи поиска (PER_NOTE_CHARS / BUDGET_CHARS в buildContext): материалы
+ * прошлого ответа не должны быть ни короче, ни длиннее тех, что модель видела.
+ */
+const PROVENANCE_PER_NOTE_CHARS = 2_000;
+const PROVENANCE_BUDGET_CHARS = 25_000;
 
 /**
  * LD-7: позиция материала в найденной заметке — по чанку, ближайшему к вектору
@@ -244,7 +302,12 @@ export function useAIChatContext(personaId: string): {
   };
 
   const buildContext = async (params: BuildContextParams): Promise<ChatContextResult> => {
-    const { text, attached, mood, isFirstTurn, forcedSearchQuery, attachedIsSticky } = params;
+    const { text, mood, isFirstTurn, forcedSearchQuery, attachedIsSticky } = params;
+    // К21-5: оговорка «это написал ИИ» в реплике человека — этого хода или
+    // прошлых — добавляет в блок заметки строку о том, что текст не его.
+    // Помечаются блоки до всякого разбора: строка обязана доехать и до строгого
+    // хода, и до широкого, где заметка идёт в поиск похожих.
+    const attached = markAiWritten(params.attached, text, params.messageHistory);
     const injectedDocumentIds: string[] = [];
     const db = await getLocalDb();
     // X-5: снимки заметок и разборов на один ход. Точечные чтения на каждого
@@ -284,10 +347,28 @@ export function useAIChatContext(personaId: string): {
       && !!lastAssistantReply
       && isConsentTurn(text)
       && endsWithProposal(lastAssistantReply.content);
-    const strictNoteTurn = params.scope === 'note' && !!attached && !consentContinuation;
+    // К21-1: «откуда ты это взял?» после хода с выдачей — не строгий разбор
+    // заметки и не новый поиск: человеку нужны те же записи, что видели в прошлый
+    // раз. Id этих записей хранятся в прошлой реплике ассистента (К21-3), поэтому
+    // ход переживает перезагрузку вкладки. Заметки ЭТОГО хода триггер не дают:
+    // после строгого разбора без выдачи (материалы — сама заметка) ход остаётся
+    // строгим.
+    const attachedTurnIds = new Set((attached?.blocks ?? []).map(b => b.documentId));
+    const provenanceTurn = isProvenanceTurn(text);
+    const provenanceMaterials = provenanceTurn
+      ? [...new Set((params.prevTurnDocIds ?? []).filter(id => !isPastedAttachmentId(id)))]
+      : [];
+    const provenanceByIds = provenanceMaterials.some(id => !attachedTurnIds.has(id));
+    // Запасной путь (старые диалоги, где id в реплике нет): повтор прошлого
+    // запроса, как в LD-6 — липкий поиск живёт только в памяти вкладки.
+    const provenanceByQuery = provenanceTurn && !provenanceByIds
+      && stickyTurnsRef.current > 0
+      && lastSearchQueryRef.current.length > 0;
+    const provenanceContinuation = provenanceByIds || provenanceByQuery;
+    const strictNoteTurn = params.scope === 'note' && !!attached && !consentContinuation && !provenanceContinuation;
     // Кризис ищем и в приложенной заметке: текст хода теперь — только вопрос.
     const crisis = detectRisk(attached ? [text, ...attached.blocks.map(b => b.content ?? '')].join('\n') : text).isRisk;
-    if (!strictNoteTurn && !smallTalk && text.trim().length > 0 && hasIndexingConsent(uid)) {
+    if (!strictNoteTurn && !provenanceContinuation && !smallTalk && text.trim().length > 0 && hasIndexingConsent(uid)) {
       try {
         setAIStage('query');
         const res = await AIService.embed({ content: text });
@@ -351,6 +432,58 @@ export function useAIChatContext(personaId: string): {
       effectivePersonaId = 'custom';
     }
 
+    // К21-1: материалы прошлого ответа — по id из его реплики. Шапки те же, что у
+    // выдачи поиска (`[#id · дата]`, «Заметка N: "…"», «[Суть: …]»): по ним
+    // работают правило цитирования, NOTES_SEARCH_GUARD и answerAudit. Нового
+    // поиска нет — вопрос «откуда ты это взял» сам по себе ничего не ищет.
+    if (provenanceByIds) {
+      const docsAll = await (docsSnap ??= loadDocumentSnapshot());
+      // Реплика могла приехать с другого устройства: там у той же заметки свой id,
+      // а общий — uuid или linkedCloudId (тот же трёхключевой поиск, что у граней).
+      const byOtherKey = new Map<string, LocalDocument>();
+      for (const d of docsAll.values()) {
+        if (d.uuid) byOtherKey.set(d.uuid, d);
+        if (d.linkedCloudId) byOtherKey.set(d.linkedCloudId, d);
+      }
+      const parts: string[] = [];
+      const ids: string[] = [];
+      let chars = 0;
+      for (const raw of provenanceMaterials) {
+        if (chars >= PROVENANCE_BUDGET_CHARS) break;
+        const doc = docsAll.get(raw) ?? byOtherKey.get(raw);
+        if (!doc || isExcludedFromAI(doc) || doc.trashedAt) continue;
+        const content = await LocalVersionService.getLatestContent(doc.id);
+        if (!content) continue;
+        const summary = await summaryAt(doc.id);
+        const summaryPrefix = summary?.summary ? `[Суть: ${summary.summary}]\n` : '';
+        const snippet = content.length > PROVENANCE_PER_NOTE_CHARS
+          ? `${content.slice(0, PROVENANCE_PER_NOTE_CHARS)}…`
+          : content;
+        parts.push(`[#${doc.id} · ${formatDateYYYYMMDD(doc.lastSessionAt)}]\nЗаметка ${parts.length + 1}: "${doc.title || 'Без названия'}"\n${summaryPrefix}${snippet}`);
+        ids.push(doc.id);
+        chars += snippet.length + summaryPrefix.length;
+      }
+      if (parts.length > 0) {
+        const block = `\n\nРезультаты поиска по архиву заметок (те же записи, что были в материалах прошлого ответа). `
+          + `Найдено заметок: ${parts.length}. `
+          + `Человек спрашивает, откуда взято сказанное тобой в прошлый раз. Отвечай только по этим записям: `
+          + `если источника сказанного в них нет, скажи, что проверить не можешь, и не домысливай.\n\n${parts.join('\n\n')}`;
+        return {
+          userPortrait,
+          customPersona: customSystemPrompt,
+          searchContext: block,
+          documentMood: mood,
+          memoryContext: null,
+          injectedDocumentIds: ids,
+          injectedTitles: extractContextTitles(block),
+          allowedFirstSeenDates: extractFirstSeenDates(block),
+          degradedReason: degradedDueToDailyLimit ? 'daily_limit' : undefined,
+          crisis,
+          effectiveScope: 'wide',
+        };
+      }
+    }
+
     // 2. Hydrate searchContext
     const noteAnalysisIntent = /(заметк|запис|аскез)/i.test(text) && /(разбер|разбор|проанализ|анализ|прочит|посмотр|глян)/i.test(text);
     const noteIntentNoText = !attached?.blocks.some(b => b.content) && noteAnalysisIntent;
@@ -358,6 +491,14 @@ export function useAIChatContext(personaId: string): {
     // The forced turn: use the provided query and force the search
     let explicitSearch = forcedSearchQuery ? true : shouldRunFullSearch(text, !!attached);
     let effectiveQuery = forcedSearchQuery ?? text;
+    // К21-1: запасной путь провенанса — id в прошлой реплике нет (старый диалог)
+    // или на этом устройстве они не прочитались. Повторяем прошлый запрос, как
+    // LD-6. Искать по тексту самого вопроса нельзя: isPureFollowUp его
+    // продолжением не считает, и липкий поиск ушёл бы по теме «откуда ты это взял».
+    if (provenanceContinuation && !forcedSearchQuery && lastSearchQueryRef.current.length > 0) {
+      explicitSearch = false;
+      effectiveQuery = lastSearchQueryRef.current;
+    }
     // DLG-Q7: запрос, построенный из приложенной заметки (просьба посмотреть
     // похожее). Отличает этот ход от обычного поиска по тексту реплики.
     let similarNotesQuery: string | undefined;
@@ -386,7 +527,7 @@ export function useAIChatContext(personaId: string): {
           const label = attachedIsSticky
             ? '[Заметка, к которой привязан этот диалог — пользователь НЕ присылал её сейчас, не говори «присланная/прикреплённая заметка»]'
             : '[Прикрепленная заметка]';
-          attachedBlock = `[#${linked.documentId} · ${yyyymmdd}]\n${label}\n${attachedContent}`;
+          attachedBlock = `[#${linked.documentId} · ${yyyymmdd}]\n${label}${linked.aiWritten ? `\n${AI_WRITTEN_LINE}` : ''}\n${attachedContent}`;
         }
         searchContext = attachedBlock;
 
@@ -1249,7 +1390,7 @@ export function useAIChatContext(personaId: string): {
       allowedFirstSeenDates: [...new Set(allowedFirstSeenDates)],
       degradedReason: degradedDueToDailyLimit ? 'daily_limit' : undefined,
       crisis,
-      ...(consentContinuation ? { effectiveScope: 'wide' as const } : {}),
+      ...(consentContinuation || provenanceContinuation ? { effectiveScope: 'wide' as const } : {}),
     };
 
   };

@@ -8,8 +8,19 @@
 --   1. 'owner': админ → true, обычный → false;
 --   2. 'all' → true обычному; 'nobody' → false админу;
 --   3. неизвестный флаг → false (не null и не ошибка);
---   4. таблица из браузера не читается; аноним функцию не исполняет.
+--   4. таблица из браузера не читается; аноним функцию не исполняет;
+--   0. этап sync_pull_by_rev после миграций = all (0048).
 -- Свои строки — в первом блоке, уборка — в последнем.
+
+-- 0. Этап флага новой синхронизации после всех миграций — тот же, что на проде
+--    (0048, дейлик 03.11 Н-4): иначе стенд и CI молча гоняют старый путь забора.
+DO $$
+BEGIN
+  IF (select enabled_for from public.feature_flags where name = 'sync_pull_by_rev') IS DISTINCT FROM 'all' THEN
+    RAISE EXCEPTION 'FAIL: sync_pull_by_rev после миграций = %, ожидался all',
+      (select enabled_for from public.feature_flags where name = 'sync_pull_by_rev');
+  END IF;
+END $$;
 
 DO $$
 declare

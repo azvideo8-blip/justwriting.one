@@ -24,7 +24,7 @@ type LocalDb = Awaited<ReturnType<typeof getLocalDb>>;
  * При нескольких копиях с одним ключом берём живую: у копии из корзины стоит
  * trashedAt, и она не должна выигрывать у существующей заметки.
  */
-async function buildDocIndex(db: LocalDb) {
+export async function buildDocIndex(db: LocalDb) {
   const index = new Map<string, LocalDocument>();
   const all = await db.getAll('documents');
   for (const doc of all) {

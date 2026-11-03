@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.11.4 — 2026-11-03
+
+- **[RU]** Диктовка: если уйти с экрана письма во время записи, сказанное не пропадает — его можно скопировать.
+- **[EN]** Dictation: if you leave the writing screen while recording, what you said is not lost — you can copy it.
+- **[RU]** Диктовка не ломается после пустой записи и продолжает работать, если открыть или закрыть боковую панель.
+- **[EN]** Dictation no longer breaks after an empty recording and keeps working when you open or close the side panel.
+- **[RU]** Первая загрузка на новом устройстве докачивает все заметки, даже если сервер просит притормозить.
+- **[EN]** The first download on a new device fetches all notes, even when the server asks to slow down.
+- **[RU]** Если часы устройства сильно расходятся с точным временем, приложение говорит об этом, а не просто «вы вышли», и не предлагает стереть данные.
+- **[EN]** If the device clock is far off, the app says so instead of just «you were signed out», and does not offer to wipe your data.
+- **[RU]** Серия дней в архиве учитывает дату, которую вы поставили заметке сами.
+- **[EN]** The streak in the archive counts the date you set on a note yourself.
+- **[RU]** Статус согласия на ИИ меняется сразу после нажатия.
+- **[EN]** The AI consent status updates right after you tap the button.
+- **[RU]** На вопрос «откуда ты это взял?» ИИ смотрит в те же записи, а под ответом видно, какие заметки он видел.
+- **[EN]** When asked «where did you get that?», the AI looks at the same entries, and the answer shows which notes it saw.
+- **[RU]** ИИ отмечает ответ, где пересказаны записи без ссылок, и не приписывает вам слова текста, который, по вашим словам, написал другой ИИ.
+- **[EN]** The AI flags answers that retell entries without links, and no longer attributes to you the words of a text you said another AI wrote.
+- **[RU]** Без входа в аккаунт: после «Сохранить» и быстрого закрытия вкладки сохранённый текст не возвращается черновиком.
+- **[EN]** Without signing in: after «Save» and quickly closing the tab, the saved text no longer comes back as a draft.
+- **[RU]** С включённым сейфом слова, набранные прямо перед закрытием вкладки, сохраняются.
+- **[EN]** With the vault on, words typed right before closing the tab are kept.
+- **[RU]** Число «Записи без входа» при выходе совпадает с тем, что будет стёрто.
+- **[EN]** The «Entries without sign-in» count at sign-out matches what will be deleted.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.11.3 — 2026-11-02
 
 - **[RU]** Синхронизация заметок между устройствами работает по-новому: подтягиваются только изменения, а не весь список заново.

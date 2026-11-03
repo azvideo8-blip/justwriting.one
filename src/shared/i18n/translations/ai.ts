@@ -184,6 +184,12 @@ export const aiTranslations: Translations = {
   ai_discuss: { ru: 'Обсудить', en: 'Discuss' },
   ai_search_in_notes: { ru: 'Поискать в заметках:', en: 'Search in notes:' },
   ai_reasoning_flow: { ru: '🧠 Ход мысли', en: '🧠 Train of thought' },
+  // К21-3: строка под ответом — какие заметки модель видела в этом ходу.
+  ai_context_notes_row_one: { ru: 'Модель видела {count} заметку', en: 'The model saw {count} note' },
+  ai_context_notes_row_few: { ru: 'Модель видела {count} заметки', en: 'The model saw {count} notes' },
+  ai_context_notes_row_many: { ru: 'Модель видела {count} заметок', en: 'The model saw {count} notes' },
+  // К21-4: ответ пересказал найденные записи, но не сослался ни на одну.
+  ai_no_note_refs: { ru: 'Здесь нет ссылок на записи — источник не указан', en: 'No note references here — the source is not specified' },
   ai_sidebar_expand: { ru: 'Развернуть боковую панель', en: 'Expand sidebar' },
   ai_sidebar_collapse: { ru: 'Свернуть боковую панель', en: 'Collapse sidebar' },
   ai_note_fallback: { ru: 'Заметка', en: 'Note' },

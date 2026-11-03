@@ -180,7 +180,7 @@ describe('S1-10: полнота списочного читателя', () => {
     const res = await CloudSyncService.downloadAllFromCloud(USER);
 
     expect(res.incomplete).toBe(true);
-    expect(addLocalCopy).toHaveBeenCalledWith(USER, 'cloud_new_s110');
+    expect(addLocalCopy).toHaveBeenCalledWith(USER, 'cloud_new_s110', expect.objectContaining({ id: 'cloud_new_s110' }));
     expect(res.downloaded).toBe(1);
     const db = await getLocalDb(USER);
     expect(await db.count('syncQueue'), 'requeue по «нет в списке» не принят').toBe(0);
