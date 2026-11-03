@@ -116,6 +116,36 @@ if [ -n "$COUNTS" ]; then
     fi
 fi
 
+# D-1 (владелец 03.11): копия вне сервера — соседняя машина забирает ТОЛЬКО
+# шифротекст (age, ключ расшифровки у владельца, на сервере его нет) через
+# пользователя backup-pull без прав (offsite-serve.sh). Сбой шифрования не
+# ломает локальную копию, но выход скрипта — ошибка: копия вне сервера устарела.
+OFFSITE=/var/backups/justwriting-offsite
+RECIPIENT=/opt/justwriting/backup/age-recipient.txt
+OFFSITE_FAIL=0
+if [ -s "$RECIPIENT" ]; then
+    ENC="$OFFSITE/$(basename "$FILE").age"
+    # Ревью 0.11.5: каждый шаг — в условии. Голый шаг под set -e ронял скрипт до
+    # локальной ротации (нет группы, полный диск), и дампы копились каждую ночь.
+    rm -f "$OFFSITE"/*.partial 2>/dev/null || true
+    if install -d -m 750 -g backup-pull "$OFFSITE" \
+        && age -R "$RECIPIENT" -o "$ENC.partial" "$FILE" && mv "$ENC.partial" "$ENC" \
+        && (cd "$OFFSITE" && sha256sum "$(basename "$ENC")" > "$(basename "$ENC").sha256") \
+        && chgrp backup-pull "$ENC" "$ENC.sha256" && chmod 640 "$ENC" "$ENC.sha256"; then
+        # Та же стопорка, что у локальной ротации ниже: при тревоге SHRINK хорошие
+        # копии не вытесняются похудевшими.
+        if [ ! -e "$SHRINK_MARK" ]; then
+            ls -1t "$OFFSITE"/justwriting-*.dump.age 2>/dev/null | tail -n +$((KEEP_DAILY + 1)) | while read -r old; do
+                rm -f "$old" "$old.sha256"
+            done
+        fi
+    else
+        rm -f "$ENC.partial"
+        echo "ОШИБКА: шифрование копии для хранения вне сервера не удалось" >&2
+        OFFSITE_FAIL=1
+    fi
+fi
+
 # Ротация: держим последние N дампов вместе с их контрольными суммами.
 if [ -e "$SHRINK_MARK" ]; then
     echo "ротация остановлена: есть $SHRINK_MARK" >&2
@@ -129,3 +159,4 @@ COUNT=$(ls -1 "$DEST"/justwriting-*.dump 2>/dev/null | wc -l)
 echo "копия готова: $FILE ($SIZE), в хранилище $COUNT шт."
 # Копия сохранена, но служба краснеет: обвал — событие, а не норма.
 [ "$SHRUNK" -eq 0 ] || exit 1
+[ "$OFFSITE_FAIL" -eq 0 ] || exit 1

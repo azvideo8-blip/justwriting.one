@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.11.5 — 2026-11-03
+
+- **[RU]** Если в одной вкладке сменить аккаунт, черновик прежнего остаётся у него и не попадает к новому; запись черновика стала надёжнее.
+- **[EN]** If you switch accounts in the same tab, the previous account keeps its draft and it never reaches the new one; drafts are saved more reliably.
+- **[RU]** ИИ точнее цитирует ваши записи: пересказ не берётся в кавычки, а ссылки на ранние заметки узнаются в большем числе формулировок.
+- **[EN]** The AI quotes your entries more precisely: retellings are not put in quotes, and references to earlier notes are recognised in more phrasings.
+- **[RU]** Ответ ИИ, оборванный по длине, помечается одинаково везде.
+- **[EN]** An AI answer cut off by length is marked the same way everywhere.
+- **[RU]** Редактор замечает, если в посте упомянуты деньги близких.
+- **[EN]** The Editor notices when a post mentions money of people close to you.
+- **[RU]** «Связь мыслей» после «Записано.» не называет тему заметки, скрытой от ИИ.
+- **[EN]** «Linked thoughts» after «Saved.» no longer names the topic of a note hidden from the AI.
+- **[RU]** «Моя жизнь» обновляется после удаления заметки.
+- **[EN]** «My life» refreshes after a note is deleted.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.11.4 — 2026-11-03
 
 - **[RU]** Диктовка: если уйти с экрана письма во время записи, сказанное не пропадает — его можно скопировать.

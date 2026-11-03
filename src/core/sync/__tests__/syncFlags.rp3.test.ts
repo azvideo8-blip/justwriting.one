@@ -10,7 +10,7 @@ const rpc = vi.fn();
 vi.mock('../../supabase/client', () => ({ getSupabase: () => ({ rpc }) }));
 vi.mock('../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 
-import { syncPullByRevEnabled, resetSyncFlagsForTests } from '../syncFlags';
+import { syncPullByRevEnabled, syncPushRpcEnabled, markSyncPushUnavailable, resetSyncFlagsForTests } from '../syncFlags';
 
 describe('RP-3: флаг sync_pull_by_rev с сервера', () => {
   beforeEach(() => { rpc.mockReset(); resetSyncFlagsForTests(); });
@@ -47,5 +47,32 @@ describe('RP-3: флаг sync_pull_by_rev с сервера', () => {
     rpc.mockResolvedValue({ data: true, error: null });
     expect(await syncPullByRevEnabled('u1')).toBe(true);
     expect(rpc).toHaveBeenCalledTimes(2);
+  });
+});
+
+// S2-4: флаг записи через sync_push — свой кэш, а «функции нет» (PGRST202) выключает
+// новый путь до конца сессии. Мутации: общий кэш на оба флага → красный «два флага
+// не путаются»; забыть markSyncPushUnavailable → красный «после PGRST202 — старый путь».
+describe('S2-4: флаг sync_push_rpc', () => {
+  beforeEach(() => { rpc.mockReset(); resetSyncFlagsForTests(); });
+
+  it('два флага не путаются: у каждого свой ответ сервера', async () => {
+    rpc.mockImplementation(async (_fn: string, args: { flag: string }) => ({ data: args.flag === 'sync_pull_by_rev', error: null }));
+    expect(await syncPullByRevEnabled('u1')).toBe(true);
+    expect(await syncPushRpcEnabled('u1')).toBe(false);
+    expect(rpc).toHaveBeenCalledWith('feature_enabled', { flag: 'sync_push_rpc' });
+  });
+
+  it('сбой чтения — старый путь', async () => {
+    rpc.mockRejectedValue(new TypeError('Failed to fetch'));
+    expect(await syncPushRpcEnabled('u1')).toBe(false);
+  });
+
+  it('после PGRST202 — старый путь до конца сессии, без вопроса серверу', async () => {
+    rpc.mockResolvedValue({ data: true, error: null });
+    expect(await syncPushRpcEnabled('u1')).toBe(true);
+    markSyncPushUnavailable('u1');
+    expect(await syncPushRpcEnabled('u1')).toBe(false);
+    expect(await syncPushRpcEnabled('u2')).toBe(true);
   });
 });

@@ -3,7 +3,8 @@
 // репликами человека. Ссылки и названия по-прежнему сверяются с полным набором.
 // Фальсификация: передать в страж общий materialsText → первый тест красный.
 import { describe, expect, it } from 'vitest';
-import { sanitizeCitations, quoteMaterialsForTurn } from '../useAIChat';
+import { sanitizeCitations } from '../useAIChat';
+import { RELATED_DAYS_HEAD, quoteMaterialsText } from '../../../../shared/ai/quoteGuard';
 
 const IDS = ['local_note', 'local_bg'];
 const TITLES = ['Заметка о вторнике', 'Фоновая заметка'];
@@ -47,25 +48,26 @@ describe('RA1-8: кавычки сверяются с заметкой, а не 
     expect(out).toContain('«Фоновая заметка»');
   });
 
-  const VISIBLE = { documentId: 'local_note', title: 'Заметка о вторнике', content: NOTE_TEXT };
-  const HIDDEN = { documentId: 'local_hidden', title: 'Скрытая', content: 'Скрытое: «ключи от дачи лежат под ковриком у двери».' };
-  const isHidden = (id: string) => id === 'local_hidden';
+  // DY7-7: источник кавычек считается из того, что ушло модели (ограда данных
+  // хода), общей функцией с сервером. Скрытая заметка в ограду не попадает вовсе
+  // (hideExcludedNotes), поэтому фильтр по id здесь больше не нужен.
+  const DOC = `[Сегодня: вторник]\n\n${RELATED_DAYS_HEAD}\n${BACKGROUND}\n\n${NOTE_TEXT}`;
 
   it('источник хода: строгий — заметка и человек, широкий — полный набор', () => {
-    const strict = quoteMaterialsForTurn('note', [VISIBLE], isHidden, ['Ты спросила: «как это было».']);
+    const input = { documentContent: DOC, memoryContext: 'Память: «любит долгие прогулки по набережной».', humanTurns: ['Ты спросила: «как это было».'] };
+    const strict = quoteMaterialsText({ ...input, strict: true });
     expect(strict).toContain('Во вторник Соня сказала');
     expect(strict).toContain('как это было');
     expect(strict).not.toContain('скрипку напрокат');
-    expect(quoteMaterialsForTurn(undefined, [VISIBLE], isHidden, [])).toBeUndefined();
+    expect(strict).not.toContain('набережной');
+    const wide = quoteMaterialsText({ ...input, strict: false });
+    expect(wide).toContain('скрипку напрокат');
+    expect(wide).toContain('набережной');
   });
 
-  // Фальсификация: убрать фильтр по isHiddenId в quoteMaterialsForTurn → красный.
-  it('текст скрытого блока — не источник кавычек', () => {
-    const strict = quoteMaterialsForTurn('note', [VISIBLE, HIDDEN], isHidden, []);
-    expect(strict).toContain('Во вторник Соня сказала');
-    expect(strict).not.toContain('ключи от дачи лежат под ковриком у двери');
-    const out = sanitizeCitations('Там было: «ключи от дачи лежат под ковриком у двери».', IDS, TITLES, FULL, { quoteMaterialsText: strict });
-    expect(out).not.toContain('«ключи от дачи лежат под ковриком у двери»');
+  it('строгий ход без фона: ограда целиком', () => {
+    const doc = `[Сегодня: вторник]\n\n${NOTE_TEXT}`;
+    expect(quoteMaterialsText({ strict: true, documentContent: doc, humanTurns: [] })).toBe(doc);
   });
 
   it('без явного источника — прежнее поведение (фон в материалах)', () => {

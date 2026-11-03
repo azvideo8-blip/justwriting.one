@@ -16,6 +16,8 @@ export interface PostDiff {
   clientStoryInPost: boolean;
   /** MD-4: в теле поста остался фрагмент чужой прямой речи из заметки. */
   foreignSpeechInPost: boolean;
+  /** 3.1 / 18.1(б): в одной фразе поста — близкий и деньги. */
+  relativesMoneyInPost: boolean;
 }
 
 const lower = (s: string) => s.replace(/ё/g, 'е').toLowerCase();
@@ -163,6 +165,19 @@ export function mentionsClientStory(post: string, source: string): boolean {
   return !(OWN_THERAPY_IN_SOURCE_RE.test(source) && !CLIENT_IN_NOTE_RE.test(source));
 }
 
+// 3.1 / 18.1(б): чего близкие ждут от автора в деньгах — чужое, в пост не идёт.
+// Строка в PRIVACY замер не сдвинула (10/10 → 10/10), поэтому плашка, как LD-1.
+// «Дома» — анонимный близкий: модель, убрав «муж», пишет «дома сказали».
+// Замер на готовых постах стенда arch-2026-10-11: S6d 136/136, прочие 0/614.
+// ponytail: совпадение слов в одной фразе; свои деньги рядом с близким («купил
+// маме») тоже предупредят — сузить, если плашка зашумит на живых постах.
+const RELATIVE_RE = new RegExp(`${LB}(?:муж(?:а|у|ем|е|ья|ьям)?|жен(?:а|ы|е|у|ой)|партн[её]р\\p{L}*|супруг\\p{L}*|мам(?:а|ы|е|у|ой|очк\\p{L}*)|мать|матер\\p{L}*|пап(?:а|ы|е|у|ой)|от[её]ц|отц(?:а|у|ом|е)|родител\\p{L}*|сестр\\p{L}*|брат(?:а|у|ом|е|ья|ьев|ьям|ьями)?|доч(?:ь|ка|ки|ке|ку|кой|ер\\p{L}*)|сын(?:а|у|ом|е|овья|овей|ок)?|свекр\\p{L}*|т[её]щ\\p{L}*|бабушк\\p{L}*|дедушк\\p{L}*|семь(?:я|и|е|ю|ей)|дома|близк\\p{L}*)${RB}`, 'iu');
+const MONEY_RE = new RegExp(`${LB}(?:деньг\\p{L}*|денег|денежн\\p{L}*|заработ\\p{L}*|зарабат\\p{L}*|зарплат\\p{L}*|доход\\p{L}*|ипотек\\p{L}*|кредит\\p{L}*|долг(?:а|и|ов|ам|у)?|алимент\\p{L}*|наследств\\p{L}*|бюджет\\p{L}*|рубл\\p{L}*|тысяч\\p{L}*|цен(?:а|у|ы|е|ой)|стоимост\\p{L}*|платит\\p{L}*|заплат\\p{L}*)${RB}`, 'iu');
+
+export function mentionsRelativesMoney(post: string): boolean {
+  return post.split(/[.!?…\n]+/).some(s => RELATIVE_RE.test(s) && MONEY_RE.test(s));
+}
+
 /**
  * Что пост Редактора сделал с заметкой: какие имена и числа из неё пропали,
  * какие имена остались и какие роли появились. `post` — текст ответа до строки
@@ -239,6 +254,7 @@ export function diffPostAgainstNote(
     numbersRemoved,
     clientStoryInPost: mentionsClientStory(post, source),
     foreignSpeechInPost: postKeepsForeignWords(post, source),
+    relativesMoneyInPost: mentionsRelativesMoney(post),
   };
 }
 

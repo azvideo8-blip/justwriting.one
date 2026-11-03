@@ -4,7 +4,7 @@
  * Coordinates fault injection into Supabase, IndexedDB, WebCrypto, and Timers.
  */
 
-import { InMemoryPostgres, TableName, QueryFilter, QueryOrder } from './inMemoryPostgres';
+import { InMemoryPostgres, TableName, QueryFilter, QueryOrder, SyncPushItem } from './inMemoryPostgres';
 import { FaultType, StepName } from './faultTypes';
 import * as supabaseClientModule from '../../core/supabase/client';
 import * as callAiModule from '../../core/ai/callAi';
@@ -497,6 +497,11 @@ export class FaultInterceptor {
 
   /** RP-3: ответ стенда на `feature_enabled` — по умолчанию включено. */
   public featureFlagsOn = true;
+  /** S2-8: ответ по имени флага поверх `featureFlagsOn` (`sync_push_rpc` вкл/выкл).
+   *  `HARNESS_SYNC_PUSH=0` — весь стенд по старым путям записи (прогон «флаг выключен»). */
+  public featureFlagOverrides = new Map<string, boolean>(
+    process.env.HARNESS_SYNC_PUSH === '0' ? [['sync_push_rpc', false]] : [],
+  );
 
   public createMockSupabaseClient() {
     return {
@@ -506,8 +511,10 @@ export class FaultInterceptor {
         // забором по rev, как было с константой в коде. Чтение флага — мимо
         // счётчика сбоев: иначе оно съедало бы сбой, нацеленный на страницу забора.
         if (fnName === 'feature_enabled') {
-          return Promise.resolve({ data: this.featureFlagsOn, error: null });
+          const flag = (_args as { flag?: string } | null)?.flag ?? '';
+          return Promise.resolve({ data: this.featureFlagOverrides.get(flag) ?? this.featureFlagsOn, error: null });
         }
+        if (fnName === 'sync_push') return this.syncPushRpc(_args);
         const fault = this.shouldTriggerFault();
         if (fault === 'network_pre') {
           this.fireFault();
@@ -533,6 +540,36 @@ export class FaultInterceptor {
         signOut: () => Promise.resolve({ error: null }),
       },
     };
+  }
+
+  /**
+   * S2-3: `sync_push` (0047). Сбои — как у записи через query builder: до запроса
+   * (`network_pre`, `postgres_500`) ничего не легло; после (`network_post`,
+   * `network_mid`) пачка легла, а ответ потерян. Таблица для сбоя — первого элемента.
+   */
+  private async syncPushRpc(args: unknown) {
+    const items = ((args as { items?: unknown } | null)?.items ?? []) as SyncPushItem[];
+    const first = items[0]?.table;
+    const fault = this.shouldTriggerFault(first === 'documents' || first === 'local_store_records' ? first : undefined);
+    if (fault === 'network_pre') {
+      this.fireFault();
+      throw new TypeError('Failed to fetch (offline before request)');
+    }
+    if (fault === 'postgres_500') {
+      this.fireFault();
+      return { data: null, error: { message: 'RPC sync_push failed', code: '500' } };
+    }
+    const result = this.postgres.executeSyncPush(authModule.getCurrentUser()?.uid ?? null, items);
+    if (this.onRequest && first) await this.onRequest(first as TableName);
+    if (fault === 'network_post') {
+      this.fireFault();
+      throw new TypeError('Failed to fetch (write committed, ACK dropped by network)');
+    }
+    if (fault === 'network_mid') {
+      this.fireFault();
+      throw new Error('Connection aborted by peer (mid-request: write committed to cloud, stream broken)');
+    }
+    return result;
   }
 
   private createQueryBuilder(table: TableName) {

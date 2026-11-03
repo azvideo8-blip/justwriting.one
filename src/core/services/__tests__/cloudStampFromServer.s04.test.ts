@@ -165,7 +165,9 @@ describe('S0-4: метка облачной версии после выгруз
   // ответа СОБСТВЕННОЙ записи, перечитывание остаётся запасным путём.
   it('SF-7: отметка берётся из ответа собственной записи, чужая правка в окне её не сдвигает', async () => {
     const ourWriteMs = SERVER_NOW + 1000;
-    await seedLocalDoc({ linkedCloudId: CLOUD_ID, lastSeenCloudUpdatedAt: new Date(SERVER_NOW - DAY).toISOString() });
+    // S2-6: прибор видел ряд ровно таким, каким он лежит до записи — чужой
+    // правки в облаке нет (иначе отметка остаётся прежней, см. тест ниже).
+    await seedLocalDoc({ linkedCloudId: CLOUD_ID, lastSeenCloudUpdatedAt: SERVER_ISO });
     // Часы прибора спешат на сутки — в окне перечитывания рядом с нашей
     // записью становится версия с ОТМЕТКОЙ ЭТИХ ЖЕ ЧАСОВ. Раз записями ряда
     // владеет сервер (0028), такой метки у облака быть не может, и правка SF-7
@@ -176,7 +178,7 @@ describe('S0-4: метка облачной версии после выгруз
       id: CLOUD_ID, uuid: 'uuid-s04', currentVersion: 1, updatedAt: DEVICE_ISO, createdAt: SERVER_ISO,
     } as never);
     vi.mocked(DocumentService.getDocumentWithDeleted).mockResolvedValue({
-      id: CLOUD_ID, uuid: 'uuid-s04', currentVersion: 1, updatedAt: DEVICE_ISO, createdAt: SERVER_ISO, deletedAt: null,
+      id: CLOUD_ID, uuid: 'uuid-s04', currentVersion: 1, updatedAt: SERVER_ISO, createdAt: SERVER_ISO, deletedAt: null,
     } as never);
 
     await CloudSyncService.addCloudCopy(USER, LOCAL_ID);
@@ -189,11 +191,12 @@ describe('S0-4: метка облачной версии после выгруз
   });
 
   it('контроль SF-7: своей метки нет — прежний путь, перечитывание ряда', async () => {
-    await seedLocalDoc({ linkedCloudId: CLOUD_ID, lastSeenCloudUpdatedAt: new Date(SERVER_NOW - DAY).toISOString() });
+    const reread = new Date(SERVER_NOW + 500).toISOString();
+    await seedLocalDoc({ linkedCloudId: CLOUD_ID, lastSeenCloudUpdatedAt: SERVER_ISO });
     // `clearAllMocks` не сбрасывает mockResolvedValue: ряд этого теста задаём сам.
     vi.mocked(DocumentService.updateDocumentAfterSession).mockResolvedValue(null as never);
     vi.mocked(DocumentService.getDocument).mockResolvedValue({
-      id: CLOUD_ID, uuid: 'uuid-s04', currentVersion: 1, updatedAt: SERVER_ISO, createdAt: SERVER_ISO,
+      id: CLOUD_ID, uuid: 'uuid-s04', currentVersion: 1, updatedAt: reread, createdAt: SERVER_ISO,
     } as never);
     vi.mocked(DocumentService.getDocumentWithDeleted).mockResolvedValue({
       id: CLOUD_ID, uuid: 'uuid-s04', currentVersion: 1, updatedAt: SERVER_ISO, createdAt: SERVER_ISO, deletedAt: null,
@@ -203,6 +206,22 @@ describe('S0-4: метка облачной версии после выгруз
 
     const local = await readLocalDoc();
     expect(local.lastSeenCloudUpdatedAt, 'запасной путь не потерян')
-      .toBe(SERVER_ISO);
+      .toBe(reread);
+  });
+
+  // S2-6 (сид 88): ряд до записи новее увиденного — в облаке чужая правка, которую
+  // прибор не забирал. Метка своей записи её покрыла бы, поэтому отметка
+  // остаётся прежней, и следующий забор сверит ряд. Мутация: всегда своя метка → красный.
+  it('S2-6: чужая правка до записи — отметка не двигается', async () => {
+    const seen = new Date(SERVER_NOW - DAY).toISOString();
+    await seedLocalDoc({ linkedCloudId: CLOUD_ID, lastSeenCloudUpdatedAt: seen });
+    vi.mocked(DocumentService.updateDocumentAfterSession).mockResolvedValue((SERVER_NOW + 1000) as never);
+    vi.mocked(DocumentService.getDocumentWithDeleted).mockResolvedValue({
+      id: CLOUD_ID, uuid: 'uuid-s04', currentVersion: 1, updatedAt: SERVER_ISO, createdAt: SERVER_ISO, deletedAt: null,
+    } as never);
+
+    await CloudSyncService.addCloudCopy(USER, LOCAL_ID);
+
+    expect((await readLocalDoc()).lastSeenCloudUpdatedAt).toBe(seen);
   });
 });

@@ -178,14 +178,14 @@ describe('WritingDraftService', () => {
   describe('saveToLocal', () => {
     it('puts draft into localDb', async () => {
       const db = makeLocalDb();
-      const draft = { userId: mockUserId, content: 'test', updatedAt: 1000 } as unknown as LocalDraft;
+      const draft = { userId: mockUserId, owner: mockUserId, content: 'test', updatedAt: 1000 } as unknown as LocalDraft;
       await WritingDraftService.saveToLocal(draft);
       expect(db.put).toHaveBeenCalledWith('drafts', draft);
     });
 
     it('D-1: re-throws IDB error so persistDraft sees rejected (not false-positive fulfilled)', async () => {
       makeLocalDb({ put: vi.fn().mockRejectedValue(new Error('IDB quota exceeded')) });
-      const draft = { userId: mockUserId, content: 'test', updatedAt: 1000 } as unknown as LocalDraft;
+      const draft = { userId: mockUserId, owner: mockUserId, content: 'test', updatedAt: 1000 } as unknown as LocalDraft;
       await expect(WritingDraftService.saveToLocal(draft)).rejects.toThrow('IDB quota exceeded');
       expect(reportError).toHaveBeenCalled();
     });
@@ -301,7 +301,7 @@ describe('WritingDraftService', () => {
     it('DEEP-1: saveToLocal passes draft.userId to getLocalDb so partition never falls back to guest DB', async () => {
       makeLocalDb();
       const uid = 'user_cross_tab_signout';
-      const draft = { userId: uid, content: 'private text', updatedAt: 1000 } as unknown as LocalDraft;
+      const draft = { userId: uid, owner: uid, content: 'private text', updatedAt: 1000 } as unknown as LocalDraft;
 
       await WritingDraftService.saveToLocal(draft);
       expect(getLocalDb).toHaveBeenCalledWith(uid);

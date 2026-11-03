@@ -40,6 +40,7 @@ vi.mock('../auth', () => ({ requireSession: vi.fn(async () => ({ uid: 'u_dr8' })
 process.env.OPENROUTER_API_KEY = 'test-key';
 
 import { handleChat } from '../chat';
+import { ANSWER_CUT_NOTE } from '../../src/shared/ai/aiPolicy';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 class FakeReq extends EventEmitter {
@@ -183,6 +184,32 @@ describe('DR-8: [chat-end] на потоковых ходах', () => {
     await handleChat(new FakeReq(plainBody) as unknown as IncomingMessage, res as unknown as ServerResponse);
     await vi.waitFor(() => expect(endLines().length).toBe(1), { timeout: 2000 });
     expect(endLines()[0]).toContain('"finish":"stop"');
+  });
+
+  // DY7-8: «упёрся в предел» — одно правило на оба потока (`answerHitLimit`):
+  // поставщик без finish_reason, но выдача на потолке — пометка в ответе и
+  // finish=length в журнале. Мутация: вернуть обычному потоку только
+  // finishReason SDK → пометки нет, а журнал говорит length.
+  it('обычный ход: потолок без finish_reason → пометка и finish=length', async () => {
+    const chunks = ['Часть ', 'ответа'];
+    // Как SDK: onFinish (с usage) отрабатывает до конца textStream.
+    streamTextMock.mockImplementation((opts: { onFinish?: (r: unknown) => Promise<void>; maxOutputTokens: number }) => ({
+      textStream: {
+        [Symbol.asyncIterator]: () => ({
+          next: async () => {
+            if (chunks.length) return { done: false, value: chunks.shift()! };
+            await opts.onFinish?.({ totalUsage: { inputTokens: 12, outputTokens: opts.maxOutputTokens } });
+            return { done: true, value: undefined };
+          },
+        }),
+      },
+      pipeTextStreamToResponse: vi.fn(),
+    }));
+    const res = new FakeRes();
+    await handleChat(new FakeReq(plainBody) as unknown as IncomingMessage, res as unknown as ServerResponse);
+    await vi.waitFor(() => expect(endLines().length).toBe(1), { timeout: 2000 });
+    expect(endLines()[0]).toContain('"finish":"length"');
+    expect(res.body.endsWith(ANSWER_CUT_NOTE)).toBe(true);
   });
 
   it('обычный ход: onError поставщика → finish=provider_error', async () => {

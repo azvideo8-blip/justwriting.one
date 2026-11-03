@@ -122,7 +122,12 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
       reportError(e, { action: 'lifeLog/fetchSessions' });
     } finally {
       if (mountedRef.current && ownerAtRequest === currentOwnerRef.current) {
-        setData(s => (s.owner === ownerAtRequest ? { ...s, loading: false } : s));
+        // Сбой на первом чтении нового владельца: снимок всё ещё чужой, и без
+        // смены ключа наружу навсегда шло «читается». Ответа нет — пустой
+        // список с пометкой «неизвестно», а не «записей нет».
+        setData(s => (s.owner === ownerAtRequest
+          ? { ...s, loading: false }
+          : { owner: ownerAtRequest, documents: [], unified: [], loading: false, cloudUnknown: true }));
       }
     }
   }, [userId, isGuest, startOfToday]);
@@ -135,9 +140,11 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
   // MC-4: `handleSave` обновляет лог жизни у СВОЕГО экземпляра хука, а шапка
   // письма читает другой — из-за этого счётчик серии жил до перезагрузки
   // страницы. Подписка на событие сохранения носит весть всем экземплярам.
+  // Удаление (из архива, корзины) — та же весть: иначе панель держала заметку,
+  // которой уже нет, пока её не откроют заново.
   useEffect(() => onDomainEvent((e) => {
-    if (e.type !== 'note.saved') return;
-    if (e.userId !== undefined && e.userId !== userId) return;
+    if (e.type !== 'note.saved' && e.type !== 'note.deleted') return;
+    if ('userId' in e && e.userId !== undefined && e.userId !== userId) return;
     void fetchSessions();
   }), [fetchSessions, userId]);
 

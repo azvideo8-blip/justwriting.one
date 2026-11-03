@@ -115,6 +115,8 @@ export const archiveTranslations: Translations = {
   draft_remove: { ru: 'Убрать', en: 'Remove' },
   archive_tag_remove: { ru: 'Удалить тег', en: 'Remove tag' },
   archive_tag_delete_confirm: { ru: 'Удалить тег #{tag}? Он будет снят со всех заметок.', en: 'Delete tag #{tag}? It will be removed from all notes.' },
+  archive_tag_rename: { ru: 'Переименовать тег', en: 'Rename tag' },
+  archive_tag_delete: { ru: 'Удалить тег', en: 'Delete tag' },
   archive_label_rename: { ru: 'Переименовать метку', en: 'Rename label' },
   archive_label_delete: { ru: 'Удалить метку', en: 'Delete label' },
   archive_label_delete_confirm: { ru: 'Удалить метку? Она будет снята со всех заметок.', en: 'Delete label? It will be removed from all notes.' },

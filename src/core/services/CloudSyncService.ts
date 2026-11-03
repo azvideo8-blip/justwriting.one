@@ -26,20 +26,23 @@ import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
 import { computeWordDelta } from './DiffService';
 import { comparableOrUnknown } from '../sync/comparableOrUnknown';
 import { oweSessionDuration, owedSessionDuration, settleSessionDuration } from './pendingDuration';
+import { isStatsDeltaQueued } from './pendingDelta';
 import { emitDomainEvent } from '../events/domainEvents';
 
 /**
  * W-6, исход упавшей выгрузки. Таймаут вызова счётчиков — «не дождались», а не
  * «не легло»: сервер мог дельту применить, и досылка её удвоила бы. Такой вызов
  * считаем прошедшим и гасим отправленный долг.
- * ponytail: недосчёт при редком таймауте вместо двойного счёта; точный ответ —
- * ключ идемпотентности в sync_document_stats.
+ * ponytail: на старом пути (флаг sync_push_rpc выключен) — недосчёт при редком
+ * таймауте вместо двойного счёта.
+ * S2-7: на новом пути прибавка уже в журнале `pendingDelta` с ключом повтора —
+ * долг гасится (его секунды теперь там), а не кладётся второй раз.
  * Любая другая ошибка — секунды версий, уже лёгших в облако, висят долгом.
  */
 function settleOrOweAfterFailure(
   e: unknown, statsInFlight: boolean, uid: string, docId: string, owed: number, uploaded: number,
 ): void {
-  if (statsInFlight && e instanceof TimeoutError) settleSessionDuration(uid, docId, owed);
+  if (isStatsDeltaQueued(e) || (statsInFlight && e instanceof TimeoutError)) settleSessionDuration(uid, docId, owed);
   else oweSessionDuration(uid, docId, uploaded);
 }
 import { withDocumentLock } from '../sync/withDocumentLock';
@@ -192,9 +195,25 @@ async function markCloudSeen(
   // чужую запись и принимает её за свою — после чего локальный ряд «видел»
   // версию, которой не видел, и сверка изменений (`:274`) чужую правку больше
   // не зовёт. Нет метки в ответе (фолбэк ветки с надгробием) — прежний путь.
-  writtenUpdatedAt: number | null = null,
+  // S2-6 (сид 88): 'keep' — в облаке до нашей записи уже лежала чужая правка,
+  // которую этот прибор не забирал. Метка нашей записи её «покрыла» бы, и забор
+  // её больше не позвал бы (корзина другого прибора так и не снималась). Отметка
+  // остаётся прежней — следующий забор сверит ряд.
+  writtenUpdatedAt: number | null | 'keep' = null,
 ): Promise<void> {
   let serverIso: string | null = null;
+  if (writtenUpdatedAt === 'keep') {
+    try {
+      const db = await getLocalDb(userId);
+      const tx = db.transaction('documents', 'readwrite');
+      const cur = await tx.store.get(localDocumentId);
+      if (cur) await tx.store.put({ ...cur, lastSyncedCloudVersion: syncedVersion ?? cur.currentVersion });
+      await tx.done;
+    } catch (e) {
+      reportError(e, { action: 'addCloudCopy_markSynced', documentId: localDocumentId, cloudId, context }, 'warning');
+    }
+    return;
+  }
   /*gate:clock-rule*/
   // Решение «какой меткой считать облако»: ответ собственной записи, иначе
   // перечитывание ряда, иначе ничего. Часов прибора здесь быть не должно — гейт
@@ -1658,14 +1677,15 @@ export const CloudSyncService = {
           // R3-1: неудавшаяся правка метаданных — дослать целиком. Счётчики ниже их
           // не несут, а задачу из очереди дренаж снимает при любом cloudId.
           if (localDoc.metadataDirty) {
-            await withTimeout(DocumentService.updateMetadata(userId, cloudId, {
+            // S2-6: только изменённые здесь поля (сид 88).
+            await withTimeout(DocumentService.updateMetadataFields(userId, cloudId, {
               title: localDoc.title,
               tags: localDoc.tags ?? [],
               labelId: localDoc.labelId,
               excludedFromAI: localDoc.excludedFromAI,
               lastSessionAt: localDoc.lastSessionAt,
               trashedAt: localDoc.trashedAt ?? null,
-            }));
+            }, localDoc.metadataDirtyFields));
             await LocalDocumentService.setMetadataDirty(localDocumentId, false, userId);
           } else if (missing.length > 0 && !localDoc.trashedAt && (existingDoc as { trashedAt?: unknown }).trashedAt) {
             // N2-2: заметку положили в корзину на другом устройстве, а здесь в неё
@@ -1706,7 +1726,14 @@ export const CloudSyncService = {
             throw e;
           }
           const syncdVer = Math.max(metaDoc.currentVersion, existingDoc.currentVersion);
-          await markCloudSeen(userId, localDocumentId, cloudId, syncdVer, 'linked', writtenStamp);
+          // S2-6 (сид 88): ряд, прочитанный до записи, новее того, что этот прибор
+          // видел, — там чужая правка; своя метка её не покрывает.
+          // ponytail: окно «чужая запись между чтением ряда и нашей записью»
+          // остаётся (миллисекунды); точно — запись с условием на rev.
+          const seenMs = localDoc.lastSeenCloudUpdatedAt ? Date.parse(localDoc.lastSeenCloudUpdatedAt) : NaN;
+          const readMs = existingDoc.updatedAt ? new Date(existingDoc.updatedAt).getTime() : NaN;
+          const foreignPending = Number.isFinite(seenMs) && Number.isFinite(readMs) && readMs > seenMs;
+          await markCloudSeen(userId, localDocumentId, cloudId, syncdVer, 'linked', foreignPending ? 'keep' : writtenStamp);
           return cloudId;
         }
         await LocalStorageService.updateLinkedCloudId(localDocumentId, '', userId);
@@ -2190,7 +2217,8 @@ export const CloudSyncService = {
       } catch (e) {
         // W-6: ряд версии в облаке уже лежит, а её секунды — нет. Задача встанет
         // в очередь, дренаж увидит ряд отправленным и принёс бы дельту 0.
-        oweSessionDuration(userId, documentId, data.duration);
+        // S2-7: прибавка уже в журнале `pendingDelta` — второй раз не кладём.
+        if (!isStatsDeltaQueued(e)) oweSessionDuration(userId, documentId, data.duration);
         throw e;
       }
 

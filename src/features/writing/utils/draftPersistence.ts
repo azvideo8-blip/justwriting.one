@@ -5,6 +5,7 @@ import { getLocalStorageUsageKB } from '../../../shared/lib/localStorageUtils';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
+import { getEditorTextOwner } from '../services/draftWriter';
 import { logger } from '../../../shared/errors/logger';
 
 
@@ -29,6 +30,10 @@ export function buildLocalDraft(
   return {
     userId: user.uid,
     ...draftData,
+    // DW4-4: владелец текста назван зеркалом редактора — не «кто сейчас вошёл»,
+    // а «чей текст стоит». В окне смены аккаунта (DW-F-3) это разные люди, и
+    // мутатор уведёт запись прежнему владельцу, а не в адрес вошедшего.
+    owner: getEditorTextOwner() ?? user.uid,
     sessionStartTime: draftData.sessionStartTime ?? null,
     accumulatedDuration: timerState.accumulatedDuration,
     totalPauseSeconds: timerState.totalPauseSeconds,

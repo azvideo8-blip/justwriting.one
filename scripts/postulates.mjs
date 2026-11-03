@@ -88,7 +88,9 @@ export const CENSUS_TABLES = [
   { table: 'drafts', unencrypted: `_encrypted IS NOT TRUE AND user_id::text NOT LIKE '${RESERVED_FIXTURE_UID_PREFIX}%'` },
   { table: 'ai_summaries', unencrypted: `_encrypted IS NOT TRUE AND user_id::text NOT LIKE '${RESERVED_FIXTURE_UID_PREFIX}%'` },
   { table: 'ai_embeddings', unencrypted: `_encrypted IS NOT TRUE AND user_id::text NOT LIKE '${RESERVED_FIXTURE_UID_PREFIX}%'` },
-  { table: 'local_store_records', unencrypted: `payload->>'_encrypted' IS DISTINCT FROM 'true' AND user_id::text NOT LIKE '${RESERVED_FIXTURE_UID_PREFIX}%'` },
+  // 0047: надгробие (deleted) несёт пустой payload — содержимого в нём нет, как у documents с deleted_at.
+  // Через to_jsonb строки: на базе до 0047 колонки нет, и прямое `NOT deleted` роняло перепись.
+  { table: 'local_store_records', unencrypted: `payload->>'_encrypted' IS DISTINCT FROM 'true' AND (to_jsonb(t)->>'deleted') IS DISTINCT FROM 'true' AND user_id::text NOT LIKE '${RESERVED_FIXTURE_UID_PREFIX}%'` },
 ];
 
 export function entryFrom(table, col, cols = ENC_COLS) {

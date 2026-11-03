@@ -12,6 +12,7 @@ import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
 import { LABEL_PRESET_COLORS } from '../../../../core/constants/labelColors';
 import { ToastProvider } from '../../../../shared/components/Toast';
 import { ArchiveLabelBar } from '../ArchiveLabelBar';
+import { ArchiveTagBar } from '../ArchiveTagBar';
 import { DocumentPreview } from '../DocumentPreview';
 import type { ArchiveSession } from '../../types';
 import type { Label } from '../../../../types';
@@ -173,5 +174,45 @@ describe('B-6: подпись выбора цвета метки — из сло
     expect(labels).toContain('Переименовать метку');
     expect(labels).toContain('Удалить метку');
     expect(labels.filter(l => /^(Rename|Delete)$/.test(l))).toEqual([]);
+  });
+});
+
+// Хвост B-6 (план 27.10, §7): у тегов в архиве те же значки правки подписывались
+// литералами «Rename»/«Delete» в обоих языках. Мутация: вернуть label="Rename" — красный.
+describe('ArchiveTagBar: значки правки тега из словаря', () => {
+  function tagBar(lang: 'ru' | 'en') {
+    return renderLang(lang, (
+      <ArchiveTagBar
+        allTags={['сон']}
+        selectedTags={[]}
+        onToggleTag={vi.fn()}
+        renamingTag={null}
+        renameTagValue=""
+        setRenameTagValue={vi.fn()}
+        onStartRename={vi.fn()}
+        onRenameSubmit={vi.fn()}
+        onRenameCancel={vi.fn()}
+        onDeleteTag={vi.fn()}
+        onResetTags={vi.fn()}
+        showControls
+      />
+    ));
+  }
+
+  beforeEach(() => { cleanup(); localStorage.removeItem(STORAGE_KEYS.APP_LANGUAGE); });
+
+  it('RU: «Переименовать тег» / «Удалить тег», без английских литералов', () => {
+    tagBar('ru');
+    const labels = screen.getAllByRole('button').map(ariaOf);
+    expect(labels).toContain(archiveTranslations.archive_tag_rename?.ru);
+    expect(labels).toContain(archiveTranslations.archive_tag_delete?.ru);
+    expect(labels.filter(l => /^(Rename|Delete)$/.test(l))).toEqual([]);
+  });
+
+  it('EN: подписи из словаря', () => {
+    tagBar('en');
+    const labels = screen.getAllByRole('button').map(ariaOf);
+    expect(labels).toContain('Rename tag');
+    expect(labels).toContain('Delete tag');
   });
 });

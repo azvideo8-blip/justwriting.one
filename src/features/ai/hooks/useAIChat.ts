@@ -42,7 +42,7 @@ import { detectAuthorGender } from '../../../shared/ai/authorGender';
 import type { AttachedNoteBlock } from '../utils/attachedNoteFormat';
 import { extractCitationIds } from '../services/chatContext/citations';
 import { sanitizeFirstSeenDates } from '../utils/dateGuard';
-import { normalizeQuoteText, unquoteAbsent } from '../../../shared/ai/quoteGuard';
+import { normalizeQuoteText, quoteMaterialsText, unquoteAbsent } from '../../../shared/ai/quoteGuard';
 import { notesClaimWithoutRef } from '../../../shared/ai/notesRefRule';
 import { CITATION_RE, isRecognisedCitation, extractSearchRequest } from '../shared/citationPatterns';
 import { setAIStage } from '../store/useAIStageStore';
@@ -131,20 +131,6 @@ export interface SanitizeCitationsOptions {
    * набором (`materialsText`).
    */
   quoteMaterialsText?: string | undefined;
-}
-
-/** RA1-8: источник кавычек для хода. Строгий ход — тексты видимых приложенных
- *  блоков + реплики человека; широкий/редактор — прежний полный набор (undefined).
- *  Скрытый блок модели не ушёл, и кавычка из него не может быть «подтверждённой». */
-export function quoteMaterialsForTurn(
-  turnMode: string | undefined,
-  blocks: ReadonlyArray<AttachedNoteBlock> | undefined,
-  isHiddenId: (id: string) => boolean,
-  humanTurns: string[],
-): string | undefined {
-  if (turnMode !== 'note') return undefined;
-  const attached = (blocks ?? []).filter(b => !isHiddenId(b.documentId)).map(b => b.content ?? '');
-  return [...attached, ...humanTurns].filter(Boolean).join('\n');
 }
 
 export function sanitizeCitations(
@@ -692,13 +678,12 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // DLG-Q8: с чем сверять цитаты и названия — с теми же материалами, что
       // ушли модели, плюс реплики человека из этого диалога.
       const humanTurns = apiMessages.filter(m => m.role === 'user').map(m => m.content);
-      const materialsText = [searchContext, memoryContext, ...humanTurns]
-        .filter((x): x is string => !!x)
-        .join('\n');
+      const quoteInput = { documentContent: searchContext, memoryContext, humanTurns };
+      const materialsText = quoteMaterialsText({ ...quoteInput, strict: false });
       // RA1-8: в строгом ходе кавычки — только из приложенной заметки и реплик
       // человека. Фон и память — пересказ ИИ; ссылки и названия ниже сверяются
-      // с полным набором, как раньше.
-      const quoteMaterialsText = quoteMaterialsForTurn(turnMode, effectiveAttached?.blocks, isHiddenId, humanTurns);
+      // с полным набором, как раньше. DY7-7: то же собрание считает сервер.
+      const quoteMaterials = turnMode === 'note' ? quoteMaterialsText({ ...quoteInput, strict: true }) : undefined;
 
       const customSystemPrompt = customPersona;
       const effectivePersonaId = customPersona ? 'custom' : personaId;
@@ -730,7 +715,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             signal: controller.signal,
             onChunk: (partial, reasoning) => {
               const cleanPartial = sanitizeFirstSeenDates(
-                sanitizeCitations(partial, citeIds, injectedTitles, materialsText, { personaId: effectivePersonaId, quoteMaterialsText }),
+                sanitizeCitations(partial, citeIds, injectedTitles, materialsText, { personaId: effectivePersonaId, quoteMaterialsText: quoteMaterials }),
                 allowedFirstSeenDates || []
               );
               const cleanReasoning = reasoning
@@ -790,7 +775,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             if (cleanAnswer) {
               setStreamingMessage(
                 sanitizeFirstSeenDates(
-                  sanitizeCitations(cleanAnswer, citeIds, injectedTitles, materialsText, { personaId: effectivePersonaId, quoteMaterialsText }),
+                  sanitizeCitations(cleanAnswer, citeIds, injectedTitles, materialsText, { personaId: effectivePersonaId, quoteMaterialsText: quoteMaterials }),
                   allowedFirstSeenDates || []
                 )
               );
@@ -828,7 +813,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // текста до разбора возвращала в сохранённый ход мыслей «по смыслу», которых
       // во время стрима не было.
       const clean = (s: string, reasoningPart: boolean) => sanitizeFirstSeenDates(
-        sanitizeCitations(s, citeIds, injectedTitles, materialsText, reasoningPart ? { reasoning: true } : { personaId: effectivePersonaId, quoteMaterialsText }),
+        sanitizeCitations(s, citeIds, injectedTitles, materialsText, reasoningPart ? { reasoning: true } : { personaId: effectivePersonaId, quoteMaterialsText: quoteMaterials }),
         allowedFirstSeenDates || []
       );
       let savedText = clean(extractAnswer(fullText), false);

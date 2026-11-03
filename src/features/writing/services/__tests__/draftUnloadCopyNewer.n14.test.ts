@@ -44,7 +44,7 @@ const T0 = 1_800_000_000_000;
 
 function row(content: string, updatedAt: number, uid = UID): LocalDraft {
   return {
-    userId: uid, title: '', content, seconds: 60, wpm: 40, wordCount: content.split(' ').length,
+    userId: uid, owner: uid, title: '', content, seconds: 60, wpm: 40, wordCount: content.split(' ').length,
     pinnedThoughts: [], tags: [], activeSessionId: null, savedDocumentId: null, updatedAt,
   } as LocalDraft;
 }

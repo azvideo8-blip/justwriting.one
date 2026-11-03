@@ -5,9 +5,8 @@ import { useTimerStore } from '../store/useTimerStore';
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
 import { reportError } from '../../../shared/errors/reportError';
 import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
-import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { isAccountReloadPending } from '../../../core/auth/accountReload';
-import { buildGuestDraftPayload, type GuestDraftData } from '../services/GuestDraftService';
+import { applyWrite, buildGuestDraftRecord, getEditorTextOwner, type DraftRecord } from '../services/draftWriter';
 import { mayAccountWriteEditorText } from '../utils/draftOwnerGuard';
 import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 
@@ -220,8 +219,10 @@ export function useSyncUnloadSave(
     activeSessionId: string | null;
     [key: string]: unknown;
   }>,
-  /** DY10-10: запись устарела — черновик стёрт сохранением заметки после правки. */
-  isStaleWrite?: () => boolean,
+  /** DW4-2: эпоха на момент правки. Сверяет её мутатор (applyWrite), писатель
+   *  только называет — прежний writer-страж isStaleWrite удалён, иначе сверка
+   *  эпохи жила бы в двух местах на один выпуск (класс DW-4). */
+  getWriteEpoch?: () => number | undefined,
   /** Дейлик 03.11 Н-2: сейф включён — открытый снимок не пишем, но запускаем
    *  обычную локальную запись черновика (best effort: браузер может не дождаться). */
   onEncryptedUnload?: () => void,
@@ -229,12 +230,6 @@ export function useSyncUnloadSave(
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (isAccountReloadPending()) return;
-      // Сохранение заметки поднимает поколение черновика и стирает его ДО сброса
-      // сессии. Уход со страницы в этом окне писал уже сохранённый текст в
-      // унаследованный ключ, а следующая загрузка поднимала его как черновик:
-      // надгробие не ловит — хэш нагрузки другой (`savedDocumentId` заполнен), а
-      // метка строки новее отметки удаления.
-      if (isStaleWrite?.()) return;
       const contentState = useContentStore.getState();
       const timerState_ = useTimerStore.getState();
       const meta = useSessionMetaStore.getState();
@@ -245,63 +240,72 @@ export function useSyncUnloadSave(
         (meta.loadedTitle ?? '') === contentState.title
       );
       if (user && !isPristine && (contentState.content.trim() || contentState.title.trim())) {
-        try {
-          // Гостевой фолбэк обязан попадать в ключ, который реально читается
-          // при возврате (GuestDraftService → STORAGE_KEYS.GUEST_DRAFT).
-          // Прежний `draft-guest_<uuid>` никто не читал — «защита» была
-          // декоративной.
-          const isGuest = user.uid.startsWith('guest');
-          const key = isGuest ? STORAGE_KEYS.GUEST_DRAFT : `draft-${user.uid}`;
-          const { getEncryptionEnabled } = useEncryptionStore.getState();
-          if (!isGuest && getEncryptionEnabled(user.uid)) {
-            // SEC-56: E2E is enabled — skip writing unencrypted draft to localStorage and clean legacy key
-            localStorage.removeItem(`draft-${user.uid}`);
-            onEncryptedUnload?.();
-            return;
-          }
-          if (isGuest) {
-            // DW-F-2: та же полная форма, что у GuestDraftService — иначе эта
-            // запись новее и при возврате затирает маркер продолженной заметки.
-            const payload = buildGuestDraftPayload({
-              ...(draftDataRef.current as GuestDraftData),
-              content: contentState.content,
-              title: contentState.title,
-              seconds: timerState_.seconds,
-              status: timerState_.status,
-              wordCount: contentState.wordCount,
-              tags: contentState.tags ?? [],
-              labelId: contentState.labelId ?? undefined,
-              timestamp: Date.now(),
-            });
-            localStorage.setItem(key, JSON.stringify(payload));
-            return;
-          }
-          // DW-9 (сид 191): в этой же вкладке без перезагрузки мог включиться
-          // другой аккаунт, а редактор всё ещё держит текст прежнего. Ключ
-          // `draft-<uid>` читается при следующем входе (`pickNewerLocalCopy`,
-          // N1-4) — текст прежнего аккаунта восстанавливался у нового. Сверка та же,
-          // что у записи на размонтировании (AS-1), и из одного помощника.
-          // Писатель приносит СВОЙ снимок текста (`draftDataRef`), иначе второе
-          // плечо правила — «владельца нет, а в сторе уже другой текст» — было
-          // бы мертво: сравнивать стор с самим собой бессмысленно.
-          const sessionContent = (draftDataRef.current as { content?: unknown }).content;
-          if (!mayAccountWriteEditorText(user.uid, typeof sessionContent === 'string' ? sessionContent : contentState.content)) return;
-          localStorage.setItem(key, JSON.stringify({
+        // DW4-2: единственная запись копии закрытия — applyWrite(..., target:
+        // 'copy'). Ключ (`draft-<uid>` / гостевой), сейф (SEC-56) и сверку эпохи
+        // решает мутатор; 'stale-epoch' — сохранение заметки подняло эпоху, и
+        // уже сохранённый текст черновиком не возвращается (DY10-10).
+        const writeCopy = (rec: DraftRecord): void => {
+          void applyWrite(rec, 'edit', { target: 'copy', uid: user.uid, epoch: getWriteEpoch?.() })
+            .catch(e => reportError(e, { action: 'autosave_beforeunload', userId: user.uid }, 'warning'));
+        };
+        const accountRec: DraftRecord = {
+          content: contentState.content,
+          title: contentState.title,
+          seconds: timerState_.seconds,
+          status: timerState_.status,
+          wordCount: contentState.wordCount,
+          pinnedThoughts: draftDataRef.current.pinnedThoughts ?? [],
+          sessionStartTime: draftDataRef.current.sessionStartTime ?? null,
+          activeSessionId: draftDataRef.current.activeSessionId ?? null,
+          tags: contentState.tags ?? [],
+          labelId: contentState.labelId ?? undefined,
+          // DW4-4: владелец — зеркало (чей текст стоит); на этом пути DW-9-страж
+          // уже отсеял чужое, так что зеркало здесь — это сам аккаунт или пусто.
+          owner: getEditorTextOwner() ?? user.uid,
+          updatedAt: Date.now(),
+        };
+        const { getEncryptionEnabled } = useEncryptionStore.getState();
+        if (!user.uid.startsWith('guest') && getEncryptionEnabled(user.uid)) {
+          // SEC-56: E2E is enabled — открытой копии в LS нет (мутатор стирает
+          // ключ), но запись строки это не отменяет («нет дубля» ≠ «запись не
+          // нужна»): её запускает локальная запись ниже.
+          writeCopy(accountRec);
+          onEncryptedUnload?.();
+          return;
+        }
+        if (user.uid.startsWith('guest')) {
+          // Гостевой фолбэк попадает в ключ, который реально читается при
+          // возврате (STORAGE_KEYS.GUEST_DRAFT): прежний `draft-guest_<uuid>`
+          // никто не читал — «защита» была декоративной.
+          // DW4-1: строку собирает тот же билдер, что и отсрочка
+          // GuestDraftService, — одна форма гостевой строки по построению
+          // (класс DW-F-2), сериализует её мутатор.
+          writeCopy(buildGuestDraftRecord({
+            ...(draftDataRef.current as DraftRecord),
             content: contentState.content,
             title: contentState.title,
             seconds: timerState_.seconds,
             status: timerState_.status,
             wordCount: contentState.wordCount,
-            pinnedThoughts: draftDataRef.current.pinnedThoughts ?? [],
-            sessionStartTime: draftDataRef.current.sessionStartTime ?? null,
-            activeSessionId: draftDataRef.current.activeSessionId ?? null,
             tags: contentState.tags ?? [],
             labelId: contentState.labelId ?? undefined,
-            updatedAt: Date.now(),
+            // DW4-4: гостевой текст подписан гостем, не кем-то из аккаунтов (I1).
+            owner: user.uid,
+            timestamp: Date.now(),
           }));
-        } catch (e) {
-          reportError(e, { action: 'autosave_beforeunload', userId: user.uid }, 'warning');
+          return;
         }
+        // DW-9 (сид 191): в этой же вкладке без перезагрузки мог включиться
+        // другой аккаунт, а редактор всё ещё держит текст прежнего. Ключ
+        // `draft-<uid>` читается при следующем входе (`pickNewerLocalCopy`,
+        // N1-4) — текст прежнего аккаунта восстанавливался у нового. Сверка та же,
+        // что у записи на размонтировании (AS-1), и из одного помощника.
+        // Писатель приносит СВОЙ снимок текста (`draftDataRef`), иначе второе
+        // плечо правила — «владельца нет, а в сторе уже другой текст» — было
+        // бы мертво: сравнивать стор с самим собой бессмысленно.
+        const sessionContent = (draftDataRef.current as { content?: unknown }).content;
+        if (!mayAccountWriteEditorText(user.uid, typeof sessionContent === 'string' ? sessionContent : contentState.content)) return;
+        writeCopy(accountRec);
       }
 
     };
@@ -312,5 +316,5 @@ export function useSyncUnloadSave(
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('pagehide', handleBeforeUnload);
     };
-  }, [user, draftDataRef, isStaleWrite, onEncryptedUnload]);
+  }, [user, draftDataRef, getWriteEpoch, onEncryptedUnload]);
 }

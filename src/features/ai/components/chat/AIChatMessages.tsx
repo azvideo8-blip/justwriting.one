@@ -233,9 +233,11 @@ function EditorPostDiff({ answer, source, dialogueDocumentId }: { answer: string
   // маркер слова («клиент», «терапия»), а здесь — саму реплику: пост может быть
   // без единого имени и всё равно цитировать чужой голос.
   const hasForeignSpeech = diff.foreignSpeechInPost;
+  // 3.1 / 18.1(б): чего близкие ждут в деньгах — чужое, как история клиента.
+  const hasRelativesMoney = diff.relativesMoneyInPost;
   // R-4: «ничего не изменено» — непроверяемое утверждение (имена в начале фразы
   // раньше не считались вовсе), поэтому при пустом результате плашки нет.
-  if (parts.length === 0 && !hasKept && !hasClientStory && !hasForeignSpeech) return null;
+  if (parts.length === 0 && !hasKept && !hasClientStory && !hasForeignSpeech && !hasRelativesMoney) return null;
 
   return (
     <>
@@ -255,6 +257,12 @@ function EditorPostDiff({ answer, source, dialogueDocumentId }: { answer: string
         <div className="mt-2 px-3 py-1.5 rounded-xl bg-accent-warning/10 border border-accent-warning/20 text-xs text-accent-warning/90 font-medium flex items-start gap-2 w-fit max-w-full">
           <AlertTriangle size={13} className="shrink-0 text-accent-warning mt-0.5" />
           <span>{t('ai_editor_diff_foreign_speech')}</span>
+        </div>
+      )}
+      {hasRelativesMoney && (
+        <div className="mt-2 px-3 py-1.5 rounded-xl bg-accent-warning/10 border border-accent-warning/20 text-xs text-accent-warning/90 font-medium flex items-start gap-2 w-fit max-w-full">
+          <AlertTriangle size={13} className="shrink-0 text-accent-warning mt-0.5" />
+          <span>{t('ai_editor_diff_relatives_money')}</span>
         </div>
       )}
       {parts.length > 0 && (

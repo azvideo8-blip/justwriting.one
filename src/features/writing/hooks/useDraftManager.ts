@@ -7,6 +7,7 @@ import { useSessionMetaStore } from '../store/useSessionMetaStore';
 import { useDraftCore, useVisibilitySave, useSyncUnloadSave, type DraftSaveStatus, type DraftErrorKind, type DraftSaveOutcome } from './useDraftCore';
 import { resetAndClear, resetAllSessionMetadata } from '../store/storeActions';
 import { WritingDraftService } from '../services/WritingDraftService';
+import { getEditorTextOwner } from '../services/draftWriter';
 
 export interface DraftData {
   content: string;
@@ -23,10 +24,12 @@ export interface DraftData {
   labelId?: string | undefined;
   accumulatedDuration?: number | undefined;
   totalPauseSeconds?: number | undefined;
+  status?: string | undefined;
 }
 
 export interface DraftManagerOptions {
-  onSaveDraft: (data: DraftData) => Promise<void>;
+  /** Эпоха — снимок на момент правки (`genAtEditRef`), называется писателю. */
+  onSaveDraft: (data: DraftData, epoch?: number | undefined) => Promise<void>;
 }
 
 const SKIPPED: DraftSaveOutcome = { localSkipped: true };
@@ -53,9 +56,25 @@ export function useDraftManager(
   // Текст аккаунта уже лежит в его базе (автосохранение) — гостю он не
   // показывается и гостевым черновиком не сохраняется.
   useEffect(() => {
-    const owner = useContentStore.getState().ownerUid;
+    // DW4-4: владелец текста — зеркало редактора (draftWriter), как у всех
+    // читателей правила DW-9.
+    const owner = getEditorTextOwner();
     if (owner && !owner.startsWith('guest')) { resetAndClear(); resetAllSessionMetadata(); }
   }, []);
+
+  const content = useContentStore(s => s.content);
+  const title = useContentStore(s => s.title);
+
+  // Дейлик 03.11 Н-1: эпоха на момент правки — как у писателя аккаунта
+  // (useDraftAutosave, DY10-10). Сохранение заметки поднимает её, и запись в
+  // окне до сброса сессии отвергается. Сверяет эпоху мутатор (applyWrite,
+  // DW4-2) — writer-сверка isStaleWrite удалена: правило одно на все адреса,
+  // второй источник эпохи на один выпуск — класс DW-4.
+  const genAtEditRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (userId) genAtEditRef.current = WritingDraftService.getDraftGeneration(userId);
+  }, [content, title, userId]);
+  const getWriteEpoch = useCallback(() => genAtEditRef.current, []);
 
   const doAutosave = useCallback(async () => {
     await wrapSave(
@@ -70,14 +89,11 @@ export function useDraftManager(
         ) {
           return SKIPPED;
         }
-        await onSaveDraftRef.current(data);
+        await onSaveDraftRef.current(data, getWriteEpoch());
       },
       'draftManager/autosave'
     );
-  }, [wrapSave]);
-
-  const content = useContentStore(s => s.content);
-  const title = useContentStore(s => s.title);
+  }, [wrapSave, getWriteEpoch]);
 
   // Depend on the boolean, not the text: with `content` in the deps the 30s
   // interval restarts on every keystroke and never fires while someone types
@@ -120,26 +136,13 @@ export function useDraftManager(
 
   useVisibilitySave(doAutosave, () => getDraftData().content);
 
-  // Дейлик 03.11 Н-1: поколение на момент правки — как у писателя аккаунта
-  // (useDraftAutosave, DY10-10). Сохранение заметки поднимает его, и запись при
-  // закрытии вкладки в окне до сброса сессии отвергается.
-  const genAtEditRef = useRef<number | undefined>(undefined);
-  useEffect(() => {
-    if (userId) genAtEditRef.current = WritingDraftService.getDraftGeneration(userId);
-  }, [content, title, userId]);
-  const isStaleWrite = useCallback(() => {
-    if (!userId) return false;
-    const generation = genAtEditRef.current;
-    return generation !== undefined && generation !== WritingDraftService.getDraftGeneration(userId);
-  }, [userId]);
-
   // D-2: guests (and cloud users via this manager) get a beforeunload/pagehide
   // localStorage fallback so closing the tab between 30s autosaves doesn't lose
   // recent typing.
   useSyncUnloadSave(
     userId ? ({ uid: userId } as AppUser) : null,
     liveDraftRef as unknown as RefObject<{ pinnedThoughts: string[]; sessionStartTime?: number | undefined; activeSessionId: string | null; [key: string]: unknown }>,
-    isStaleWrite,
+    getWriteEpoch,
   );
 
   const forceSave = useCallback(async () => {

@@ -9,6 +9,14 @@ import { withTimeout } from '../../../shared/utils/withTimeout';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 import { pushSentHash, readSentHashes } from '../../../core/sync/sentHashes';
+import {
+  applyWrite,
+  bumpDraftGeneration,
+  getDraftGeneration,
+  queueDraftRowWrite,
+  type DraftRecord,
+  type DraftWriteBasis,
+} from './draftWriter';
 const DRAFT_CLOUD_FIELDS: Record<string, boolean> = {
   // Признак шифрования обязан уезжать вместе с данными. Без него колонка в
   // облаке хранит шифротекст, а читающая сторона считает его открытым текстом:
@@ -29,19 +37,14 @@ const DRAFT_CLOUD_FIELDS: Record<string, boolean> = {
 };
 
 const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-const _draftGenerations = new Map<string, number>();
 // Signature of what was last actually written to the cloud, per user.
 const _lastCloudSignature = new Map<string, string>();
 
-export function getDraftGeneration(userId: string): number {
-  return _draftGenerations.get(userId) ?? 0;
-}
-
-export function bumpDraftGeneration(userId: string): number {
-  const next = (_draftGenerations.get(userId) ?? 0) + 1;
-  _draftGenerations.set(userId, next);
-  return next;
-}
+// DW4-2: эпоха черновика (`getDraftGeneration`/`bumpDraftGeneration`) и очередь
+// правок строки переехали в мутатор `draftWriter.applyWrite` — один источник
+// эпохи и один писатель на оба локальных адреса. Сервис импортирует их оттуда
+// и отдаёт членам объекта ниже; собственных сверок поколения у локальной
+// записи больше нет.
 
 // Fields worth a cloud draft write. The elapsed-time counters (seconds, wpm,
 // accumulatedDuration, totalPauseSeconds, updatedAt) are deliberately absent:
@@ -73,19 +76,10 @@ function draftPayloadHash(draft: LocalDraft): string {
 const HASH_SHAPE = /^[0-9a-f]{16}$/;
 
 /**
- * Все правки строки черновика в этой вкладке — одной цепочкой. `saveToLocal`
- * (текст) и `rememberCloudSend` (служебные метки) — два read-modify-write в
- * разных транзакциях, и без порядка один из них кладёт обратно строку, прочитанную
- * до чужой записи: теряется либо набор, либо хэш отправки. А хэш, потерянный при
- * обрыве ответа, ровно и нужен.
+ * DW4-2: очередь правок строки — в `draftWriter` (мутатор), одной цепочкой для
+ * всех писателей. `rememberCloudSend` ниже встаёт в ту же цепочку: текст и
+ * служебные метки облака — два read-modify-write одной строки (SF2-1).
  */
-let draftRowWrite: Promise<unknown> = Promise.resolve();
-
-function queueDraftRowWrite<T>(fn: () => Promise<T>): Promise<T> {
-  const run = draftRowWrite.then(fn, fn);
-  draftRowWrite = run.catch(() => undefined);
-  return run;
-}
 
 // Fields accepted by the cloud drafts table (DRAFT_FIELDS). The local
 // draft carries extra transient state (e.g. `status`) that the rule rejects via
@@ -547,7 +541,7 @@ export const WritingDraftService = {
         // перезагрузка сочла бы её чужой и спор решился бы по часам.
         // SF3-1: и список неотправленных закрывается этим же хэшем — прежние
         // «уехало без ответа» с принятой облачной копией не согласуются.
-        await WritingDraftService.saveToLocal({ ...cloudDraft, _cloudUpdatedAt: cloudTs, _cloudAckedHash: cloudHash, _cloudSentHashes: [cloudHash] })
+        await WritingDraftService.saveToLocal({ ...cloudDraft, owner: userId, _cloudUpdatedAt: cloudTs, _cloudAckedHash: cloudHash, _cloudSentHashes: [cloudHash] })
           .catch(() => { /* намеренно: фоновое кэширование черновика из облака */ });
       }
       return winner;
@@ -564,7 +558,7 @@ export const WritingDraftService = {
       }
       if (resolved === cloudDraft && !localFailed) {
         // SF3-1: принятая копия — она же единственная отправка, о которой мы знаем.
-        await WritingDraftService.saveToLocal({ ...cloudDraft, _cloudUpdatedAt: toTimestampMs(cloudDraft.updatedAt) ?? undefined, _cloudAckedHash: draftPayloadHash(cloudDraft), _cloudSentHashes: [draftPayloadHash(cloudDraft)] })
+        await WritingDraftService.saveToLocal({ ...cloudDraft, owner: userId, _cloudUpdatedAt: toTimestampMs(cloudDraft.updatedAt) ?? undefined, _cloudAckedHash: draftPayloadHash(cloudDraft), _cloudSentHashes: [draftPayloadHash(cloudDraft)] })
           .catch(() => { /* намеренно: фоновое кэширование черновика из облака */ });
       }
     }
@@ -577,48 +571,23 @@ export const WritingDraftService = {
     } catch (e) { reportError(e, { action: 'clearLegacyDraft', userId }); }
   },
 
-  /** true — записано; false — пропущено: черновик устарел (поколение подняли:
+  /** true — записано; false — пропущено: черновик устарел (эпоха поднята:
    *  сессию сохранили заметкой, отменили или сменили) или нет владельца. Пропуск —
    *  не запись, и «Сохранено» по нему показывать нельзя (N-33). */
   saveToLocal: async (draft: LocalDraft, generation?: number): Promise<boolean> => {
     if (!draft.userId) {
       return false;
     }
-    if (generation !== undefined && generation !== getDraftGeneration(draft.userId)) {
-      return false;
-    }
-    try {
-      const localDb = await getLocalDb(draft.userId);
-      if (generation !== undefined && generation !== getDraftGeneration(draft.userId)) {
-        return false;
-      }
-      // SF-2/SF2-1: серверный штамп принятой облачной версии и хэши отправок —
-      // служебные поля локальной копии. Писатель строит черновик из состояния
-      // редактора и принести их не может, а терять нельзя: без них спор снова
-      // решают часы прибора, и своя же дошедшая запись выглядит чужой.
-      await queueDraftRowWrite(async () => {
-        const tx = localDb.transaction('drafts', 'readwrite');
-        const previous = await tx.store.get(draft.userId);
-        const seen = draft._cloudUpdatedAt ?? previous?._cloudUpdatedAt;
-        const acked = draft._cloudAckedHash ?? previous?._cloudAckedHash;
-        const sent = draft._cloudSentHashes ?? previous?._cloudSentHashes;
-        const next: LocalDraft = { ...draft };
-        if (seen !== undefined) next._cloudUpdatedAt = seen;
-        if (acked !== undefined) next._cloudAckedHash = acked;
-        if (sent !== undefined) next._cloudSentHashes = sent;
-        await tx.store.put(next);
-        await tx.done;
-      });
-      return true;
-    } catch (err) {
-      if (generation !== undefined && generation !== getDraftGeneration(draft.userId)) {
-        return false;
-      }
-      reportError(err, { action: 'saveToLocal', userId: draft.userId });
-      // D-1: re-throw so Promise.allSettled sees 'rejected' and localOk is
-      // false — prevents the UI from showing "Saved" when the draft is lost.
-      throw err;
-    }
+    // DW4-2: единственный писатель строки — мутатор `applyWrite` (draftWriter).
+    // Эпоха названа вызывающим и сверяется в мутаторе до любой записи; здесь
+    // остаётся выбор basis: черновик правки или фоновое кэширование принятой
+    // из облака копии (эпохи не называет — сверять нечего).
+    const basis: DraftWriteBasis = generation !== undefined ? 'edit' : 'adopt-cloud';
+    const outcome = await applyWrite(draft as unknown as DraftRecord, basis, {
+      uid: draft.userId,
+      epoch: generation,
+    });
+    return outcome === 'written';
   },
 
   /**

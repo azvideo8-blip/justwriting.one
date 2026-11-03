@@ -110,7 +110,7 @@ function CelebrationBadge({ reduced }: { reduced: boolean }) {
   );
 }
 
-async function computeLocalEcho(content: string, docId: string, t?: (key: string, params?: Record<string, string | number>) => string): Promise<string> {
+export async function computeLocalEcho(content: string, docId: string, t?: (key: string, params?: Record<string, string | number>) => string): Promise<string> {
   try {
     const { getLocalDb } = await import('../../../core/storage/localDb');
     const db = await getLocalDb();
@@ -124,8 +124,17 @@ async function computeLocalEcho(content: string, docId: string, t?: (key: string
       return '';
     }
 
+    // Хвост плана 27.10 (§7): тема скрытой от ИИ, лежащей в корзине или уже
+    // удалённой заметки не выходит на экран «Записано.» — список видимых, а не
+    // скрытых (S-51: «нет заметки» = «нельзя»), как `loadVisibleNoteKeys` в ИИ.
+    const visible = new Set<string>();
+    for (const d of await db.getAll('documents')) {
+      if (d.excludedFromAI || d.trashedAt) continue;
+      visible.add(d.id);
+      if (d.uuid) visible.add(d.uuid);
+    }
     const timeline = await db.getAll('aiTimeline');
-    const historical = timeline.filter(e => e.documentId !== docId);
+    const historical = timeline.filter(e => e.documentId !== docId && visible.has(e.documentId));
     if (historical.length === 0) {
       return '';
     }

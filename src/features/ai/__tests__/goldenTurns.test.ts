@@ -13,7 +13,7 @@ import { referencedDays } from '../services/chatContext/explicitRefs';
 import { buildRelatedDaysBlock } from '../services/chatContext/relatedDays';
 import { evalAskMode } from '../../../shared/ai/evalAsk';
 import { questionOnly } from '../../../shared/ai/languageNudge';
-import { buildChatSystemPrompt } from '../../../shared/ai/buildChatPrompt';
+import { buildChatSystemPrompt, isLongNoteTurn } from '../../../shared/ai/buildChatPrompt';
 import { localDayKey } from '../../../core/utils/dateUtils';
 
 interface CorpusNote { id: string; title: string; day: string; body?: string }
@@ -33,6 +33,8 @@ interface ExpectedRecord {
   referencedDays: string[][];
   risk: { isRisk: boolean; severity: string };
   api: string[];
+  /** DL-19 (семья S11): правило длинного текста и потолок ×2 для подробного разбора. */
+  longNote: boolean;
 }
 
 const FIXTURES = join(import.meta.dirname, '../__fixtures__');
@@ -70,6 +72,7 @@ function decide(c: GoldenCase): ExpectedRecord {
     referencedDays: last.notes.map(n => [...referencedDays(n.body ?? '', dayMs(n.day))].sort((a, b) => a - b).map(d => localDayKey(d))),
     risk: { isRisk: risk.isRisk, severity: risk.severity },
     api: prepareApiMessages(messagesOf(c), { hiddenCitationIds: new Set(c.hidden ?? []) }).map(m => m.content),
+    longNote: isLongNoteTurn({ personaId: 'group_psychology', responseLength: 'detailed', documentContent: attachedTurn(last.notes.map(block)) }),
   };
 }
 
@@ -95,12 +98,12 @@ describe('TI-2: золотой корпус решений над ходом', (
   }
 });
 
-describe('TI-2: Н-3 — «вчера» второй заметки от её шапки', () => {
+describe('TI-2: Н-3 — «вчера» второй заметки от её дня', () => {
   it('фон берёт канун второй заметки, а не первой', () => {
-    const text = attachedTurn([
+    const blocks = [
       { documentId: 'local_n3_a', title: 'раз', lastSessionAt: dayMs('2026-10-15'), content: 'сегодня тихо' },
       { documentId: 'local_n3_b', title: 'два', lastSessionAt: dayMs('2026-10-05'), content: 'вчера чинил ворота' },
-    ]);
+    ];
     const doc = (id: string, day: string) => ({ id, lastSessionAt: dayMs(day), firstSessionAt: dayMs(day) }) as never;
     const docs = new Map([
       ['local_n3_a', doc('local_n3_a', '2026-10-15')],
@@ -112,7 +115,7 @@ describe('TI-2: Н-3 — «вчера» второй заметки от её ш
       ['before_att', { summary: 'канун первой' } as never],
       ['before_two', { summary: 'канун второй' } as never],
     ]);
-    const r = buildRelatedDaysBlock('local_n3_a', [], docs, sums, text, ['local_n3_b']);
+    const r = buildRelatedDaysBlock('local_n3_a', [], docs, sums, blocks, ['local_n3_b']);
     expect(r?.ids).toEqual(['before_two']);
   });
 });

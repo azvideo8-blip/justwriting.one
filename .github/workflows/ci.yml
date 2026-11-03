@@ -85,7 +85,9 @@ jobs:
     # `!cancelled()`: джоб идёт и когда already-green пропущен (не main) или упал
     # (сбой — значит полный прогон, а не пропуск тестов).
     if: ${{ !cancelled() && github.actor != 'dependabot[bot]' && needs.already-green.outputs.run == '' }}
-    runs-on: ${{ (github.event_name == 'pull_request' || inputs.hosted) && 'ubuntu-latest' || fromJSON('["self-hosted","justwriting-vps"]') }}
+    # Владелец 03.11: лёгкие джобы — на соседнюю машину (WSL), mobile-e2e и
+    # деплой остаются на VPS; два раннера — джобы идут параллельно.
+    runs-on: ${{ (github.event_name == 'pull_request' || inputs.hosted) && 'ubuntu-latest' || fromJSON('["self-hosted","justwriting-wsl"]') }}
     env:
       # На VPS :3000 — прод-API, :3100 — стенд из gates.yml; E2E берёт свой порт.
       E2E_PORT: '3200'
@@ -241,7 +243,10 @@ jobs:
         # синхронизации в 20 ленивых кусков (BS/N-2; index −127 КБ, −35 КБ gzip на
         # старте), +6,5 КБ — список 0.10.0 на странице «Что нового», остальное —
         # мелкие экраны пакета N10. Скачиваемое на старте при этом уменьшилось.
-        MAX_TOTAL_JS=4300000  # сумма dist/assets/*.js fail-порог (4.3M — владелец 2026-10-23 для SYNC1, 2026-10-25 для 0.10.11: 4 211 131)
+        # 2026-11-03 (0.11.5): 4300000 → 4400000, решение владельца. Факт 4310058
+        # против 4297945 на 0.11.4 (+12 КБ): клиент SYNC2 (sync_push), мутатор
+        # черновика DW-4, правки ИИ; всё ленивое — стартовый gzip 100055.
+        MAX_TOTAL_JS=4400000  # сумма dist/assets/*.js fail-порог (4.4M — владелец 2026-11-03 для 0.11.5: 4 310 058)
         MAX_CSS=185000     # *.css fail-порог (байты)
         fail=0
         for f in dist/assets/index-*.js; do
@@ -284,7 +289,10 @@ jobs:
         # Запас ~4 %, а не привычные 2 %: в этом же пакете ещё семь тикетов, и
         # каждый добавляет в старт сотни байт (N-1 дал +201). Сузить до факта +2 %
         # можно после приёмки пакета.
-        MAX_INDEX_GZ=100000
+        # 2026-11-03 (0.11.5): 100000 → 102000 — решение владельца («поднимай»): на
+        # 0.11.4 факт 99683 локально (+~135 в CI), запас ~180 Б — следующий пакет
+        # упирался бы в порог. Правило подъёма — AGENTS.md («Бюджет стартового чанка»).
+        MAX_INDEX_GZ=102000
         biggest_gz=0
         for f in dist/assets/index-*.js; do
           gz=$(gzip -c "$f" | wc -c)
@@ -309,7 +317,9 @@ jobs:
   rls:
     needs: already-green
     if: ${{ !cancelled() && github.actor != 'dependabot[bot]' && needs.already-green.outputs.run == '' }}
-    runs-on: ${{ (github.event_name == 'pull_request' || inputs.hosted) && 'ubuntu-latest' || fromJSON('["self-hosted","justwriting-vps"]') }}
+    # Владелец 03.11: лёгкие джобы — на соседнюю машину (WSL), mobile-e2e и
+    # деплой остаются на VPS; два раннера — джобы идут параллельно.
+    runs-on: ${{ (github.event_name == 'pull_request' || inputs.hosted) && 'ubuntu-latest' || fromJSON('["self-hosted","justwriting-wsl"]') }}
     services:
       postgres:
         image: postgres:16
@@ -341,7 +351,9 @@ jobs:
         # mobile_layout_access.test.sql — MB-1: право на мобильный макет отдаёт база
         # (0041), и это единственное место, где видно, что ветка служебных аккаунтов
         # в функции есть, а у anon права на исполнение нет.
-        { for f in supabase/tests/_auth_setup.sql supabase/migrations/*.sql supabase/tests/rls.test.sql supabase/tests/server_stamp.test.sql supabase/tests/drafts_updated_at.test.sql supabase/tests/mobile_layout_access.test.sql supabase/tests/feature_flags.test.sql; do cat "$f"; echo; done; } \
+        # sync_push.test.sql — SYNC2 (0047): запись с проверкой базы, надгробия ИИ-записей,
+        # прибавки с op_id; слепой upsert старого клиента поверх надгробия отказывает.
+        { for f in supabase/tests/_auth_setup.sql supabase/migrations/*.sql supabase/tests/rls.test.sql supabase/tests/server_stamp.test.sql supabase/tests/drafts_updated_at.test.sql supabase/tests/mobile_layout_access.test.sql supabase/tests/feature_flags.test.sql supabase/tests/sync_push.test.sql; do cat "$f"; echo; done; } \
           | docker exec -i "${{ job.services.postgres.id }}" psql -U postgres -v ON_ERROR_STOP=1
     # DY10-5 (дейлик 30.10, «го» владельца): стражи номера rev (0045) — не остался
     # ли null, не сдвинулись ли метки времени при заполнении, нет ли default у
@@ -356,6 +368,8 @@ jobs:
         docker cp supabase "$PG:/tmp/supabase"
         docker exec -i "$PG" psql -U postgres -v ON_ERROR_STOP=1 -f /tmp/supabase/tests/sync_rev.test.sql
         SYNC_REV_PSQL="docker exec -i $PG psql -U postgres" bash supabase/tests/sync_rev_concurrency.sh
+        # SYNC2 (0047): два сеанса пишут одну строку с одной базой — ложится ровно один.
+        SYNC_REV_PSQL="docker exec -i $PG psql -U postgres" bash supabase/tests/sync_push_concurrency.sh
 
   # MB-12: мобильные спеки (e2e/mobile/*.spec.ts) под проектом Mobile Chrome.
   # Отдельный джоб, а не шаг в build: спекам нужен живой стек (мобильный макет

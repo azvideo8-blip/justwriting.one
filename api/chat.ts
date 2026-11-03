@@ -6,11 +6,12 @@ import { requireSession } from './auth';
 import { postgresAiContext } from './postgresAiContext';
 import { buildChatSystemPrompt, sanitizeAiInputShared, assembleChatPromptParams, isLongNoteTurn, chatInputSchema, withReasoningLanguage, withEnglishNudge, type ReplyLanguage } from '../src/shared/ai/buildChatPrompt.js';
 import { resolveAiChatModel, resolveChatModel } from '../src/shared/ai/requestConfig.js';
-import { logChatShape, chatEndRecorder, type ChatEndSignals } from '../src/shared/ai/chatShape.js';
+import { logChatShape, chatEndRecorder, answerHitLimit, type ChatEndSignals } from '../src/shared/ai/chatShape.js';
 import { auditAnswer, type AnswerAudit } from '../src/shared/ai/answerAudit.js';
+import { quoteMaterialsText } from '../src/shared/ai/quoteGuard.js';
 import { safeErrorShape } from '../src/shared/ai/errorShape.js';
 import { needsEnglishNudge, questionPart } from '../src/shared/ai/languageNudge.js';
-import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, assertNoSystemPromptInjection, createCallReservation, acquireChatReservation, answerCutNote, type CallReservation, type SettleReason, type CallReservationUsage } from '../src/shared/ai/aiPolicy.js';
+import { validateInternalCallRestrictions, getMaxTokens, REASONING_MAX_TOKENS, estimateInputTokens, assertNoSystemPromptInjection, createCallReservation, acquireChatReservation, answerCutNote, type CallReservation, type SettleReason, type CallReservationUsage } from '../src/shared/ai/aiPolicy.js';
 import { AiError, type GlobalReservation } from '../src/shared/ai/context.js';
 import { MAX_REQUEST_BODY_BYTES, DAILY_LIMIT, ADMIN_DAILY_LIMIT } from './ai/pure';
 
@@ -46,9 +47,6 @@ const ACTIVE_CHAT_MODEL = resolveAiChatModel();
 // диалога, сводка, профиль) — не живой диалог и на новой модели не мерились.
 // Они остаются на модели служебных `generate()`.
 const SERVICE_MODEL = resolveChatModel();
-// DR-8: потолок вывода в ветве рассуждений — он же признак `finish=length` для
-// строк, где провайдер не прислал finish_reason.
-const REASONING_MAX_TOKENS = 16_384;
 // Ограничение контура обработки (ст. 12 152-ФЗ). Проверено 2026-09-20:
 // эмбеддинги теперь локальные и флага не замечают; включение флага упирается
 // в смену модели на `yandex/*`, так как deepseek/deepseek-v4-flash под ru недоступен.
@@ -396,7 +394,7 @@ async function streamOpenRouterReasoning(
   if (streamFailed && sawUpstreamChunk) write(STREAM_BROKEN_NOTE);
   // DL-19: ответ упёрся в потолок. Без ответа (весь потолок ушёл на ход мысли)
   // пометку не ставим — у клиента для этого своё сообщение.
-  else if (!clientClosed && answerText && (providerFinish === 'length' || tokensOut >= REASONING_MAX_TOKENS)) write(answerCutNote(replyLang));
+  else if (!clientClosed && answerText && answerHitLimit({ providerFinish, outTokens: tokensOut, maxTokens: REASONING_MAX_TOKENS })) write(answerCutNote(replyLang));
 
   // AUDIT-L3: settle() with measured tokens handles single usage recording and reconciliation.
   await settlement.settle(streamFailed ? 'failed' : 'done', { tokensIn, tokensOut, model });
@@ -554,12 +552,15 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   // Подсказка живёт только в запросе провайдеру, в хранимый диалог не едет.
   // Служебным вызовам не ставится: у них другой системный промпт и другой смысл.
   const sanitizedMessages = messages.map(m => ({ role: m.role, content: sanitizeAiInputShared(m.content) }));
-  // MD-3: чем клиент сверяет цитаты ответа — то же собрание, что `materialsText`
-  // в useAIChat (ограда данных + память + реплики человека этого хода). Реплики
-  // берутся до санитайза, как и на клиенте; расхождение возможным не считаем:
-  // санитайз снимает управляющие маркеры, а не текст цитат.
-  const quoteMaterials = [parsed.data.documentContent, parsed.data.memoryContext,
-    ...messages.filter(m => m.role === 'user').map(m => m.content)].filter(Boolean).join('\n');
+  // MD-3 + DY7-7: чем клиент сверяет цитаты ответа — то же собрание через ту же
+  // функцию (`quoteMaterialsText`), что в useAIChat. Реплики берутся до
+  // санитайза, как и на клиенте: санитайз снимает управляющие маркеры, а не текст цитат.
+  const quoteMaterials = quoteMaterialsText({
+    strict: parsed.data.noteScope?.mode === 'note',
+    documentContent: parsed.data.documentContent,
+    memoryContext: parsed.data.memoryContext,
+    humanTurns: messages.filter(m => m.role === 'user').map(m => m.content),
+  });
   const answerAudit = (answer: string): AnswerAudit | null => auditAnswer(answer, parsed.data.documentContent, quoteMaterials);
   const lastUserText = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
   const replyLang: ReplyLanguage = !isInternalCall && needsEnglishNudge(questionPart(lastUserText)) ? 'en' : 'ru';
@@ -637,6 +638,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   const endChat = chatEndRecorder(startedAt);
   let clientClosed = false;
   let tokensOut = 0;
+  let providerFinish: string | null = null;
   // MD-2: то же, что видит человек, — для счётчиков `[chat-end]`. В журнал идёт
   // только форма ответа (см. answerAudit), накопленное живёт до конца запроса.
   let answerText = '';
@@ -657,7 +659,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     clientClosed,
     providerError: streamErrorOccurred !== null,
     timedOut,
-    providerFinish: null,
+    providerFinish,
     outTokens: tokensOut,
     maxTokens: maxOutputTokens,
     audit: answerAudit(answerText),
@@ -695,15 +697,15 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     },
   });
 
-/** DL-19: ход кончился на потолке вывода (`finishReason` SDK). Нет ответа — не на потолке. */
-async function finishedOnLength(result: { finishReason?: PromiseLike<string> }): Promise<boolean> {
+/** DL-19: причина конца хода от SDK (`finishReason`); нет причины — null. */
+async function providerFinishOf(result: { finishReason?: PromiseLike<string> }): Promise<string | null> {
   // ponytail: SDK отдаёт причину вместе с концом textStream; секунда — страховка от зависания.
   let stop = () => {};
   const timeout = new Promise<undefined>(r => { const t = setTimeout(r, 1_000); stop = () => clearTimeout(t); });
   try {
-    return (await Promise.race([result.finishReason, timeout])) === 'length';
+    return (await Promise.race([result.finishReason, timeout])) ?? null;
   } catch {
-    return false;
+    return null;
   } finally {
     stop();
   }
@@ -820,8 +822,10 @@ function waitForNextOrAbort<T>(
         }
       }
       // DL-19: поток кончился штатно, но на потолке вывода — пометка в конце.
-      if (!controller.signal.aborted && !res.destroyed && answerText && await finishedOnLength(result)) {
-        res.write(answerCutNote(replyLang));
+      // DY7-8: то же правило, что у рассуждений и журнала (answerHitLimit).
+      if (!controller.signal.aborted && !res.destroyed && answerText) {
+        providerFinish = await providerFinishOf(result);
+        if (answerHitLimit({ providerFinish, outTokens: tokensOut, maxTokens: maxOutputTokens })) res.write(answerCutNote(replyLang));
       }
     } catch (streamErr) {
       console.error('[api/chat] stream read failed mid-stream:', safeErrorShape(streamErr));

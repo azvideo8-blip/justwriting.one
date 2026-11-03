@@ -66,14 +66,20 @@ export function useGuestWritingSession(): GuestSessionReturn {
       labelId: base.labelId,
       accumulatedDuration: useTimerStore.getState().accumulatedDuration,
       totalPauseSeconds: useTimerStore.getState().totalPauseSeconds,
+      // DW4-1: статус таймера — то же поле канонической формы, что несёт запись
+      // при закрытии вкладки; иначе формы отсрочки и ухода расходятся.
+      status: useTimerStore.getState().status,
     };
   }, [content, base.title, base.pinnedThoughts, seconds, wpm, wordCount, base.tags, base.labelId]);
 
   const getDraftData = useCallback(() => draftDataRef.current, []);
 
-  const onSaveDraft = useCallback(async (data: DraftData) => {
-    await saveGuestDraftToStorage({ ...data, timestamp: Date.now() });
-  }, []);
+  const onSaveDraft = useCallback(async (data: DraftData, epoch?: number | undefined) => {
+    // Заметка ревьюера 03.11 13:55 (сид 103): гостевая отсрочка/30-секундная
+    // запись называют эпоху мутатору — после подъёма поколения (сохранение
+    // заметки) запись не пишет.
+    await saveGuestDraftToStorage({ ...data, timestamp: Date.now() }, { uid: guestId, epoch });
+  }, [guestId]);
 
   const draftManager = useDraftManager(guestId, getDraftData, { onSaveDraft });
 

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { useLifeLog } from '../useLifeLog';
+import { emitDomainEvent } from '../../../../core/events/domainEvents';
 
 // DY6-7 (приёмка 26.10, Н-5): отмену держит только флаг монтирования, а экран
 // при смене человека не перемонтируется (вход — модалка поверх, см. BR-15).
@@ -93,5 +94,34 @@ describe('DY6-7: useLifeLog ключует снимок владельцем', (
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.unifiedDocuments.map(d => d.localId)).toEqual(['a1']);
     expect(result.current.sessionGroups).toHaveLength(1);
+  });
+
+  // План 27.10 (§7): сбой на первом чтении нового владельца (бросок вне
+  // внутренних catch) не снимал «загрузку»: finally снимал флаг только у
+  // снимка своего владельца, а снимок всё ещё был прежнего.
+  // Мутация: вернуть в finally `: s` — красный.
+  it('сбой чтения после смены владельца: не вечная «загрузка», а «неизвестно»', async () => {
+    mocks.getDocumentsByOwner.mockImplementation((uid: string) => (uid === 'A' ? Promise.resolve([doc('a1', 'A')]) : Promise.resolve(null)));
+    const { result, rerender } = renderHook(({ u }: { u: string }) => useLifeLog(u, false), { initialProps: { u: 'A' } });
+    await waitFor(() => expect(result.current.unifiedDocuments.map(d => d.localId)).toEqual(['a1']));
+
+    rerender({ u: 'B' });
+    await waitFor(() => expect(result.current.loading, 'вечная «загрузка» после сбоя').toBe(false));
+    expect(result.current.unifiedDocuments).toEqual([]);
+    expect(result.current.cloudUnknown, 'сбой показан как «записей нет»').toBe(true);
+  });
+});
+
+// План 27.10 (§7): панель слушала только `note.saved` — удаление из архива не
+// перечитывало её. Мутация: убрать `note.deleted` из подписки — красный.
+describe('useLifeLog перечитывается на удаление заметки', () => {
+  it('note.deleted — новое чтение, удалённой в списке нет', async () => {
+    mocks.getDocumentsByOwner.mockResolvedValue([doc('a1', 'A'), doc('a2', 'A')]);
+    const { result } = renderHook(() => useLifeLog('A', false));
+    await waitFor(() => expect(result.current.unifiedDocuments).toHaveLength(2));
+
+    mocks.getDocumentsByOwner.mockResolvedValue([doc('a1', 'A')]);
+    act(() => emitDomainEvent({ type: 'note.deleted', documentId: 'a2' }));
+    await waitFor(() => expect(result.current.unifiedDocuments.map(d => d.localId)).toEqual(['a1']));
   });
 });

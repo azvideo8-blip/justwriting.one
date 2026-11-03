@@ -6,9 +6,8 @@
 // Мутация: убрать подстановку шапок в phrasesOf → (1) красный;
 // остальные кейсы — контроли, зелёные и до правки.
 import { describe, expect, it } from 'vitest';
-import { unquoteAbsent } from '../../../../shared/ai/quoteGuard';
+import { quoteMaterialsText, unquoteAbsent } from '../../../../shared/ai/quoteGuard';
 import { attachedTurn } from '../../utils/attachedNoteFormat';
-import { quoteMaterialsForTurn } from '../useAIChat';
 
 const at = new Date('2026-10-20T12:00:00').getTime();
 const A = { documentId: 'local_d27_a', title: 'Утро', lastSessionAt: at, content: 'Утром шёл дождь и я решил остаться дома' };
@@ -22,7 +21,7 @@ describe('дейлик 27.10 Н-3: цитата через границу зам
   });
 
   it('контроль: строгий ход, конец заметки без точки — цитата в кавычках', () => {
-    const materials = quoteMaterialsForTurn('note', [A, B], () => false, []);
+    const materials = quoteMaterialsText({ strict: true, documentContent: attachedTurn([A, B]), humanTurns: [] });
     expect(unquoteAbsent(QUOTE, materials).stripped).toHaveLength(0);
   });
 

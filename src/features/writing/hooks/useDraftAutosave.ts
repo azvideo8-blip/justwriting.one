@@ -2,6 +2,7 @@ import { useEffect, useCallback, useRef } from 'react';
 import type { AppUser } from '../../../core/auth/types';
 import { buildLocalDraft, persistDraft } from '../utils/draftPersistence';
 import { mayAccountWriteEditorText, markEditorTextOwnedBy } from '../utils/draftOwnerGuard';
+import { applyWrite, getEditorTextOwner, markEditorTextOwner, rememberRescuePayload, takeRescuePayload, type DraftRecord } from '../services/draftWriter';
 import { useDraftCore, useVisibilitySave, useSyncUnloadSave, type DraftSaveStatus, type DraftErrorKind, type DraftSaveOutcome } from './useDraftCore';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { WritingDraftService } from '../services/WritingDraftService';
@@ -10,6 +11,15 @@ import { resetAndClear, resetAllSessionMetadata } from '../store/storeActions';
 import { reportError } from '../../../shared/errors/reportError';
 import { useContentStore } from '../store/useContentStore';
 import { onBeforeAccountReload } from '../../../core/auth/accountReload';
+import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
+import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
+
+/** Сейф аккаунта точно выключен на этом устройстве; неизвестно — не выключен. */
+function vaultKnownOff(uid: string): boolean {
+  const known = useEncryptionStore.getState().encryptionEnabled[uid];
+  if (known !== undefined) return !known;
+  try { return localStorage.getItem(STORAGE_KEYS.ENC_ENABLED(uid)) === '0'; } catch { return false; }
+}
 
 const SKIPPED: DraftSaveOutcome = { localSkipped: true };
 
@@ -114,14 +124,35 @@ export function useDraftAutosave(
     try {
       const current = draftDataRef.current;
       const clear = () => { resetAndClear(); resetAllSessionMetadata(); };
-      if (!userId || !(current.content.trim() || current.title.trim())) { clear(); return; }
+      if (!userId || !(current.content.trim() || current.title.trim())) { takeRescuePayload(prev); clear(); return; }
+      // DW-F-3 (§4.3.2): редактор передаётся новому владельцу ПУСТЫМ, сразу при
+      // смене. Иначе он печатает поверх текста прежнего, буфер становится
+      // смешанным, и слова прежнего уходят в базу нового (I3). Снимок забирает
+      // текст прежнему, запись идёт уже после передачи редактора.
+      const payload = rememberRescuePayload(prev, buildLocalDraft({ uid: prev } as AppUser, current));
+      clear();
       // Только локально: сессия уже принадлежит новому человеку, облачная
       // запись от имени прежнего упрётся в права базы. Черновик уедет в облако,
       // когда прежний владелец войдёт снова (N-73б — пересмотрено).
       // Поколение — прежнее: спасение вызвано сменой аккаунта, а не сохранением
       // заметки, и поколение прежнего владельца никто не поднимал.
-      const res = await persistDraft(buildLocalDraft({ uid: prev } as AppUser, current), { generation: WritingDraftService.getDraftGeneration(prev), remote: false });
-      if (res.localOk && !res.localSkipped) { clear(); return; }
+      const res = await persistDraft(payload, { generation: WritingDraftService.getDraftGeneration(prev), remote: false });
+      if (res.localOk && !res.localSkipped) { takeRescuePayload(prev); return; }
+      // Запись не прошла: пока новый владелец не начал печатать (редактор пуст),
+      // текст возвращается на экран — прежнему владельцу, и следующая попытка
+      // автосохранения повторит спасение (N-49). Если он уже печатает, его слова
+      // не тронуты, а повтора у снимка нет — он ложится в копию прежнего
+      // владельца (`draft-<uid>`, её читает его следующий вход); с сейфом копии
+      // нет (SEC-56), снимок остаётся в памяти. Сейф чужого аккаунта неизвестен
+      // = считаем включённым: открытая копия — только при явном «выключен».
+      if (!useContentStore.getState().content.trim()) {
+        useContentStore.getState().setContent(payload.content ?? '');
+        if (payload.title) useContentStore.setState({ title: payload.title });
+        markEditorTextOwner(prev);
+      } else if (vaultKnownOff(prev)) {
+        void applyWrite({ ...payload, owner: prev } as unknown as DraftRecord, 'edit', { uid: prev, target: 'copy' })
+          .catch(e => reportError(e, { action: 'draftAutosave_rescueCopy' }));
+      }
       reportError(new Error('DRAFT_RESCUE_FAILED: the previous account\'s draft was not written; kept on screen'),
         { action: 'draftAutosave_saveForPreviousOwner', localOk: res.localOk, localSkipped: res.localSkipped });
     } finally {
@@ -130,16 +161,19 @@ export function useDraftAutosave(
   }, [userId]);
 
   useEffect(() => {
-    const prev = useContentStore.getState().ownerUid;
+    // DW4-4: владелец текста — зеркало редактора (draftWriter), тот же источник,
+    // который читают писатели и мутатор; стор остаётся до шага 7.
+    const prev = getEditorTextOwner();
     if (prev && prev !== userId && !prev.startsWith('guest')) void rescueForPreviousOwner(prev);
   }, [userId, rescueForPreviousOwner]);
 
   /** Текст этого аккаунта? Ничейный (новый, гостевой) становится его. Чужой —
    *  нет, и запускает спасение для владельца. */
   const ownsText = useCallback((uid: string): boolean => {
-    const owner = useContentStore.getState().ownerUid;
+    const owner = getEditorTextOwner();
     if (owner === uid) return true;
     if (!owner || owner.startsWith('guest')) {
+      markEditorTextOwner(uid);
       useContentStore.setState({ ownerUid: uid });
       return true;
     }
@@ -217,12 +251,10 @@ export function useDraftAutosave(
   // страницы (ниже) его пропускает, так что это единственный шанс.
   useEffect(() => onBeforeAccountReload(doAutosaveLocal), [doAutosaveLocal]);
 
-  /** DY10-10: запись, снятая до сохранения заметки, устарела — поколение поднято. */
-  const isStaleDraftWrite = useCallback(() => {
-    if (!userId) return false;
-    const generation = draftGenAtEditRef.current;
-    return generation !== undefined && generation !== WritingDraftService.getDraftGeneration(userId);
-  }, [userId]);
+  /** DY10-10: эпоха, названная на момент правки. Сверку делает мутатор
+   *  (applyWrite, DW4-2) — writer-сверка isStaleDraftWrite удалена: правило
+   *  одно на все адреса, второй источник эпохи на один выпуск — класс DW-4. */
+  const getWriteEpoch = useCallback(() => draftGenAtEditRef.current, []);
 
   // Дейлик 03.11 Н-2: у сейфа снимка в localStorage нет (SEC-56) — хвост,
   // не дождавшийся отсрочки, уходит той же локальной записью, что и на размонтировании.
@@ -231,26 +263,35 @@ export function useDraftAutosave(
       .catch(e => reportError(e, { action: 'draftAutosave_unloadEncrypted', userId }, 'warning'));
   }, [doAutosaveLocal, userId]);
 
-  useSyncUnloadSave(user, draftDataRef, isStaleDraftWrite, flushLocalOnUnload);
+  useSyncUnloadSave(user, draftDataRef, getWriteEpoch, flushLocalOnUnload);
   useVisibilitySave(wrappedForceSave, () => draftDataRef.current.content);
 
   // Invalidate in-flight autosaves on unmount or when transitioning to idle.
   // AS-1: перед подъёмом поколения пишем локальный черновик — уход из редактора
   // снимает таймер, и последние секунды набора иначе жили только в памяти.
+  // DW4-4: только на НАСТОЯЩЕЙ выгрузке. Смена аккаунта — не выгрузка: у неё
+  // свой писатель (спасение прежнему владельцу выше), и запись «на выгрузке»,
+  // реагирующая на смену uid, писала бы то же самое и поднимала эпоху прежде
+  // спасения — его запись отвергалась как устаревшая, редактор не очищался, и
+  // печать нового владельца уходила в смешанный буфер (сид 183).
+  const unmountSaveRef = useRef<(() => Promise<void>) | null>(null);
   useEffect(() => {
-    return () => {
+    unmountSaveRef.current = async () => {
       if (!userId) return;
-      void (async () => {
-        try {
-          await doAutosaveLocal({ rescue: false, generation: draftGenAtEditRef.current });
-        } catch (e) {
-          reportError(e, { action: 'draftAutosave_unmount', userId });
-        } finally {
-          WritingDraftService.bumpDraftGeneration(userId);
-        }
-      })();
+      try {
+        await doAutosaveLocal({ rescue: false, generation: draftGenAtEditRef.current });
+      } catch (e) {
+        reportError(e, { action: 'draftAutosave_unmount', userId });
+      } finally {
+        WritingDraftService.bumpDraftGeneration(userId);
+      }
     };
-  }, [userId, doAutosaveLocal]);
+  });
+  useEffect(() => () => {
+    const save = unmountSaveRef.current;
+    unmountSaveRef.current = null;
+    if (save) void save();
+  }, []);
 
   useEffect(() => {
     if (draftData.status === 'idle' && userId) {

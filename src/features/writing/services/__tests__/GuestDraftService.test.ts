@@ -14,13 +14,18 @@ vi.mock('../../../../shared/errors/reportError', () => ({
 }));
 
 function mockDb(overrides: Record<string, unknown> = {}) {
+  // DW4-2: запись строки идёт через мутатор `applyWrite` (draftWriter), то есть
+  // через `transaction('drafts', 'readwrite')`, а не прямой `put`.
+  const get = vi.fn().mockResolvedValue(undefined);
+  const put = vi.fn().mockResolvedValue(undefined);
   const db = {
     objectStoreNames: {
       contains: vi.fn(() => true),
     } as unknown as DOMStringList,
-    put: vi.fn().mockResolvedValue(undefined),
-    get: vi.fn().mockResolvedValue(undefined),
+    get,
+    put,
     delete: vi.fn().mockResolvedValue(undefined),
+    transaction: vi.fn(() => ({ store: { get, put }, done: Promise.resolve() })),
     ...overrides,
   } as unknown as Awaited<ReturnType<typeof getLocalDb>>;
   vi.mocked(getLocalDb).mockResolvedValue(db);
@@ -36,7 +41,7 @@ describe('saveGuestDraftToStorage', () => {
   it('saves to IDB and localStorage when both succeed', async () => {
     const db = mockDb();
     const draft = { content: 'hello', title: 'Test' };
-    await saveGuestDraftToStorage(draft);
+    await saveGuestDraftToStorage(draft, { uid: 'guest_fixture' });
     expect(db.put).toHaveBeenCalled();
     expect(localStorage.getItem(STORAGE_KEYS.GUEST_DRAFT)).not.toBeNull();
   });
@@ -44,12 +49,18 @@ describe('saveGuestDraftToStorage', () => {
   it('throws when both IDB and localStorage fail', async () => {
     mockDb({
       objectStoreNames: { contains: vi.fn(() => false) } as unknown as DOMStringList,
-      put: vi.fn().mockRejectedValue(new Error('idb fail')),
+      transaction: vi.fn(() => ({
+        store: {
+          get: vi.fn().mockResolvedValue(undefined),
+          put: vi.fn().mockRejectedValue(new Error('idb fail')),
+        },
+        done: Promise.resolve(),
+      })),
     });
     const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('quota exceeded');
     });
-    await expect(saveGuestDraftToStorage({ content: 'x' })).rejects.toThrow('GUEST_DRAFT_SAVE_FAILED');
+    await expect(saveGuestDraftToStorage({ content: 'x' }, { uid: 'guest_fixture' })).rejects.toThrow('GUEST_DRAFT_SAVE_FAILED');
     setItemSpy.mockRestore();
   });
 
@@ -58,7 +69,7 @@ describe('saveGuestDraftToStorage', () => {
       objectStoreNames: { contains: vi.fn(() => false) } as unknown as DOMStringList,
     });
     const draft = { content: 'hello' };
-    await saveGuestDraftToStorage(draft);
+    await saveGuestDraftToStorage(draft, { uid: 'guest_fixture' });
     expect(localStorage.getItem(STORAGE_KEYS.GUEST_DRAFT)).not.toBeNull();
   });
 });

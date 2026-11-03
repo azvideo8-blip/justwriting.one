@@ -39,7 +39,7 @@ vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }
 const UID = 'u_br1';
 const T0 = Date.UTC(2026, 9, 25, 6, 0, 0);
 const base = (over: Partial<LocalDraft>): LocalDraft => ({
-  userId: UID, title: '', content: '', seconds: 60, wpm: 40, wordCount: 1,
+  userId: UID, owner: UID, title: '', content: '', seconds: 60, wpm: 40, wordCount: 1,
   pinnedThoughts: [], tags: [], activeSessionId: null, savedDocumentId: null,
   updatedAt: T0, ...over,
 });

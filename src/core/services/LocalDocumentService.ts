@@ -1,4 +1,4 @@
-import { getLocalDb, LocalDocument, randomUUID } from '../storage/localDb';
+import { getLocalDb, LocalDocument, randomUUID, type MetadataField } from '../storage/localDb';
 import { invalidateEmbeddingIndexCache } from './embeddingIndexCache';
 import { reportError } from '../../shared/errors/reportError';
 import { LocalStoreSyncService } from './LocalStoreSyncService';
@@ -548,13 +548,25 @@ export const LocalDocumentService = {
     await tx.done;
   },
 
-  /** R3-1: метаданные этой заметки нужно дослать в облако (см. metadataDirty). */
-  async setMetadataDirty(id: string, dirty: boolean, ownerId?: string): Promise<void> {
+  /**
+   * R3-1: метаданные этой заметки нужно дослать в облако (см. metadataDirty).
+   * S2-6: `field` — какое поле изменено; досыл пишет только изменённые поля,
+   * иначе он затирал правку другого устройства (сид 88: корзина). Флаг без поля —
+   * «дослать всё».
+   */
+  async setMetadataDirty(id: string, dirty: boolean, ownerId?: string, field?: MetadataField): Promise<void> {
     const db = await getLocalDb(ownerId);
     const tx = db.transaction('documents', 'readwrite');
     const existing = await tx.store.get(id);
     if (!existing) { await tx.done; return; }
-    await tx.store.put({ ...existing, metadataDirty: dirty || undefined });
+    let fields: MetadataField[] | undefined;
+    if (dirty && field) {
+      // Уже «дослать всё» (флаг без полей) — так и остаётся.
+      fields = existing.metadataDirty && !existing.metadataDirtyFields
+        ? undefined
+        : [...new Set([...(existing.metadataDirtyFields ?? []), field])];
+    }
+    await tx.store.put({ ...existing, metadataDirty: dirty || undefined, metadataDirtyFields: fields });
     await tx.done;
   },
 

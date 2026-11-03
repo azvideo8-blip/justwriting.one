@@ -3,6 +3,8 @@ import { isExcludedFromAI } from '../../utils/isExcludedFromAI';
 import { cosineSimilarity } from '../../utils/vectorSearch';
 import { formatDateYYYYMMDD } from './corpusStats';
 import { localDay, referencedDays } from './explicitRefs';
+import { RELATED_DAYS_HEAD } from '../../../../shared/ai/quoteGuard';
+import type { AttachedNoteBlock } from '../../utils/attachedNoteFormat';
 
 // Разбор приложенной заметки видел только её саму, и главное, чем выигрывал
 // разговор с Claude, — связи с прошлыми днями (разбор живых диалогов 09.10).
@@ -32,19 +34,17 @@ function centroid(vectors: number[][]): number[] | null {
 
 export interface RelatedDays { block: string; ids: string[] }
 
-// Н-3 (дейлик 2026-10-23): у хода бывает несколько приложенных заметок, каждая
-// со своей шапкой `[#id · yyyy-mm-dd]` (день заметки по местному времени). «Вчера»
-// второй заметки — канун ЕЁ дня, а не первой. Текст до первой шапки — от `noteAt`.
-const BLOCK_SEP = '\n\n---\n\n';
-const BLOCK_HEAD = /^\[#[^\s\]·]+ · (\d{4})-(\d{2})-(\d{2})\]$/gm;
-function daysNamedInBlocks(text: string, noteAt: number | undefined): Set<number> {
-  // Ссылка `[#id · дата]` внутри тела блока не начинает (как в hideExcludedNotes).
-  const heads = [...text.matchAll(BLOCK_HEAD)].filter(h => h.index === 0 || text.slice(0, h.index).endsWith(BLOCK_SEP));
-  const out = referencedDays(text.slice(0, heads[0]?.index ?? text.length), noteAt);
-  heads.forEach((h, i) => {
-    const blockAt = new Date(+h[1]!, +h[2]! - 1, +h[3]!, 12).getTime();
-    for (const d of referencedDays(text.slice(h.index, heads[i + 1]?.index ?? text.length), blockAt)) out.add(d);
-  });
+// Н-3 (дейлик 2026-10-23): у хода бывает несколько приложенных заметок; «вчера»
+// второй — канун ЕЁ дня, а не первой. Дейлик 7: блоки — данные сборщика (DY5),
+// тело не разбирается — вставленная в тело шапка `[#id · дата]` дня не сдвигает.
+// Название сканируется, как раньше в шапке блока.
+type DayBlock = Pick<AttachedNoteBlock, 'documentId' | 'title' | 'lastSessionAt' | 'content'>;
+function daysNamedInBlocks(blocks: readonly DayBlock[], docs: Map<string, LocalDocument>): Set<number> {
+  const out = new Set<number>();
+  for (const b of blocks) {
+    const at = b.lastSessionAt ?? docs.get(b.documentId)?.lastSessionAt;
+    for (const d of referencedDays(`${b.title}\n${b.content ?? ''}`, at)) out.add(d);
+  }
   return out;
 }
 
@@ -55,7 +55,7 @@ export function relativeDayLabel(noteAt: number | undefined, at: number): string
   return diff < 0 ? ` · за ${-diff} дн. до этой заметки` : ` · через ${diff} дн. после этой заметки`;
 }
 
-// FN-1: записи дней, названных в тексте приложенной (`attachedText`), в фоне
+// FN-1: записи дней, названных в приложенных блоках (`attachedBlocks`), в фоне
 // гарантированно, остаток до MAX_DAYS добирает сходство; строки — по дате (A6b:
 // «явные первыми» модель читала как «самая ранняя»). FN-2: `otherAttachedIds` —
 // остальные приложенные к ходу заметки; они в ходе целиком и «другим днём» не
@@ -65,7 +65,7 @@ export function buildRelatedDaysBlock(
   embeddings: AIDocumentEmbedding[],
   docs: Map<string, LocalDocument>,
   summaries: Map<string, AIDocumentSummary>,
-  attachedText = '',
+  attachedBlocks: readonly DayBlock[] = [],
   otherAttachedIds: string[] = [],
 ): RelatedDays | null {
   const skip = new Set([attachedId, ...otherAttachedIds]);
@@ -81,7 +81,7 @@ export function buildRelatedDaysBlock(
     return summary ? { id, at: doc.lastSessionAt ?? 0, summary } : null;
   };
 
-  const days = daysNamedInBlocks(attachedText, noteAt);
+  const days = daysNamedInBlocks(attachedBlocks, docs);
   const onDay = (t: number | undefined) => !!t && days.has(localDay(t));
   // R-13: в строке — тот день, по которому запись найдена (первая сессия, если
   // названа она), а не последняя сессия: иначе «10.10» в тексте и «2026-10-20» у модели.
@@ -120,7 +120,7 @@ export function buildRelatedDaysBlock(
     return `[#${p.id} · ${formatDateYYYYMMDD(p.at)}${relativeDayLabel(noteAt, p.at)}] ${s}`;
   });
   return {
-    block: '[Другие дни — фон, НЕ эта заметка: суть похожих записей. Связь с ними называй как связь с другим днём, со ссылкой [#id]; их содержание этой заметке не приписывай и не цитируй]\n' + lines.join('\n'),
+    block: `${RELATED_DAYS_HEAD}\n${lines.join('\n')}`,
     ids: picked.map(p => p.id),
   };
 }

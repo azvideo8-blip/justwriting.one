@@ -42,6 +42,8 @@ export const JOURNAL_BASE_NAMES = [
   'ai_sync_pending_upserts',
   'ai_sync_dead_upserts',
   'ai_sync_pending_analysis_deletes',
+  // S2-7: прибавки счётчиков в пути (`pendingDelta.ts`) — сразу на ключе учётки.
+  'sync_pending_delta',
 ] as const;
 
 /** Ключ журнала для учётки. Без uid — общий ключ гостя (как до правки). */

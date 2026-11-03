@@ -67,7 +67,7 @@ export async function migrateDocuments(userId: string): Promise<MigrateResult> {
   if (guestDraft && hasDraftsInUser) {
     const existingUserDraft = await userDb.get('drafts', userId);
     if (!existingUserDraft) {
-      const newDraft = { ...guestDraft, userId };
+      const newDraft = { ...guestDraft, userId, owner: userId };
       await userDb.put('drafts', newDraft);
       // Выгрузку делает слой письма по событию: прямой импорт из auth в
       // writing запрещён зонами import/no-restricted-paths.

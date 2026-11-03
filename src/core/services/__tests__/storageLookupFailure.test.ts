@@ -41,7 +41,7 @@ describe('не прочиталась локальная запись — обл
   it('корзина: не «в облаке тоже», и метаданные встают в очередь', async () => {
     const res = await StorageService.trashDocument(U, 'loc1');
     expect(res.cloudSynced).toBe(false);
-    expect(LocalDocumentService.setMetadataDirty).toHaveBeenCalledWith('loc1', true, U);
+    expect(LocalDocumentService.setMetadataDirty).toHaveBeenCalledWith('loc1', true, U, 'trashedAt');
     const queue = await (await getLocalDb(U)).getAll('syncQueue');
     expect(queue.map(t => t.documentId)).toContain('loc1');
   });
@@ -49,6 +49,6 @@ describe('не прочиталась локальная запись — обл
   it('восстановление из корзины', async () => {
     const res = await StorageService.restoreDocument(U, 'loc1');
     expect(res.cloudSynced).toBe(false);
-    expect(LocalDocumentService.setMetadataDirty).toHaveBeenCalledWith('loc1', true, U);
+    expect(LocalDocumentService.setMetadataDirty).toHaveBeenCalledWith('loc1', true, U, 'trashedAt');
   });
 });

@@ -91,12 +91,14 @@ the invariants are its §2.1, and I6 was added by ticket DW-9. For each invarian
 holds, which test proves it, and whether it holds `structural` or `timing`.
 
 - **I1 — typed and unsaved text survives a reload, a killed tab and a lost network.**
-  - Holds in: local debounce write `src/features/writing/hooks/useDraftAutosave.ts:255-264`;
-    30-second cloud insurance `:271-276`; synchronous copy at tab close
-    `src/features/writing/hooks/useDraftCore.ts:202-284` (`beforeunload` and `pagehide`);
+  - Holds in: local debounce write `src/features/writing/hooks/useDraftAutosave.ts:286-295`;
+    30-second cloud insurance `:302-307`; synchronous copy at tab close
+    `src/features/writing/hooks/useDraftCore.ts:230-318` (`beforeunload` and `pagehide`);
     on load the NEWER of the two local copies wins — `pickNewerLocalCopy`
     `src/features/writing/services/WritingDraftService.ts:230-266`, called at `:485` (N1-4);
-    guest path `src/features/writing/services/GuestDraftService.ts:36-62` (write) and `:63-100` (read that caches).
+    guest path: both guest addresses are written by the mutator since DW4-2 —
+    `GuestDraftService.saveGuestDraftToStorage` → `applyWrite` (`draftWriter.ts`), read
+    `GuestDraftService.ts:63-100` (read that caches).
   - Proven by: `src/features/writing/services/__tests__/draftUnloadCopyNewer.n14.test.ts`,
     `src/features/writing/hooks/__tests__/draftUnmountSave.as1.test.ts`,
     `src/features/writing/__tests__/draftWritersFuzz.dw3.test.ts` (28 seeds in CI; a 400-seed
@@ -109,12 +111,16 @@ holds, which test proves it, and whether it holds `structural` or `timing`.
     inside an unclosed save. Neither is closed by a structural rule yet.
 
 - **I2 — text closed by a confirmed save never comes back as a draft.**
-  - Holds in: generation counter (`getDraftGeneration`/`bumpDraftGeneration`), every writer must
-    name the generation it edited under — `src/features/writing/utils/draftPersistence.ts:50-56`
-    and the checks at `WritingDraftService.ts:566,571,593,660,672,679`; unload veto
-    `useDraftAutosave.ts:221-225` passed into `useSyncUnloadSave` (`:227`); deleting the draft
-    clears BOTH addresses — `WritingDraftService.ts:370` (IndexedDB row + `draft-<uid>`) and
-    `clearLegacyDraft` `:553-556`, called by `useSessionPersistence.ts:109`.
+  - Holds in: generation counter (`getDraftGeneration`/`bumpDraftGeneration`, owned by the
+    mutator since DW4-2 — `src/features/writing/services/draftWriter.ts`); every writer must
+    NAME the generation it edited under, and the epoch check lives in the mutator `applyWrite`
+    (three checkpoints: before any write, after the DB opens, in the catch) — writers pass it
+    via `draftPersistence.ts:50-56` (`persistDraft` options), `useDraftAutosave.ts`
+    (`draftGenAtEditRef`), `useDraftManager.ts` (`getWriteEpoch`), and the guest deferral
+    (`GuestDraftService.saveGuestDraftToStorage(draft, { uid, epoch })` — reviewer note
+    03.11 13:55, seed 103); deleting the draft clears BOTH addresses —
+    `WritingDraftService.ts:370` (IndexedDB row + `draft-<uid>`) and `clearLegacyDraft`
+    `:553-556`, called by `useSessionPersistence.ts:109`.
   - Proven by: `src/features/writing/hooks/__tests__/draftAfterSaveWindow.dy1010.test.ts`,
     harness test «окно DY10-10», `e2e/mobile/draft-after-save.dy1010.spec.ts`,
     `src/features/writing/services/__tests__/draftUnloadCopyNewer.n14.test.ts` («сохранение
@@ -126,27 +132,36 @@ holds, which test proves it, and whether it holds `structural` or `timing`.
     epoch).
 
 - **I3 — one account's text is never written into another account's draft.**
-  - Holds in: database per uid, `getLocalDbName` `src/core/storage/localDb.ts:741-751`; the
-    draft row's own `userId` decides the target DB; editor-text owner
-    `src/features/writing/utils/draftOwnerGuard.ts:21-35` (`mayAccountWriteEditorText`) and
-    `:47` (`markEditorTextOwnedBy`), stamped when the text changes
-    (`useDraftAutosave.ts:89-99`); the auth provider refuses to adopt a new account without a
-    page reload — mirror `src/core/auth/supabaseAuthProvider.ts:74-77`, listeners `:105`.
-  - Proven by: `src/core/auth/__tests__/providerAccountSwitchBan.n16.test.ts` (added in N1-6:
-    removing the early return reddens it), `src/features/auth/__tests__/accountIsolation.test.ts`,
-    harness DW-9 seeds 191/266, `src/features/writing/hooks/__tests__/draftSessionStaleLoad.dw7.test.tsx`,
+  - Holds in: database per uid, `getLocalDbName` `src/core/storage/localDb.ts:741-751`; since
+    DW4-4 the draft row carries `owner` and the mutator decides by it — `applyWrite` refuses a
+    row whose named owner is not the target uid ('owner-mismatch', `draftWriter.ts:259-260`)
+    before any address is touched; the owner is stamped from the editor mirror into every row
+    (`buildLocalDraft` `draftPersistence.ts:36`, unload copy `useDraftCore.ts:264,293`); the
+    editor mirror `src/features/writing/utils/draftOwnerGuard.ts:23-37`
+    (`mayAccountWriteEditorText`) and `:49-66` (`markEditorTextOwnedBy`) refuses to adopt
+    another account's buffer by typing; on an in-app account switch the editor is handed over
+    EMPTY — `rescueForPreviousOwner` (`useDraftAutosave.ts:112-146`) snapshots the text, clears
+    the store synchronously and writes the snapshot to the previous owner's base afterwards
+    (DW-F-3 clear-at-switch); the auth provider refuses to adopt a new account without a page
+    reload — mirror `src/core/auth/supabaseAuthProvider.ts:74-77`, listeners `:105`.
+  - Proven by: mutations removing the owner read in `applyWrite` redden the row-level cases
+    (`expected 'written' to be 'owner-mismatch'`; outputs in
+    `justwriting-docs/report-2026-11-03-dw4-4.md`), `src/core/auth/__tests__/providerAccountSwitchBan.n16.test.ts`,
+    `src/features/auth/__tests__/accountIsolation.test.ts`, harness DW-9 seeds 191/266 and the
+    rearranged DW-F-3/seed-565 test (editor empty at handover, A's base holds the text),
+    `src/features/writing/hooks/__tests__/draftSessionStaleLoad.dw7.test.tsx`,
     `e2e/accountSwitch.spec.ts`.
-  - **Holds by: `structural` for storage naming and for the provider ban** (explicit prohibition,
-    now covered by a test); **`timing` for the text owner** — the owner is stamped by an effect
-    on text change, so the window «store holds text, owner is not stamped» is what DW-F-3
-    observed (seeds 565/183) and what step 4 of the DW-4 plan closes by putting `owner` in the
-    row itself.
+  - **Holds by: `structural`.** The decisive check lives in the row and in the one writer: a
+    row that names another owner is refused by the mutator regardless of which writer sent it
+    and when. The editor side is handover bookkeeping — the mirror is stamped by an effect and
+    the empty handover is one synchronous block inside one function — and its failure mode now
+    fails safe: a row that names no owner is refused ('no-owner'), not misattributed.
 
 - **I4 — guest text becomes an account note at sign-in instead of disappearing.**
   - Holds in: `src/features/auth/services/migrateDocuments.ts:30-44` (newest of the two guest
     addresses, `GUEST_DRAFT_TTL_MS` check at `:43`), `:66-74` with the explicit guard
-    `!existingUserDraft` (`:68-69`); guest writers
-    `src/features/writing/services/GuestDraftService.ts:36-62`.
+    `!existingUserDraft` (`:68-69`); guest writers — both guest addresses are written by
+    the mutator since DW4-2 (`GuestDraftService.saveGuestDraftToStorage` → `applyWrite`).
   - Proven by: `src/features/auth/__tests__/migration.test.ts`,
     `src/features/auth/services/__tests__/migrateDraftConsumed.test.ts`,
     `src/features/writing/services/__tests__/GuestDraftService.test.ts`, harness I4 over 12 guest seeds.
@@ -168,31 +183,47 @@ holds, which test proves it, and whether it holds `structural` or `timing`.
     `timing` remains in the «we did not read a hash → decide by time» fallback.
 
 - **I6 — the draft row always knows who owns its text; «no owner» is not «the current account».**
-  - Holds in: `draftOwnerGuard.ts:21-47` (both writer checks come from this one helper),
-    stamped at edit time `useDraftAutosave.ts:89-99`, read by the unload writer (`:227`) and by
-    the unmount/rescue path (`:111-148`).
-  - Proven by: harness DW-9 seeds 191 and 266, `useDraftAutosave.test.ts`,
-    `draftSessionStaleLoad.dw7.test.tsx`.
-  - **Holds by: `timing`.** DW-9 moved the stamp from «after the debounce» to «when the text
-    changes», which shrinks the window; it does not remove it. The structural version is the
-    `owner` field of the row (DW-4 step 4).
+  - Holds in: `owner` is a field of the row itself (DW4-4): `buildLocalDraft` stamps the mirror
+    (`draftPersistence.ts:36`, the `?? user.uid` fallback covers the genuinely unowned new/guest
+    text), the unload copy stamps it directly (`useDraftCore.ts:264,293`), and `applyWrite`
+    refuses a row with no owner at all ('no-owner', `draftWriter.ts:259`) before reading
+    anything else. The editor-side helpers stay in `draftOwnerGuard.ts:23-66`, the stamping
+    effect at `useDraftAutosave.ts:73-102`; the rescue carries the snapshot with the owner it
+    was taken under (`rememberRescuePayload` `draftWriter.ts:157-162`).
+  - Proven by: the mutation removing the owner read reddens the no-owner case
+    (`expected 'written' to be 'no-owner'`; output in `justwriting-docs/report-2026-11-03-dw4-4.md`);
+    harness DW-9 seeds 191/266, `useDraftAutosave.test.ts`, `draftSessionStaleLoad.dw7.test.tsx`.
+  - **Holds by: `structural`.** A write cannot enter any address without naming an owner in the
+    row. The DW-9 stamp moved from «after the debounce» to «when the text changes» in the
+    previous step; now it backs a schema field instead of carrying the rule alone.
 
 ### 6.1 Timing protections this page currently relies on
 
-Per the acceptance rule at the top, these are named as assumptions, not as evidence:
+Per the acceptance rule at the top, these are named as assumptions, not as evidence. Step 4 of
+the DW-4 plan (dw4-4) removed two of the three listed here on 01.11:
 
-- Generation check at the rescue writer (DW-10): `useDraftAutosave.ts:111-148` reads the
-  PREVIOUS owner's generation. Measured in `justwriting-docs/report-2026-11-02-dw-fixes-2.md` §2:
-  removing the comparison leaves `src/features/writing` (755 tests then) and the 400-seed sweep
-  green both with and without it — so nothing proves this branch, and it was left in place
-  deliberately rather than weakened further.
-- «The leaving account finishes writing before the reload» (DW-F-3): the flush is bounded by
-  `FLUSH_LIMIT_MS = 1500` (`src/core/auth/accountReload.ts:15,61-67`). If the write is slower,
-  the text lives only on the screen. Measured in the same §2: probe `World(9_566)` (no reload
-  planned — the write lands) versus the directed DW-F-3 test (reload planned — neither account's
-  row holds the text at the moment of observation).
-- Provider ban on switching accounts without a reload: `supabaseAuthProvider.ts:74-77,105`.
-  This one is no longer an assumption — `providerAccountSwitchBan.n16.test.ts` reddens when the
-  early return is removed, so it is `structural`.
-- Guest writes have no generation at all (owner decision, 31.10: «окно миллисекундное») —
-  `GuestDraftService` vs `useSyncUnloadSave`, harness finding DW-F-2.
+- Removed — «the leaving account finishes writing before the reload» as a protection for
+  I3/DW-F-3: the row names its owner, so a copy that lands late is attributed to its owner or
+  refused, never misattributed. What remains is the LOSS window already documented in I1
+  (F-3 #4: text typed after `FLUSH_LIMIT_MS = 1500`, `src/core/auth/accountReload.ts:15,61-67`,
+  is not persisted at all) — it was never a misattribution risk and stays an accepted I1 gap.
+- Removed — the unmount-save writer firing on account change: it reacted to the uid change,
+  wrote the same text again and bumped the epoch before the rescue, whose write was then
+  refused as stale — the editor stayed filled, the new owner typed over the old text and the
+  mixed buffer went to the new owner's row (harness seed 183). The writer is now unmount-only
+  (`useDraftAutosave.ts:262-282`), and the handover belongs to the rescue alone.
+- Remaining — DW-10-F-1 (`it.fails`): a switch inside an unclosed note save. The epoch check
+  still refuses the rescue's write ('stale-epoch'); since dw4-4 that refusal can no longer
+  produce a mixed buffer — the editor is already empty and the text is restored on screen or
+  waits in the snapshot for a retry — but the saved text still comes back as a draft. Closes at
+  step 5 (the mutator owning the epoch).
+- New window named by this step (acceptance rule of `report-2026-11-01-draft-writers.md` §4.4):
+  if the rescue's local write fails while the new owner has already typed, the snapshot
+  (`rescuePayloads`, `draftWriter.ts:155-172`) waits in memory for the next rescue trigger; the
+  previous owner's text is in no base until a retry lands, and a tab closed in that window
+  loses it. Every such failure is reported as `DRAFT_RESCUE_FAILED`.
+- Provider ban on switching accounts without a reload: `supabaseAuthProvider.ts:74-77,105` —
+  `structural` since N1-6 (`providerAccountSwitchBan.n16.test.ts` reddens when the early
+  return is removed).
+- Guest writes name `{uid, epoch}` to the mutator since dw4-2 (reviewer note 03.11 13:55,
+  seed 103); DW-F-2 stays in the map as the history of the finding.

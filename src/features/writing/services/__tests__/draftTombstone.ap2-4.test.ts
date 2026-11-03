@@ -42,7 +42,7 @@ const UID = 'u_ap2_4';
 // Нужен всего лишь облачный ряд, пришедший ПОСЛЕ удаления.
 const T0 = Date.now() + 60_000;
 const draft = (): LocalDraft => ({
-  userId: UID, title: '', content: 'AP2_DRAFT_SYNTHETIC', seconds: 60, wpm: 40,
+  userId: UID, owner: UID, title: '', content: 'AP2_DRAFT_SYNTHETIC', seconds: 60, wpm: 40,
   wordCount: 3, pinnedThoughts: [], tags: [], activeSessionId: null, savedDocumentId: null,
   updatedAt: T0,
 });

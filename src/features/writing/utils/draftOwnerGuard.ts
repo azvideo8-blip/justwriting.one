@@ -1,4 +1,5 @@
 import { useContentStore } from '../store/useContentStore';
+import { getEditorTextOwner, markEditorTextOwner, takeRescuePayload } from '../services/draftWriter';
 
 /** «Ничей» текст: нового документа, гостевой или уже спасённый у прежнего владельца. */
 function isUnowned(owner: string | null | undefined): boolean {
@@ -14,13 +15,13 @@ function isUnowned(owner: string | null | undefined): boolean {
  * Гость вне правила: у гостевого текста владельца-аккаунта нет по смыслу
  * (`isGuest`, DW-6), и вызывающий обязан не звать помощника для гостя.
  *
- * Ничего в хранилища не пишет: читает владельца из стора текста и, если
- * владельца не было, проставляет его — ровно так, как это делала ветка
- * `opts?.rescue === false` в `useDraftAutosave`.
+ * DW4-4: владелец живёт в зеркале редактора (`draftWriter`), а не в сторе
+ * текста: мутатор пишет адреса только названного владельца (I3), и источник
+ * правила для помощника и для мутатора один. Запись в стор `ownerUid`
+ * оставлена до шага 7 — там поле стора снимают вместе с последним читателем.
  */
 export function mayAccountWriteEditorText(uid: string, textToWrite: string): boolean {
-  const contentState = useContentStore.getState();
-  const owner = contentState.ownerUid;
+  const owner = getEditorTextOwner();
   // Владелец текста — другой аккаунт: этим текстом занимается спасение для его
   // владельца (W6), подписывать его текущему аккаунту нельзя.
   if (owner && !isUnowned(owner) && owner !== uid) return false;
@@ -28,7 +29,8 @@ export function mayAccountWriteEditorText(uid: string, textToWrite: string): boo
     // Владельца нет, а в сторе уже другой текст, чем несёт этот писатель, —
     // это хвост чужой сессии (спасение очистило стор): текущему аккаунту он не
     // принадлежит.
-    if (contentState.content !== textToWrite) return false;
+    if (useContentStore.getState().content !== textToWrite) return false;
+    markEditorTextOwner(uid);
     useContentStore.setState({ ownerUid: uid });
   }
   return true;
@@ -47,5 +49,18 @@ export function mayAccountWriteEditorText(uid: string, textToWrite: string): boo
 export function markEditorTextOwnedBy(uid: string, editedContent: string): void {
   const contentState = useContentStore.getState();
   if (contentState.content !== editedContent) return;
+  const current = getEditorTextOwner();
+  if (current && !isUnowned(current) && current !== uid) {
+    // Печать не присваивает буфер другого АККАУНТА: его ведёт спасение для
+    // владельца (DW-F-3), и подпись печатью уводила бы смешанный буфер
+    // печатающему (I3). Гостевой текст печатаемый — за ним приходит вход.
+    return;
+  }
+  if (current === uid) {
+    // Владелец снова печатает: снимок, ждущий его спасения, устарел — его место
+    // займёт свежий, если смена аккаунта повторится.
+    takeRescuePayload(uid);
+  }
+  if (current !== uid) markEditorTextOwner(uid);
   if (contentState.ownerUid !== uid) useContentStore.setState({ ownerUid: uid });
 }

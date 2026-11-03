@@ -113,6 +113,8 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
     // выводит семейства из этого списка. Общие ключи прежней формы живут один
     // релиз (перенос их не удаляет) — для них остаётся вырезание своих строк.
     `sync_pending_duration:${uid}`,
+    // S2-7: прибавки счётчиков в пути (sync_push delta) — только ключ учётки.
+    `sync_pending_delta:${uid}`,
     `ai_sync_pending_deletes:${uid}`,
     `ai_sync_pending_upserts:${uid}`,
     `ai_sync_dead_upserts:${uid}`,

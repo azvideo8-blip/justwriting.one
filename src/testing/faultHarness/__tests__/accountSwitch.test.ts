@@ -96,7 +96,9 @@ function note(content: string, at = Date.now()) {
 }
 
 function draft(uid: string, content: string): LocalDraft {
-  return { userId: uid, content, title: '', wordCount: 1, updatedAt: Date.now() } as unknown as LocalDraft;
+  // DW4-4: черновик, сохранённый приложением, всегда называет владельца —
+  // мутатор запись без него отказывает.
+  return { userId: uid, content, title: '', wordCount: 1, owner: uid, updatedAt: Date.now() } as unknown as LocalDraft;
 }
 
 interface Seed { syncedId: string; queuedId: string }

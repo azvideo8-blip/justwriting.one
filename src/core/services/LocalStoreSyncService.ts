@@ -17,6 +17,9 @@ import {
 } from '../sync/syncJournal';
 import { reportError } from '../../shared/errors/reportError';
 import { classifySyncError } from '../sync/classifySyncError';
+import { syncPushRpcEnabled, markSyncPushUnavailable } from '../sync/syncFlags';
+import { isSyncPushMissing } from '../data/providers';
+import type { SyncPushResult } from '../data/types';
 import { logger } from '../../shared/errors/logger';
 import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
 import { pageTextOf, parseLocalStoreKey, selectCloudVersion, PAGE_TEXT_FIELDS, type CloudRow } from './localStorePages';
@@ -1602,8 +1605,16 @@ export class LocalStoreSyncManager {
     db: Awaited<ReturnType<typeof getLocalDb>>,
     key: string,
   ): Promise<'ok' | 'gone' | 'partial' | { oversized: number }> {
+    let lostInsert = false;
     for (let attempt = 0; ; attempt++) {
       const cloud = await readCloudDialogue(uid, key);
+      // S2-5: вставка получила 23505, а head снова не виден — в облаке надгробие
+      // (0047): диалог удалён на другом устройстве. Удаление побеждает (S-58).
+      if (lostInsert && cloud?.dialogue == null) {
+        await db.delete('aiDialogues', key);
+        if (typeof window !== 'undefined') window.dispatchEvent(new Event('dialogue-updated'));
+        return 'gone';
+      }
       // null — строки нет (insert); undefined — строка без числовой отметки,
       // условие поставить не на что, пишем как раньше.
       const expected: number | null | undefined = cloud ? cloud.expected : null;
@@ -1752,8 +1763,36 @@ export class LocalStoreSyncManager {
           return 'ok';
         }
       }
+      lostInsert = expected === null;
       if (attempt >= 2) throw new Error(`S-34: cloud dialogue ${key} kept changing during upload`);
     }
+  }
+
+  /**
+   * S2-5 (б): удалённый диалог оставляет в облаке надгробие (0047), а не пустое
+   * место. Копия, пережившая на другом устройстве срок S-58 (90 дней), больше не
+   * вставляется заново: вставка получает 23505, чтение строки не видит —
+   * uploadDialogue снимает копию. `rev` клиент не хранит: его сообщает первый
+   * ответ «конфликт». Окна `key@…`/`key#…` убирает прежний delete — надгробие
+   * он не видит и не трогает.
+   * ponytail: строки нет в облаке — надгробия нет (sync_push отвечает ok); такой
+   * диалог и прежде некому было воскрешать, кроме устройства без выгрузки.
+   */
+  private async tombstoneDialogueRow(uid: string, key: string): Promise<void> {
+    if (!(await syncPushRpcEnabled(uid))) return;
+    let base: number | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const res: SyncPushResult | null = await DataProvider.syncPush([{ table: 'local_store_records', op: 'delete', store: 'aiDialogues', key, base_rev: base }])
+        .then(r => r[0]!, (e: unknown) => {
+          if (!isSyncPushMissing(e)) throw e;
+          markSyncPushUnavailable(uid);
+          return null;
+        });
+      if (res === null || res.status === 'ok') return;
+      if (res.status !== 'conflict' || !res.row) throw new Error(`S2-5: dialogue ${key} tombstone: ${res.status}`);
+      base = res.row.rev;
+    }
+    throw new Error(`S2-5: dialogue ${key} kept changing during delete`);
   }
 
   private resetTimer(delayMs = DEBOUNCE_DELAY_MS): void {
@@ -1878,6 +1917,7 @@ export class LocalStoreSyncManager {
         }
         try {
           if (item.isDelete) {
+            if (item.store === 'aiDialogues') await this.tombstoneDialogueRow(uid, item.key);
             await DataProvider.deleteLocalStoreRecord(uid, item.store, item.key);
             forgetPersistedDelete(uid, item.store, item.key);
             removeOversizedRecord(uid, item.store, item.key);

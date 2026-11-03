@@ -27,6 +27,7 @@ describe('DEEP-1: Cross-tab sign-out draft partition isolation', () => {
     // Tab A has a draft for Alice
     const draft: LocalDraft = {
       userId: ALICE_UID,
+      owner: ALICE_UID,
       content: 'Private thoughts from Alice',
       title: '',
       seconds: 0,
@@ -60,6 +61,7 @@ describe('DEEP-1: Cross-tab sign-out draft partition isolation', () => {
     mockCurrentUser = null;
     const guestDraft: LocalDraft = {
       userId: GUEST_UID,
+      owner: GUEST_UID,
       content: 'Guest text',
       title: '',
       seconds: 0,

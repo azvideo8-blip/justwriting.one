@@ -249,6 +249,19 @@ export async function updateDocumentSessionStats(
     });
   if (statsError != null) throw statsError;
 
+  return updateDocumentSessionMeta(userId, documentId, stats);
+}
+
+/**
+ * Поля строки после сессии — номер версии, время, настроение. Пишутся ПОСЛЕ
+ * счётчиков: метка из ответа (SF-7) должна быть последней записью этого прогона,
+ * иначе своя же прибавка выглядит «облако новее».
+ */
+export async function updateDocumentSessionMeta(
+  userId: string,
+  documentId: string,
+  stats: { currentVersion: number; mood?: string | null; moodEncrypted?: boolean; lastSessionAt?: Date },
+): Promise<number | null> {
   const updateData: Record<string, unknown> = {
     currentVersion: stats.currentVersion,
     lastSessionAt: stats.lastSessionAt !== undefined ? stats.lastSessionAt : new Date(),

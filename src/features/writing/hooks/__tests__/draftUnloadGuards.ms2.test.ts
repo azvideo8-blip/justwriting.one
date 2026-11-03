@@ -16,6 +16,7 @@ import { useContentStore } from '../../store/useContentStore';
 import { useTimerStore } from '../../store/useTimerStore';
 import { useSessionMetaStore } from '../../store/useSessionMetaStore';
 import { useEncryptionStore } from '../../../../core/crypto/useEncryptionStore';
+import { clearEditorTextOwner, markEditorTextOwner } from '../../services/draftWriter';
 import type { AppUser } from '../../../../core/auth/types';
 
 const UID = 'u_ms2_unload';
@@ -43,6 +44,8 @@ beforeEach(() => {
   localStorage.clear();
   accountReloadPending.value = false;
   useContentStore.setState({ content: TEXT, title: '', wordCount: 2, ownerUid: UID });
+  // DW4-4: владелец текста — зеркало редактора; стор остаётся до шага 7.
+  markEditorTextOwner(UID);
   useTimerStore.setState({ status: 'writing', seconds: 7 });
   useSessionMetaStore.getState().resetSessionMetadata();
   useEncryptionStore.setState({ encryptionEnabled: {} });
@@ -66,9 +69,11 @@ describe('MS-2: выгрузка вкладки', () => {
 
   it('чужой текст не подписывается текущим аккаунтом', () => {
     useContentStore.setState({ content: 'MARKER_MS2_чужой', ownerUid: 'u_other' });
+    markEditorTextOwner('u_other');
     mount('MARKER_MS2_чужой');
     unload();
     expect(localStorage.getItem(KEY)).toBeNull();
+    clearEditorTextOwner();
   });
 
   it('неизменённая сохранённая заметка не воскресает черновиком', () => {

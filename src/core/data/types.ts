@@ -32,6 +32,21 @@ export type ConditionalScalarWrite =
   | { written: true; stampedAt: number | null }
   | { written: false };
 
+/** S2-4: элемент `sync_push` (0047). `user_id` не передаётся — сервер берёт свой. */
+export type SyncPushItem =
+  | { table: 'local_store_records'; op: 'put' | 'recreate'; store: string; key: string; base_rev: number | null; payload: ProviderRecord; checksum?: string | null }
+  | { table: 'local_store_records'; op: 'delete'; store: string; key: string; base_rev: number | null }
+  | { table: 'documents'; op: 'delta'; uuid: string; op_id: string; sessions: number; duration: number; words: number };
+
+/** Ответ по элементу. `row` — текущая строка облака при конфликте (`null` — строки нет). */
+export interface SyncPushResult {
+  status: 'ok' | 'conflict' | 'duplicate' | 'missing' | 'gone' | 'rejected';
+  rev?: number | null;
+  stamped_at?: number;
+  payload_updated_at?: unknown;
+  row?: { rev: number; deleted: boolean; payload: ProviderRecord; checksum: string | null; stamped_at: number } | null;
+}
+
 export interface IDataProvider {
   // --- Document Operations ---
   createDocument(userId: string, data: ProviderRecord): Promise<string>;
@@ -42,6 +57,7 @@ export interface IDataProvider {
   getDocumentsByUuidsWithDeleted(userId: string, uuids: string[]): Promise<ProviderRecord[]>;
   /** S1-4: страница изменений «после номера N» по серверному `rev`. */
   pullChangesSince(userId: string, table: PullChangesTable, sinceRev: number, limit?: number): Promise<PullChangesPage>;
+  syncPush(items: SyncPushItem[]): Promise<SyncPushResult[]>;
   /** S-47: подмножество `uuids`, снятых в облаке надгробием (`deleted_at is not null`). */
   listTombstonedDocumentUuids(userId: string, uuids: string[]): Promise<string[]>;
   updateDocument(userId: string, documentId: string, data: ProviderRecord): Promise<void>;
@@ -61,6 +77,12 @@ export interface IDataProvider {
       sessionsDelta?: number;    // undefined implies incrementing by 1
       lastSessionAt?: Date;      // undefined implies using the current server time
     }
+  ): Promise<number | null>;
+  /** S2-7: только поля строки после сессии (без счётчиков) — счётчики идут `syncPush` `delta`. */
+  updateDocumentSessionMeta(
+    userId: string,
+    documentId: string,
+    stats: { currentVersion: number; mood?: string | null; moodEncrypted?: boolean; lastSessionAt?: Date },
   ): Promise<number | null>;
   deleteDocument(userId: string, documentId: string): Promise<void>;
   clearLabelFromAllDocs(userId: string, labelId: string): Promise<void>;

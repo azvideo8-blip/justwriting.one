@@ -83,11 +83,11 @@ describe('Q-10: diffPostAgainstNote', () => {
     expect(diffPostAgainstNote('Встречу отменила. Позвонила позже.', 'Решила отменить встречу. Оля звонила.')
       .namesRemoved).toEqual(['Оля']);
     expect(diffPostAgainstNote('Сделать отчёт до конца недели.', 'Подготовить отчёт до пятницы.')).toEqual(
-      { namesRemoved: [], namesKept: [], rolesAdded: [], numbersRemoved: [], clientStoryInPost: false, foreignSpeechInPost: false });
+      { namesRemoved: [], namesKept: [], rolesAdded: [], numbersRemoved: [], clientStoryInPost: false, foreignSpeechInPost: false, relativesMoneyInPost: false });
     expect(diffPostAgainstNote('Ночью спорить не стоит.', 'Важно не спорить ночью.')).toEqual(
-      { namesRemoved: [], namesKept: [], rolesAdded: [], numbersRemoved: [], clientStoryInPost: false, foreignSpeechInPost: false });
+      { namesRemoved: [], namesKept: [], rolesAdded: [], numbersRemoved: [], clientStoryInPost: false, foreignSpeechInPost: false, relativesMoneyInPost: false });
     expect(diffPostAgainstNote('Никого не было.', 'Никто не звонил.')).toEqual(
-      { namesRemoved: [], namesKept: [], rolesAdded: [], numbersRemoved: [], clientStoryInPost: false, foreignSpeechInPost: false });
+      { namesRemoved: [], namesKept: [], rolesAdded: [], numbersRemoved: [], clientStoryInPost: false, foreignSpeechInPost: false, relativesMoneyInPost: false });
   });
 
   it('беглая гласная: «Лев» в форме «Льва» — имя осталось, «Льгота» — нет', () => {
@@ -149,7 +149,7 @@ describe('Q-10: diffPostAgainstNote', () => {
   // обязана показать.
   it('ничего не убрано — пустые списки убранных, но все имена остались в посте', () => {
     const d = diffPostAgainstNote(NOTE, NOTE);
-    expect(d).toEqual({ namesRemoved: [], namesKept: ['Тимур', 'Оля'], rolesAdded: [], numbersRemoved: [], clientStoryInPost: false, foreignSpeechInPost: false });
+    expect(d).toEqual({ namesRemoved: [], namesKept: ['Тимур', 'Оля'], rolesAdded: [], numbersRemoved: [], clientStoryInPost: false, foreignSpeechInPost: false, relativesMoneyInPost: false });
   });
 
   it('суммы с «тыс» и «₽» считаются числами источника', () => {

@@ -173,3 +173,11 @@ sudo docker compose start kong auth rest realtime
 `ai_embeddings` → `local_store_records` (порядок — из-за внешних ключей).
 Всё зашифровано ключом из `users.encryption_meta` — переносить её вместе с
 остальным, иначе заметки не открыть.
+
+## Копия вне сервера (D-1, с 03.11.2026)
+
+- `pg-backup.sh` после каждой копии шифрует её `age` на ключ `/opt/justwriting/backup/age-recipient.txt` и кладёт в `/var/backups/justwriting-offsite/` (14 штук, группа `backup-pull`).
+- Соседняя машина раз в сутки (задача Планировщика `jw-offsite-pull`, 10:15 по её часам) забирает самую свежую через пользователя `backup-pull`: вход только по ключу, команда в `authorized_keys` — `offsite-serve.sh` (`latest` / `sha <имя>` / `get <имя>`), ни оболочки, ни проброса портов, ни sudo. Скрипт забора — `offsite-pull.ps1`, копии — `C:\jw-backup\copies`, журнал — `C:\jw-backup\offsite-pull.log`; копия старше 48 ч на сервере — ошибка задачи.
+- Строка `authorized_keys` пользователя `backup-pull` (`/var/lib/backup-pull/.ssh/authorized_keys`, 600): `restrict,command="/opt/justwriting/backup/offsite-serve.sh" ssh-ed25519 AAAA… neighbor-backup-pull` — `restrict` снимает проброс портов, pty и агент; ключ соседней машины лежит у неё в `C:\jw-backup\backup-pull_ed25519`.
+- **Ключ расшифровки только у владельца** (файл на маке, `~/.ssh/justwriting-backup-age.key`). На сервере и на соседней машине его нет. Потерян ключ — копии вне сервера бесполезны.
+- Восстановить из такой копии: `age -d -i <ключ> justwriting-<stamp>.dump.age > justwriting-<stamp>.dump`, дальше — «Восстановление всего» выше.

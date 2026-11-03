@@ -109,6 +109,9 @@ export function validateInternalCallRestrictions(params: {
 // DL-19 (владелец 25.10): ход с длинным вложением (правило «РАЗБОР ДЛИННОГО
 // ТЕКСТА», longNoteRule) — потолок вдвое. На стенде S11 (30–34 тыс. знаков,
 // подробно) 7 из 30 разборов упирались в 3 000 токенов и не доходили до конца.
+/** DY7-8: потолок вывода ветви рассуждений — один на `getMaxTokens` и поток `api/chat.ts`. */
+export const REASONING_MAX_TOKENS = 16_384;
+
 export function getMaxTokens(
   isInternal: boolean,
   reasoning: boolean | null | undefined,
@@ -120,7 +123,7 @@ export function getMaxTokens(
     if (callType === 'system_task') return 2048;
     return INTERNAL_CALL_RESTRICTIONS.maxTokens;
   }
-  if (reasoning) return 16384;
+  if (reasoning) return REASONING_MAX_TOKENS;
   if (responseLength === 'short') return 700;
   const k = longNote ? 2 : 1;
   if (responseLength === 'standard') return 1500 * k;

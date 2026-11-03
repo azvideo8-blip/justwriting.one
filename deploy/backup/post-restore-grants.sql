@@ -47,3 +47,11 @@ revoke all on public.feature_flags from public, anon, authenticated;
 revoke all on function public.feature_enabled(text) from public, anon;
 grant execute on function public.feature_enabled(text) to authenticated;
 \endif
+-- 0047 (SYNC2): ключи повтора прибавок пишет только sync_push; функцию исполняет
+-- только вошедший. Дамп до 0047 таблицы не содержит — тот же страж \if.
+select to_regclass('public.sync_op_keys') is not null as has_sync_op_keys \gset
+\if :has_sync_op_keys
+revoke all on public.sync_op_keys from public, anon, authenticated;
+revoke all on function public.sync_push(jsonb) from public, anon;
+grant execute on function public.sync_push(jsonb) to authenticated;
+\endif

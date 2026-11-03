@@ -4,6 +4,7 @@ import { useTimerStore } from '../store/useTimerStore';
 import { useContentStore } from '../store/useContentStore';
 import { applyDraftToStores } from '../utils/draftUtils';
 import { WritingDraftService } from '../services/WritingDraftService';
+import { markEditorTextOwner } from '../services/draftWriter';
 import {
   loadGuestDraftFromStorage,
   deleteGuestDraftFromStorage,
@@ -63,6 +64,9 @@ export function useDraftSession(userId: string, isGuest: boolean): DraftSessionS
     }
 
     applyDraftToStores(draft, isGuest ? null : userId);
+    // DW4-4: загруженный черновик назначает зеркало — его владелец, а для
+    // гостя сам гость (у гостевого текста владельца-аккаунта нет, DW-6).
+    markEditorTextOwner(isGuest ? userId : draft.owner ?? userId);
     setHasDraft(false);
   }, [userId, isGuest]);
 
@@ -81,6 +85,7 @@ export function useDraftSession(userId: string, isGuest: boolean): DraftSessionS
     }
 
     applyDraftToStores(draft, isGuest ? null : userId);
+    markEditorTextOwner(isGuest ? userId : draft.owner ?? userId);
     setHasDraft(false);
   }, [userId, isGuest]);
 

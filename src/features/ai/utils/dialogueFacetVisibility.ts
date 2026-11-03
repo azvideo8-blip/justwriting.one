@@ -14,6 +14,18 @@ export function dialogueFacetVisible(
   hiddenIds: HiddenNoteIds,
 ): boolean {
   if (!dialogue || dialogue.deletedAt) return false;
-  if (dialogue.documentId && hiddenIds.has(dialogue.documentId)) return false;
-  return !dialogue.messages.some(m => citesAnyId(m.content, hiddenIds));
+  return !dialogueCitesHidden(dialogue, hiddenIds);
+}
+
+/**
+ * Хвост плана 27.10 (§7): «тема или реплика ведут на скрытую заметку» — одна
+ * формулировка для граней (выше) и proactive-блока. Удалённость диалога сюда не
+ * входит: proactive её не проверял, и строже он стал бы только с замером.
+ */
+export function dialogueCitesHidden(
+  dialogue: Pick<AIDialogue, 'documentId' | 'messages'>,
+  hiddenIds: HiddenNoteIds,
+): boolean {
+  if (dialogue.documentId && hiddenIds.has(dialogue.documentId)) return true;
+  return dialogue.messages.some(m => citesAnyId(m.content, hiddenIds));
 }

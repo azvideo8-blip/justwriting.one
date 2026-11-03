@@ -5,9 +5,9 @@ import { AIMonthlyDigestService } from '../AIMonthlyDigestService';
 import { AITimelineService } from '../AITimelineService';
 import { reportError } from '../../../../shared/errors/reportError';
 import { isExcludedFromAI } from '../../utils/isExcludedFromAI';
-import { extractCitationIds } from './citations';
 import { hiddenNoteIdsFromDocs, ALL_NOTES_HIDDEN, type HiddenNoteIds } from '../../utils/hiddenNoteIds';
 import { loadVisibleNoteKeys } from '../../utils/retrieval/docSnapshot';
+import { dialogueCitesHidden } from '../../utils/dialogueFacetVisibility';
 
 interface BuildProactiveBlockParams {
   personaId: string;
@@ -31,9 +31,7 @@ export async function buildProactiveBlock({ personaId, turnEmb }: BuildProactive
   } catch (e) {
     reportError(e, { action: '[useAIChatContext] proactive hidden set failed' });
   }
-  const citesHidden = (d: AIDialogue): boolean =>
-    (!!d.documentId && hiddenIds.has(d.documentId))
-    || d.messages.some(m => extractCitationIds(m.content).some(id => hiddenIds.has(id)));
+  const citesHidden = (d: AIDialogue): boolean => dialogueCitesHidden(d, hiddenIds);
 
   try {
     const recentDigests = await AIMonthlyDigestService.getRecent(2);

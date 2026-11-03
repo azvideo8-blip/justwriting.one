@@ -5,7 +5,7 @@ import { generate } from './provider';
 import { buildChatSystemPrompt, assembleChatPromptParams, isLongNoteTurn, chatInputSchema, withReasoningLanguage, withEnglishNudge, type ReplyLanguage } from '../../src/shared/ai/buildChatPrompt.js';
 import { resolveAiChatModel, resolveChatModel } from '../../src/shared/ai/requestConfig.js';
 import { needsEnglishNudge, questionPart } from '../../src/shared/ai/languageNudge.js';
-import { logChatShape } from '../../src/shared/ai/chatShape.js';
+import { logChatShape, answerHitLimit } from '../../src/shared/ai/chatShape.js';
 import { safeErrorShape } from '../../src/shared/ai/errorShape.js';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 
@@ -134,7 +134,7 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
   // Same headers the streaming path writes, so the client parser is unchanged.
   const raw = isReasoningMode && gen.reasoning ? `ХОД МЫСЛИ:\n${gen.reasoning}\n\nОТВЕТ:\n${gen.text}` : gen.text;
   // DL-19: ответ упёрся в потолок — пометка в конце (как в потоковом пути).
-  const cut = !isInternalCall && gen.text.length > 0 && gen.tokensOut >= maxTokens;
+  const cut = !isInternalCall && gen.text.length > 0 && answerHitLimit({ providerFinish: null, outTokens: gen.tokensOut, maxTokens });
   const text = sanitizeAiResponse(raw, { keepReasoning: isReasoningMode }) + (cut ? answerCutNote(replyLang) : '');
 
   callRes.markProduced(gen.text.length);

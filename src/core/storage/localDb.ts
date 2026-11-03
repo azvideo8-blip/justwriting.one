@@ -31,6 +31,9 @@ export const CLOUD_STAMP_STORES: readonly string[] = [
 
 // AUDIT-part2 4.2: скалярные поля наследуются от канонического DocumentFields
 // (shared/types) — расхождение локальной и облачной форм ловит компилятор.
+/** S2-6: поле метаданных заметки, которое досылается в облако по отдельности. */
+export type MetadataField = 'title' | 'tags' | 'labelId' | 'excludedFromAI' | 'lastSessionAt' | 'trashedAt';
+
 export interface LocalDocument extends DocumentFields<number> {
   id: string;
   /** Канонический идентификатор заметки: генерируется клиентом один раз и не
@@ -74,6 +77,9 @@ export interface LocalDocument extends DocumentFields<number> {
   /** R3-1: правка названия/тегов/метки/даты/«не показывать ИИ» не дошла до облака.
    *  Дренаж по этому флагу отправляет метаданные целиком и снимает флаг. */
   metadataDirty?: boolean | undefined;
+  /** S2-6: какие поля метаданных изменены здесь и ждут досыла. Нет поля при
+   *  `metadataDirty` — флаг поставлен до 0.11.x: дослать всё (как раньше). */
+  metadataDirtyFields?: MetadataField[] | undefined;
 }
 
 export interface LocalVersion {
@@ -138,6 +144,12 @@ export interface LocalDraft {
   savedDocumentId?: string | null | undefined;
   tags?: string[] | undefined;
   labelId?: string | undefined;
+  /**
+   * Шаг 4 DW-4: владелец текста — поле строки. Писатель, не назвавший
+   * владельца, мутатором не пропускается; старые строки без поля читаются
+   * как «свой» (база поимённая).
+   */
+  owner?: string | undefined;
   updatedAt: number;
   /**
    * SF-2: серверная метка (`drafts.updated_at`, триггер 0043) той облачной версии,

@@ -56,7 +56,8 @@ async function resolveCloudId(userId: string, localId?: string, cloudId?: string
 // N2-1: задача 'document' без флага досылала только версии — корзина,
 // изменённая без связи, до облака не доходила никогда.
 async function queueMetadataRetry(userId: string, localId: string): Promise<void> {
-  await LocalDocumentService.setMetadataDirty(localId, true, userId);
+  // S2-6: здесь это только корзина (в неё и из неё) — досылается одно поле.
+  await LocalDocumentService.setMetadataDirty(localId, true, userId, 'trashedAt');
   const db = await getLocalDb(userId);
   await db.put('syncQueue', {
     id: `doc_${localId}_${Date.now()}`,

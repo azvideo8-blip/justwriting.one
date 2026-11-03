@@ -1,6 +1,7 @@
 import type { AppUser } from '../../../core/auth/types';
 import { DocumentService } from '../../../core/services/DocumentService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
+import type { MetadataField } from '../../../core/storage/localDb';
 import { StorageService } from '../../../core/services/StorageService';
 import { SyncService } from '../../../core/services/SyncService';
 import { CloudSyncService } from '../../../core/services/CloudSyncService';
@@ -10,6 +11,7 @@ import { emitDomainEvent } from '../../../core/events/domainEvents';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
 
 type ArchiveField = 'tags' | 'title' | 'date' | 'labelId';
+const ARCHIVE_FIELD_TO_META: Record<ArchiveField, MetadataField> = { tags: 'tags', title: 'title', date: 'lastSessionAt', labelId: 'labelId' };
 type ArchiveFieldValue = string[] | string | Date | undefined;
 
 // R3-1: правка метаданных не дошла до облака. Одной постановки в очередь мало:
@@ -18,9 +20,9 @@ type ArchiveFieldValue = string[] | string | Date | undefined;
 // BR-9 (класс RA1-1): владелец нужен обоим вызовам — без него база резолвится
 // через `getCurrentUser()`, а в окне восстановления сессии это гостевая база:
 // флаг и задача оставались в `justwriting-local`, заметка — в базе аккаунта.
-async function queueMetadataRetry(localId: string, userId: string): Promise<void> {
+async function queueMetadataRetry(localId: string, userId: string, field: MetadataField): Promise<void> {
   try {
-    await LocalDocumentService.setMetadataDirty(localId, true, userId);
+    await LocalDocumentService.setMetadataDirty(localId, true, userId, field);
   } catch (e) {
     reportError(e, { action: 'queueMetadataRetry_flag', documentId: localId });
   }
@@ -44,7 +46,7 @@ export async function toggleAIExclusion(
       await DocumentService.updateExcludedFromAI(user.uid, session._linkedCloudId, excluded).catch(e => {
         cloudSyncFailed = true;
         reportError(e, { action: 'toggleAIExclusion_cloud', documentId: session._linkedCloudId });
-        void queueMetadataRetry(session.id, userId);
+        void queueMetadataRetry(session.id, userId, 'excludedFromAI');
       });
     }
     return cloudSyncFailed ? { success: true, cloudSyncFailed } : { success: true };
@@ -62,7 +64,7 @@ export async function toggleAIExclusion(
         const localId = await CloudSyncService.addLocalCopy(user.uid, session.id);
         await LocalDocumentService.updateExcludedFromAI(localId, excluded, userId);
         emitDomainEvent({ type: 'note.excludedFromAI', documentId: localId, excluded });
-        void queueMetadataRetry(localId, userId);
+        void queueMetadataRetry(localId, userId, 'excludedFromAI');
       } catch (localErr) {
         reportError(localErr, { action: 'toggleAIExclusion_localFallback', documentId: session.id });
         throw localErr;
@@ -93,7 +95,7 @@ export async function updateArchiveField(
           reportError(e, { action: 'updateArchiveField_tags', documentId: session._linkedCloudId });
           // Queue the LOCAL id — the drain (_drainPendingQueue -> addCloudCopy)
           // looks up a local IndexedDB document by this id, not a cloud one.
-          void queueMetadataRetry(session.id, userId);
+          void queueMetadataRetry(session.id, userId, 'tags');
         });
       }
     } else if (field === 'title') {
@@ -105,7 +107,7 @@ export async function updateArchiveField(
           reportError(e, { action: 'updateArchiveField_title', documentId: session._linkedCloudId });
           // Queue the LOCAL id — the drain (_drainPendingQueue -> addCloudCopy)
           // looks up a local IndexedDB document by this id, not a cloud one.
-          void queueMetadataRetry(session.id, userId);
+          void queueMetadataRetry(session.id, userId, 'title');
         });
       }
     } else if (field === 'date') {
@@ -118,7 +120,7 @@ export async function updateArchiveField(
           reportError(e, { action: 'updateArchiveField_date', documentId: session._linkedCloudId });
           // Queue the LOCAL id — the drain (_drainPendingQueue -> addCloudCopy)
           // looks up a local IndexedDB document by this id, not a cloud one.
-          void queueMetadataRetry(session.id, userId);
+          void queueMetadataRetry(session.id, userId, 'lastSessionAt');
         });
       }
     } else if (field === 'labelId') {
@@ -130,7 +132,7 @@ export async function updateArchiveField(
           reportError(e, { action: 'updateArchiveField_labelId', documentId: session._linkedCloudId });
           // Queue the LOCAL id — the drain (_drainPendingQueue -> addCloudCopy)
           // looks up a local IndexedDB document by this id, not a cloud one.
-          void queueMetadataRetry(session.id, userId);
+          void queueMetadataRetry(session.id, userId, 'labelId');
         });
       }
     }
@@ -169,7 +171,7 @@ export async function updateArchiveField(
       try {
         const localId = await CloudSyncService.addLocalCopy(user.uid, session.id);
         await _applyLocalFieldEdit(localId, field, value, userId);
-        void queueMetadataRetry(localId, userId);
+        void queueMetadataRetry(localId, userId, ARCHIVE_FIELD_TO_META[field]);
       } catch (localErr) {
         reportError(localErr, { action: `updateArchiveField_${field}_localFallback`, documentId: session.id });
         // Both cloud AND the local fallback failed — nothing was persisted

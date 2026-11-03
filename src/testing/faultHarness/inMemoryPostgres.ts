@@ -43,8 +43,24 @@ const TABLE_COLUMNS: Record<TableName, readonly string[]> = {
   // ИИ-данных: оба решаются отметкой сервера, и на голых `updated_at` харнес
   // молчал там, где прод отказывает.
   // S1-3: `rev` — номер строки из 0045; один счётчик на четыре таблицы.
-  local_store_records: ['id', 'user_id', 'store', 'key', 'payload', 'checksum', 'created_at', 'updated_at', 'stamped_at', 'rev'],
+  // S2-3: `deleted` — надгробие из 0047, клиенту не видно (политика select).
+  local_store_records: ['id', 'user_id', 'store', 'key', 'payload', 'checksum', 'created_at', 'updated_at', 'stamped_at', 'rev', 'deleted'],
 };
+
+/** S2-3: элемент и ответ `sync_push` (0047). */
+export type SyncPushItem = Record<string, unknown>;
+export interface SyncPushResult {
+  status: 'ok' | 'conflict' | 'duplicate' | 'missing' | 'gone' | 'rejected';
+  rev?: number | null;
+  stamped_at?: number;
+  payload_updated_at?: unknown;
+  row?: { rev: number; deleted: boolean; payload: unknown; checksum: unknown; stamped_at: number } | null;
+}
+
+/** Надгробие `local_store_records` для клиента — как удалённая строка (0047). */
+function isTombstone(table: TableName, row: PostgresRow): boolean {
+  return table === 'local_store_records' && row.deleted === true;
+}
 
 // R4-029: уникальные кортежи — по реальной схеме (0001_schema.sql,
 // 0003_local_store_records.sql). Одни и те же кортежи принудительны и для
@@ -91,6 +107,10 @@ export class InMemoryPostgres {
   private revSeq = 0;
   /** S1-3: «сколько запросов к таблице и каким методом» — на событие синка. */
   private requestCounts = new Map<string, number>();
+  /** S2-3: база без 0047 — `sync_push` отвечает PGRST202, как PostgREST. */
+  public withSyncPush = true;
+  /** S2-3: `sync_op_keys` — `${uid}:${op_id}` → rev. */
+  private opKeys = new Map<string, number | null>();
 
   constructor(opts: { withRev?: boolean; maxRows?: number } = {}) {
     this.withRev = opts.withRev ?? true;
@@ -162,6 +182,7 @@ export class InMemoryPostgres {
     this.sequences.clear();
     this.revSeq = 0;
     this.requestCounts.clear();
+    this.opKeys.clear();
     const tableNames: TableName[] = [
       'documents',
       'versions',
@@ -296,6 +317,10 @@ export class InMemoryPostgres {
         matchIndex = current.findIndex(r => tupleFn(r) === tuple);
       }
 
+      if (matchIndex >= 0 && isTombstone(table, current[matchIndex]!)) {
+        // 0047: `on conflict do update` идёт только по видимым строкам.
+        return { data: null, error: { message: `new row violates row-level security policy for table "${table}"`, code: '42501' } };
+      }
       if (matchIndex >= 0) {
         const merged: PostgresRow = { ...current[matchIndex], ...row, ...(table === 'documents' ? { updated_at: this.stamp() } : {}) };
         if (this.withRev) merged.rev = this.nextRev();
@@ -328,7 +353,7 @@ export class InMemoryPostgres {
     const updated: PostgresRow[] = [];
 
     for (let i = 0; i < current.length; i++) {
-      if (this.matchesFilters(current[i]!, filters)) {
+      if (!isTombstone(table, current[i]!) && this.matchesFilters(current[i]!, filters)) {
         const merged: PostgresRow = { ...current[i], ...payload, ...(table === 'documents' ? { updated_at: this.stamp() } : {}) };
         if (this.withRev) merged.rev = this.nextRev();
         this.applyServerStamp(table, merged);
@@ -351,7 +376,7 @@ export class InMemoryPostgres {
     const deleted: PostgresRow[] = [];
 
     for (const row of current) {
-      if (this.matchesFilters(row, filters)) {
+      if (!isTombstone(table, row) && this.matchesFilters(row, filters)) {
         deleted.push(row);
       } else {
         remaining.push(row);
@@ -380,7 +405,7 @@ export class InMemoryPostgres {
       return this.revUnavailable(table);
     }
 
-    let rows = (this.tables.get(table) || []).filter(r => this.matchesFilters(r, filters));
+    let rows = (this.tables.get(table) || []).filter(r => !isTombstone(table, r) && this.matchesFilters(r, filters));
 
     if (orders.length > 0) {
       rows = [...rows].sort((a, b) => {
@@ -415,6 +440,109 @@ export class InMemoryPostgres {
     }
 
     return { data: rows.map(r => ({ ...r })), error: null };
+  }
+
+  /**
+   * S2-3: `sync_push` (0047) с той же семантикой, что SQL-функция: пачка — одна
+   * транзакция (здесь — синхронный проход), ответ по элементам в том же порядке.
+   * `user_id` из элемента не читается.
+   */
+  /**
+   * Ревью SYNC2: настоящая функция — одна транзакция, плохой элемент откатывает
+   * весь пакет. Стенд раньше применял элементы до плохого и возвращал ошибку —
+   * тест мог пройти там, где прод отказал бы целиком.
+   */
+  public executeSyncPush(
+    uid: string | null,
+    items: SyncPushItem[],
+  ): { data: SyncPushResult[] | null; error: { message: string; code: string } | null } {
+    const lsrBefore = structuredClone(this.tables.get('local_store_records')!);
+    const docsBefore = structuredClone(this.tables.get('documents')!);
+    const keysBefore = new Map(this.opKeys);
+    const res = this.executeSyncPushItems(uid, items);
+    if (res.error) {
+      const lsr = this.tables.get('local_store_records')!;
+      lsr.splice(0, lsr.length, ...lsrBefore);
+      const docs = this.tables.get('documents')!;
+      docs.splice(0, docs.length, ...docsBefore);
+      this.opKeys = keysBefore;
+    }
+    return res;
+  }
+
+  private executeSyncPushItems(
+    uid: string | null,
+    items: SyncPushItem[],
+  ): { data: SyncPushResult[] | null; error: { message: string; code: string } | null } {
+    if (!this.withSyncPush) {
+      return { data: null, error: { message: 'Could not find the function public.sync_push(items) in the schema cache', code: 'PGRST202' } };
+    }
+    if (!uid) return { data: null, error: { message: 'sync_push: no user', code: '42501' } };
+    if (!Array.isArray(items) || items.length > 100) {
+      return { data: null, error: { message: 'sync_push: expected an array of at most 100 items', code: '22023' } };
+    }
+    const lsr = this.tables.get('local_store_records')!;
+    const docs = this.tables.get('documents')!;
+    const ms = (iso: unknown) => Date.parse(String(iso));
+    const rowOf = (r: PostgresRow) => ({
+      rev: r.rev as number, deleted: r.deleted === true, payload: r.payload, checksum: r.checksum ?? null, stamped_at: ms(r.stamped_at),
+    });
+    const write = (r: PostgresRow, patch: PostgresRow): SyncPushResult => {
+      Object.assign(r, patch);
+      r.rev = this.nextRev();
+      this.applyServerStamp('local_store_records', r);
+      return { status: 'ok', rev: r.rev as number, stamped_at: ms(r.stamped_at), payload_updated_at: (r.payload as Record<string, unknown> | null)?.updatedAt ?? null };
+    };
+    const out: SyncPushResult[] = [];
+    for (const it of items) {
+      const table = it.table;
+      const op = it.op;
+      const base = it.base_rev === null || it.base_rev === undefined ? null : Number(it.base_rev);
+      if (table === 'local_store_records' && (op === 'put' || op === 'recreate' || op === 'delete')) {
+        const store = String(it.store ?? '');
+        const key = String(it.key ?? '');
+        if (!store || !key) return { data: null, error: { message: 'sync_push: store/key required', code: '22023' } };
+        const cur = lsr.find(r => r.user_id === uid && r.store === store && r.key === key);
+        const conflict = (): SyncPushResult => ({ status: 'conflict', row: cur ? rowOf(cur) : null });
+        if (op === 'put' && base === null) {
+          if (cur) { out.push(conflict()); continue; }
+          const row: PostgresRow = { id: this.nextId('local_store_records'), user_id: uid, store, key, payload: it.payload, checksum: it.checksum ?? null, deleted: false, created_at: new Date().toISOString() };
+          lsr.push(row);
+          out.push(write(row, {}));
+        } else if (op === 'put') {
+          out.push(cur && cur.rev === base && cur.deleted !== true ? write(cur, { payload: it.payload, checksum: it.checksum ?? null }) : conflict());
+        } else if (op === 'recreate') {
+          out.push(cur && cur.rev === base && cur.deleted === true ? write(cur, { payload: it.payload, checksum: it.checksum ?? null, deleted: false }) : conflict());
+        } else if (!cur) {
+          out.push({ status: 'ok', rev: null });
+        } else if (cur.deleted === true) {
+          out.push({ status: 'ok', rev: cur.rev as number });
+        } else {
+          out.push(cur.rev === base ? { ...write(cur, { deleted: true, payload: {}, checksum: null }), payload_updated_at: undefined } : conflict());
+        }
+      } else if (table === 'documents' && op === 'delta') {
+        const uuid = String(it.uuid ?? '');
+        const opId = String(it.op_id ?? '');
+        if (!uuid || !opId) return { data: null, error: { message: 'sync_push: op_id/uuid required', code: '22023' } };
+        const doc = docs.find(d => d.uuid === uuid && d.user_id === uid);
+        if (!doc) { out.push({ status: 'missing' }); continue; }
+        if (doc.deleted_at !== null && doc.deleted_at !== undefined) { out.push({ status: 'gone' }); continue; }
+        const k = `${uid}:${opId}`;
+        if (this.opKeys.has(k)) { out.push({ status: 'duplicate', rev: this.opKeys.get(k) ?? null }); continue; }
+        const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+        // 0042: накопительные счётчики назад не идут.
+        doc.sessions_count = Math.max(num(doc.sessions_count), num(doc.sessions_count) + num(it.sessions));
+        doc.total_duration = Math.max(num(doc.total_duration), num(doc.total_duration) + num(it.duration));
+        doc.total_words = Math.max(num(doc.total_words), num(it.words));
+        doc.updated_at = this.stamp();
+        if (this.withRev) doc.rev = this.nextRev();
+        this.opKeys.set(k, (doc.rev as number | undefined) ?? null);
+        out.push({ status: 'ok', rev: (doc.rev as number | undefined) ?? null });
+      } else {
+        return { data: null, error: { message: `sync_push: unknown item ${String(table)}/${String(op)}`, code: '22023' } };
+      }
+    }
+    return { data: out, error: null };
   }
 
   /**

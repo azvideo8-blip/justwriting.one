@@ -137,7 +137,7 @@ vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }
 
 function draft(content: string, wordCount: number, updatedAt: number, extra: Partial<LocalDraft> = {}): LocalDraft {
   return {
-    userId: UID, title: '', content, seconds: 60, wpm: 40, wordCount,
+    userId: UID, owner: UID, title: '', content, seconds: 60, wpm: 40, wordCount,
     pinnedThoughts: [], tags: [], activeSessionId: null, savedDocumentId: null,
     updatedAt, ...extra,
   };

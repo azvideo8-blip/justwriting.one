@@ -43,6 +43,7 @@ const FRESH_TEXT = 'MARKER_D1_DRAFT_С_ДРУГОГО_УСТРОЙСТВА';
 
 const localDraft = (): LocalDraft => ({
   userId: UID,
+  owner: UID,
   title: '',
   content: DELETED_TEXT,
   seconds: 60,

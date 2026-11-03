@@ -12,10 +12,9 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { referencedDays, localDay } from '../chatContext/explicitRefs';
 import { buildRelatedDaysBlock } from '../chatContext/relatedDays';
 import type { AIDocumentEmbedding, AIDocumentSummary, LocalDocument } from '../../../../core/storage/localDb';
-import { attachedTurn } from '../../../../test/attachedTurnFixtures';
 
-// форма руками намеренно: в (k) и в «не даты» шапка/ссылка внутри текста — сам
-// предмет проверки, конструктор её бы разметил как начало блока.
+// форма руками намеренно: в (k), (l) и в «не даты» шапка/ссылка внутри текста —
+// сам предмет проверки.
 
 const at = (y: number, m: number, d: number, h = 12) => new Date(y, m - 1, d, h).getTime();
 const day = (y: number, m: number, d: number) => localDay(at(y, m, d));
@@ -102,17 +101,20 @@ function archive() {
   return { ATT, docs, embs, sums };
 }
 
+// Один приложенный блок без даты: день — из записи заметки в архиве.
+const one = (content: string) => [{ documentId: 'att', title: '', content }];
+
 describe('фон: явная ссылка гарантированно, строки по дате', () => {
   afterEach(() => { vi.useRealTimers(); });
 
   it('(a) без ссылки сессия не попадает в четвёрку', () => {
     const { ATT, docs, embs, sums } = archive();
-    expect(buildRelatedDaysBlock(ATT, embs, docs, sums, 'просто текст')!.ids).not.toContain('session');
+    expect(buildRelatedDaysBlock(ATT, embs, docs, sums, one('просто текст'))!.ids).not.toContain('session');
   });
 
   it('(b) «на сессии 10.10» → запись 10.10 в фоне, остаток — сходство', () => {
     const { ATT, docs, embs, sums } = archive();
-    const r = buildRelatedDaysBlock(ATT, embs, docs, sums, 'на сессии 10.10 говорили про маму')!;
+    const r = buildRelatedDaysBlock(ATT, embs, docs, sums, one('на сессии 10.10 говорили про маму'))!;
     expect(r.ids).toContain('session');
     expect(r.ids).toHaveLength(4);
     expect(r.block).toMatch(/\n\[#session · 2026-10-10 · за 5 дн\. до этой заметки\] СУТЬ_session/);
@@ -126,7 +128,7 @@ describe('фон: явная ссылка гарантированно, стро
     sums.set('yesterday', sum('yesterday'));
     docs.set('beforeNow', doc('beforeNow', at(2026, 11, 30)));
     sums.set('beforeNow', sum('beforeNow'));
-    const r = buildRelatedDaysBlock(ATT, embs, docs, sums, 'вчера не спал')!;
+    const r = buildRelatedDaysBlock(ATT, embs, docs, sums, one('вчера не спал'))!;
     expect(r.ids).toContain('yesterday');
     expect(r.ids).not.toContain('beforeNow');
   });
@@ -135,7 +137,7 @@ describe('фон: явная ссылка гарантированно, стро
   it('(g) печатается день, по которому запись найдена, а не последняя сессия', () => {
     const { ATT, docs, embs, sums } = archive();
     docs.set('session', doc('session', at(2026, 10, 20, 19), { firstSessionAt: at(2026, 10, 10, 19) }));
-    const r = buildRelatedDaysBlock(ATT, embs, docs, sums, 'на сессии 10.10')!;
+    const r = buildRelatedDaysBlock(ATT, embs, docs, sums, one('на сессии 10.10'))!;
     expect(r.block).toContain('[#session · 2026-10-10 · за 5 дн. до этой заметки]');
     expect(r.block).not.toContain('2026-10-20');
   });
@@ -146,7 +148,7 @@ describe('фон: явная ссылка гарантированно, стро
     docs.set('earlier', doc('earlier', at(2026, 9, 29)));
     embs.push(emb('earlier', [1, 0.05, 0]));
     sums.set('earlier', sum('earlier'));
-    const r = buildRelatedDaysBlock(ATT, embs, docs, sums, 'на сессии 10.10')!;
+    const r = buildRelatedDaysBlock(ATT, embs, docs, sums, one('на сессии 10.10'))!;
     expect(r.ids).toContain('session');
     expect(r.ids[0]).toBe('sim_0');
     expect(r.ids.indexOf('earlier')).toBeLessThan(r.ids.indexOf('session'));
@@ -167,7 +169,7 @@ describe('фон: явная ссылка гарантированно, стро
     docs.set('session', doc('session', at(2026, 10, 10, 19), { excludedFromAI: true } as Partial<LocalDocument>));
     docs.set('trash', doc('trash', at(2026, 10, 10, 8), { trashedAt: NOTE } as Partial<LocalDocument>));
     sums.set('trash', sum('trash'));
-    const r = buildRelatedDaysBlock(ATT, embs, docs, sums, 'на сессии 10.10')!;
+    const r = buildRelatedDaysBlock(ATT, embs, docs, sums, one('на сессии 10.10'))!;
     expect(r.ids).not.toContain('session');
     expect(r.ids).not.toContain('trash');
     expect(r.block).not.toContain('СУТЬ_session');
@@ -176,19 +178,19 @@ describe('фон: явная ссылка гарантированно, стро
 
   it('(e) дня нет в архиве → фон как без ссылки', () => {
     const { ATT, docs, embs, sums } = archive();
-    expect(buildRelatedDaysBlock(ATT, embs, docs, sums, 'было 03.03.2020')).toEqual(buildRelatedDaysBlock(ATT, embs, docs, sums, ''));
+    expect(buildRelatedDaysBlock(ATT, embs, docs, sums, one('было 03.03.2020'))).toEqual(buildRelatedDaysBlock(ATT, embs, docs, sums, one('')));
   });
 
   it('(f) FN-2: остальные приложенные к ходу в фон не идут', () => {
     const { ATT, docs, embs, sums } = archive();
-    const r = buildRelatedDaysBlock(ATT, embs, docs, sums, 'на сессии 10.10', [ATT, 'session', 'sim_99'])!;
+    const r = buildRelatedDaysBlock(ATT, embs, docs, sums, one('на сессии 10.10'), [ATT, 'session', 'sim_99'])!;
     expect(r.ids).not.toContain('session');
     expect(r.ids).not.toContain('sim_99');
   });
 
   // Н-3 (дейлик 2026-10-23): «вчера» второй приложенной считалось от дня первой.
   // Мутация: один noteAt на весь текст → красный.
-  it('(j) относительные даты каждой приложенной — от её шапки', () => {
+  it('(j) относительные даты каждой приложенной — от её дня', () => {
     const { ATT, docs, embs, sums } = archive();
     const TWO = at(2026, 10, 5, 9);
     docs.set('two', doc('two', TWO));
@@ -196,11 +198,11 @@ describe('фон: явная ссылка гарантированно, стро
     sums.set('before_two', sum('before_two'));
     docs.set('before_att', doc('before_att', at(2026, 10, 14, 20)));
     sums.set('before_att', sum('before_att'));
-    const text = attachedTurn([
+    const blocks = [
       { documentId: ATT, title: 'раз', lastSessionAt: at(2026, 10, 15, 9), content: 'сегодня тихо' },
       { documentId: 'two', title: 'два', lastSessionAt: at(2026, 10, 5, 9), content: 'вчера чинил ворота' },
-    ]);
-    const r = buildRelatedDaysBlock(ATT, embs, docs, sums, text, ['two'])!;
+    ];
+    const r = buildRelatedDaysBlock(ATT, embs, docs, sums, blocks, ['two'])!;
     expect(r.ids, 'канун второй заметки').toContain('before_two');
     expect(r.ids, 'у первой «вчера» нет').not.toContain('before_att');
   });
@@ -215,9 +217,24 @@ describe('фон: явная ссылка гарантированно, стро
     sums.set('before_att', sum('before_att'));
     docs.set('before_ref', doc('before_ref', at(2026, 9, 30, 20)));
     sums.set('before_ref', sum('before_ref'));
-    const text = `[#${ATT} · 2026-10-15]\n[Прикреплена заметка: "раз"]\nкак писал\n[#local_x · 2026-10-01]\nвчера не спал`;
-    const r = buildRelatedDaysBlock(ATT, embs, docs, sums, text)!;
+    const r = buildRelatedDaysBlock(ATT, embs, docs, sums, one('как писал\n[#local_x · 2026-10-01]\nвчера не спал'))!;
     expect(r.ids).toContain('before_att');
     expect(r.ids).not.toContain('before_ref');
+  });
+
+  // relatedDays:42 (дейлик 7): в тело вставлена выгрузка с разделителем и шапкой
+  // `[#id · дата]` — разбор текста принимал её за начало блока, и «вчера» после
+  // неё уезжало на канун дня вставки. Блоки — данные сборщика, тело не разбирается.
+  // Мутация: вернуть разбор шапок по склеенному тексту блоков → красный.
+  it('(l) вставленная выгрузка с разделителем и шапкой не начинает блок', () => {
+    const { ATT, docs, embs, sums } = archive();
+    docs.set('before_att', doc('before_att', at(2026, 10, 14, 20)));
+    sums.set('before_att', sum('before_att'));
+    docs.set('before_paste', doc('before_paste', at(2026, 9, 30, 20)));
+    sums.set('before_paste', sum('before_paste'));
+    const blocks = [{ documentId: ATT, title: 'раз', lastSessionAt: NOTE, content: 'выгрузка:\n\n---\n\n[#local_x · 2026-10-01]\nвчера не спал' }];
+    const r = buildRelatedDaysBlock(ATT, embs, docs, sums, blocks)!;
+    expect(r.ids).toContain('before_att');
+    expect(r.ids).not.toContain('before_paste');
   });
 });

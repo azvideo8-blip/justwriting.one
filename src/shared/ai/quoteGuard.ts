@@ -172,6 +172,55 @@ function cached(m: NonNullable<typeof memo>, key: string, f: () => number): numb
   return v;
 }
 
+/**
+ * Случай #22 (22.3): лицо глагола. Допуск «одно-два слова мимо» пропускал цитату,
+ * где слово человека переделано в другое лицо («сопротивляюсь» → «сопротивляешься»):
+ * это уже не его слова. Лицо — по окончанию настоящего/будущего времени, после
+ * снятия -ся/-сь; прошедшее время лица не несёт и не считается.
+ */
+const PERSON_ENDINGS: ReadonlyArray<[RegExp, string]> = [
+  [/(?:ешь|ишь)$/, '2s'], [/(?:ете|ите)$/, '2p'], [/(?:ем|им)$/, '1p'],
+  [/(?:ут|ют|ат|ят)$/, '3p'], [/(?:ет|ит)$/, '3s'], [/(?:у|ю)$/, '1s'],
+];
+function personOf(w: string): string | null {
+  const base = w.replace(/(?:ся|сь)$/, '');
+  if (base.length < 4) return null;
+  for (const [re, p] of PERSON_ENDINGS) if (re.test(base)) return p;
+  return null;
+}
+function sharesStem(a: string, b: string): boolean {
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  return i >= 5 && i >= Math.min(a.length, b.length) - 5;
+}
+/**
+ * Ревью 0.11.5: окончания -у/-ю/-ем/-им/-ут/-ет есть и у падежей существительных
+ * («минут»/«минуту», «учителю»/«учителем»), и такие пары кавычки терять не должны.
+ * Смена лица засчитывается, только когда окончание глагольное наверняка: одна из
+ * форм — второе лицо (-ешь/-ишь/-ете/-ите), или обе возвратные (-ся/-сь).
+ */
+function isPersonShift(qw: string, qp: string, pw: string): boolean {
+  const pp = personOf(pw);
+  if (!pp || pp === qp) return false;
+  if (qp.startsWith('2') || pp.startsWith('2')) return true;
+  return /(?:ся|сь)$/.test(qw) && /(?:ся|сь)$/.test(pw);
+}
+
+/** В фразе, где лежит почти вся цитата, слово цитаты — то же слово в другом лице. */
+function personShifted(qWords: string[], phrases: Phrase[], need: number): boolean {
+  for (const p of phrases) {
+    const have = new Set(p.words);
+    if (qWords.filter(w => have.has(w)).length < need) continue;
+    for (const qw of qWords) {
+      if (have.has(qw)) continue;
+      const qp = personOf(qw);
+      if (!qp) continue;
+      if (p.words.some(pw => pw !== qw && sharesStem(qw, pw) && isPersonShift(qw, qp, pw))) return true;
+    }
+  }
+  return false;
+}
+
 /** Наибольшее число слов цитаты, идущих по порядку внутри ОДНОЙ фразы материалов. */
 function bestInPhrases(qWords: string[], phrases: Phrase[], span: number): number {
   let best = 0;
@@ -232,7 +281,8 @@ export function unquoteAbsent(
     // кавычки теряет.
     const qWords = words(nq);
     const miss = n >= 8 ? 2 : n >= 4 ? 1 : 0;
-    if (miss > 0 && cached(mm, `~${nq}`, () => bestInPhrases(qWords, mm.phrases, n + miss)) >= n - miss) continue;
+    if (miss > 0 && cached(mm, `~${nq}`, () => bestInPhrases(qWords, mm.phrases, n + miss)) >= n - miss
+      && !cached(mm, `^${nq}`, () => Number(personShifted(qWords, mm.phrases, n - miss)))) continue;
     stripped.push(inner);
     let before = text.slice(last, at);
     let body = inner;
@@ -264,4 +314,33 @@ export function unquoteAbsent(
 /** Сколько кавычек правило сняло — счётчик для журнала, без правки текста. */
 export function countAbsentQuotes(text: string, materials: string | null | undefined): number {
   return unquoteAbsent(text, materials).stripped.length;
+}
+
+/** Шапка блока фона (`relatedDays`): по ней строгий ход вынимает фон из материалов кавычек. */
+export const RELATED_DAYS_HEAD = '[Другие дни — фон, НЕ эта заметка: суть похожих записей. Связь с ними называй как связь с другим днём, со ссылкой [#id]; их содержание этой заметке не приписывай и не цитируй]';
+
+/**
+ * DY7-7: с чем сверяются кавычки ответа — один источник для стража клиента
+ * (`useAIChat`) и счётчика `quote_unquoted` на сервере (`api/chat.ts`). Оба знают
+ * одно и то же: ограду данных хода, память, реплики человека и режим хода.
+ * RA1-8: в строгом ходе фон и память — пересказ ИИ, кавычки они не оправдывают.
+ */
+export function quoteMaterialsText(p: {
+  strict: boolean;
+  documentContent?: string | null | undefined;
+  memoryContext?: string | null | undefined;
+  humanTurns: readonly string[];
+}): string {
+  const doc = p.strict && p.documentContent ? withoutRelatedDays(p.documentContent) : p.documentContent;
+  return [doc, p.strict ? null : p.memoryContext, ...p.humanTurns].filter(Boolean).join('\n');
+}
+
+// ponytail: блок фона — шапка и однострочные строки до пустой строки (суть ≤300
+// знаков). Пустая строка внутри сути оставит её хвост в материалах — тогда
+// склеить суть в одну строку в relatedDays.
+function withoutRelatedDays(doc: string): string {
+  const at = doc.indexOf(RELATED_DAYS_HEAD);
+  if (at === -1) return doc;
+  const end = doc.indexOf('\n\n', at);
+  return doc.slice(0, at) + (end === -1 ? '' : doc.slice(end + 2));
 }

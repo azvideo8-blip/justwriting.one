@@ -15,9 +15,11 @@ import * as summaries from './summaries';
 import * as embeddings from './embeddings';
 import * as localStore from './localStore';
 import { pullChangesSince } from './pullChanges';
+import { syncPush } from './syncPush';
 
 export { likePrefix } from './fields';
 export { rowToLocalStoreRecord, parseStampedAt } from './localStore';
+export { isSyncPushMissing } from './syncPush';
 
 export const SupabaseDataProvider: IDataProvider = {
   ...documents,
@@ -28,4 +30,5 @@ export const SupabaseDataProvider: IDataProvider = {
   ...embeddings,
   ...localStore,
   pullChangesSince,
+  syncPush,
 };

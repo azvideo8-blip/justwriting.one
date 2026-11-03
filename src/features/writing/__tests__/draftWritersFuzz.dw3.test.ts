@@ -31,6 +31,7 @@ import { resetSession, loadDraftIntoStore } from '../store/storeActions';
 import { cleanupDraftsAfterSave } from '../utils/sessionActions';
 import { WritingDraftService } from '../services/WritingDraftService';
 import { loadGuestDraftFromStorage } from '../services/GuestDraftService';
+import { clearAllRescuePayloads, getEditorTextOwner, markEditorTextOwner } from '../services/draftWriter';
 import { useBaseWritingSession } from '../hooks/useBaseWritingSession';
 import { useSessionPersistence } from '../hooks/useSessionPersistence';
 import { useGuestWritingSession } from '../hooks/useGuestWritingSession';
@@ -258,6 +259,8 @@ class World {
   deletes: Mark[] = [];
   /** Кому какой гостевой текст разрешено унаследовать (I4). */
   linked = new Map<string, string>();
+  /** 4.3.2: слово → uid набравшего. Слова уникальны (метка шага+номер). */
+  wordOwner = new Map<string, string>();
   private view: RenderHookResult<ReturnType<typeof useAccountSession>, { user: AppUser | null }> | null = null;
   private guestView: RenderHookResult<ReturnType<typeof useGuestWritingSession>, undefined> | null = null;
   /**
@@ -379,6 +382,7 @@ class World {
     for (let i = 0; i < words; i++) add.push(`${shake(this.step)}w${i}`);
     const next = `${this.text ? `${this.text} ` : ''}${add.join(' ')}`;
     useContentStore.getState().setContent(next);
+    for (const word of add) this.wordOwner.set(word, this.owner);
     await this.tick(20);
     this.typed.push({ owner: this.owner, text: this.text, at: this.step });
     this.record(`type+${words}`);
@@ -629,6 +633,16 @@ class World {
         this.fail('I3', o.step, o.op, `текст, набранный «${own}», восстановился у «${o.uid}»; ${this.fmt(o.before)}`);
       }
     }
+    // 4.3.2 (DW4-4): пословная проверка I3 — в адресе B не должно быть НИ
+    // ОДНОГО слова, набранного другим аккаунтом. Проверка по цельному тексту
+    // ловит только точные совпадения; смешанный буфер («половина A + половина
+    // B») целиком ни с чем не совпадёт и ускользал бы. Слова помечены шагом
+    // набора, поэтому виновник находится точно.
+    for (const word of seen.split(/\s+/).filter(Boolean)) {
+      const by = this.wordOwner.get(word);
+      if (!by || by === o.uid || this.linked.get(by) === o.uid) continue;
+      this.fail('I3', o.step, o.op, `слово «${word}» набрано «${by}», а лежит в адресе «${o.uid}»; ${this.fmt(o.before)}`);
+    }
   }
 
   private fmt(s: StoreSnapshot): string {
@@ -651,6 +665,7 @@ class World {
     for (let i = 0; i < words; i++) add.push(`${shake(this.step)}b${i}`);
     const text = add.join(' ');
     env.cloud.set(uid, { userId: uid, content: text, title: '', wordCount: words, updatedAt: Date.now() });
+    for (const word of add) this.wordOwner.set(word, uid);
     this.typed.push({ owner: `${uid.slice(0, 5)}@B`, text, at: this.step });
     this.record(`B-пишет(${uid.slice(0, 5)})`);
   }
@@ -707,6 +722,9 @@ beforeEach(() => {
   env.layout = 'mobile';
   env.errors.length = 0;
   resetSession();
+  // DW4-4: снимок спасения — уровня вкладки, как зеркало владельца; тесту он
+  // должен доставаться пустым.
+  clearAllRescuePayloads();
   useContentStore.setState({ ownerUid: null });
   useTimerStore.setState({ status: 'idle' });
   _resetAccountReloadForTesting();
@@ -831,7 +849,10 @@ const SEEDS = [11, 22, 33, 44, 55, 66, 77, 88, 99, 111, 222, 333, 444, 555, 666,
 // записью, а отсроченная запись прежнего аккаунта успевала объявить его своим
 // раньше), и сверка при закрытии вкладки не писала его никуда — потеря.
 // Правка «кто печатает, тот и владелец» закрывает окно.
-const GUEST_SEEDS = [12, 23, 34, 45, 56, 67, 78, 89, 131, 242, 353, 464];
+// 103 — заметка ревьюера 03.11 13:55: поздняя гостевая отсрочка в окне
+// сохранения (класс DY10-10). Закрыт на dw4-2 именованной эпохой отсрочки
+// (GuestDraftService → applyWrite); держится как страж.
+const GUEST_SEEDS = [12, 23, 34, 45, 56, 67, 78, 89, 103, 131, 242, 353, 464];
 
 describe('DW-3: харнесс путей записи черновика', () => {
   it('управление харнесса: отсрочка действительно пишет, а проверка не пуста', async () => {
@@ -892,19 +913,24 @@ describe('DW-3: харнесс путей записи черновика', () =
     const w = new World(9_565);
     await w.openAccount(w.uidA);
     loadDraftIntoStore({ content: 'dw7 text of A', title: '', wordCount: 4 }, w.uidA);
+    markEditorTextOwner(w.uidA);
     await w.tick(10);
-    expect(useContentStore.getState().ownerUid, 'владелец стоит в момент подстановки').toBe(w.uidA);
+    expect(getEditorTextOwner(), 'владелец стоит в момент подстановки').toBe(w.uidA);
 
     await w.switchInApp(w.uidB);
     await settle(reloadForAccountChange());
-    for (let i = 0; i < 40 && useContentStore.getState().ownerUid !== null; i++) await w.drain(25);
+    // DW4-4: окно «спасение ещё в пути» закрыто — редактор передаётся B пустым
+    // сразу при смене (clear-at-switch), зеркальный владелец снимается синхронно.
+    // Исход спасения детерминирован: либо снимок лёг в базу A, либо (запись не
+    // прошла, B ещё не печатал) текст вернулся на экран. Оба варианта — «текст
+    // A у своего владельца», ждём один из них.
+    for (let i = 0; i < 40; i++) {
+      if (useContentStore.getState().content !== '' || (await w.draftTextFor(w.uidA)) !== null) break;
+      await w.drain(25);
+    }
     expect(await w.draftTextFor(w.uidB), 'текст A не попал в базу B').toBeNull();
     const rescued = await w.draftTextFor(w.uidA);
     const onScreen = useContentStore.getState().content;
-    // DW-10: гонка со спасением разобрана и не чинится в этом пакете. Замер этого
-    // прогона: ни строки A, ни строки B, ошибки в журнале нет — спасение ещё в
-    // пути, текст A живёт только на экране. Там, где перезагрузка не запланирована
-    // (проба World(9_566)), текст A успевала положить запись уходящего аккаунта.
     expect(rescued ?? onScreen, 'текст A спасён в свою базу или остался на экране').toBe('dw7 text of A');
     w.unmount();
     // Дать досохранению/спасению завершиться, иначе его `clear()` и подъём
@@ -963,14 +989,15 @@ describe('DW-3: харнесс путей записи черновика', () =
     await w.type(2);
     const textA = w.text;
     await w.drain(1_200);
-    expect(useContentStore.getState().ownerUid, 'владелец текста — A').toBe(w.uidA);
+    expect(getEditorTextOwner(), 'владелец текста — A').toBe(w.uidA);
 
     await w.switchInApp(w.uidB);
-    // Спасение прежнего владельца (W6) — асинхронное: на этом шаге оно ещё не
-    // доделано, и редактор под B держит текст A. Именно в этом окне раньше
-    // ложилась запись при закрытии вкладки. Если эта проверка покраснеет, окно
-    // закрылось раньше — тест надо переставлять, а не ослаблять.
-    expect(useContentStore.getState().content, 'окно спасения: редактор под B всё ещё держит текст A').toBe(textA);
+    // DW4-4: окно «редактор под B держит текст A» закрыто — редактор передаётся
+    // пустым сразу при смене (clear-at-switch), текст A уходит снимком в свою
+    // базу. Раньше именно в этом окне ложилась запись при закрытии вкладки;
+    // теперь B на входе не получает ничего, что можно было бы записать.
+    expect(useContentStore.getState().content, 'редактор передан B пустым').toBe('');
+    for (let i = 0; i < 40 && (await w.draftTextFor(w.uidA)) !== textA; i++) await w.drain(25);
     await w.pageHide();
 
     expect(localStorage.getItem(STORAGE_KEYS.DRAFT(w.uidB)), 'текст A не лёг в LS-ключ B').toBeNull();
@@ -993,19 +1020,27 @@ describe('DW-3: харнесс путей записи черновика', () =
     await w.type(2);
     const textA = w.text;
     await w.drain(1_200);
-    expect(useContentStore.getState().ownerUid, 'владелец текста — A').toBe(w.uidA);
+    expect(getEditorTextOwner(), 'владелец текста — A').toBe(w.uidA);
 
     await w.switchInApp(w.uidB);
-    expect(useContentStore.getState().content, 'окно спасения: текст A ещё на экране').toBe(textA);
+    // DW4-4: окно «текст A ещё на экране под B» закрыто — редактор передан
+    // пустым, текст A уходит снимком в свою базу. Присваивать больше нечего:
+    // правка заголовка идёт по пустому редактору и не должна ничего поднять.
+    expect(useContentStore.getState().content, 'редактор передан B пустым').toBe('');
+    for (let i = 0; i < 40 && (await w.draftTextFor(w.uidA)) !== textA; i++) await w.drain(25);
 
     useContentStore.getState().setTitle('заголовок от B');
     await w.tick(20);
-    expect(useContentStore.getState().ownerUid, 'правка вне текста не объявляет B владельцем текста A').toBe(w.uidA);
+    // Зеркало здесь может быть и ничейным, и B (пустой редактор его писатель
+    // вправе взять себе) — существенно другое: правка вне текста не вернула
+    // текст A и не сделала его собственностью B.
+    expect(useContentStore.getState().content, 'правка заголовка не вернула текст A на экран').toBe('');
 
     await w.pageHide();
     const bLegacy = (JSON.parse(localStorage.getItem(STORAGE_KEYS.DRAFT(w.uidB)) ?? '{}') as { content?: string }).content ?? '';
     expect(bLegacy, 'в LS-ключ B текст A не лёг').not.toContain(textA);
     expect(await w.draftTextFor(w.uidB), 'и в адресах B его нет').not.toBe(textA);
+    expect(await w.draftTextFor(w.uidA), 'текст A спасён в свою базу').toBe(textA);
     w.unmount();
     await w.drain(2_000);
   });
@@ -1049,6 +1084,84 @@ describe('DW-3: харнесс путей записи черновика', () =
     expect(after?.totalPauseSeconds, 'секунды паузы не теряются').toBe(5);
     expect(after?.initialWordCount, 'исходное число слов не теряется').toBe(3);
     expect(after?.content, 'текст не теряется').toBe(w.text);
+    w.unmount();
+  });
+
+  /**
+   * DW4-1 (шаг 1, утверждение 1): после ухода со страницы `jw_guest_draft`
+   * несёт те же поля, что строка IDB `guest_draft`. Обе записи гостя идут через
+   * один сериализатор (`draftWriter.ts`), поэтому расхождение форм невозможно по
+   * построению. На коде до DW4-1 тест красный: у записи при закрытии есть
+   * `status`, у строки отсрочки его нет — две формы одного адреса.
+   */
+  it('DW4-1: после ухода гостя jw_guest_draft и строка IDB несут одну форму', async () => {
+    const w = new World(9_007);
+    await w.openGuest();
+    useSessionMetaStore.getState().setSavedDocumentId('dw41-note');
+    useTimerStore.setState({ accumulatedDuration: 11, totalPauseSeconds: 2 });
+    useContentStore.getState().setInitialWordCount(3);
+    await w.type(2);
+    await w.drain(1_300);
+    const idbRow = await (await getLocalDb()).get('drafts', 'guest_draft') as Record<string, unknown> | undefined;
+    expect(idbRow, 'отсрочка записала строку IDB').toBeDefined();
+    await w.pageHide();
+    const lsRow = JSON.parse(localStorage.getItem(STORAGE_KEYS.GUEST_DRAFT) ?? 'null') as Record<string, unknown> | null;
+    expect(lsRow, 'уход со страницы записал jw_guest_draft').not.toBeNull();
+    const idbFields = Object.keys(idbRow as object).filter(k => k !== 'userId').sort();
+    const lsFields = Object.keys(lsRow as object).sort();
+    expect(lsFields, 'обе записи гостя несут одну форму — один сериализатор').toEqual(idbFields);
+    for (const f of ['savedDocumentId', 'accumulatedDuration', 'totalPauseSeconds', 'initialWordCount']) {
+      expect(lsRow?.[f], `поле ${f} в снимке закрытия — как в строке IDB`).toEqual((idbRow as Record<string, unknown>)[f]);
+    }
+    w.unmount();
+  });
+
+  /**
+   * DW4-1 (шаг 1, утверждение 2): следующее после ухода сохранение даёт ВЕРСИЮ
+   * прежней заметки — маркер продолженной заметки пережил уход и возврат, и
+   * ветка «сохранить» идёт в обновление той же строки: в `documents` ровно одна
+   * заметка (числом), в ней весь набранный текст, и он же лежит в `versions`.
+   * Цена обратного (маркер потерян) — вторая заметка с тем же текстом.
+   */
+  it('DW4-1: после ухода гостя следующее сохранение — версия прежней заметки, в documents одна', async () => {
+    const w = new World(9_008);
+    await w.openGuest();
+    await w.type(2);
+    await w.drain(1_300);
+    await w.saveNote();
+    // `World.saveNote` заканчивается resetSession() — id первой заметки берём
+    // из самого стора documents.
+    const db = await getLocalDb();
+    const firstDocs = await db.getAll('documents');
+    const firstId = firstDocs.length === 1 && firstDocs[0] ? String(firstDocs[0].id) : null;
+    expect(firstId, 'первое сохранение создало ровно одну заметку').toBeTruthy();
+    // Состояние продолженной заметки — то, которое держит окно сохранения
+    // (порядок handleSave: метка → стирание черновика → сброс сессии; d34a):
+    // маркер в мете, автосохранение уносит его в строку.
+    useSessionMetaStore.getState().setSavedDocumentId(firstId as string);
+    await w.type(2);
+    const finalText = w.text;
+    await w.pageHide();
+    await w.reload();
+    const marker = useSessionMetaStore.getState().savedDocumentId;
+    expect(marker, 'маркер продолженной заметки пережил уход и возврат').toBe(firstId);
+    // Ветка «Сохранить» из useWritingActions: маркер есть — обновление, нет —
+    // новая заметка (ровно развилка DW-F-2).
+    const saveData = {
+      title: '', content: finalText, wordCount: 4, duration: 10, wpm: 10, tags: [] as string[],
+      sessionStartedAt: new Date(Date.now()),
+    };
+    if (marker) {
+      await settle(LocalStorageService.saveVersionToLocal(db, marker, saveData, Date.now()));
+    } else {
+      await settle(LocalStorageService.saveNew(w.guestUid, saveData));
+    }
+    const docs = await db.getAll('documents');
+    expect(docs.length, 'в documents ровно одна заметка — версия, а не вторая заметка').toBe(1);
+    // Текст живёт в versions; принадлежность прежней заметке — по documentId.
+    const versions = await db.getAll('versions');
+    const finalVersion = versions.find(v => v.documentId === firstId && v.content === finalText);
+    expect(finalVersion, 'набранное после ухода лежит версией прежней заметки').toBeDefined();
     w.unmount();
   });
 

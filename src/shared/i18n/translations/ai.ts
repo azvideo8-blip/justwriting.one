@@ -101,6 +101,8 @@ export const aiTranslations: Translations = {
   // MD-4: дословные слова другого человека в публичном посте. Плашка, а не фильтр:
   // решает автор.
   ai_editor_diff_foreign_speech: { ru: 'В посте остались слова другого человека — проверь перед публикацией', en: 'Another person\u2019s words are still in the post — check before publishing' },
+  // 3.1 / 18.1(б): деньги близких в публичном посте. Плашка, а не фильтр: решает автор.
+  ai_editor_diff_relatives_money: { ru: 'В посте упомянуты деньги близких — проверь, не раскрыто ли чужое', en: 'The post mentions family members\u2019 money — check that nothing private about them is disclosed' },
   ai_degraded_daily_limit_chat: { ru: 'Дневной лимит исчерпан: ответ сформирован без поиска по заметкам (восстановится завтра)', en: 'Daily limit reached: answer generated without note search (resets tomorrow)' },
   ai_persona_delete_confirm_title: { ru: 'Удалить персону?', en: 'Delete persona?' },
   ai_persona_delete_confirm_message: { ru: 'Действие необратимо.', en: 'This action cannot be undone.' },

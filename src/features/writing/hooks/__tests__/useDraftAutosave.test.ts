@@ -5,7 +5,10 @@ import { useTimerStore } from '../../store/useTimerStore';
 import { useContentStore } from '../../store/useContentStore';
 import { useSessionMetaStore } from '../../store/useSessionMetaStore';
 import { persistDraft } from '../../utils/draftPersistence';
+import { clearEditorTextOwner, markEditorTextOwner } from '../../services/draftWriter';
 import type { AppUser } from '../../../../core/auth/types';
+import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
+import { useEncryptionStore } from '../../../../core/crypto/useEncryptionStore';
 
 vi.mock('../../utils/draftPersistence', () => ({
   buildLocalDraft: vi.fn((user, current) => ({ ...current, userId: user.uid })),
@@ -31,10 +34,14 @@ describe('useDraftAutosave', () => {
     useTimerStore.setState({ status: 'writing' });
     // DW-9: стор текста держит владельца (`ownerUid`, N-47), а не только текст —
     // без его сброса следующий тест стартует с чужим владельцем и спасение
-    // отрабатывает не там, где его задал тест.
+    // отрабатывает не там, где его задал тест. DW4-4: и зеркало редактора —
+    // оно модульное и тоже переживает тест.
     useContentStore.setState({ content: '', title: '', wordCount: 0, ownerUid: null });
+    clearEditorTextOwner();
     useSessionMetaStore.getState().resetSessionMetadata();
     localStorage.clear();
+    // Стор сейфа кэширует состояние по uid — без сброса тест наследует чужое.
+    useEncryptionStore.setState({ encryptionEnabled: {} });
   });
 
   afterEach(() => {
@@ -466,6 +473,49 @@ describe('useDraftAutosave', () => {
     expect(asB).toEqual([]);
   });
 
+  // DW4-4 ревью: редактор отдан новому аккаунту пустым сразу, и пока запись
+  // спасения шла, он уже печатает. Запись не прошла — текст прежнего на экран
+  // не вернуть, а повтора у снимка нет: он ложится в копию прежнего владельца
+  // (`draft-<uid>`, её читает его следующий вход), а не остаётся только в памяти.
+  it('a failed rescue while the new account already types keeps the old text in its owner copy', async () => {
+    const inviteeB = { uid: 'invitee-B' } as AppUser;
+    useContentStore.setState({ content: 'Личный текст A', title: 'A', wordCount: 3, ownerUid: 'owner-A' });
+    markEditorTextOwner('owner-A');
+    localStorage.setItem(STORAGE_KEYS.ENC_ENABLED('owner-A'), '0');
+    const aData = { ...initialData, content: 'Личный текст A', title: 'A' };
+    let fail!: () => void;
+    vi.mocked(persistDraft).mockImplementation(() => new Promise(r => { fail = () => r({ localOk: false, remoteOk: true }); }));
+
+    renderHook(({ user, data }) => useDraftAutosave(user, data), { initialProps: { user: inviteeB, data: aData } });
+    await act(async () => { await Promise.resolve(); });
+    expect(useContentStore.getState().content).toBe('');
+    useContentStore.setState({ content: 'B печатает' });
+    await act(async () => { fail(); await Promise.resolve(); await Promise.resolve(); });
+
+    expect(useContentStore.getState().content).toBe('B печатает');
+    expect(localStorage.getItem(STORAGE_KEYS.DRAFT('invitee-B'))).toBeNull();
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.DRAFT('owner-A')) ?? '{}').content).toBe('Личный текст A');
+  });
+
+  it('a failed rescue while the new account already types does not write a plaintext copy when the old account vault state is unknown', async () => {
+    const inviteeB = { uid: 'invitee-B' } as AppUser;
+    useContentStore.setState({ content: 'Личный текст A', title: 'A', wordCount: 3, ownerUid: 'owner-A' });
+    markEditorTextOwner('owner-A');
+    const aData = { ...initialData, content: 'Личный текст A', title: 'A' };
+    let fail!: () => void;
+    vi.mocked(persistDraft).mockImplementation(() => new Promise(r => { fail = () => r({ localOk: false, remoteOk: true }); }));
+
+    renderHook(({ user, data }) => useDraftAutosave(user, data), { initialProps: { user: inviteeB, data: aData } });
+    await act(async () => { await Promise.resolve(); });
+    expect(useContentStore.getState().content).toBe('');
+    useContentStore.setState({ content: 'B печатает' });
+    await act(async () => { fail(); await Promise.resolve(); await Promise.resolve(); });
+
+    expect(useContentStore.getState().content).toBe('B печатает');
+    expect(localStorage.getItem(STORAGE_KEYS.DRAFT('invitee-B'))).toBeNull();
+    expect(localStorage.getItem(STORAGE_KEYS.DRAFT('owner-A'))).toBeNull();
+  });
+
   // N-33: запись пропущена по поколению черновика — индикатор не говорит «Сохранено».
   it('a skipped (stale-generation) write does not show «saved»', async () => {
     vi.mocked(persistDraft).mockResolvedValue({ localOk: true, localSkipped: true, remoteOk: true });
@@ -508,6 +558,8 @@ describe('useDraftAutosave', () => {
   it('a failed rescue is retried on the next autosave and never shows «saved»', async () => {
     const inviteeB = { uid: 'invitee-B' } as AppUser;
     useContentStore.setState({ content: 'Личный текст A', title: 'A', wordCount: 3, ownerUid: 'owner-A' });
+    // DW4-4: владелец текста теперь живёт в зеркале редактора.
+    markEditorTextOwner('owner-A');
     const aData = { ...initialData, content: 'Личный текст A', title: 'A' };
     vi.mocked(persistDraft).mockResolvedValue({ localOk: false, remoteOk: true });
 

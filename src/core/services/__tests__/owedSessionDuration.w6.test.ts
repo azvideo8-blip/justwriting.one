@@ -6,6 +6,8 @@ import { VersionService } from '../VersionService';
 import { getLocalDb } from '../../storage/localDb';
 import { setEncryptionEnabled, setProfileLoaded } from '../../crypto/cryptoHelpers';
 import { TimeoutError } from '../../../shared/utils/withTimeout';
+import { owedSessionDuration } from '../pendingDuration';
+import { markStatsDeltaQueued } from '../pendingDelta';
 
 // W-6 (ревью 0.9.31): онлайн-сохранение пишет ряд версии и только потом обновляет
 // счётчики. Если второй вызов упал, задача встаёт в очередь, дренаж видит ряд уже
@@ -291,6 +293,29 @@ describe('W-6, ревью 0.9.31: ни двойного счёта, ни пот�
     mockCloudAfterVersionArrived();
     await CloudSyncService.addCloudCopy(USER, 'p1');
     expect(cloudTotal).toBe(160);
+  });
+
+  // S2-7: на новом пути прибавка уже в журнале pendingDelta с ключом повтора.
+  // Ошибка с этой пометкой гасит долг, а не кладёт секунды второй раз — иначе
+  // повтор журнала и долг унесли бы их дважды. Мутация: убрать isStatsDeltaQueued
+  // из settleOrOweAfterFailure или из syncVersionToCloud → красный.
+  it('S2-7: прибавка уже в журнале — долг не кладётся второй раз (оба входа)', async () => {
+    const db = await getLocalDb(USER);
+    await seedEditedDoc(db, 'q1', 'u-q1');
+    const queued = new Error('Failed to fetch');
+    markStatsDeltaQueued(queued);
+    vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue(cloudRow(100, 1) as never);
+    vi.spyOn(VersionService, 'getVersions').mockResolvedValue(cloudVersions(false));
+    vi.spyOn(VersionService, 'addVersion').mockResolvedValue('cloud_ver');
+    vi.spyOn(DocumentService, 'updateDocumentAfterSession').mockRejectedValue(queued);
+    await expect(CloudSyncService.addCloudCopy(USER, 'q1')).rejects.toBe(queued);
+    expect(owedSessionDuration(USER, 'q1')).toBe(0);
+
+    await CloudSyncService.syncVersionToCloud(USER, 'q1', 'cloud_w6', {
+      title: 'Заметка', content: 'новый текст', wordCount: 7, documentWordCount: 7,
+      duration: 60, documentDuration: 160, wpm: 30, sessionStartedAt: new Date(NOW), tags: [],
+    }, 2, 'текст v1').catch(() => undefined);
+    expect(owedSessionDuration(USER, 'q1')).toBe(0);
   });
 
   it('версии ушли, правка метаданных упала: их секунды висят долгом', async () => {

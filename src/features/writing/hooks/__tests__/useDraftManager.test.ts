@@ -4,6 +4,7 @@ import { renderHook, act } from '@testing-library/react';
 import { useDraftManager } from '../useDraftManager';
 import { useTimerStore } from '../../store/useTimerStore';
 import { useContentStore } from '../../store/useContentStore';
+import { clearEditorTextOwner, markEditorTextOwner } from '../../services/draftWriter';
 
 describe('useDraftManager', () => {
   const userId = 'user_manager_123';
@@ -25,6 +26,8 @@ describe('useDraftManager', () => {
     vi.useFakeTimers();
     useTimerStore.setState({ status: 'writing' });
     useContentStore.setState({ content: '', title: '' });
+    // DW4-4: зеркало владельца модульное — чистим между тестами.
+    clearEditorTextOwner();
   });
 
   afterEach(() => {
@@ -108,7 +111,9 @@ describe('useDraftManager', () => {
         content: 'Draft Content',
         title: 'Draft Title',
         wordCount: 2,
-      })
+      }),
+      // Второй аргумент — эпоха на момент правки (DW4-2): писатель называет её.
+      expect.any(Number)
     );
   });
 
@@ -172,6 +177,7 @@ describe('useDraftManager', () => {
   // текст аккаунта гостю не показывается и гостевым черновиком не сохраняется.
   it('the guest editor drops text that belongs to an account', () => {
     useContentStore.setState({ content: 'Текст аккаунта', title: 'T', ownerUid: 'acc-1' });
+    markEditorTextOwner('acc-1');
     renderHook(() => useDraftManager('guest_x', getDraftData, { onSaveDraft: mockOnSaveDraft }));
     expect(useContentStore.getState().content).toBe('');
   });

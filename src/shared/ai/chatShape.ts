@@ -86,13 +86,21 @@ export interface ChatEndSignals {
   audit?: AnswerAudit | null | undefined;
 }
 
+/**
+ * DY7-8: ход упёрся в потолок вывода — одно правило для журнала и для пометки
+ * в ответе на всех путях (оба потока `api/chat.ts`, `chatWithAI`). Поставщик
+ * не всегда присылает finish_reason — тогда решает выдача на потолке.
+ */
+export function answerHitLimit(s: Pick<ChatEndSignals, 'providerFinish' | 'outTokens' | 'maxTokens'>): boolean {
+  return s.providerFinish === 'length' || (s.maxTokens > 0 && s.outTokens >= s.maxTokens);
+}
+
 /** Порядок проверок = приоритет причин: уход клиента видно даже при «stop». */
 export function chatEndReason(s: ChatEndSignals): ChatEndReason {
   if (s.clientClosed) return 'client_abort';
   if (s.providerError) return 'provider_error';
   if (s.timedOut) return 'deadline';
-  if (s.providerFinish === 'length') return 'length';
-  if (s.maxTokens > 0 && s.outTokens >= s.maxTokens) return 'length';
+  if (answerHitLimit(s)) return 'length';
   return 'stop';
 }
 

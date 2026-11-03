@@ -1,5 +1,6 @@
 import { onDomainEvent } from '../../../core/events/domainEvents';
 import { WritingDraftService } from '../services/WritingDraftService';
+import { clearEditorTextOwner } from '../services/draftWriter';
 import { useContentStore, clearWordCalcTimer } from './useContentStore';
 import { useTimerStore } from './useTimerStore';
 import { truncateText } from '../../../shared/utils/textLimits';
@@ -53,6 +54,10 @@ const META_DEFAULTS: {
 
 function resetSession() {
   clearWordCalcTimer();
+  // DW4-4: текста в редакторе больше нет — владельца у него тоже. Снимок,
+  // ждущий спасения, живёт до своей записи (или до возобновления набора
+  // владельцем): его чистит спасение и `markEditorTextOwnedBy`, не сброс.
+  clearEditorTextOwner();
   useContentStore.setState(createContentDefaults());
   useContentStore.getState().resetHistory();
   useTimerStore.setState(TIMER_DEFAULTS);

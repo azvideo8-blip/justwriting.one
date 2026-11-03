@@ -1,4 +1,8 @@
 import { DataProvider } from '../data';
+import type { MetadataField } from '../storage/localDb';
+import { isSyncPushMissing } from '../data/providers';
+import { syncPushRpcEnabled, markSyncPushUnavailable } from '../sync/syncFlags';
+import { queueStatsDelta, pendingStatsDeltas, clearStatsDeltas, markStatsDeltaQueued } from './pendingDelta';
 import { Document } from '../../types';
 import { toTimestampMs } from '../utils/dateUtils';
 import { reportError } from '../../shared/errors/reportError';
@@ -293,7 +297,53 @@ export const DocumentService = {
       if (encrypted._encrypted === true) payload.moodEncrypted = true;
     }
 
-    return DataProvider.updateDocumentSessionStats(userId, documentId, payload);
+    if (!(await syncPushRpcEnabled(userId))) {
+      return DataProvider.updateDocumentSessionStats(userId, documentId, payload);
+    }
+
+    // S2-7: прибавка — в журнал до отправки; с этого момента её секунды живут там,
+    // и ошибка помечается, чтобы вызывающий не положил их долгом второй раз.
+    const { entry, queued } = queueStatsDelta(userId, documentId, {
+      sessions: Math.max(0, payload.sessionsDelta ?? 1),
+      duration: Math.floor(payload.durationDelta),
+      words: Math.max(0, Math.floor(payload.totalWords)),
+    });
+    try {
+      // Ревью SYNC2: журнал мог не записаться — свежая прибавка едет из памяти,
+      // иначе отправка уходила пустой и сессия молча терялась.
+      const pending = pendingStatsDeltas(userId, documentId);
+      if (!pending.some(d => d.opId === entry.opId)) pending.push(entry);
+      let results;
+      try {
+        results = await DataProvider.syncPush(pending.map(d => ({
+          table: 'documents' as const, op: 'delta' as const, uuid: documentId, op_id: d.opId,
+          sessions: d.sessions, duration: d.duration, words: d.words,
+        })));
+      } catch (e) {
+        if (!isSyncPushMissing(e)) throw e;
+        // Сервер без 0047: старый путь до конца сессии, журнал сливается одной дельтой.
+        markSyncPushUnavailable(userId);
+        const written = await DataProvider.updateDocumentSessionStats(userId, documentId, {
+          ...payload,
+          sessionsDelta: pending.reduce((n, d) => n + d.sessions, 0),
+          durationDelta: pending.reduce((n, d) => n + d.duration, 0),
+        });
+        // Ревью SYNC2: журнал снимается после записи старым путём, а не до неё —
+        // упавшая запись оставляет прибавки для следующей попытки.
+        clearStatsDeltas(userId, pending.map(d => d.opId));
+        return written;
+      }
+      // missing (заметки в облаке ещё нет) остаётся в журнале до следующей выгрузки.
+      clearStatsDeltas(userId, pending.filter((_, i) => results[i]!.status !== 'missing').map(d => d.opId));
+      const meta: Parameters<typeof DataProvider.updateDocumentSessionMeta>[2] = { currentVersion: payload.currentVersion };
+      if (payload.mood !== undefined) meta.mood = payload.mood;
+      if (payload.moodEncrypted !== undefined) meta.moodEncrypted = payload.moodEncrypted;
+      if (payload.lastSessionAt !== undefined) meta.lastSessionAt = payload.lastSessionAt;
+      return await DataProvider.updateDocumentSessionMeta(userId, documentId, meta);
+    } catch (e) {
+      if (queued) markStatsDeltaQueued(e);
+      throw e;
+    }
   },
 
   async updateTags(userId: string, documentId: string, tags: string[]): Promise<void> {
@@ -333,6 +383,34 @@ export const DocumentService = {
       ...(meta.lastSessionAt !== undefined ? { lastSessionAt: meta.lastSessionAt } : {}),
       // N2-1: корзина, изменённая без связи, доезжает тем же досылом.
       ...(meta.trashedAt !== undefined ? { trashedAt: meta.trashedAt === null ? null : new Date(meta.trashedAt) } : {}),
+    });
+  },
+
+  /**
+   * S2-6: досыл только изменённых полей. «Последний по серверу» по полю
+   * (владелец 02.11): поле, которое здесь не трогали, в облаке не перезаписывается
+   * — иначе досыл тегов затирал корзину другого устройства (сид 88).
+   * `fields` нет — флаг поставлен до 0.11.x, досылаются все поля (как раньше).
+   */
+  async updateMetadataFields(
+    userId: string,
+    documentId: string,
+    meta: { title: string; tags: string[]; labelId?: string | undefined; excludedFromAI?: boolean | undefined; lastSessionAt?: number | undefined; trashedAt?: number | null | undefined },
+    fields: readonly MetadataField[] | undefined,
+  ): Promise<void> {
+    if (!fields) return this.updateMetadata(userId, documentId, meta);
+    const has = (f: MetadataField) => fields.includes(f);
+    if (fields.length === 0) return;
+    const sealed = await maybeEncrypt(
+      { ...(has('title') ? { title: meta.title } : {}), ...(has('tags') ? { tags: meta.tags } : {}) },
+      has('title') ? ['title'] : [], has('tags') ? ['tags'] : [], userId,
+    );
+    await DataProvider.updateDocument(userId, documentId, {
+      ...sealed,
+      ...(has('labelId') ? { labelId: meta.labelId ?? null } : {}),
+      ...(has('excludedFromAI') ? { excludedFromAI: meta.excludedFromAI === true } : {}),
+      ...(has('lastSessionAt') && meta.lastSessionAt !== undefined ? { lastSessionAt: meta.lastSessionAt } : {}),
+      ...(has('trashedAt') ? { trashedAt: meta.trashedAt == null ? null : new Date(meta.trashedAt) } : {}),
     });
   },
 

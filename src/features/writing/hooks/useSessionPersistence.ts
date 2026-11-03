@@ -7,6 +7,7 @@ import { VAULT_UNLOCKED_EVENT } from '../../../core/crypto/useEncryptionStore';
 
 import { applyDraftToStores } from '../utils/draftUtils';
 import { useDraftAutosave } from './useDraftAutosave';
+import { markEditorTextOwner } from '../services/draftWriter';
 import { UserProfile } from '../../../types';
 
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
@@ -85,6 +86,10 @@ export function useSessionPersistence(
 
   const applyDraftToStore = useCallback((draft: LocalDraft) => {
     applyDraftToStores(draft, userId || null);
+    // DW4-4: принятый черновик назначает зеркало — его владельцем назван тот,
+    // чей это черновик (старые строки без поля читаются как «свой», база-то
+    // поимённая).
+    markEditorTextOwner(draft.owner ?? userId);
     if (draft.activeSessionId) setActiveSessionId(draft.activeSessionId);
   }, [setActiveSessionId, userId]);
 

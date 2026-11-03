@@ -8,6 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventEmitter } from 'events';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { RELATED_DAYS_HEAD, quoteMaterialsText, unquoteAbsent } from '../../src/shared/ai/quoteGuard';
 
 const { streamTextMock } = vi.hoisted(() => ({ streamTextMock: vi.fn() }));
 
@@ -167,6 +168,25 @@ describe('MD-2: аудит в [chat-end]', () => {
     sseContent = 'Ты ей: «держись, разберёмся в четверг».';
     await send({ documentContent: ATTACHED_DOC, reasoning: true, messages: [{ role: 'user', content: userLine }] });
     expect(endLine()).toMatchObject({ quote_unquoted: 0 });
+  });
+
+  // DY7-7: сервер считает снятые кавычки по тому же собранию, что и страж
+  // клиента (`quoteMaterialsText`). В строгом ходе фон — пересказ ИИ, кавычка
+  // из него снимается у человека, значит засчитана и в журнале. Мутация: вернуть
+  // серверу прежнее собрание (вся ограда данных) → 1 вместо 2.
+  it('строгий ход: кавычка из фона засчитана так же, как на клиенте', async () => {
+    const doc = '[Сегодня: вторник]\n\n' + RELATED_DAYS_HEAD
+      + '\n[#local_bg77 · 2026-10-01 · за 8 дн. до этой заметки] Вера сдала скрипку в ремонт и ждала мастера неделю.\n\n'
+      + ATTACHED_DOC;
+    const answer = 'Ты пишешь: «струна лопнула на втором прогоне». '
+      + 'Раньше было: «сдала скрипку в ремонт и ждала мастера неделю». '
+      + 'И ещё: «я больше никогда не возьму смычок в руки».';
+    mockStreamText(answer);
+    const messages = [{ role: 'user', content: 'Что с этим делать?' }];
+    await send({ documentContent: doc, noteScope: { mode: 'note', title: 'репетиция', date: '' }, messages });
+    const client = unquoteAbsent(answer, quoteMaterialsText({ strict: true, documentContent: doc, humanTurns: messages.map(m => m.content) })).stripped.length;
+    expect(client).toBe(2);
+    expect(endLine()).toMatchObject({ quote_unquoted: client });
   });
 
   it('законное «ничего не нашлось» при пустом блоке не считается', async () => {

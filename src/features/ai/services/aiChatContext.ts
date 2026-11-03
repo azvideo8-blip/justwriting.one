@@ -618,7 +618,8 @@ export function useAIChatContext(personaId: string): {
             await AIEmbeddingService.getAll(),
             await (docsSnap ??= loadDocumentSnapshot()),
             await (summariesSnap ??= loadSummarySnapshot()),
-            attachedContent,
+            // Дейлик 7: дни — по видимым блокам, не по тексту хода.
+            hid.visible,
             // FN-2: все приложенные хода — из списка блоков.
             attachedIds,
           );
@@ -871,36 +872,6 @@ export function useAIChatContext(personaId: string): {
         if (!skipSemantic) {
           const searchQuery = explicitSearch || topicShift ? effectiveQuery : `${lastSearchQueryRef.current}\n${text}`;
           try {
-            let searchQueries = [searchQuery];
-            const expansionEnabled = import.meta.env.VITE_AI_QUERY_EXPANSION === 'true';
-            if (explicitSearch && expansionEnabled) {
-              try {
-                const expandRes = await AIService.chat({
-                  personaId: 'coach',
-                  callType: 'query_expand',
-                  messages: [{ role: 'user', content: `Для поискового запроса по личному дневнику: "${searchQuery}", напиши 3 альтернативных поисковых запроса на русском языке (синонимы, связанные темы, имена). Выдай их одной строкой через запятую.` }],
-                });
-                if (expandRes.ok && expandRes.text) {
-                  const expanded = expandRes.text.split(',').map(s => s.trim()).filter(s => s.length > 2);
-                  if (expanded.length > 0) searchQueries = [searchQuery, ...expanded.slice(0, 3)];
-                } else if (!expandRes.ok) {
-                  reportAIDegradation({
-                    feature: 'chat_query_expand',
-                    cause: expandRes.error,
-                    action: 'Расширение поискового запроса в чате',
-                    impact: 'Использован исходный поисковый запрос без расширения',
-                  });
-                }
-              } catch (e) {
-                reportAIDegradation({
-                  feature: 'chat_query_expand',
-                  cause: e,
-                  action: 'Расширение поискового запроса в чате',
-                  impact: 'Использован исходный поисковый запрос без расширения',
-                });
-              }
-            }
-
             if (queryEmb === undefined && hasIndexingConsent(uid)) {
               // AUDIT-M5: при searchQuery === text переиспользуем turnEmb —
               // один текст за ход векторизуется один раз.
@@ -916,7 +887,7 @@ export function useAIChatContext(personaId: string): {
             }
 
             setAIStage('search');
-            const searchResult = await searchNotesMulti(searchQueries, 10, { queryVector: queryEmb, allEmbeddings, minTime, maxTime });
+            const searchResult = await searchNotesMulti([searchQuery], 10, { queryVector: queryEmb, allEmbeddings, minTime, maxTime });
             const notes = searchResult.notes;
             if (searchResult.failed) searchFailed = true;
             if (searchResult.degraded) semanticIndexMissing = true;
