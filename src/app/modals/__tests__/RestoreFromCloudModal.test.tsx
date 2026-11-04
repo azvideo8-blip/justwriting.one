@@ -95,6 +95,30 @@ describe('AUD-12 restore modal reports failure', () => {
     expect(screen.queryByText(/прервано ошибкой/)).toBeNull();
   });
 
+  // Дейлик 04.11 Н-2: FD-1 добавил failed/hasMore ради правды, окно их выбрасывало.
+  it('names a partial success: how many failed and that more is coming', async () => {
+    vi.mocked(CloudSyncService.restoreMissingDocuments).mockResolvedValue({ restored: 3, failed: 2, hasMore: true });
+
+    render(<RestoreFromCloudModal open onClose={() => {}} />);
+
+    fireEvent.click(screen.getByText('Начать загрузку'));
+
+    expect(await screen.findByTestId('restore-cloud-notes-incomplete')).toBeDefined();
+    expect(screen.getByText(/Пропущено с ошибкой: 2/)).toBeDefined();
+  });
+
+  // Ревью 0.11.6: все загрузки отбиты — это не «нечего восстанавливать».
+  it('all downloads failed: says it failed, not that there is nothing to restore', async () => {
+    vi.mocked(CloudSyncService.restoreMissingDocuments).mockResolvedValue({ restored: 0, failed: 5, hasMore: true });
+
+    render(<RestoreFromCloudModal open onClose={() => {}} />);
+
+    fireEvent.click(screen.getByText('Начать загрузку'));
+
+    expect(await screen.findByText('Восстановление не удалось')).toBeDefined();
+    expect(screen.queryByText('Нечего восстанавливать')).toBeNull();
+  });
+
   it('reports numbers on a real success', async () => {
     vi.mocked(CloudSyncService.restoreMissingDocuments).mockResolvedValue({ restored: 3, failed: 0, hasMore: false });
 

@@ -70,11 +70,11 @@ describe('DW4-2 applyWrite: эпоха принадлежит мутатору',
     const uid = 'u_dw42_row';
     bumpDraftGeneration(uid); // сессия письма: эпоха 1
 
-    expect(await WritingDraftService.saveToLocal(row('первая', uid), 1)).toBe(true);
+    expect(await WritingDraftService.saveToLocal(row('первая', uid), 1)).toBe('written');
     // Сохранение заметки: эпоха поднята, черновик стёрт.
     bumpDraftGeneration(uid);
     // Отсроченная запись срабатывает в окне после стирания — эпоха у неё прежняя.
-    expect(await WritingDraftService.saveToLocal(row('поздняя', uid), 1)).toBe(false);
+    expect(await WritingDraftService.saveToLocal(row('поздняя', uid), 1), 'отказ обязан называть причину').toBe('stale-epoch');
 
     const stored = await storedRow(uid);
     expect(stored?.content, 'сохранённый текст вернулся черновиком').toBe('первая');
@@ -186,7 +186,7 @@ describe('DW4-2 applyWrite: чего любая запись не должна �
     expect(outcome).toBe('vault-cleared');
     expect(localStorage.getItem(STORAGE_KEYS.DRAFT(uid)), 'при сейфе открытая копия осталась').toBeNull();
 
-    expect(await WritingDraftService.saveToLocal(row('строка при сейфе', uid), 1)).toBe(true);
+    expect(await WritingDraftService.saveToLocal(row('строка при сейфе', uid), 1)).toBe('written');
     expect((await storedRow(uid))?.content, 'сейф отменил запись строки').toBe('строка при сейфе');
   });
 

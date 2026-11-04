@@ -59,6 +59,13 @@ export function getSessionDates(session: Session): Date[] {
   return single ? [single] : [];
 }
 
+/** Дни письма всех заметок, ключ — `toDateString()`: один источник с числом серии. */
+export function getActiveDayKeys(sessions: Session[]): Set<string> {
+  const days = new Set<string>();
+  for (const s of sessions) for (const d of getSessionDates(s)) days.add(d.toDateString());
+  return days;
+}
+
 export interface StreakInfo {
   days: number;
   /** Пропуск закрыт заморозкой в этом расчёте — интерфейс говорит об этом. */

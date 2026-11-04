@@ -91,7 +91,7 @@ the invariants are its §2.1, and I6 was added by ticket DW-9. For each invarian
 holds, which test proves it, and whether it holds `structural` or `timing`.
 
 - **I1 — typed and unsaved text survives a reload, a killed tab and a lost network.**
-  - Holds in: local debounce write `src/features/writing/hooks/useDraftAutosave.ts:286-295`;
+  - Holds in: local debounce write `src/features/writing/hooks/useDraftAutosave.ts:344-357`;
     30-second cloud insurance `:302-307`; synchronous copy at tab close
     `src/features/writing/hooks/useDraftCore.ts:230-318` (`beforeunload` and `pagehide`);
     on load the NEWER of the two local copies wins — `pickNewerLocalCopy`
@@ -104,43 +104,65 @@ holds, which test proves it, and whether it holds `structural` or `timing`.
     `src/features/writing/__tests__/draftWritersFuzz.dw3.test.ts` (28 seeds in CI; a 400-seed
     sweep is a manual gate), `e2e/mobile/draft-banner.mq3.spec.ts` (the draft is still there
     after a phone reload).
-  - **Holds by: `timing`.** The guarantee is «a write lands before the tab dies». Two documented
-    windows stay open: text typed after the 1500 ms flush limit
+  - **Holds by: `timing`.** The guarantee is «a write lands before the tab dies». One documented
+    window stays open: text typed after the 1500 ms flush limit
     (`src/core/auth/accountReload.ts:15,61-67`) is not persisted (F-3 #4, accepted as «by
-    design» in `report-2026-10-18-SYNC0`), and DW-10-F-1 (`it.fails`) is an account switch
-    inside an unclosed save. Neither is closed by a structural rule yet.
+    design» in `report-2026-10-18-SYNC0`). The second window this section used to name —
+    DW-10-F-1, an account switch inside an unclosed save — is closed by DW-4 step 5 and moved to
+    I2 as `structural`; the rescue side of it is narrowed further by DW5-2 (§6.1).
 
 - **I2 — text closed by a confirmed save never comes back as a draft.**
-  - Holds in: generation counter (`getDraftGeneration`/`bumpDraftGeneration`, owned by the
-    mutator since DW4-2 — `src/features/writing/services/draftWriter.ts`); every writer must
-    NAME the generation it edited under, and the epoch check lives in the mutator `applyWrite`
-    (three checkpoints: before any write, after the DB opens, in the catch) — writers pass it
-    via `draftPersistence.ts:50-56` (`persistDraft` options), `useDraftAutosave.ts`
-    (`draftGenAtEditRef`), `useDraftManager.ts` (`getWriteEpoch`), and the guest deferral
-    (`GuestDraftService.saveGuestDraftToStorage(draft, { uid, epoch })` — reviewer note
-    03.11 13:55, seed 103); deleting the draft clears BOTH addresses —
-    `WritingDraftService.ts:370` (IndexedDB row + `draft-<uid>`) and `clearLegacyDraft`
-    `:553-556`, called by `useSessionPersistence.ts:109`.
-  - Proven by: `src/features/writing/hooks/__tests__/draftAfterSaveWindow.dy1010.test.ts`,
-    harness test «окно DY10-10», `e2e/mobile/draft-after-save.dy1010.spec.ts`,
+  - Holds in: since DW-4 step 5 the epoch belongs to the mutator end to end. Raising it is
+    `applySave` `src/features/writing/services/draftWriter.ts:148` — the only raise in product
+    code (a save was accepted, a draft was deleted or reset); leaving the editor raises
+    `applySessionEnd` (`:155`). The last close is remembered separately from the counter because the fate of a
+    refused write depends on it, and a session end right after a save must not erase it:
+    `isDraftClosed` (`:163`) distinguishes «this text was closed by the person» from «the session
+    ended». The epoch is a field of the row —
+    `DraftRecord.epoch`, stamped by `buildLocalDraft`
+    (`src/features/writing/utils/draftPersistence.ts:43`) from the value the writer took when
+    the text changed — so a writer names the epoch **of its text**, never the epoch live at the
+    moment of writing. The rule is one line (`isEpochStale`, `draftWriter.ts:176`: a record
+    naming an older epoch is refused) and it is checked at four points in `applyWrite`: before
+    any write (`:350`), after the database opens (`:366`), inside the row-write queue
+    immediately before `put` (`:378` — deletions run outside that queue, DW5-3.3), and in the
+    catch (`:400`). The cloud half uses the same epoch and the same rule
+    (`src/features/writing/services/WritingDraftService.ts:669`) and refuses a row whose named
+    owner is not the address (`:658`); `_lastCloudSignature` and the 60-second SF-2 corridor are
+    kept (§4.4 — a quota brake, not an ordering guard). Deleting the draft clears BOTH
+    addresses — `WritingDraftService.ts:384`/`:391` and `clearLegacyDraft` `:574-577`.
+  - Proven by: `src/features/writing/hooks/__tests__/draftRescueStaleEpoch.dw51.test.ts` (the
+    rescue of the previous owner inside the DY10-10 window touches neither `drafts` nor
+    `draft-<uid>`; the guest deferral touches neither `jw_guest_draft` nor `guest_draft`),
+    `src/features/writing/services/__tests__/draftWriteQueueEpoch.dw53.test.ts` (a write that
+    passed the check and entered the queue cannot resurrect the row deleted behind its back),
+    harness `DW-10-F-1` in `src/features/writing/__tests__/draftWritersFuzz.dw3.test.ts` — it
+    was `it.fails` up to 0.11.5 and is an ordinary green test since this step (the acceptance
+    of §4.3 row 5), `src/features/writing/hooks/__tests__/draftAfterSaveWindow.dy1010.test.ts`,
+    `e2e/mobile/draft-after-save.dy1010.spec.ts`,
     `src/features/writing/services/__tests__/draftUnloadCopyNewer.n14.test.ts` («сохранение
     стирает LS-ключ до чтения»).
-  - **Holds by: `timing`.** A counter is not a schema rule, and it fails open: a caller that
-    names no generation writes unchecked (`WritingDraftService.ts:566` — `generation !==
-    undefined`), which is deliberate after DY10-10. Under the acceptance rule this is an
-    assumption, and step 5 of the DW-4 plan is what makes it structural (the mutator owns the
-    epoch).
+  - **Holds by: `structural`.** The decision is a field of the row, taken by the one writer that
+    also raises it: an epoch older than the current one changes no address, whichever writer
+    sent it and whenever. The fail-open case the previous version of this section named («a
+    caller that names no generation writes unchecked») is gone for the text writers — the epoch
+    travels in the record — and remains only for the bases that legitimately have no epoch of
+    their own (`adopt-cloud`, `adopt-legacy`, `migrate-guest`, `expire`: they carry a copy that
+    arrived from elsewhere, and naming a foreign epoch for them would refuse the very adoption
+    step 1–3 exist for). What stays deliberately `timing` is the cloud quota brake: `_lastCloudSignature`
+    and the 60-second corridor decide whether a write is *attempted*, never whether a closed
+    text may be written.
 
 - **I3 — one account's text is never written into another account's draft.**
   - Holds in: database per uid, `getLocalDbName` `src/core/storage/localDb.ts:741-751`; since
     DW4-4 the draft row carries `owner` and the mutator decides by it — `applyWrite` refuses a
-    row whose named owner is not the target uid ('owner-mismatch', `draftWriter.ts:259-260`)
+    row whose named owner is not the target uid ('owner-mismatch', `draftWriter.ts:341-342`)
     before any address is touched; the owner is stamped from the editor mirror into every row
     (`buildLocalDraft` `draftPersistence.ts:36`, unload copy `useDraftCore.ts:264,293`); the
     editor mirror `src/features/writing/utils/draftOwnerGuard.ts:23-37`
     (`mayAccountWriteEditorText`) and `:49-66` (`markEditorTextOwnedBy`) refuses to adopt
     another account's buffer by typing; on an in-app account switch the editor is handed over
-    EMPTY — `rescueForPreviousOwner` (`useDraftAutosave.ts:112-146`) snapshots the text, clears
+    EMPTY — `rescueForPreviousOwner` (`useDraftAutosave.ts:121-176`) snapshots the text, clears
     the store synchronously and writes the snapshot to the previous owner's base afterwards
     (DW-F-3 clear-at-switch); the auth provider refuses to adopt a new account without a page
     reload — mirror `src/core/auth/supabaseAuthProvider.ts:74-77`, listeners `:105`.
@@ -186,10 +208,10 @@ holds, which test proves it, and whether it holds `structural` or `timing`.
   - Holds in: `owner` is a field of the row itself (DW4-4): `buildLocalDraft` stamps the mirror
     (`draftPersistence.ts:36`, the `?? user.uid` fallback covers the genuinely unowned new/guest
     text), the unload copy stamps it directly (`useDraftCore.ts:264,293`), and `applyWrite`
-    refuses a row with no owner at all ('no-owner', `draftWriter.ts:259`) before reading
+    refuses a row with no owner at all ('no-owner', `draftWriter.ts:341`) before reading
     anything else. The editor-side helpers stay in `draftOwnerGuard.ts:23-66`, the stamping
     effect at `useDraftAutosave.ts:73-102`; the rescue carries the snapshot with the owner it
-    was taken under (`rememberRescuePayload` `draftWriter.ts:157-162`).
+    was taken under (`rememberRescuePayload` `draftWriter.ts:229-234`).
   - Proven by: the mutation removing the owner read reddens the no-owner case
     (`expected 'written' to be 'no-owner'`; output in `justwriting-docs/report-2026-11-03-dw4-4.md`);
     harness DW-9 seeds 191/266, `useDraftAutosave.test.ts`, `draftSessionStaleLoad.dw7.test.tsx`.
@@ -211,17 +233,28 @@ the DW-4 plan (dw4-4) removed two of the three listed here on 01.11:
   wrote the same text again and bumped the epoch before the rescue, whose write was then
   refused as stale — the editor stayed filled, the new owner typed over the old text and the
   mixed buffer went to the new owner's row (harness seed 183). The writer is now unmount-only
-  (`useDraftAutosave.ts:262-282`), and the handover belongs to the rescue alone.
-- Remaining — DW-10-F-1 (`it.fails`): a switch inside an unclosed note save. The epoch check
-  still refuses the rescue's write ('stale-epoch'); since dw4-4 that refusal can no longer
-  produce a mixed buffer — the editor is already empty and the text is restored on screen or
-  waits in the snapshot for a retry — but the saved text still comes back as a draft. Closes at
-  step 5 (the mutator owning the epoch).
-- New window named by this step (acceptance rule of `report-2026-11-01-draft-writers.md` §4.4):
-  if the rescue's local write fails while the new owner has already typed, the snapshot
-  (`rescuePayloads`, `draftWriter.ts:155-172`) waits in memory for the next rescue trigger; the
-  previous owner's text is in no base until a retry lands, and a tab closed in that window
-  loses it. Every such failure is reported as `DRAFT_RESCUE_FAILED`.
+  (`useDraftAutosave.ts:321-338`), and the handover belongs to the rescue alone.
+- Removed by step 5 — DW-10-F-1: the rescue used to name the epoch that was live at the moment
+  of writing (`getDraftGeneration(prev)`), so an account switch inside an unclosed note save
+  wrote the just-saved text back as the previous owner's draft. The snapshot now remembers the epoch
+  its text was typed under, when this hook instance took it for that owner (after a remount it is
+  unknown: epoch maps are per account). If a close came after it (`isDraftClosed`,
+  `src/features/writing/services/draftWriter.ts:163`) the snapshot is dropped and nothing is
+  written — that text lives in the note. Otherwise the write names the owner's current epoch: a
+  session end is no reason to refuse the text, and a close arriving mid-write is refused by the
+  mutator. Harness
+  `DW-10-F-1` is an ordinary green test since this step.
+- Narrowed by step 5 (DW5-2) — the rescue snapshot window: when the previous owner's write
+  failed while the new owner had already typed, the snapshot (`rescuePayloads`) waited in memory
+  for a trigger that could not come — the rescue only ever ran on an account change.
+  `retryRescuePayloads` (`useDraftAutosave.ts:214`) re-delivers it on the next autosave attempt
+  and on `visibilitychange` (`useDraftAutosave.ts:228`, `:257`), and it never touches the editor.
+  The rescue itself repeats only while the screen still holds that snapshot or its continuation
+  (`useDraftAutosave.ts:128-133` — DW5-3.1): a return of the text to the screen is not an edit,
+  and a foreign buffer must not be cleared by somebody else's rescue. What remains: a tab that dies before a retry lands loses the previous owner's text,
+  because with the vault not explicitly switched off there is no plaintext copy to fall back on
+  (SEC-56), and a persistently refusing IndexedDB keeps the snapshot in memory only. Every such
+  failure is reported as `DRAFT_RESCUE_FAILED`.
 - Provider ban on switching accounts without a reload: `supabaseAuthProvider.ts:74-77,105` —
   `structural` since N1-6 (`providerAccountSwitchBan.n16.test.ts` reddens when the early
   return is removed).

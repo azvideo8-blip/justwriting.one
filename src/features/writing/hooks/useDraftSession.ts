@@ -4,7 +4,7 @@ import { useTimerStore } from '../store/useTimerStore';
 import { useContentStore } from '../store/useContentStore';
 import { applyDraftToStores } from '../utils/draftUtils';
 import { WritingDraftService } from '../services/WritingDraftService';
-import { markEditorTextOwner } from '../services/draftWriter';
+import { applySave, markEditorTextOwner } from '../services/draftWriter';
 import {
   loadGuestDraftFromStorage,
   deleteGuestDraftFromStorage,
@@ -33,9 +33,14 @@ export function useDraftSession(userId: string, isGuest: boolean): DraftSessionS
 
   const discardDraft = useCallback(async () => {
     if (isGuest) {
+      // Шаг 5 DW-4: закрытие черновика поднимает эпоху мутатором — и у гостя.
+      // Без него опоздавшая отсрочка в окне «Удалить» возвращала удалённый текст
+      // в `jw_guest_draft` и в строку `guest_draft`.
+      applySave(userId);
       await deleteGuestDraftFromStorage();
     } else {
-      WritingDraftService.bumpDraftGeneration(userId);
+      // `deleteDraft` поднимает эпоху сам (шаг 5): прежний вызов был вторым
+      // подъёмом подряд перед тем же удалением.
       await WritingDraftService.deleteDraft(userId); // намеренно: сброс черновика при отмене или сбросе сессии
     }
     setHasDraft(false);

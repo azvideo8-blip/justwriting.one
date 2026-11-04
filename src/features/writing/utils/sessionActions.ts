@@ -1,6 +1,7 @@
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { logger } from '../../../shared/errors/logger';
 import { WritingDraftService } from '../services/WritingDraftService';
+import { applySave } from '../services/draftWriter';
 import { SyncService } from '../../../core/services/SyncService';
 
 export function reportKeystrokeStats(
@@ -36,12 +37,11 @@ export async function cleanupDraftsAfterSave(
   if (isGuest) {
     // Дейлик 03.11 Н-1: то же вето DY10-10, что у аккаунта — без подъёма
     // поколения закрытие вкладки в окне сохранения возвращало сохранённый текст
-    // гостевым черновиком.
-    WritingDraftService.bumpDraftGeneration(userId);
+    // гостевым черновиком. Шаг 5 DW-4: подъём делает мутатор (`applySave`).
+    applySave(userId);
     await clearGuestDraft();
   } else {
     // N-54: deleteDraft не бросает — результат читается, а не ловится.
-    WritingDraftService.bumpDraftGeneration(userId);
     // RA1-2: ждём только локальную половину. Облачное удаление черновика —
     // отдельно и только при связи; без сети надгробие снесёт его при
     // следующей загрузке, а кнопка «Сохранить» не держит человека 5–10 с.

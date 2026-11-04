@@ -896,7 +896,7 @@ export const CloudSyncService = {
         // R-5: внутри try, который ловит PullPaused — занятый замок на отложенной
         // строке раньше роняла весь забор ошибкой. Применённое пишется и при паузе.
         if (deferred.size > 0) {
-          const records = await DataProvider.getDocumentsByUuidsWithDeleted(userId, Array.from(deferred.keys()));
+          const records = await withRateLimitRetry(() => DataProvider.getDocumentsByUuidsWithDeleted(userId, Array.from(deferred.keys())));
           try {
             for (const record of records) {
               const u = String(record.uuid ?? record.id ?? '');
@@ -1030,7 +1030,7 @@ export const CloudSyncService = {
             if (missing.length > 0) {
               // Надгробия нужны как факт, а не как разобранная заметка: по ним
               // решается «отвязать», и схема тут ни при чём.
-              const records = await DataProvider.getDocumentsByUuidsWithDeleted(userId, missing);
+              const records = await withRateLimitRetry(() => DataProvider.getDocumentsByUuidsWithDeleted(userId, missing));
               const parsedRecords = await Promise.all(records.map(async record => {
                 const u = String(record.uuid ?? record.id ?? '');
                 if (!u) return { u, tombstone: false, doc: null as Document | null };
@@ -1150,7 +1150,7 @@ export const CloudSyncService = {
 
       const [localDocs, cloudList] = await Promise.all([
         LocalStorageService.getDocumentsByOwner(userId),
-        readCloudDocumentsPartial(userId),
+        withRateLimitRetry(() => readCloudDocumentsPartial(userId)),
       ]);
       // R-2: сверяем по прочитанной части; неполнота уходит в результат, чтобы
       // курсор изменений не двигался (changeCursor).
@@ -1211,7 +1211,7 @@ export const CloudSyncService = {
     let unreadableStarts = new Set<number>();
     let blind = false;
     try {
-      cloudDocs = await DocumentService.getUserDocuments(userId);
+      cloudDocs = await withRateLimitRetry(() => DocumentService.getUserDocuments(userId));
     } catch (e) {
       if (!(e instanceof UnreadableCloudListError)) throw e;
       // S1-10: прочитанная часть годится для перепривязки — совпадение uuid с

@@ -11,9 +11,12 @@ import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 import { pushSentHash, readSentHashes } from '../../../core/sync/sentHashes';
 import {
   applyWrite,
-  bumpDraftGeneration,
+  applySave,
+  isEpochStale,
   getDraftGeneration,
+  bumpDraftGeneration,
   queueDraftRowWrite,
+  type ApplyWriteOutcome,
   type DraftRecord,
   type DraftWriteBasis,
 } from './draftWriter';
@@ -337,7 +340,10 @@ async function flushPendingCloudDelete(userId: string, deletedHashes: readonly s
 
 async function deleteDraftLocalPart(userId: string): Promise<{ localOk: boolean }> {
   let localOk = true;
-  bumpDraftGeneration(userId);
+  // Шаг 5 DW-4: закрытие черновика поднимает эпоху в мутаторе — отсюда и из
+  // `cleanupDraftsAfterSave`. Прежние вызывающие поднимали её сами, и на
+  // сохранении это было два подъёма подряд, а на новом писателе — ноль.
+  applySave(userId);
   // The next draft must be written even if it opens with identical text.
   _lastCloudSignature.delete(userId);
   // SF2-6: над отметкой удаления — хэш удалённого содержимого. Различает
@@ -571,23 +577,25 @@ export const WritingDraftService = {
     } catch (e) { reportError(e, { action: 'clearLegacyDraft', userId }); }
   },
 
-  /** true — записано; false — пропущено: черновик устарел (эпоха поднята:
-   *  сессию сохранили заметкой, отменили или сменили) или нет владельца. Пропуск —
-   *  не запись, и «Сохранено» по нему показывать нельзя (N-33). */
-  saveToLocal: async (draft: LocalDraft, generation?: number): Promise<boolean> => {
+  /** 'written' — записано; другой итог мутатора — пропуск: черновик устарел
+   *  (`'stale-epoch'`: эпоху подняли сохранение заметки, удаление или конец
+   *  сессии), у записи нет владельца (`'no-owner'`) или он назван чужой
+   *  (`'owner-mismatch'`). Пропуск — не запись, и «Сохранено» по нему показывать
+   *  нельзя (N-33). */
+  saveToLocal: async (draft: LocalDraft, generation?: number): Promise<ApplyWriteOutcome> => {
     if (!draft.userId) {
-      return false;
+      return 'no-owner';
     }
     // DW4-2: единственный писатель строки — мутатор `applyWrite` (draftWriter).
-    // Эпоха названа вызывающим и сверяется в мутаторе до любой записи; здесь
-    // остаётся выбор basis: черновик правки или фоновое кэширование принятой
-    // из облака копии (эпохи не называет — сверять нечего).
-    const basis: DraftWriteBasis = generation !== undefined ? 'edit' : 'adopt-cloud';
-    const outcome = await applyWrite(draft as unknown as DraftRecord, basis, {
+    // Шаг 5: эпоху писатель либо называет явно, либо приносит в строке
+    // (`buildLocalDraft`); фоново принятое из облака кэширование эпохи не имеет
+    // и не сверяется.
+    const epoch = generation ?? (typeof draft.epoch === 'number' ? draft.epoch : undefined);
+    const basis: DraftWriteBasis = epoch !== undefined ? 'edit' : 'adopt-cloud';
+    return applyWrite(draft as unknown as DraftRecord, basis, {
       uid: draft.userId,
-      epoch: generation,
+      epoch,
     });
-    return outcome === 'written';
   },
 
   /**
@@ -643,11 +651,22 @@ export const WritingDraftService = {
   // случился на самом деле.
   saveDraftToCloud: async (draft: LocalDraft, generation?: number): Promise<boolean> => {
     if (!draft.userId) return false;
+    // DW5-3.4: в облаке у аккаунта один ряд черновика, и запись с чужим `owner`
+    // — это I3 уже в облачной половине. Локальную половину отсекает мутатор, здесь
+    // та же сверка одной строкой. Строки до 0.11.5 владельца не несут — их это
+    // вето не касается.
+    if (typeof draft.owner === 'string' && draft.owner !== draft.userId) return false;
     if (!cloudSyncEnabled(draft.userId)) return false;
     if (!isProfileLoaded(draft.userId)) {
       return false;
     }
-    if (generation !== undefined && generation !== getDraftGeneration(draft.userId)) {
+    // Шаг 5 DW-4: облачная половина сверяется по тому же правилу эпохи, что и
+    // локальная (`draftWriter.isEpochStale`), и по той же отметке — названной
+    // писателем или принесённой строкой. Признак «ничего не изменилось»
+    // (`_lastCloudSignature`) и 60-секундный коридор SF-2 остаются как есть:
+    // это тормоз облачной квоты, а не защита порядка (§4.4).
+    const epoch = generation ?? (typeof draft.epoch === 'number' ? draft.epoch : undefined);
+    if (isEpochStale(draft.userId, epoch)) {
       return false;
     }
     // Nothing worth writing changed since the last successful write. Reported as
@@ -659,14 +678,14 @@ export const WritingDraftService = {
 
     const draftRecord = draft as unknown as Record<string, unknown>;
     const encrypted = await maybeEncrypt(draftRecord, ['content', 'title'], ['pinnedThoughts', 'tags'], draft.userId);
-    if (generation !== undefined && generation !== getDraftGeneration(draft.userId)) {
+    if (isEpochStale(draft.userId, epoch)) {
       return false;
     }
     const clean = Object.fromEntries(
       Object.entries(encrypted).filter(([k, v]) => v !== undefined && (k in DRAFT_CLOUD_FIELDS))
     );
     try {
-      if (generation !== undefined && generation !== getDraftGeneration(draft.userId)) {
+      if (isEpochStale(draft.userId, epoch)) {
         return false;
       }
       // SF2-1: хэш уехавшей нагрузки фиксируется ДО запроса. Ответ может
@@ -685,7 +704,7 @@ export const WritingDraftService = {
       clearPendingCloudDelete(draft.userId);
       return true;
     } catch (e) {
-      if (generation !== undefined && generation !== getDraftGeneration(draft.userId)) {
+      if (isEpochStale(draft.userId, epoch)) {
         return false;
       }
       reportError(e, { action: 'saveDraftToCloud', userId: draft.userId });

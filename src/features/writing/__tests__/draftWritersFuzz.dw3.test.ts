@@ -31,7 +31,7 @@ import { resetSession, loadDraftIntoStore } from '../store/storeActions';
 import { cleanupDraftsAfterSave } from '../utils/sessionActions';
 import { WritingDraftService } from '../services/WritingDraftService';
 import { loadGuestDraftFromStorage } from '../services/GuestDraftService';
-import { clearAllRescuePayloads, getEditorTextOwner, markEditorTextOwner } from '../services/draftWriter';
+import { applySessionEnd, clearAllRescuePayloads, getEditorTextOwner, markEditorTextOwner } from '../services/draftWriter';
 import { useBaseWritingSession } from '../hooks/useBaseWritingSession';
 import { useSessionPersistence } from '../hooks/useSessionPersistence';
 import { useGuestWritingSession } from '../hooks/useGuestWritingSession';
@@ -500,7 +500,8 @@ class World {
       const snap = await settle(this.snapshot(this.owner));
       if (raw !== null && snap.legacy !== null && snap.legacy !== snap.idb) unloadSnapshot = raw;
     }
-    if (unloadSnapshot !== null) WritingDraftService.bumpDraftGeneration(this.owner);
+    // Шаг 5: смерть вкладки — это конец сессии письма, а не закрытый черновик.
+    if (unloadSnapshot !== null) applySessionEnd(this.owner);
     this.unmount();
     await this.drain(1_000);
     if (unloadSnapshot !== null) {
@@ -939,22 +940,19 @@ describe('DW-3: харнесс путей записи черновика', () =
   });
 
   /**
-   * DW-10: гонка спасения при смене аккаунта. Разобрана, не чинится — но вот её
-   * следствие, которое надо видеть: спасение берёт ПОКОЛЕНИЕ, ЖИВОЕ НА МОМЕНТ
-   * ВЫЗОВА (`useDraftAutosave.ts:119`), поэтому смена аккаунта внутри незакрытого
-   * сохранения заметки пишет сохранённый текст обратно в базу прежнего владельца.
-   * Проверка поколения в `saveToLocal` от этого не спасает: она отвергает запись,
-   * только если подъём успел вклиниться между снятием поколения и записью, — то
-   * есть решает исход гонки, а не правило.
+   * DW-10: гонка спасения при смене аккаунта. Спасение брало ПОКОЛЕНИЕ, ЖИВОЕ НА
+   * МОМЕНТ ВЫЗОВА (`useDraftAutosave.ts:119` до шага 5), поэтому смена аккаунта
+   * внутри незакрытого сохранения заметки писала сохранённый текст обратно в базу
+   * прежнего владельца. Проверка поколения в `saveToLocal` от этого не спасала:
+   * она отвергала запись, только если подъём успел вклиниться между снятием
+   * поколения и записью, — то есть решала исход гонки, а не правило.
    *
-   * Цена: текст, только что сохранённый заметкой, становится «несохранённым
-   * черновиком» (I2). Закрывается шагом 5 плана DW-4 — сохранение заметки поднимает
-   * эпоху в мутаторе, и спасение обязано нести эпоху своего текста, а не живую.
-   *
-   * Тест ожидаемо падает: когда дыру закроют, он покраснеет сам и переедет в
-   * обычные (тот же приём, что у DW-F-2).
+   * Шаг 5 DW-4 закрыл дыру: эпоху сохранения поднимает мутатор (`applySave`), а
+   * спасение несёт эпоху СВОЕГО ТЕКСТА (`buildLocalDraft`), поэтому запись с
+   * эпохой до сохранения не меняет ни один адрес. Храповик был `it.fails` и
+   * переехал в обычный зелёный тест по приёмке шага 5 (§4.3, пункт 1).
    */
-  it.fails('DW-10-F-1: смена аккаунта внутри незакрытого сохранения возвращает сохранённый текст черновиком', async () => {
+  it('DW-10-F-1: смена аккаунта внутри незакрытого сохранения не возвращает сохранённый текст черновиком', async () => {
     env.latency = 3_000;
     const w = new World(9_569);
     await w.openAccount(w.uidA);
@@ -964,12 +962,11 @@ describe('DW-3: харнесс путей записи черновика', () =
     // ещё не было, а аккаунт в этой же вкладке уже меняется на B.
     await w.saveNote(1_500, async () => { await w.switchInApp(w.uidB); });
     await w.drain(2_000);
-    // Утверждение, которое должно быть верным и сегодня, и после правки: B не
-    // получает ничего. Дальше — сама дыра: она обязана перестать существовать,
-    // и тогда тест покраснеет сам (храповик, как у DW-F-2). Положительную
-    // проверку «в базе A лежит сохранённое» сюда ставить нельзя: после
-    // починки она бы падала, it.fails оставался бы зелёным и дыру закрыли бы
-    // молча.
+    // Шаг 5: B не получает ничего, и сохранённый заметкой текст не стал черновиком
+    // A — спасение несёт эпоху своего текста, а её подняло сохранение
+    // (`applySave`). Отрицательная форма проверок сохранена намеренно:
+    // положительное «в базе A лежит сохранённое» после починки падает и молча
+    // глушает дыру.
     expect(await w.draftTextFor(w.uidB), 'у B нет ни строки, ни ключа').toBeNull();
     expect(await w.draftTextFor(w.uidA), 'сохранённый заметкой текст не должен быть черновиком A').not.toBe(saved);
     w.unmount();

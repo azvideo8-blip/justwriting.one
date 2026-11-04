@@ -5,13 +5,14 @@ import { useTimerStore } from '../../store/useTimerStore';
 import { useContentStore } from '../../store/useContentStore';
 import { useSessionMetaStore } from '../../store/useSessionMetaStore';
 import { persistDraft } from '../../utils/draftPersistence';
-import { clearEditorTextOwner, markEditorTextOwner } from '../../services/draftWriter';
+import { applySessionEnd, clearAllRescuePayloads, clearEditorTextOwner, getDraftGeneration, markEditorTextOwner, pendingRescuePayloads, rememberRescuePayload } from '../../services/draftWriter';
+import type { LocalDraft } from '../../../../core/storage/localDb';
 import type { AppUser } from '../../../../core/auth/types';
 import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
 import { useEncryptionStore } from '../../../../core/crypto/useEncryptionStore';
 
 vi.mock('../../utils/draftPersistence', () => ({
-  buildLocalDraft: vi.fn((user, current) => ({ ...current, userId: user.uid })),
+  buildLocalDraft: vi.fn((user, current, epoch) => ({ ...current, userId: user.uid, owner: user.uid, ...(epoch !== undefined ? { epoch } : {}) })),
   persistDraft: vi.fn(),
 }));
 
@@ -38,6 +39,9 @@ describe('useDraftAutosave', () => {
     // оно модульное и тоже переживает тест.
     useContentStore.setState({ content: '', title: '', wordCount: 0, ownerUid: null });
     clearEditorTextOwner();
+    // Снимки спасения живут в модуле и переживают тест: без съёма следующий тест
+    // стартует с чужим ждущим снимком и спасение в нём не запускается.
+    clearAllRescuePayloads();
     useSessionMetaStore.getState().resetSessionMetadata();
     localStorage.clear();
     // Стор сейфа кэширует состояние по uid — без сброса тест наследует чужое.
@@ -68,8 +72,8 @@ describe('useDraftAutosave', () => {
     });
 
     expect(persistDraft).toHaveBeenCalledWith(
-      expect.objectContaining({ content: 'Some draft text changed', wordCount: 4 }),
-      { generation: expect.any(Number), remote: false }
+      expect.objectContaining({ content: 'Some draft text changed', wordCount: 4, epoch: expect.any(Number) }),
+      { remote: false }
     );
     expect(result.current.saveStatus).toBe('saved');
 
@@ -98,8 +102,8 @@ describe('useDraftAutosave', () => {
     });
 
     expect(persistDraft).toHaveBeenCalledWith(
-      expect.objectContaining({ content: 'changed text' }),
-      { generation: expect.any(Number), remote: false }
+      expect.objectContaining({ content: 'changed text', epoch: expect.any(Number) }),
+      { remote: false }
     );
   });
 
@@ -117,8 +121,8 @@ describe('useDraftAutosave', () => {
     });
 
     expect(persistDraft).toHaveBeenCalledWith(
-      expect.objectContaining({ content: 'Some draft text', title: 'Autosave Title' }),
-      { generation: expect.any(Number), remote: true }
+      expect.objectContaining({ content: 'Some draft text', title: 'Autosave Title', epoch: expect.any(Number) }),
+      { remote: true }
     );
   });
 
@@ -418,8 +422,8 @@ describe('useDraftAutosave', () => {
       });
 
       expect(persistDraft).toHaveBeenCalledWith(
-        expect.objectContaining({ content: 'Original loaded note body!' }),
-        { generation: expect.any(Number), remote: false }
+        expect.objectContaining({ content: 'Original loaded note body!', epoch: expect.any(Number) }),
+        { remote: false }
       );
     });
   });
@@ -477,6 +481,45 @@ describe('useDraftAutosave', () => {
   // спасения шла, он уже печатает. Запись не прошла — текст прежнего на экран
   // не вернуть, а повтора у снимка нет: он ложится в копию прежнего владельца
   // (`draft-<uid>`, её читает его следующий вход), а не остаётся только в памяти.
+  // Ревью 0.11.6: после пересоздания эпоха текста неизвестна. Снимок берёт текущую
+  // эпоху владельца — иначе закрытие после снимка его не снимет (I2).
+  it('a snapshot taken after a remount names the owner current epoch', async () => {
+    const inviteeB = { uid: 'invitee-B' } as AppUser;
+    useContentStore.setState({ content: 'Личный текст A', title: 'A', wordCount: 3, ownerUid: 'owner-A' });
+    markEditorTextOwner('owner-A');
+    applySessionEnd('owner-A');
+    vi.mocked(persistDraft).mockResolvedValue({ localOk: false, remoteOk: true });
+
+    renderHook(() => useDraftAutosave(inviteeB, { ...initialData, content: 'Личный текст A', title: 'A' }));
+    await act(async () => { await Promise.resolve(); });
+
+    expect(pendingRescuePayloads()[0]?.epoch).toBe(getDraftGeneration('owner-A'));
+    clearAllRescuePayloads();
+  });
+
+  // Ревью 0.11.6: конец сессии поднял эпоху A — копии это не отказ, как и записи строки.
+  it('the owner copy of a failed rescue is not refused by a session end', async () => {
+    const ownerA = { uid: 'owner-A' } as AppUser;
+    const inviteeB = { uid: 'invitee-B' } as AppUser;
+    useContentStore.setState({ content: 'Личный текст A', title: 'A', wordCount: 3, ownerUid: 'owner-A' });
+    markEditorTextOwner('owner-A');
+    localStorage.setItem(STORAGE_KEYS.ENC_ENABLED('owner-A'), '0');
+    const aData = { ...initialData, content: 'Личный текст A', title: 'A' };
+    vi.mocked(persistDraft).mockResolvedValue({ localOk: true, localSkipped: false, remoteOk: true });
+    const { rerender } = renderHook(({ user, data }) => useDraftAutosave(user, data), { initialProps: { user: ownerA, data: aData } });
+    await act(async () => { await Promise.resolve(); });
+    applySessionEnd('owner-A');
+    let fail!: () => void;
+    vi.mocked(persistDraft).mockImplementation(() => new Promise(r => { fail = () => r({ localOk: false, remoteOk: true }); }));
+
+    rerender({ user: inviteeB, data: aData });
+    await act(async () => { await Promise.resolve(); });
+    useContentStore.setState({ content: 'B печатает' });
+    await act(async () => { fail(); await Promise.resolve(); await Promise.resolve(); });
+
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.DRAFT('owner-A')) ?? '{}').content).toBe('Личный текст A');
+  });
+
   it('a failed rescue while the new account already types keeps the old text in its owner copy', async () => {
     const inviteeB = { uid: 'invitee-B' } as AppUser;
     useContentStore.setState({ content: 'Личный текст A', title: 'A', wordCount: 3, ownerUid: 'owner-A' });
@@ -514,6 +557,21 @@ describe('useDraftAutosave', () => {
     expect(useContentStore.getState().content).toBe('B печатает');
     expect(localStorage.getItem(STORAGE_KEYS.DRAFT('invitee-B'))).toBeNull();
     expect(localStorage.getItem(STORAGE_KEYS.DRAFT('owner-A'))).toBeNull();
+  });
+
+  // DW-5 ревью: повтор спасения идёт в фоне — зависшая база прежнего владельца
+  // не держит запись текста того, кто печатает сейчас.
+  it('a hung retry of the previous owner rescue does not hold the current writer', async () => {
+    rememberRescuePayload('owner-A', { userId: 'owner-A', owner: 'owner-A', content: 'A', title: '', updatedAt: 1 } as LocalDraft);
+    vi.mocked(persistDraft).mockImplementation((d) => (d as { userId: string }).userId === 'owner-A'
+      ? new Promise(() => {})
+      : Promise.resolve({ localOk: true, localSkipped: false, remoteOk: true }));
+    const { rerender } = renderHook(({ data }) => useDraftAutosave(mockUser, data), { initialProps: { data: initialData } });
+    rerender({ data: { ...initialData, content: 'Some draft text changed' } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(600); });
+    const own = vi.mocked(persistDraft).mock.calls.filter(([d]) => (d as { userId: string }).userId === 'user123');
+    expect(own.length).toBeGreaterThan(0);
+    clearAllRescuePayloads();
   });
 
   // N-33: запись пропущена по поколению черновика — индикатор не говорит «Сохранено».
@@ -582,7 +640,7 @@ describe('useDraftAutosave', () => {
     vi.mocked(persistDraft).mockResolvedValue({ localOk: true, localSkipped: true, remoteOk: true });
     const { result } = renderHook(() => useDraftAutosave(mockUser, initialData));
     await act(async () => { await vi.advanceTimersByTimeAsync(31_000); });
-    expect(vi.mocked(persistDraft)).toHaveBeenCalledWith(expect.anything(), { generation: expect.any(Number), remote: true });
+    expect(vi.mocked(persistDraft)).toHaveBeenCalledWith(expect.objectContaining({ epoch: expect.any(Number) }), { remote: true });
     expect(result.current.saveStatus).not.toBe('saved');
   });
 

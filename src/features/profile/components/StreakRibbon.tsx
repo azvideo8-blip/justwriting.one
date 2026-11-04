@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, ChevronRight, Snowflake } from 'lucide-react';
-import { getSessionDate, calculateStreak, calculateBestStreak, cn } from '../../../core/utils/utils';
+import { getActiveDayKeys, getSessionDate, calculateStreak, calculateBestStreak, cn } from '../../../core/utils/utils';
 import { wasFreezeUsedThisMonth } from '../../../core/utils/streakFreeze';
 import { useLanguage } from '../../../shared/i18n';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
@@ -48,13 +48,16 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
       }
     });
 
+    const activeDays = getActiveDayKeys(sessions);
+
     for (let i = 29; i >= 0; i--) {
       const date = new Date(baseDate);
       date.setDate(date.getDate() - i);
       const key = date.toDateString();
       const words = wordsByDate[key] || 0;
       const isToday = date.toDateString() === new Date().toDateString();
-      result.push({ date, words, hasSession: words > 0, isToday });
+      // День, поставленный заметке вручную, красится и без слов: он уже в числе серии.
+      result.push({ date, words, hasSession: words > 0 || activeDays.has(key), isToday });
     }
     return result;
   }, [offset, sessions]);

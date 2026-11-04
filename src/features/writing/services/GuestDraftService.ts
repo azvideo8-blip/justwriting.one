@@ -1,7 +1,7 @@
 import { getLocalDb, type LocalDraft } from '../../../core/storage/localDb';
 import { reportError } from '../../../shared/errors/reportError';
 import { GUEST_DRAFT_TTL_MS, STORAGE_KEYS } from '../../../shared/constants/storageKeys';
-import { applyWrite, buildGuestDraftRecord, GUEST_IDB_KEY, parseDraftRow, serializeDraftRow, type DraftRecord } from './draftWriter';
+import { applyWrite, buildGuestDraftRecord, GUEST_IDB_KEY, parseDraftRow, serializeDraftRow, type ApplyWriteOutcome, type DraftRecord } from './draftWriter';
 
 const DRAFT_KEY = STORAGE_KEYS.GUEST_DRAFT;
 
@@ -10,17 +10,22 @@ export async function saveGuestDraftToStorage(
   // Заметка ревьюера 03.11 13:55 (сид 103): гостевая отсрочка называет эпоху
   // мутатору — иначе снятие writer-стража возвращает класс «поздняя запись в
   // окне сохранения».
-  opts: { uid?: string | undefined; epoch?: number | undefined } = {},
-): Promise<void> {
+  // DW5-3.2: `uid` обязателен (без него запись не проходит мутатора, и молча
+  // терять гостевой текст нельзя), и итог мутатора возвращается вызывающему.
+  opts: { uid: string; epoch?: number | undefined },
+): Promise<ApplyWriteOutcome> {
   // DW4-4: гость называет владельцем себя — гостевой текст не имеет
   // владельца-аккаунта по смыслу (DW-6), а зеркало ведёт аккаунты.
-  const rec = buildGuestDraftRecord({ ...draft, owner: opts.uid });
+  // Шаг 5 DW-4: ту же эпоху правки гость несёт и в строке, а не только в
+  // аргументе мутатору — один источник для обоих адресов.
+  const rec = buildGuestDraftRecord({ ...draft, owner: opts.uid, epoch: opts.epoch });
+  let row: ApplyWriteOutcome = 'no-owner';
   let idbFailed = false;
   let lsFailed = false;
   try {
     // Строка отсрочки живёт под `guest_draft` (адрес читают load/migration),
     // а `uid` гостя — не ключ: `saveToLocal` пишет гостевые строки по `uid`.
-    await applyWrite(rec, 'edit', { uid: opts.uid, target: 'row', epoch: opts.epoch, rowKey: GUEST_IDB_KEY });
+    row = await applyWrite(rec, 'edit', { uid: opts.uid, target: 'row', epoch: opts.epoch, rowKey: GUEST_IDB_KEY });
   } catch (e) {
     idbFailed = true;
     reportError(e, { action: 'saveGuestDraft_idb' }, 'warning');
@@ -34,6 +39,11 @@ export async function saveGuestDraftToStorage(
   if (idbFailed && lsFailed) {
     throw new Error('GUEST_DRAFT_SAVE_FAILED: both IDB and localStorage failed');
   }
+  // Отказ мутатора — не «не записано из-за поломки», а «записи здесь быть не
+  // должно»: ни строка, ни копия не тронуты (оба зовут то же правило). При
+  // обрыве одной половины текст всё равно лежит в читаемом адресе, и его
+  // забирает `loadGuestDraftFromStorage` — это «записано», а не потеря.
+  return idbFailed ? 'written' : row;
 }
 
 export async function loadGuestDraftFromStorage(): Promise<DraftRecord | null> {

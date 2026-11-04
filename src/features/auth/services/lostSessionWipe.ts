@@ -1,6 +1,7 @@
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { hasLocalDatabase } from '../../../core/storage/localDb';
 import { reportError } from '../../../shared/errors/reportError';
+import { CLOCK_SKEW_THRESHOLD_SEC } from '../../../core/auth/supabaseAuthProvider';
 
 type ShowToast = (
   message: string,
@@ -9,6 +10,23 @@ type ShowToast = (
 ) => void;
 type Translate = (key: string, params?: Record<string, string | number>) => string;
 type Confirm = (opts: { title: string; message?: string; confirmLabel?: string; destructive?: boolean }) => Promise<boolean>;
+
+/**
+ * Расхождение с часами сервера по заголовку `Date` ответа на `/health` (важен только
+ * заголовок: на проде запрос отвечает статикой nginx, а проксирование `/health` не настроено). Замер по
+ * токену здесь не помогает: часы ушли, пока приложение было закрыто, — сохранённый
+ * замер либо старый, либо нулевой, а свежего токена уже не будет.
+ * null — «не знаю» (нет сети, нет заголовка).
+ */
+async function serverClockSkewSec(): Promise<number | null> {
+  try {
+    const res = await fetch('/health', { cache: 'no-store', signal: AbortSignal.timeout(5_000) });
+    const serverMs = Date.parse(res.headers.get('date') ?? '');
+    return Number.isFinite(serverMs) ? Math.round((Date.now() - serverMs) / 1000) : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * S-28 (O-5): на устройстве, где сессию оборвало не по воле человека (аккаунт
@@ -34,6 +52,14 @@ export async function offerLostSessionWipe(showToast: ShowToast, t: Translate, c
   if (!uid) return;
 
   const lostUid = uid;
+  // Дейлик 04.11 Н-1: обещание 0.11.4 — при неверных часах стереть не предлагаем.
+  const skewSec = await serverClockSkewSec();
+  if (skewSec !== null && Math.abs(skewSec) >= CLOCK_SKEW_THRESHOLD_SEC) {
+    const { showClockSkewToast } = await import('./clockSkewToast');
+    showClockSkewToast(showToast, t, skewSec, true);
+    return;
+  }
+
   if (!(await hasLocalDatabase(lostUid))) return;
 
   showToast(t('auth_lost_session_wipe_hint'), 'warning', {

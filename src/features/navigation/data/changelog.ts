@@ -17,6 +17,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.6',
+    date: '2026-11-04',
+    announce: false,
+    items: [
+      { category: 'fix', ru: 'Сохранённый текст надёжнее не возвращается черновиком: правило теперь одно для всех мест записи.', en: 'Saved text is more reliably kept from coming back as a draft: there is now one rule for every place that writes.' },
+      { category: 'fix', ru: 'Без входа в аккаунт: удалённый черновик не возвращается, а незаписанный не выглядит сохранённым.', en: 'Without signing in: a deleted draft no longer comes back, and an unwritten one no longer looks saved.' },
+      { category: 'fix', ru: 'Если часы устройства ушли, пока приложение было закрыто, приложение говорит про часы и не предлагает стереть данные.', en: 'If the device clock drifted while the app was closed, the app says so and does not offer to wipe your data.' },
+      { category: 'fix', ru: 'Первая загрузка на новом устройстве не срывается, когда сервер просит притормозить, а окно восстановления говорит, если загружено не всё.', en: 'The first download on a new device no longer stops when the server asks to slow down, and the restore window tells you if not everything arrived.' },
+      { category: 'fix', ru: 'Лента серии, тепловая карта и показатели в профиле учитывают день, поставленный заметке вручную.', en: 'The streak ribbon, heatmap and profile stats count the date you set on a note yourself.' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.11.5',
     date: '2026-11-03',
     items: [

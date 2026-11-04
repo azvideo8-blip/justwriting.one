@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.11.6 — 2026-11-04
+
+- **[RU]** Сохранённый текст надёжнее не возвращается черновиком: правило теперь одно для всех мест записи.
+- **[EN]** Saved text is more reliably kept from coming back as a draft: there is now one rule for every place that writes.
+- **[RU]** Без входа в аккаунт: удалённый черновик не возвращается, а незаписанный не выглядит сохранённым.
+- **[EN]** Without signing in: a deleted draft no longer comes back, and an unwritten one no longer looks saved.
+- **[RU]** Если часы устройства ушли, пока приложение было закрыто, приложение говорит про часы и не предлагает стереть данные.
+- **[EN]** If the device clock drifted while the app was closed, the app says so and does not offer to wipe your data.
+- **[RU]** Первая загрузка на новом устройстве не срывается, когда сервер просит притормозить, а окно восстановления говорит, если загружено не всё.
+- **[EN]** The first download on a new device no longer stops when the server asks to slow down, and the restore window tells you if not everything arrived.
+- **[RU]** Лента серии, тепловая карта и показатели в профиле учитывают день, поставленный заметке вручную.
+- **[EN]** The streak ribbon, heatmap and profile stats count the date you set on a note yourself.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.11.5 — 2026-11-03
 
 - **[RU]** Если в одной вкладке сменить аккаунт, черновик прежнего остаётся у него и не попадает к новому; запись черновика стала надёжнее.

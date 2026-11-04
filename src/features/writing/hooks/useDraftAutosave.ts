@@ -2,7 +2,7 @@ import { useEffect, useCallback, useRef } from 'react';
 import type { AppUser } from '../../../core/auth/types';
 import { buildLocalDraft, persistDraft } from '../utils/draftPersistence';
 import { mayAccountWriteEditorText, markEditorTextOwnedBy } from '../utils/draftOwnerGuard';
-import { applyWrite, getEditorTextOwner, markEditorTextOwner, rememberRescuePayload, takeRescuePayload, type DraftRecord } from '../services/draftWriter';
+import { applyWrite, getEditorTextOwner, isDraftClosed, markEditorTextOwner, applySessionEnd, pendingRescuePayloads, rememberRescuePayload, takeRescuePayload, type DraftRecord } from '../services/draftWriter';
 import { useDraftCore, useVisibilitySave, useSyncUnloadSave, type DraftSaveStatus, type DraftErrorKind, type DraftSaveOutcome } from './useDraftCore';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { WritingDraftService } from '../services/WritingDraftService';
@@ -62,6 +62,8 @@ export function useDraftAutosave(
   // ловит: `savedDocumentId` к тому моменту заполнен, хэш нагрузки другой, а
   // метка строки новее отметки удаления.
   const draftGenAtEditRef = useRef<number | undefined>(undefined);
+  /** Чья это эпоха: карты у аккаунтов разные, сравнивать эпоху B с эпохой A нельзя. */
+  const draftGenUidRef = useRef<string | null>(null);
   const editedRef = useRef<{
     content: string;
     title: string;
@@ -97,6 +99,7 @@ export function useDraftAutosave(
     if (prev && (Object.keys(edited) as (keyof typeof edited)[]).every(k => prev[k] === edited[k])) return;
     editedRef.current = edited;
     draftGenAtEditRef.current = WritingDraftService.getDraftGeneration(userId);
+    draftGenUidRef.current = userId;
     // DW-9: правка под текущим аккаунтом делает текст его — с этого момента
     // «владельца нет» не означает «текущий аккаунт» ни для одного писателя
     // (I6 из карты DW-2). Первый рендер экземпляра (prev === null) и смена
@@ -120,6 +123,19 @@ export function useDraftAutosave(
   const rescuingRef = useRef(false);
   const rescueForPreviousOwner = useCallback(async (prev: string): Promise<void> => {
     if (rescuingRef.current) return;
+    // DW5-3.1: возврат текста на экран — не правка. Если снимок прежнего
+    // владельца ещё ждёт своей доставки, повторять спасение имеет смысл только
+    // тогда, когда на экране всё ещё ОН (или его продолжение): иначе это
+    // печатает новый владелец, а `clear()` отсюда стёр бы его слова, не записав
+    // их. Доставку такого снимка ведёт `retryRescuePayloads`.
+    const pending = pendingRescuePayloads().find(r => r.userId === prev);
+    if (pending) {
+      const held = pending.content ?? '';
+      const typed = draftDataRef.current.content;
+      // На экране ровно снимок: возврат текста — не правка, очистка дала бы мигание
+      // по кругу. Доставку ведёт повтор, а экран освободит следующая попытка спасения.
+      if (typed === held || !typed.startsWith(held)) return;
+    }
     rescuingRef.current = true;
     try {
       const current = draftDataRef.current;
@@ -129,15 +145,28 @@ export function useDraftAutosave(
       // смене. Иначе он печатает поверх текста прежнего, буфер становится
       // смешанным, и слова прежнего уходят в базу нового (I3). Снимок забирает
       // текст прежнему, запись идёт уже после передачи редактора.
-      const payload = rememberRescuePayload(prev, buildLocalDraft({ uid: prev } as AppUser, current));
+      // Эпоха ТЕКСТА прежнего владельца — только если этот экземпляр её снимал:
+      // после пересоздания редактора (N-47) в ref лежит эпоха нового аккаунта.
+      const textEpoch = draftGenUidRef.current === prev ? draftGenAtEditRef.current : undefined;
+      // Неизвестна — берём текущую: закрытие, случившееся после снимка, его снимет.
+      const payload = rememberRescuePayload(prev, buildLocalDraft({ uid: prev } as AppUser, current, textEpoch ?? WritingDraftService.getDraftGeneration(prev)));
       clear();
+      // Текст закрыт сохранением или удалением — ему некуда возвращаться
+      // (храповик DW-10-F-1).
+      if (isDraftClosed(prev, payload.epoch)) { takeRescuePayload(prev); return; }
       // Только локально: сессия уже принадлежит новому человеку, облачная
       // запись от имени прежнего упрётся в права базы. Черновик уедет в облако,
       // когда прежний владелец войдёт снова (N-73б — пересмотрено).
-      // Поколение — прежнее: спасение вызвано сменой аккаунта, а не сохранением
-      // заметки, и поколение прежнего владельца никто не поднимал.
-      const res = await persistDraft(payload, { generation: WritingDraftService.getDraftGeneration(prev), remote: false });
+      // Эпоха записи — текущая: конец сессии (размонтирование, `idle`) не повод
+      // отказать тексту, а закрытие, случившееся пока запись в пути, отвергнет
+      // мутатор.
+      const writeEpoch = WritingDraftService.getDraftGeneration(prev);
+      const res = await persistDraft({ ...payload, epoch: writeEpoch }, { remote: false });
       if (res.localOk && !res.localSkipped) { takeRescuePayload(prev); return; }
+      if (res.localSkipOutcome === 'stale-epoch' && isDraftClosed(prev, writeEpoch)) {
+        takeRescuePayload(prev);
+        return;
+      }
       // Запись не прошла: пока новый владелец не начал печатать (редактор пуст),
       // текст возвращается на экран — прежнему владельцу, и следующая попытка
       // автосохранения повторит спасение (N-49). Если он уже печатает, его слова
@@ -150,7 +179,7 @@ export function useDraftAutosave(
         if (payload.title) useContentStore.setState({ title: payload.title });
         markEditorTextOwner(prev);
       } else if (vaultKnownOff(prev)) {
-        void applyWrite({ ...payload, owner: prev } as unknown as DraftRecord, 'edit', { uid: prev, target: 'copy' })
+        void applyWrite({ ...payload, epoch: writeEpoch, owner: prev } as unknown as DraftRecord, 'edit', { uid: prev, target: 'copy' })
           .catch(e => reportError(e, { action: 'draftAutosave_rescueCopy' }));
       }
       reportError(new Error('DRAFT_RESCUE_FAILED: the previous account\'s draft was not written; kept on screen'),
@@ -181,7 +210,42 @@ export function useDraftAutosave(
     return false;
   }, [rescueForPreviousOwner]);
 
-  const doAutosaveLocal = useCallback(async (opts?: { rescue?: boolean; generation?: number | undefined }): Promise<DraftSaveOutcome> => {
+  /**
+   * DW5-2: повтор отказанного спасения. Снимок прежнего владельца ждёт в памяти
+   * (`rescuePayloads`), а открытой копии у него нет, пока сейф не назван
+   * выключенным (SEC-56). Следующая попытка автосохранения — и уход в фон, и
+   * запись перед перезагрузкой — обязана донести его до базы прежнего: строка
+   * IndexedDB не входит в запрещённые адреса, её пишет обычная локальная запись.
+   */
+  const retryingRef = useRef(false);
+  const retryRescuePayloads = useCallback(async (): Promise<void> => {
+    if (rescuingRef.current || retryingRef.current) return;
+    retryingRef.current = true;
+    try {
+      for (const rec of pendingRescuePayloads()) {
+        const uid = rec.userId;
+        if (!uid) continue;
+        // Черновик прежнего владельца закрыт (сохранение принято или его стёрли) —
+        // снимок больше некому возвращать.
+        if (isDraftClosed(uid, rec.epoch)) { takeRescuePayload(uid); continue; }
+        const writeEpoch = WritingDraftService.getDraftGeneration(uid);
+        const res = await persistDraft({ ...rec, epoch: writeEpoch }, { remote: false });
+        if (res.localOk && !res.localSkipped) { takeRescuePayload(uid); continue; }
+        if (res.localSkipOutcome === 'stale-epoch' && isDraftClosed(uid, writeEpoch)) takeRescuePayload(uid);
+      }
+    } finally {
+      retryingRef.current = false;
+    }
+  }, []);
+
+  // Не ждём: зависшая база прежнего владельца не должна держать запись текста
+  // того, кто печатает сейчас.
+  const retryRescueInBackground = useCallback(() => {
+    void retryRescuePayloads().catch(e => reportError(e, { action: 'draftAutosave_retryRescue' }));
+  }, [retryRescuePayloads]);
+
+  const doAutosaveLocal = useCallback(async (opts?: { rescue?: boolean }): Promise<DraftSaveOutcome> => {
+    retryRescueInBackground();
     if (!user) return SKIPPED;
     const current = draftDataRef.current;
     if (!current.content.trim() && !current.title.trim()) return SKIPPED;
@@ -195,11 +259,10 @@ export function useDraftAutosave(
       if (!mayAccountWriteEditorText(user.uid, current.content)) return SKIPPED;
     } else if (!ownsText(user.uid)) return SKIPPED;
 
-    const draft = buildLocalDraft(user, current);
-    const result = await persistDraft(draft, {
-      generation: opts?.generation !== undefined ? opts.generation : draftGenAtEditRef.current,
-      remote: false,
-    });
+    // Шаг 5 DW-4: эпоха правки едет в строке (`buildLocalDraft`), а не отдельным
+    // аргументом: писателю нечего «забыть назвать», сверяет её мутатор.
+    const draft = buildLocalDraft(user, current, draftGenAtEditRef.current);
+    const result = await persistDraft(draft, { remote: false });
     if (!result.localOk) {
       throw new Error('Local save failed');
     }
@@ -208,9 +271,10 @@ export function useDraftAutosave(
     // (nothing was attempted, so nothing failed). Passing that up would clear
     // the cloud-stale flag on every keystroke pause.
     return {};
-  }, [user, ownsText]);
+  }, [user, ownsText, retryRescueInBackground]);
 
   const doSaveWithRemote = useCallback(async (): Promise<DraftSaveOutcome> => {
+    retryRescueInBackground();
     if (!user) return SKIPPED;
     const current = draftDataRef.current;
     if (!current.content.trim() && !current.title.trim()) return SKIPPED;
@@ -218,11 +282,11 @@ export function useDraftAutosave(
     if (isPristineContinuedSession(current.content, current.title)) return SKIPPED;
     if (!ownsText(user.uid)) return SKIPPED;
 
-    const draft = buildLocalDraft(user, current);
+    const draft = buildLocalDraft(user, current, draftGenAtEditRef.current);
     // DY10-10: тот же токен, что у локальной записи. Уход в фон и 30-секундная
     // страховка срабатывают по часам, а не по правке, и без поколения они пишут
     // в облако черновик, который сохранение заметки уже стёрло.
-    const result = await persistDraft(draft, { generation: draftGenAtEditRef.current, remote: true });
+    const result = await persistDraft(draft, { remote: true });
     if (!result.localOk) {
       throw new Error('Local save failed');
     }
@@ -230,7 +294,7 @@ export function useDraftAutosave(
     // не должен снимать флаг «облако устарело».
     if (result.localSkipped) return SKIPPED;
     return result;
-  }, [user, ownsText]);
+  }, [user, ownsText, retryRescueInBackground]);
   const doAutosaveRemote = doSaveWithRemote;
   const doForceSave = doSaveWithRemote;
 
@@ -259,7 +323,7 @@ export function useDraftAutosave(
   // Дейлик 03.11 Н-2: у сейфа снимка в localStorage нет (SEC-56) — хвост,
   // не дождавшийся отсрочки, уходит той же локальной записью, что и на размонтировании.
   const flushLocalOnUnload = useCallback(() => {
-    void doAutosaveLocal({ rescue: false, generation: draftGenAtEditRef.current })
+    void doAutosaveLocal({ rescue: false })
       .catch(e => reportError(e, { action: 'draftAutosave_unloadEncrypted', userId }, 'warning'));
   }, [doAutosaveLocal, userId]);
 
@@ -279,11 +343,12 @@ export function useDraftAutosave(
     unmountSaveRef.current = async () => {
       if (!userId) return;
       try {
-        await doAutosaveLocal({ rescue: false, generation: draftGenAtEditRef.current });
+        await doAutosaveLocal({ rescue: false });
       } catch (e) {
         reportError(e, { action: 'draftAutosave_unmount', userId });
       } finally {
-        WritingDraftService.bumpDraftGeneration(userId);
+        // Шаг 5: сессию письма закрывает мутатор, а не этот писатель.
+        applySessionEnd(userId);
       }
     };
   });
@@ -295,7 +360,7 @@ export function useDraftAutosave(
 
   useEffect(() => {
     if (draftData.status === 'idle' && userId) {
-      WritingDraftService.bumpDraftGeneration(userId);
+      applySessionEnd(userId);
     }
   }, [draftData.status, userId]);
 

@@ -7,7 +7,7 @@ import { useSessionMetaStore } from '../store/useSessionMetaStore';
 import { useDraftCore, useVisibilitySave, useSyncUnloadSave, type DraftSaveStatus, type DraftErrorKind, type DraftSaveOutcome } from './useDraftCore';
 import { resetAndClear, resetAllSessionMetadata } from '../store/storeActions';
 import { WritingDraftService } from '../services/WritingDraftService';
-import { getEditorTextOwner } from '../services/draftWriter';
+import { getEditorTextOwner, type ApplyWriteOutcome } from '../services/draftWriter';
 
 export interface DraftData {
   content: string;
@@ -28,8 +28,10 @@ export interface DraftData {
 }
 
 export interface DraftManagerOptions {
-  /** Эпоха — снимок на момент правки (`genAtEditRef`), называется писателю. */
-  onSaveDraft: (data: DraftData, epoch?: number | undefined) => Promise<void>;
+  /** Эпоха — снимок на момент правки (`genAtEditRef`), называется писателю.
+   *  Возвращает итог мутатора: пропуск и отказ различимы для статуса записи
+   *  (DW5-3.2, N-33). */
+  onSaveDraft: (data: DraftData, epoch?: number | undefined) => Promise<ApplyWriteOutcome | void>;
 }
 
 const SKIPPED: DraftSaveOutcome = { localSkipped: true };
@@ -89,7 +91,13 @@ export function useDraftManager(
         ) {
           return SKIPPED;
         }
-        await onSaveDraftRef.current(data, getWriteEpoch());
+        const outcome = await onSaveDraftRef.current(data, getWriteEpoch());
+        // DW5-3.2 (N-33): «записи не было» не имеет права выглядеть как
+        // «Сохранено». Отказ по эпохе — пропуск, отказ по владельцу — ошибка.
+        if (outcome === 'stale-epoch') return SKIPPED;
+        if (outcome !== undefined && outcome !== 'written') {
+          throw new Error(`GUEST_DRAFT_REFUSED: ${outcome}`);
+        }
       },
       'draftManager/autosave'
     );

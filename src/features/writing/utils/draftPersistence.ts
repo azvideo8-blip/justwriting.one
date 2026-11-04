@@ -5,7 +5,7 @@ import { getLocalStorageUsageKB } from '../../../shared/lib/localStorageUtils';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
-import { getEditorTextOwner } from '../services/draftWriter';
+import { getEditorTextOwner, type ApplyWriteOutcome } from '../services/draftWriter';
 import { logger } from '../../../shared/errors/logger';
 
 
@@ -22,7 +22,12 @@ export function buildLocalDraft(
     sessionStartTime?: number | undefined;
     activeSessionId: string | null;
     status: string;
-  }
+  },
+  // Шаг 5 DW-4: эпоха текста — её приносит писатель (та же величина, что и у
+  // владельца: снимается в момент правки), и она едет в строке. Мутатор сверяет
+  // запись с этой отметкой, а не с текущей эпохой на момент записи: опоздавший
+  // писатель обязан быть отвергнут, а не «успеть первым».
+  epoch?: number | undefined
 ): LocalDraft {
   const contentState = useContentStore.getState();
   const timerState = useTimerStore.getState();
@@ -32,8 +37,10 @@ export function buildLocalDraft(
     ...draftData,
     // DW4-4: владелец текста назван зеркалом редактора — не «кто сейчас вошёл»,
     // а «чей текст стоит». В окне смены аккаунта (DW-F-3) это разные люди, и
-    // мутатор уведёт запись прежнему владельцу, а не в адрес вошедшего.
+    // запись в адрес вошедшего мутатор ОТВЕРГАЕТ ('owner-mismatch') — текст
+    // прежнего владельца уходит в его адрес отдельным писателем-спасением (I3).
     owner: getEditorTextOwner() ?? user.uid,
+    ...(epoch !== undefined ? { epoch } : {}),
     sessionStartTime: draftData.sessionStartTime ?? null,
     accumulatedDuration: timerState.accumulatedDuration,
     totalPauseSeconds: timerState.totalPauseSeconds,
@@ -48,6 +55,9 @@ export interface DraftPersistResult {
   localOk: boolean;
   remoteOk: boolean;
   localSkipped?: boolean;
+  /** Шаг 5: итог отказа мутатора — `'stale-epoch'` означает «текст закрыт
+   *  сохранением или сбросом», и повтор такой записи не имеет смысла. */
+  localSkipOutcome?: ApplyWriteOutcome | undefined;
   remoteSkipped?: boolean;
   remoteError?: unknown;
 }
@@ -58,7 +68,9 @@ export async function persistDraft(
   // текущего (`options.generation ?? getDraftGeneration(...)`) делала защиту
   // поколения декоративной: любая отсроченная запись проходила с тем поколением,
   // которое к моменту записи уже подняло сохранение заметки.
-  options: { generation: number | undefined; remote?: boolean }
+  // Шаг 5 DW-4: эпоха живёт в самой записи (`buildLocalDraft`), и писатель
+  // вправе её не называть только если принёс строку без неё.
+  options: { generation?: number | undefined; remote?: boolean }
 ): Promise<DraftPersistResult> {
   const usageKB = getLocalStorageUsageKB();
   if (usageKB > 4500) {
@@ -77,8 +89,12 @@ export async function persistDraft(
 
   const [localResult, remoteResult] = await Promise.allSettled(promises);
 
+  // D-1: отказ записи броском — не «пропуск»: `localOk` ложится, «Сохранено» не
+  // показывается, текст остаётся на экране. Отказ мутатора по правилу эпохи —
+  // наоборот, штатный итог: `localOk` истинен, но записи не было (`localSkipped`).
   const localOk = localResult.status === 'fulfilled';
-  const localSkipped = localOk && localResult.value === false;
+  const localOutcome = localOk ? localResult.value as ApplyWriteOutcome : undefined;
+  const localSkipped = localOk && localOutcome !== 'written';
   const remoteOk = !shouldRemoteSave || (remoteResult.status === 'fulfilled' && remoteResult.value === true);
   const remoteError = remoteResult.status === 'rejected' ? remoteResult.reason : undefined;
 
@@ -103,5 +119,5 @@ export async function persistDraft(
     }
   }
 
-  return { localOk, localSkipped, remoteOk, remoteError };
+  return { localOk, localSkipped, localSkipOutcome: localOutcome, remoteOk, remoteError };
 }

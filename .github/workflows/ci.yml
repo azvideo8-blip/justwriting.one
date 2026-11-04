@@ -85,9 +85,7 @@ jobs:
     # `!cancelled()`: джоб идёт и когда already-green пропущен (не main) или упал
     # (сбой — значит полный прогон, а не пропуск тестов).
     if: ${{ !cancelled() && github.actor != 'dependabot[bot]' && needs.already-green.outputs.run == '' }}
-    # Владелец 03.11: лёгкие джобы — на соседнюю машину (WSL), mobile-e2e и
-    # деплой остаются на VPS; два раннера — джобы идут параллельно.
-    runs-on: ${{ (github.event_name == 'pull_request' || inputs.hosted) && 'ubuntu-latest' || fromJSON('["self-hosted","justwriting-wsl"]') }}
+    runs-on: ${{ (github.event_name == 'pull_request' || inputs.hosted) && 'ubuntu-latest' || fromJSON('["self-hosted","justwriting-vps"]') }}
     env:
       # На VPS :3000 — прод-API, :3100 — стенд из gates.yml; E2E берёт свой порт.
       E2E_PORT: '3200'
@@ -317,9 +315,7 @@ jobs:
   rls:
     needs: already-green
     if: ${{ !cancelled() && github.actor != 'dependabot[bot]' && needs.already-green.outputs.run == '' }}
-    # Владелец 03.11: лёгкие джобы — на соседнюю машину (WSL), mobile-e2e и
-    # деплой остаются на VPS; два раннера — джобы идут параллельно.
-    runs-on: ${{ (github.event_name == 'pull_request' || inputs.hosted) && 'ubuntu-latest' || fromJSON('["self-hosted","justwriting-wsl"]') }}
+    runs-on: ${{ (github.event_name == 'pull_request' || inputs.hosted) && 'ubuntu-latest' || fromJSON('["self-hosted","justwriting-vps"]') }}
     services:
       postgres:
         image: postgres:16

@@ -150,6 +150,12 @@ export interface LocalDraft {
    * как «свой» (база поимённая).
    */
   owner?: string | undefined;
+  /**
+   * Шаг 5 DW-4: эпоха текста — поле строки (§4.1). Её называет писатель при
+   * наборе, сверяет и поднимает мутатор (`draftWriter.applySave`); строки
+   * прошлых версий без поля читаются как «эпохи не названо».
+   */
+  epoch?: number | undefined;
   updatedAt: number;
   /**
    * SF-2: серверная метка (`drafts.updated_at`, триггер 0043) той облачной версии,

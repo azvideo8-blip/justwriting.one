@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { AppUser } from '../../../core/auth/types';
 import { Session } from '../../../types';
 import { loadAllSessions } from '../../../core/services/UnifiedSessionLoader';
-import { calculateStreak, consumeStreakFreezes } from '../../../core/utils/utils';
+import { calculateStreak, consumeStreakFreezes, getActiveDayKeys } from '../../../core/utils/utils';
 import { syncStreakFreezesWithCloud } from '../../../core/utils/streakFreeze';
 import { toTimestampMs } from '../../../core/utils/dateUtils';
 import { reportError } from '../../../shared/errors/reportError';
@@ -92,6 +92,9 @@ function computeKPIStats(sessions: Session[], docStats: DocLevelStats): KPIStats
         }
       } catch (e) { reportError(e, { action: 'parseSessionDate' }, 'warning'); }
     });
+
+    // День, поставленный заметке вручную, — тот же набор, что у числа серии.
+    for (const key of getActiveDayKeys(sessions)) dates.add(key);
 
     const streak = calculateStreak(sessions);
     const avgMins = docStats.sessionsCount

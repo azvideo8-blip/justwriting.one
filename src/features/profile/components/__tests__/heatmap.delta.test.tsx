@@ -37,6 +37,19 @@ describe('2.12 heatmap daily delta', () => {
     expect(labels.every(l => !l.includes('10000'))).toBe(true);
   });
 
+  // Дейлик 04.11 Н-3: день, поставленный заметке вручную, есть в числе серии.
+  it('a day set on a note with sittings is painted, as the streak counts it', () => {
+    const earlier = new Date(today); earlier.setDate(today.getDate() - 3);
+    const session = {
+      ...base, wordCount: 5, sessionStartTime: today.getTime(),
+      sittings: [{ savedAt: earlier.getTime(), wordsAdded: 5 }],
+    } as unknown as Session;
+    const { container } = render(<Heatmap sessions={[session]} />);
+    const painted = Array.from(container.querySelectorAll('rect[aria-label]'))
+      .filter(r => r.getAttribute('fill') !== 'var(--surface-elevated)');
+    expect(painted).toHaveLength(2); // день подхода и день, поставленный заметке
+  });
+
   it('falls back to wordCount when the session has no delta (legacy docs)', () => {
     const { container } = render(
       <Heatmap sessions={[{ ...base, wordCount: 700 } as unknown as Session]} />,

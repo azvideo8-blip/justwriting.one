@@ -67,7 +67,8 @@ export async function migrateDocuments(userId: string): Promise<MigrateResult> {
   if (guestDraft && hasDraftsInUser) {
     const existingUserDraft = await userDb.get('drafts', userId);
     if (!existingUserDraft) {
-      const newDraft = { ...guestDraft, userId, owner: userId };
+      // Эпоха гостя в карте аккаунта смысла не имеет: выгрузка по `draft.migrated` отвергла бы запись.
+      const newDraft = { ...guestDraft, userId, owner: userId, epoch: undefined };
       await userDb.put('drafts', newDraft);
       // Выгрузку делает слой письма по событию: прямой импорт из auth в
       // writing запрещён зонами import/no-restricted-paths.

@@ -39,6 +39,8 @@ interface RestoreSummaryReport {
   restoredEmbeddings: number;
   restoredAIStoreRecords: number;
   failedCount: number;
+  /** FD-1: проход заметок неполный — повтор ещё нужен. */
+  notesIncomplete?: boolean;
   oversizedCount?: number;
 }
 
@@ -183,6 +185,8 @@ export function RestoreFromCloudModal({
           },
         });
         resultSummary.restoredNotes = noteRes.restored;
+        resultSummary.failedCount += noteRes.failed ?? 0;
+        resultSummary.notesIncomplete = noteRes.hasMore === true;
       }
 
       // Step 2: AI Summaries, Embeddings & Local Store Records (13 stores)
@@ -237,7 +241,8 @@ export function RestoreFromCloudModal({
         // Проход дошёл до конца и не вернул ничего — это не то же самое, что
         // падение. Сказать «прервано ошибкой» там, где ошибки не было, —
         // такая же ложь наоборот, как и «завершено» после падения.
-        setThrew(false);
+        // Отбитые загрузки — как раз ошибка: сказать «нечего восстанавливать» нельзя.
+        setThrew(resultSummary.failedCount > 0 || resultSummary.notesIncomplete === true);
         setStep('failed');
       } else {
         setRestoreDismissed(user.uid, true);
@@ -501,6 +506,12 @@ export function RestoreFromCloudModal({
                   <div className="text-accent-warning flex items-center gap-1 mt-1">
                     <AlertTriangle className="w-3.5 h-3.5" />
                     {t('restore_cloud_failed_skipped')} {report?.failedCount}
+                  </div>
+                )}
+                {Boolean(report?.notesIncomplete) && (
+                  <div data-testid="restore-cloud-notes-incomplete" className="text-accent-warning flex items-center gap-1 mt-1">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    {t('restore_cloud_notes_incomplete')}
                   </div>
                 )}
                 {Boolean(report?.oversizedCount) && (

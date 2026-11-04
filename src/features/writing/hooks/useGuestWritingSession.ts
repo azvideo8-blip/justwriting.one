@@ -78,7 +78,8 @@ export function useGuestWritingSession(): GuestSessionReturn {
     // Заметка ревьюера 03.11 13:55 (сид 103): гостевая отсрочка/30-секундная
     // запись называют эпоху мутатору — после подъёма поколения (сохранение
     // заметки) запись не пишет.
-    await saveGuestDraftToStorage({ ...data, timestamp: Date.now() }, { uid: guestId, epoch });
+    // DW5-3.2: итог мутатора уходит вызывающему — пропуск и отказ видны в статусе.
+    return saveGuestDraftToStorage({ ...data, timestamp: Date.now() }, { uid: guestId, epoch });
   }, [guestId]);
 
   const draftManager = useDraftManager(guestId, getDraftData, { onSaveDraft });

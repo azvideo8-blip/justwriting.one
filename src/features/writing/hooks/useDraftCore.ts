@@ -244,8 +244,10 @@ export function useSyncUnloadSave(
         // 'copy'). Ключ (`draft-<uid>` / гостевой), сейф (SEC-56) и сверку эпохи
         // решает мутатор; 'stale-epoch' — сохранение заметки подняло эпоху, и
         // уже сохранённый текст черновиком не возвращается (DY10-10).
+        // Шаг 5 DW-4: эпоха правки — поле записи, её называет билдер, а не
+        // отдельный аргумент мутатору: писатель копии не может «забыть назвать».
         const writeCopy = (rec: DraftRecord): void => {
-          void applyWrite(rec, 'edit', { target: 'copy', uid: user.uid, epoch: getWriteEpoch?.() })
+          void applyWrite(rec, 'edit', { target: 'copy', uid: user.uid })
             .catch(e => reportError(e, { action: 'autosave_beforeunload', userId: user.uid }, 'warning'));
         };
         const accountRec: DraftRecord = {
@@ -262,6 +264,7 @@ export function useSyncUnloadSave(
           // DW4-4: владелец — зеркало (чей текст стоит); на этом пути DW-9-страж
           // уже отсеял чужое, так что зеркало здесь — это сам аккаунт или пусто.
           owner: getEditorTextOwner() ?? user.uid,
+          epoch: getWriteEpoch?.(),
           updatedAt: Date.now(),
         };
         const { getEncryptionEnabled } = useEncryptionStore.getState();
@@ -291,6 +294,7 @@ export function useSyncUnloadSave(
             labelId: contentState.labelId ?? undefined,
             // DW4-4: гостевой текст подписан гостем, не кем-то из аккаунтов (I1).
             owner: user.uid,
+            epoch: getWriteEpoch?.(),
             timestamp: Date.now(),
           }));
           return;

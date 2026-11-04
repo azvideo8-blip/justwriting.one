@@ -30,7 +30,14 @@ function makeSandbox(): { dir: string; dest: string; script: string } {
   const script = path.join(dir, 'pg-backup.sh');
   const src = fs.readFileSync(PG_BACKUP, 'utf8');
   expect(src).toContain('DEST=/var/backups/justwriting\n');
-  fs.writeFileSync(script, src.replace('DEST=/var/backups/justwriting\n', `DEST=${dest}\n`));
+  // Шаг копии вне сервера тоже в песочницу: на VPS, где живёт раннер, файл
+  // получателя настоящий, и скрипт полез бы в настоящий каталог (0.11.6).
+  const patched = src
+    .replace('DEST=/var/backups/justwriting\n', `DEST=${dest}\n`)
+    .replace('OFFSITE=/var/backups/justwriting-offsite\n', `OFFSITE=${path.join(dir, 'offsite')}\n`)
+    .replace('RECIPIENT=/opt/justwriting/backup/age-recipient.txt\n', `RECIPIENT=${path.join(dir, 'no-recipient')}\n`);
+  expect(patched).not.toMatch(/\/var\/backups|\/opt\/justwriting/);
+  fs.writeFileSync(script, patched);
   fs.writeFileSync(
     path.join(bin, 'docker'),
     [

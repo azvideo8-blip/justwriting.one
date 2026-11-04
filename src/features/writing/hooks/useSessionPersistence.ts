@@ -147,7 +147,8 @@ export function useSessionPersistence(
   }, [autoLoadDraftIfEmpty]);
 
   const handleCancel = useCallback(async () => {
-    WritingDraftService.bumpDraftGeneration(userId);
+    // Эпоху поднял `deleteDraft` (шаг 5 DW-4): прежний вызов был вторым подъёмом
+    // подряд перед тем же удалением.
     await WritingDraftService.deleteDraft(userId); // намеренно: сброс черновика при отмене сессии
     actions.setHasDraft(false);
     actions.resetAndClear();

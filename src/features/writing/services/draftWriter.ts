@@ -105,11 +105,13 @@ export function buildGuestDraftRecord(draft: DraftRecord): DraftRecord {
 
 /**
  * Эпоха черновика (DY10-10): счётчик сессии записи по каждому владельцу.
- * Сохранение заметки и выход из редактора поднимают его и стирают черновик;
+ * Сохранение заметки и выход из редактора поднимают её и стирают черновик;
  * запись, назвавшая эпоху на момент правки, после подъёма уже не проходит.
  * DW4-2: карта и сверка живут в мутаторе — второй источник эпохи на один
  * выпуск (писатель сверяет сам, мутатор пишет) — ровно тот класс, ради
- * которого DW-4.
+ * которого DW-4. Шаг 5: поднимает её тоже мутатор (`applySave`), а не тот,
+ * кто сохранения делает, — и писатель, снявший эпоху до сохранения, больше не
+ * меняет ни один адрес.
  */
 const draftEpochs = new Map<string, number>();
 
@@ -121,6 +123,72 @@ export function bumpDraftGeneration(userId: string): number {
   const next = (draftEpochs.get(userId) ?? 0) + 1;
   draftEpochs.set(userId, next);
   return next;
+}
+
+/**
+ * Шаг 5 DW-4: подъём эпохи — единственный вход мутатора. Закрытие помнится
+ * отдельно от счётчика, потому что от него зависит исход отвергнутой записи:
+ * «черновик закрыт человеком» (сохранение заметки принято, либо человек
+ * удалил/сбросил черновик) означает, что тексту больше некуда возвращаться, а
+ * «сессия письма кончилась» (уход из редактора) — нет, и такой текст обязан
+ * остаться на экране или уйти в базу владельца (правило пакета: не записать ≠
+ * выбросить). Конец сессии идёт сразу за сохранением (сброс → `idle`) и память
+ * о закрытии не затирает.
+ */
+const draftClosedAt = new Map<string, number>();
+
+/**
+ * Черновик закрыт: сохранение заметки принято (`basis 'post-save'`) либо его
+ * стёрли/сбросили. Единственный подъём эпохи в продуктовом коде — писатель его
+ * не планирует, а только называет эпоху своего текста. Прежние шесть мест
+ * (`sessionActions` ×2, `deleteDraftLocalPart`, `useDraftSession`,
+ * `useSessionPersistence` и два в `useDraftAutosave`) поднимали счётчик сами:
+ * новый писатель обязан был не забыть — ровно тот класс, ради которого DW-4.
+ */
+export function applySave(userId: string): number {
+  const next = bumpDraftGeneration(userId);
+  draftClosedAt.set(userId, next);
+  return next;
+}
+
+/** Сессия письма кончилась (размонтирование редактора, переход в `idle`). */
+export function applySessionEnd(userId: string): number {
+  return bumpDraftGeneration(userId);
+}
+
+/**
+ * Шаг 5: текст, снявший эпоху до закрытия черновика, этим закрытием и закрыт —
+ * он лежит в заметке или удалён человеком. Возвращать его некуда.
+ */
+export function isDraftClosed(userId: string, epoch: number | undefined): boolean {
+  if (epoch === undefined) return false;
+  const closedAt = draftClosedAt.get(userId);
+  return closedAt !== undefined && epoch < closedAt;
+}
+
+/**
+ * Шаг 5: правило эпохи одной строкой (§4.1). Писатель называет эпоху ТЕКСТА,
+ * снятую в момент правки; после подъёма запись с более ранней эпохой не имеет
+ * права менять ни один адрес. Сверка одна — здесь; `!==` сузился до `<`, чтобы
+ * строка, принесшая эпоху прошлой вкладки (карта эпох новой вкладки начинается
+ * с нуля), не отвергалась.
+ */
+export function isEpochStale(userId: string, epoch: number | undefined): boolean {
+  return epoch !== undefined && epoch < getDraftGeneration(userId);
+}
+
+/** Эпоха, названная самой записью (`epoch` — поле строки, §4.1). */
+function recordEpoch(rec: DraftRecord): number | undefined {
+  return typeof rec.epoch === 'number' ? rec.epoch : undefined;
+}
+
+/**
+ * Эпоху называют писатели текста; `adopt-*`, `migrate-guest` и `expire` — чтения
+ * и переносы, они приносят строку с чужой отметкой и сравнивать её не с чем.
+ */
+function namedEpoch(rec: DraftRecord, basis: DraftWriteBasis, opts: ApplyWriteOptions): number | undefined {
+  if (opts.epoch !== undefined) return opts.epoch;
+  return basis === 'edit' || basis === 'post-save' ? recordEpoch(rec) : undefined;
 }
 
 /**
@@ -167,6 +235,15 @@ export function takeRescuePayload(uid: string): LocalDraft | undefined {
   return rec;
 }
 
+/**
+ * DW5-2: снимки, ждущие своего владельца. У держателя вкладки нет открытой
+ * копии (сейф не назван выключенным — SEC-56), и повтор записи обязан идти не
+ * из текущего буфера, а из этого списка: буфер принадлежит новому владельцу.
+ */
+export function pendingRescuePayloads(): LocalDraft[] {
+  return [...rescuePayloads.values()];
+}
+
 export function clearAllRescuePayloads(): void {
   rescuePayloads.clear();
 }
@@ -189,9 +266,9 @@ export function queueDraftRowWrite<T>(fn: () => Promise<T>): Promise<T> {
 
 /**
  * §4.1 DW-4: почему пишется строка. Полный список сразу, чтобы basis не
- * расширялся по шагам; правило эпохи сузится до post-save на шаге 5, сейчас
- * отвергается любая запись с названной не текущей эпохой (вчерашняя семантика
- * `saveToLocal`, перенесённая в мутатор как есть).
+ * расширялся по шагам; шаг 5 сузил правило эпохи (`isEpochStale`) и перенёс
+ * её подъём в мутатор (`applySave`): писатель называет эпоху текста, снятую
+ * при правке, и запись с эпохой до сохранения не меняет ни одного адреса.
  */
 export type DraftWriteBasis =
   | 'edit'
@@ -252,6 +329,7 @@ export async function applyWrite(
   opts: ApplyWriteOptions = {},
 ): Promise<ApplyWriteOutcome> {
   const uid = opts.uid ?? (typeof rec.userId === 'string' ? rec.userId : '');
+  const epoch = namedEpoch(rec, basis, opts);
   // Владелец сверяется первым, до эпохи: правило структурное, его исход не
   // зависит от отметок времени. Безымянная запись не проходит вовсе, чужая —
   // не доходит ни до строки, ни до копии (I3).
@@ -260,7 +338,7 @@ export async function applyWrite(
   if (owner !== uid) return 'owner-mismatch';
   // Эпоха сверяется ДО любой записи и синхронно: уход со страницы не успевает
   // положить копию с устаревшей эпохой (DY10-10), а правило одно на все адреса.
-  if (opts.epoch !== undefined && opts.epoch !== getDraftGeneration(uid)) {
+  if (isEpochStale(uid, epoch)) {
     return 'stale-epoch';
   }
 
@@ -281,14 +359,19 @@ export async function applyWrite(
   try {
     const localDb = await getLocalDb(uid);
     // Эпоха могла подняться, пока открывалась база (сохранение заметки в полёте).
-    if (opts.epoch !== undefined && opts.epoch !== getDraftGeneration(uid)) {
+    if (isEpochStale(uid, epoch)) {
       return 'stale-epoch';
     }
     // SF-2/SF2-1: серверный штамп принятой облачной версии и хэши отправок —
     // служебные поля локальной копии. Писатель строит черновик из состояния
     // редактора и принести их не может, а терять нельзя: без них спор снова
     // решают часы прибора, и своя же дошедшая запись выглядит чужой.
-    await queueDraftRowWrite(async () => {
+    const queuedOutcome = await queueDraftRowWrite(async () => {
+      // DW5-3.3: очередь — то место, где запись действительно ложится в адрес, а
+      // удаление черновика (`deleteDraftLocalPart`, `clearGuestDraft`) идёт мимо
+      // неё. Без этой сверки запись, пропустившая проверку до подъёма, дописывает
+      // уже удалённую строку, когда очередь освободится.
+      if (isEpochStale(uid, epoch)) return 'stale' as const;
       // Ключ строки — `uid`; гостевая отсрочка называет свой `guest_draft`
       // явно (rowKey), чтобы не перехватывать гостевые строки `saveToLocal`.
       const rowKey = opts.rowKey ?? uid;
@@ -303,12 +386,14 @@ export async function applyWrite(
       if (sent !== undefined) next._cloudSentHashes = sent;
       await tx.store.put(next as unknown as LocalDraft);
       await tx.done;
+      return 'written' as const;
     });
+    if (queuedOutcome === 'stale') return 'stale-epoch';
     return 'written';
   } catch (err) {
     // Обрыв на устаревшей эпохе — не ошибка писателя, а нормальный отказ: «не
     // записано» вместо исключения, чтобы обрыв в полёте не ронял отчёт.
-    if (opts.epoch !== undefined && opts.epoch !== getDraftGeneration(uid)) {
+    if (isEpochStale(uid, epoch)) {
       return 'stale-epoch';
     }
     reportError(err, { action: 'applyWrite', userId: uid });

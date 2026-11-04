@@ -846,6 +846,10 @@ export const authScreensTranslations: Translations = {
     ru: 'Пропущено с ошибкой:',
     en: 'Skipped due to error:',
   },
+  restore_cloud_notes_incomplete: {
+    ru: 'Загружено не всё — повторите загрузку позже.',
+    en: 'Not everything was downloaded — try again later.',
+  },
   restore_cloud_oversized_skipped: {
     ru: 'Пропущено из-за превышения лимита 10 МБ:',
     en: 'Skipped due to exceeding 10 MB limit:',

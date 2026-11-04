@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { getSessionDate, cn } from '../../../core/utils/utils';
+import { getActiveDayKeys, getSessionDate, cn } from '../../../core/utils/utils';
 import { IconButton } from '../../../shared/components/IconButton';
 import { useLanguage } from '../../../shared/i18n';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
@@ -97,11 +97,13 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
 
     const maxW = Math.max(...allDays.map(d => d.words), 1);
 
+    const activeDays = getActiveDayKeys(sessions);
     const weeks: HeatCell[][] = [];
     for (let i = 0; i < allDays.length; i += 7) {
       weeks.push(allDays.slice(i, i + 7).map(d => ({
         ...d,
-        level: d.words === 0 ? 0
+        // День, поставленный заметке вручную: слов на нём нет, но он в числе серии.
+        level: d.words === 0 ? (activeDays.has(d.date.toDateString()) ? 1 : 0)
           : d.words < maxW * 0.25 ? 1
           : d.words < maxW * 0.5 ? 2
           : d.words < maxW * 0.75 ? 3

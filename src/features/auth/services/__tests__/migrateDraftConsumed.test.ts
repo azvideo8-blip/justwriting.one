@@ -46,6 +46,19 @@ describe('2.8 guest draft is consumed by migration', () => {
     expect(moved.moved).toBeGreaterThanOrEqual(0);
   });
 
+  // Ревью 0.11.6: эпоха гостя не имеет смысла в карте аккаунта. С ней выгрузка по
+  // `draft.migrated` отвергалась как устаревшая, и черновик не уходил в облако.
+  it('does not carry the guest epoch into the account row', async () => {
+    const guestDb = await getLocalDb();
+    await guestDb.put('drafts', { userId: 'guest_draft', content: 'черновик', epoch: 0, updatedAt: Date.now() } as never);
+
+    await migrateDocuments('user_epoch');
+
+    const userDraft = await (await getLocalDb('user_epoch')).get('drafts', 'user_epoch');
+    expect((userDraft as { content?: string })?.content).toBe('черновик');
+    expect((userDraft as { epoch?: number })?.epoch).toBeUndefined();
+  });
+
   // S-55: у аккаунта уже есть черновик — гостевой не выбрасывается под
   // «перенесено 1», а становится обычной заметкой «Черновик гостя, <дата>».
   it('S-55: when the user already has a draft, the guest draft becomes a note instead of being deleted', async () => {

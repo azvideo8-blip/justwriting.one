@@ -1,6 +1,6 @@
 import { onDomainEvent } from '../../../core/events/domainEvents';
 import { WritingDraftService } from '../services/WritingDraftService';
-import { clearEditorTextOwner } from '../services/draftWriter';
+import { clearAllRescuePayloads, clearEditorTextOwner, markEditorTextOwner } from '../services/draftWriter';
 import { useContentStore, clearWordCalcTimer } from './useContentStore';
 import { useTimerStore } from './useTimerStore';
 import { truncateText } from '../../../shared/utils/textLimits';
@@ -83,6 +83,10 @@ onDomainEvent(e => {
     return;
   }
   if (e.type === 'account.reset') {
+    // DW5-3.4: стирание аккаунта снимает и ждущие снимки спасения — иначе чужой
+    // текст переживает «стереть всё с этого компьютера» и дописывается в базу,
+    // когда её уже нет.
+    clearAllRescuePayloads();
     resetSession();
   }
 });
@@ -104,6 +108,10 @@ export function loadDraftIntoStore(draft: {
     wordSnapshots: [],
     ownerUid,
   });
+  // DW5-3.4: зеркало редактора (чей текст стоит) — источник правила I3/I6 для
+  // мутатора и писателей. Стор `ownerUid` без зеркала означало «владельца нет»,
+  // и первый писатель подписывал подставленный текст собой.
+  if (ownerUid) markEditorTextOwner(ownerUid);
   useContentStore.getState().resetHistory();
   useTimerStore.setState({
     _startWallMs: null,
