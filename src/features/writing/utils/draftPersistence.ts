@@ -58,6 +58,8 @@ export interface DraftPersistResult {
   /** Шаг 5: итог отказа мутатора — `'stale-epoch'` означает «текст закрыт
    *  сохранением или сбросом», и повтор такой записи не имеет смысла. */
   localSkipOutcome?: ApplyWriteOutcome | undefined;
+  /** Почему локальная запись отказала: нехватку места показ узнаёт по самому броску. */
+  localError?: unknown;
   remoteSkipped?: boolean;
   remoteError?: unknown;
 }
@@ -98,7 +100,9 @@ export async function persistDraft(
   const remoteOk = !shouldRemoteSave || (remoteResult.status === 'fulfilled' && remoteResult.value === true);
   const remoteError = remoteResult.status === 'rejected' ? remoteResult.reason : undefined;
 
-  if (localOk) {
+  // Дейлик 05.11: только при настоящей записи. Отказ мутатора — записи не было, и копия
+  // закрытия вкладки могла остаться единственным адресом текста.
+  if (localOutcome === 'written') {
     await WritingDraftService.clearLegacyDraft(draft.userId);
   }
 
@@ -119,5 +123,6 @@ export async function persistDraft(
     }
   }
 
-  return { localOk, localSkipped, localSkipOutcome: localOutcome, remoteOk, remoteError };
+  const localError = localResult.status === 'rejected' ? localResult.reason : undefined;
+  return { localOk, localSkipped, localSkipOutcome: localOutcome, localError, remoteOk, remoteError };
 }

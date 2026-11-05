@@ -3,6 +3,7 @@ import 'fake-indexeddb/auto';
 import { resetDbInstance, type LocalDraft } from '../../../../core/storage/localDb';
 import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
 import { WritingDraftService } from '../WritingDraftService';
+import { applyDelete, resolve } from '../draftWriter';
 
 const realNow = Date.now;
 
@@ -66,14 +67,14 @@ afterEach(() => { Date.now = realNow; });
 
 describe('AP2-4: удалённый черновик не воскресает в новой вкладке', () => {
   it('облако не приняло удаление — надгробие переживает вкладку, удаление досылается', async () => {
-    const first = await WritingDraftService.deleteDraft(UID);
+    const first = await applyDelete(UID, 'close');
     expect(first).toEqual({ localOk: true, cloudOk: false });
     expect(localStorage.getItem(STORAGE_KEYS.DRAFT_DELETE_PENDING(UID)), 'досылка поставлена').not.toBeNull();
     expect(localStorage.getItem(STORAGE_KEYS.DRAFT_DELETED_PERSISTENT(UID)), 'надгробие без текста').toContain('|');
     expect(localStorage.getItem(STORAGE_KEYS.DRAFT_DELETED_PERSISTENT(UID))).not.toContain('AP2_DRAFT_SYNTHETIC');
 
     sessionStorage.clear();
-    const loaded = await WritingDraftService.loadDraft(UID);
+    const loaded = await resolve(UID);
     expect(loaded, 'в новой вкладке черновик не возвращается').toBeNull();
     expect(cloud.deletes, 'облачное удаление дослано').toBe(2);
     expect(localStorage.getItem(STORAGE_KEYS.DRAFT_DELETE_PENDING(UID)), 'досылка закрыта').toBeNull();
@@ -81,9 +82,9 @@ describe('AP2-4: удалённый черновик не воскресает �
 
   it('досылка не удалась снова — черновик всё равно не возвращается', async () => {
     cloud.failDeletes = 3;
-    await WritingDraftService.deleteDraft(UID);
+    await applyDelete(UID, 'close');
     sessionStorage.clear();
-    expect(await WritingDraftService.loadDraft(UID)).toBeNull();
+    expect(await resolve(UID)).toBeNull();
     expect(cloud.deletes).toBe(3);
     expect(localStorage.getItem(STORAGE_KEYS.DRAFT_DELETE_PENDING(UID))).not.toBeNull();
   });
@@ -92,12 +93,12 @@ describe('AP2-4: удалённый черновик не воскресает �
   // НОВЫЙ черновик (другое устройство или этот же) — досылка удаления его не
   // стирает, а отметка снимается. Мутация: удалять без сверки хэша — красный.
   it('новый черновик в облаке после неудачного удаления досылкой не стирается', async () => {
-    await WritingDraftService.deleteDraft(UID);
+    await applyDelete(UID, 'close');
     expect(localStorage.getItem(STORAGE_KEYS.DRAFT_DELETE_PENDING(UID))).not.toBeNull();
     cloud.row = { ...draft(), content: 'НОВЫЙ_ЧЕРНОВИК_С_ДРУГОГО_УСТРОЙСТВА', updatedAt: T0 + 60_000 };
     sessionStorage.clear();
 
-    await WritingDraftService.loadDraft(UID);
+    await resolve(UID);
 
     expect(cloud.deletes, 'второго удаления нет').toBe(1);
     expect(cloud.row?.content).toBe('НОВЫЙ_ЧЕРНОВИК_С_ДРУГОГО_УСТРОЙСТВА');
@@ -107,10 +108,10 @@ describe('AP2-4: удалённый черновик не воскресает �
   // Ревью AP2 L6: повторное удаление без локальной строки не стирает хэши
   // прежнего — иначе остаётся одно правило по часам устройства.
   it('повторное удаление сохраняет хэши удалённого содержимого', async () => {
-    await WritingDraftService.deleteDraft(UID);
+    await applyDelete(UID, 'close');
     const first = localStorage.getItem(STORAGE_KEYS.DRAFT_DELETED_PERSISTENT(UID))!.split('|')[1]!;
     expect(first).toMatch(/^[0-9a-f]{16}/);
-    await WritingDraftService.deleteDraft(UID);
+    await applyDelete(UID, 'close');
     expect(localStorage.getItem(STORAGE_KEYS.DRAFT_DELETED_PERSISTENT(UID))).toContain(first);
   });
 });

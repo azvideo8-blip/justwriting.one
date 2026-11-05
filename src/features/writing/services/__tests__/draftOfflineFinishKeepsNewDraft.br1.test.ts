@@ -9,6 +9,7 @@ import 'fake-indexeddb/auto';
 import { getLocalDb, resetDbInstance, type LocalDraft } from '../../../../core/storage/localDb';
 import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
 import { WritingDraftService } from '../WritingDraftService';
+import { applyDelete, resolve } from '../draftWriter';
 
 const realNow = Date.now;
 
@@ -70,12 +71,12 @@ describe('BR-1 (а): офлайн-финиш оставляет отметку �
     await WritingDraftService.saveToLocal(oldDraft());
     cloud.row = oldDraft();
 
-    const deleted = await WritingDraftService.deleteDraftLocal(UID);
+    const deleted = await applyDelete(UID, 'close', { part: 'local' });
 
     expect(deleted.localOk).toBe(true);
     expect(localStorage.getItem(STORAGE_KEYS.DRAFT_DELETE_PENDING(UID)), 'отметка досылки без сети').not.toBeNull();
 
-    const loaded = await WritingDraftService.loadDraft(UID);
+    const loaded = await resolve(UID);
     expect(loaded).toBeNull();
     expect(cloud.deletes, 'старая облачная строка снесена досылкой').toBe(1);
     expect(localStorage.getItem(STORAGE_KEYS.DRAFT_DELETE_PENDING(UID)), 'досылка закрыта').toBeNull();
@@ -85,14 +86,14 @@ describe('BR-1 (а): офлайн-финиш оставляет отметку �
 describe('BR-1 (б): облачный победитель под надгробием не сносит новый локальный черновик', () => {
   it('новый локальный + старый облачный → loadDraft отдаёт новый и удаляет только облако', async () => {
     await WritingDraftService.saveToLocal(oldDraft());
-    await WritingDraftService.deleteDraftLocal(UID);
+    await applyDelete(UID, 'close', { part: 'local' });
     // Отметку досылки снимаем руками: ветку (б) проверяем отдельно — так она
     // выглядит, когда облачная строка приехала обратно (другое устройство).
     localStorage.removeItem(STORAGE_KEYS.DRAFT_DELETE_PENDING(UID));
     cloud.row = oldDraft();
     await WritingDraftService.saveToLocal(newDraft());
 
-    const loaded = await WritingDraftService.loadDraft(UID);
+    const loaded = await resolve(UID);
 
     expect(loaded?.content, 'текст новой работы вернулся').toBe('новая запись');
     expect(cloud.deletes, 'облачная строка под надгробием удалена').toBe(1);

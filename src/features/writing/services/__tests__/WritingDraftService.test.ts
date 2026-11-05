@@ -5,6 +5,7 @@ import { DataProvider } from '../../../../core/data';
 import { maybeEncrypt, maybeDecrypt, isProfileLoaded } from '../../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../../shared/errors/reportError';
 import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
+import { bumpDraftGeneration, applyDelete, resolve } from '../draftWriter';
 
 vi.mock('../../../../core/storage/localDb', () => ({
   getLocalDb: vi.fn(),
@@ -77,7 +78,7 @@ describe('WritingDraftService', () => {
   describe('loadDraft', () => {
     it('returns null when nothing found', async () => {
       makeLocalDb();
-      const draft = await WritingDraftService.loadDraft(mockUserId);
+      const draft = await resolve(mockUserId);
       expect(getLocalDb).toHaveBeenCalledWith(mockUserId);
       expect(draft).toBeNull();
     });
@@ -86,7 +87,7 @@ describe('WritingDraftService', () => {
       const now = Date.now();
       const localDraft = { userId: mockUserId, content: 'local', updatedAt: now, wordCount: 50 };
       makeLocalDb({ get: vi.fn().mockResolvedValue(localDraft) });
-            const draft = await WritingDraftService.loadDraft(mockUserId);
+            const draft = await resolve(mockUserId);
       expect(draft).toEqual(localDraft);
     });
 
@@ -96,7 +97,7 @@ describe('WritingDraftService', () => {
             vi.mocked(DataProvider.getDraft).mockResolvedValue(cloudDraft);
       vi.mocked(maybeDecrypt).mockResolvedValue(cloudDraft);
       makeLocalDb();
-      const draft = await WritingDraftService.loadDraft(mockUserId);
+      const draft = await resolve(mockUserId);
       expect(draft).toEqual(cloudDraft);
     });
 
@@ -107,7 +108,7 @@ describe('WritingDraftService', () => {
       makeLocalDb({ get: vi.fn().mockResolvedValue(localDraft) });
             vi.mocked(DataProvider.getDraft).mockResolvedValue(cloudDraft);
       vi.mocked(maybeDecrypt).mockResolvedValue(cloudDraft);
-      const draft = await WritingDraftService.loadDraft(mockUserId);
+      const draft = await resolve(mockUserId);
       expect(draft).toEqual(localDraft);
     });
 
@@ -118,7 +119,7 @@ describe('WritingDraftService', () => {
       makeLocalDb({ get: vi.fn().mockResolvedValue(localDraft) });
             vi.mocked(DataProvider.getDraft).mockResolvedValue(cloudDraft);
       vi.mocked(maybeDecrypt).mockResolvedValue(cloudDraft);
-      const draft = await WritingDraftService.loadDraft(mockUserId);
+      const draft = await resolve(mockUserId);
       expect(draft).toEqual(cloudDraft);
     });
 
@@ -127,14 +128,14 @@ describe('WritingDraftService', () => {
       const localDraft = { userId: mockUserId, content: 'local', updatedAt: now, wordCount: 50 };
       makeLocalDb({ get: vi.fn().mockResolvedValue(localDraft), delete: vi.fn().mockResolvedValue(undefined) });
             sessionStorage.setItem(STORAGE_KEYS.DRAFT_DELETED(mockUserId), String(now + 1000));
-      const draft = await WritingDraftService.loadDraft(mockUserId);
+      const draft = await resolve(mockUserId);
       expect(draft).toBeNull();
     });
 
     it('deletes draft and returns null if draft is expired', async () => {
       const oldDraft = { userId: mockUserId, content: 'old', updatedAt: 1, wordCount: 50 };
       makeLocalDb({ get: vi.fn().mockResolvedValue(oldDraft), delete: vi.fn().mockResolvedValue(undefined) });
-            const draft = await WritingDraftService.loadDraft(mockUserId);
+            const draft = await resolve(mockUserId);
       expect(draft).toBeNull();
     });
 
@@ -143,7 +144,7 @@ describe('WritingDraftService', () => {
       const legacyDraft = { content: 'legacy', title: 'Legacy', updatedAt: now };
       localStorage.setItem(STORAGE_KEYS.DRAFT(mockUserId), JSON.stringify(legacyDraft));
       makeLocalDb({ objectStoreNames: { contains: vi.fn(() => false) } as unknown as DOMStringList });
-            const draft = await WritingDraftService.loadDraft(mockUserId);
+            const draft = await resolve(mockUserId);
       expect(draft).toEqual(expect.objectContaining({ content: 'legacy', title: 'Legacy', userId: mockUserId }));
     });
 
@@ -156,7 +157,7 @@ describe('WritingDraftService', () => {
       vi.mocked(DataProvider.getDraft).mockResolvedValue(cloudDraft);
       vi.mocked(maybeDecrypt).mockResolvedValue(cloudDraft);
 
-      const draft = await WritingDraftService.loadDraft(mockUserId);
+      const draft = await resolve(mockUserId);
 
       expect(draft).toEqual(cloudDraft);
       expect(reportError).toHaveBeenCalledWith(
@@ -260,7 +261,7 @@ describe('WritingDraftService', () => {
       const draft = { userId: uid, content: 'again', updatedAt: 1000 } as unknown as LocalDraft;
 
       await WritingDraftService.saveDraftToCloud(draft);
-      await WritingDraftService.deleteDraft(uid);
+      await applyDelete(uid, 'close');
       await WritingDraftService.saveDraftToCloud(draft);
       expect(DataProvider.saveDraft).toHaveBeenCalledTimes(2);
     });
@@ -278,7 +279,7 @@ describe('WritingDraftService', () => {
       const saveOp = WritingDraftService.saveDraftToCloud(draft, genAtStart);
 
       // Session ends while save is in flight
-      WritingDraftService.bumpDraftGeneration(uid);
+      bumpDraftGeneration(uid);
 
       resolveSave(null);
       const result = await saveOp;
@@ -292,7 +293,7 @@ describe('WritingDraftService', () => {
 
       const genAtStart = WritingDraftService.getDraftGeneration(uid);
       // Bump generation before saveToLocal runs or completes
-      WritingDraftService.bumpDraftGeneration(uid);
+      bumpDraftGeneration(uid);
 
       await WritingDraftService.saveToLocal(draft, genAtStart);
       expect(db.put).not.toHaveBeenCalled();
@@ -318,13 +319,13 @@ describe('WritingDraftService', () => {
 
   describe('deleteDraft', () => {
     it('does nothing if userId is empty', async () => {
-      await WritingDraftService.deleteDraft('');
+      await applyDelete('', 'close');
       expect(DataProvider.saveDraft).not.toHaveBeenCalled();
     });
 
     it('deletes from localDb, localStorage, and firestore', async () => {
       const db = makeLocalDb();
-      await WritingDraftService.deleteDraft(mockUserId);
+      await applyDelete(mockUserId, 'close');
       expect(getLocalDb).toHaveBeenCalledWith(mockUserId);
       expect(db.delete).toHaveBeenCalledWith('drafts', mockUserId);
       expect(localStorage.getItem(STORAGE_KEYS.DRAFT(mockUserId))).toBeNull();
@@ -337,7 +338,7 @@ describe('WritingDraftService', () => {
       });
             vi.mocked(DataProvider.deleteDraft).mockRejectedValue(new Error('firestore error'));
       // N-54: не бросает, но сообщает, что локальный черновик не удалён.
-      await expect(WritingDraftService.deleteDraft(mockUserId)).resolves.toMatchObject({ localOk: false });
+      await expect(applyDelete(mockUserId, 'close')).resolves.toMatchObject({ localOk: false });
       expect(reportError).toHaveBeenCalled();
     });
   });

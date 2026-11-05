@@ -3,12 +3,7 @@ import { resetAndClear } from '../store/storeActions';
 import { useTimerStore } from '../store/useTimerStore';
 import { useContentStore } from '../store/useContentStore';
 import { applyDraftToStores } from '../utils/draftUtils';
-import { WritingDraftService } from '../services/WritingDraftService';
-import { applySave, markEditorTextOwner } from '../services/draftWriter';
-import {
-  loadGuestDraftFromStorage,
-  deleteGuestDraftFromStorage,
-} from '../services/GuestDraftService';
+import { applyDelete, markEditorTextOwner, resolve } from '../services/draftWriter';
 
 export interface DraftSessionState {
   hasDraft: boolean;
@@ -32,17 +27,9 @@ export function useDraftSession(userId: string, isGuest: boolean): DraftSessionS
   useLayoutEffect(() => { userIdRef.current = userId; }, [userId]);
 
   const discardDraft = useCallback(async () => {
-    if (isGuest) {
-      // Шаг 5 DW-4: закрытие черновика поднимает эпоху мутатором — и у гостя.
-      // Без него опоздавшая отсрочка в окне «Удалить» возвращала удалённый текст
-      // в `jw_guest_draft` и в строку `guest_draft`.
-      applySave(userId);
-      await deleteGuestDraftFromStorage();
-    } else {
-      // `deleteDraft` поднимает эпоху сам (шаг 5): прежний вызов был вторым
-      // подъёмом подряд перед тем же удалением.
-      await WritingDraftService.deleteDraft(userId); // намеренно: сброс черновика при отмене или сбросе сессии
-    }
+    // Шаг 6 DW-4: единственный вход удаления — `applyDelete`; подъём эпохи
+    // (шаг 5) и стирание обоих локальных адресов — там же.
+    await applyDelete(userId, 'close', isGuest ? { guest: true } : {});
     setHasDraft(false);
   }, [userId, isGuest]);
 
@@ -53,12 +40,9 @@ export function useDraftSession(userId: string, isGuest: boolean): DraftSessionS
   }, [discardDraft]);
 
   const autoLoadDraftIfEmpty = useCallback(async () => {
-    let draft;
-    if (isGuest) {
-      draft = await loadGuestDraftFromStorage();
-    } else {
-      draft = await WritingDraftService.loadDraft(userId);
-    }
+    // Шаг 6 DW-4: единственное чтение при загрузке — `resolve`, гостю — те же
+    // два адреса без облачной копии.
+    const draft = await resolve(userId, isGuest ? { guest: true } : {});
 
     if (userIdRef.current !== userId) return;
     if (!draft?.content) return;
@@ -76,12 +60,9 @@ export function useDraftSession(userId: string, isGuest: boolean): DraftSessionS
   }, [userId, isGuest]);
 
   const restoreDraft = useCallback(async () => {
-    let draft;
-    if (isGuest) {
-      draft = await loadGuestDraftFromStorage();
-    } else {
-      draft = await WritingDraftService.loadDraft(userId);
-    }
+    // Шаг 6 DW-4: единственное чтение при загрузке — `resolve`, гостю — те же
+    // два адреса без облачной копии.
+    const draft = await resolve(userId, isGuest ? { guest: true } : {});
 
     if (userIdRef.current !== userId) return;
     if (!draft?.content) {

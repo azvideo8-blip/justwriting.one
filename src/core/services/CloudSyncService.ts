@@ -1,4 +1,7 @@
 import { DocumentService, UnreadableCloudListError, UnreadableCloudRowError, parseCloudDocument } from './DocumentService';
+// DW6-5.4: общий тормоз 429 переехал в `rateGate` — им пользуется и слой данных
+// (`pageAll`), а импорт `CloudSyncService` из провайдера дал бы цикл.
+import { isRateLimitedError, withRateLimitRetry } from './rateGate';
 import { readCloudDocumentsPartial } from './cloudListPartial';
 import { pullChangesSince } from '../data/providers/pullChanges';
 import { DOCUMENT_REV, fromDb } from '../data/providers/fields';
@@ -72,74 +75,6 @@ const downloadLimit = pLimit(5);
 // ждал получаса, но и не молотил каждые 120 с.
 const RESTORE_LISTING_WINDOW_MS = 30 * 60 * 1000;
 const RESTORE_RETRY_WINDOW_MS = 5 * 60 * 1000;
-
-/**
- * FD-2: `429` — не «сбой заметки», а «притормози».
- *
- * Распознавание — по ТЕКСТУ. Замер на стенде (supabase-js 2.118.0, nginx-подобный
- * 429 с телом text/html): в объекте ошибки есть ТОЛЬКО `message` с HTML-страницей;
- * при теле JSON — `error` + `message`. `status`, `statusCode` и `code` PostgREST-js
- * не отдаёт, когда тело не распознано как JSON-ошибка. Проверка по коду поэтому
- * молча не сработала бы на проде — но оставлена: harness отдаёт `code: '429'`, а
- * живой PostgREST мог бы начать отдавать статус.
- */
-export function isRateLimitedError(err: unknown): boolean {
-  if (!err || typeof err !== 'object') return false;
-  const e = err as { code?: unknown; status?: unknown; statusCode?: unknown; message?: unknown };
-  if (e.code === '429' || e.code === 429 || e.status === 429 || e.statusCode === 429) return true;
-  const msg = String(e.message ?? '');
-  // Ревью FD: голое «429» в тексте не признак — `DECRYPT_FAILED_LATEST … version 429`
-  // повторялся бы шесть раз и тормозил все скачивания. Страница nginx несёт фразу.
-  return /too many requests|rate limit/i.test(msg);
-}
-
-// Темп общий на процесс: одна отбитая заметка закрывает очередь для всех, а не
-// только для себя, — иначе 5 воркеров `downloadLimit` продолжают долбить лимит.
-// Значения — из тикета (2 → 4 → 8 → 16 с); наружу выставлены для тестов, чтобы
-// юнит не спал минуту.
-export const rateLimitTuning = { baseMs: 2_000, maxMs: 16_000, maxAttempts: 6 };
-
-let rateGateUntilMs = 0;
-let ratePauseMs = rateLimitTuning.baseMs;
-
-/** Пауза, которую все скачивания обязаны выдержать перед следующим запросом. */
-async function waitRateGate(): Promise<void> {
-  for (;;) {
-    const wait = rateGateUntilMs - Date.now();
-    if (wait <= 0) return;
-    await new Promise(res => setTimeout(res, Math.min(wait, 250)));
-  }
-}
-
-/** Закрыть очередь на текущую паузу и удвоить её (с потолком). */
-function openRateGate(): void {
-  rateGateUntilMs = Date.now() + ratePauseMs;
-  ratePauseMs = Math.min(ratePauseMs * 2, rateLimitTuning.maxMs);
-}
-
-/** Проход без единого 429 — темп можно вернуть к базовому. */
-function resetRateGate(): void {
-  ratePauseMs = rateLimitTuning.baseMs;
-}
-
-/**
- * Выполнить `fn`, а если сервер ответил 429 — подождать общий тормоз и повторить
- * ТО ТО ЖЕ самое. В ошибку значение выходит только после исчерпания повторов.
- */
-export async function withRateLimitRetry<T>(fn: () => Promise<T>, attempts = rateLimitTuning.maxAttempts): Promise<T> {
-  for (let attempt = 0; ; attempt++) {
-    await waitRateGate();
-    try {
-      const res = await fn();
-      resetRateGate();
-      return res;
-    } catch (e) {
-      if (!isRateLimitedError(e)) throw e;
-      openRateGate();
-      if (attempt + 1 >= attempts) throw e;
-    }
-  }
-}
 
 // S1-6: один забор по rev на пользователя за раз — второй вызывающий
 // присоединяется к идущему, как у downloadAllFromCloud.

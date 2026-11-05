@@ -143,6 +143,19 @@ describe('chatWithAI: режим рассуждений в запасном пу
     expect(whole.result).not.toContain(ANSWER_CUT_NOTE);
   });
 
+  // DT-1 (дейлик 04.11): поставщик вернул finish_reason='length', а выдача ниже
+  // потолка — счётчик токенов обрыва не видит. Мутация: вернуть в
+  // chatWithAI.logic.ts `providerFinish: null` → кейс красный.
+  it('пометка есть по finish_reason поставщика, даже когда токенов меньше потолка', async () => {
+    const ctx = ctxSpy();
+    vi.mocked(generate).mockResolvedValue({ text: 'Оборванный ответ', tokensIn: 10, tokensOut: 900, model: 'test-model', finishReason: 'length' });
+    const cut = await chatWithAILogic(ctx, 'u1', payload()) as { result: string };
+    expect(cut.result.endsWith(ANSWER_CUT_NOTE)).toBe(true);
+    vi.mocked(generate).mockResolvedValue({ text: 'Целый ответ', tokensIn: 10, tokensOut: 900, model: 'test-model', finishReason: 'stop' });
+    const whole = await chatWithAILogic(ctx, 'u1', payload()) as { result: string };
+    expect(whole.result).not.toContain(ANSWER_CUT_NOTE);
+  });
+
   // Дейлик 27.10 Н-4: к английскому ответу — английская пометка, не русская.
   // Мутация: одна константа на оба языка → красный.
   it('английский ход на потолке получает английскую пометку', async () => {

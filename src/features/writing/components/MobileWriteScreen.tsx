@@ -23,6 +23,7 @@ import { SaveStatus } from './SaveStatus';
 import { ReturnToWritingCard } from './ReturnToWritingCard';
 import { SyncUnsyncedBar } from '../../../core/components/SyncUnsyncedBar';
 import { CloudNotesBanner } from './CloudNotesBanner';
+import { DraftWriteAlertBar } from './DraftWriteAlertBar';
 import { StreakChip } from './StreakChip';
 import { OnThisDayCard } from '../../../core/components/OnThisDayCard';
 import { useHomeHint } from '../hooks/useHomeHint';
@@ -406,6 +407,11 @@ export function MobileWriteScreen({
       </AnimatePresence>
       </div>
       </div>
+
+      {/* VIS: баннер отказа записи — над редактором, без привязки к дзену и к
+          idle: отказ случается ровно тогда, когда человек печатает, а строки
+          ниже в это время скрыты. Строка статуса на телефоне не меняется. */}
+      <DraftWriteAlertBar className="shrink-0 mx-5 mb-2" />
 
       {/* MC-1: второй строки в idle больше нет — токен режима уехал в панель
         письма. Здесь остаются только строка синка, баннер возврата, баннер

@@ -4,6 +4,10 @@ import { isVaultUnlocked } from '../crypto/encrypt';
 import { getEncryptionEnabled } from '../crypto/cryptoHelpers';
 import { VAULT_UNLOCKED_EVENT } from '../crypto/vaultEvents';
 import { onDomainEvent } from '../events/domainEvents';
+// DW6-5.4: тот же общий тормоз 429, что и у синка (`rateGate` без зависимостей —
+// в стартовый чанк он ничего не тянет), и журнал сбоя чтения.
+import { withRateLimitRetry } from '../services/rateGate';
+import { reportError } from '../../shared/errors/reportError';
 // BS (N-2): LocalStorageService и DocumentService приходят по требованию внутри
 // проверки — статически они вытягивали из ленивого куска в стартовый весь слой
 // документов вместе с движком синхронизации.
@@ -118,15 +122,21 @@ export function useEmptyDeviceDetection(opts?: { cloudOnlyWhenEmpty?: boolean })
       // B2 R-2: по неполному списку «на устройстве меньше, чем прочитано в
       // облаке» по-прежнему доказательство; обратное — нет, но это только подсказка.
       const { readCloudDocumentsPartial } = await import('../services/cloudListPartial');
-      const cloudLen = (await readCloudDocumentsPartial(uid)).docs.length;
+      // DW6-5.4: облачное чтение шло без общего тормоза 429 — один отбитый запрос
+      // убирал вопрос о восстановлении, как «облака нет».
+      const cloudLen = (await withRateLimitRetry(() => readCloudDocumentsPartial(uid))).docs.length;
 
       // AG-RESTORE-1: Prompt if local device has fewer notes than the cloud.
       // RA1-5: отклонённая модалка гасит только вопрос; счётчики читаются и
       // дальше — из них живёт баннер на пустом главном.
       const isMissingCloudNotes = localLen < cloudLen && cloudLen > 0;
       write(uid, { cloud: cloudLen, prompt: isMissingCloudNotes && !dismissed });
-    } catch {
-      write(uid, { prompt: false });
+    } catch (e) {
+      // DW6-5.4: отказа чтения — «нет ответа», а не «облако пусто и вопроса нет»
+      // (класс I7). Предложение и числа остаются как были: решение не принято,
+      // перечитка придёт с `online`, разблокировкой сейфа или первым сохранением.
+      reportError(e, { action: 'emptyDeviceCloudRead', userId: uid }, 'warning');
+      return;
     }
   }, [uid, isGuest, readLocalCount, write]);
 

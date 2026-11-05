@@ -97,13 +97,17 @@ describe('К21-3: материалы хода сохраняются в репл
     expect(await storedAnswer('d-k213-regen')).toMatchObject({ contextDocIds: [SEEN] });
   });
 
-  it('пустой список материалов поля не заводит', async () => {
+  // DT-3 (дейлик 04.11): «материалы хода пусты» — записанное решение, а не
+  // «клиент про поле не знает». Пустой список пишется явно (`[]`), иначе
+  // слияние (`dialogueMerge.ts:141`) перенесёт id скрытой заметки из старой
+  // копии, и синк унесёт его в облако.
+  it('пустой список материалов хода пишется явно', async () => {
     await seed('d-k213-empty', []);
     h.buildContext.mockResolvedValue(ctx({ injectedDocumentIds: [] }));
     const { result } = renderHook(() => useAIChat('d-k213-empty', 'coach'));
     await act(async () => { await result.current.sendMessage('привет'); });
 
     await waitFor(async () => expect((await storedAnswer('d-k213-empty'))?.content).toBe('ответ'));
-    expect((await storedAnswer('d-k213-empty'))?.contextDocIds).toBeUndefined();
+    expect((await storedAnswer('d-k213-empty'))?.contextDocIds).toEqual([]);
   });
 });

@@ -1,6 +1,7 @@
-const CACHE_VERSION = 'v0.11.6';
+const CACHE_VERSION = 'v0.11.7';
 const CACHE = `jw-${CACHE_VERSION}`;
 const NAV_CACHE = `jw-nav-${CACHE_VERSION}`;
+const NAV_CACHE_MAX = 12;
 
 // SB-6: `caches.match` при пустом кэше резолвится в undefined, а
 // `respondWith(undefined)` — не «страница ошибки по вкусу», а сетевая ошибка по
@@ -34,6 +35,21 @@ async function offlineNavigation(request) {
     // Приватный режим и переполненная квота: кэш-хранилище не открылось.
     return offlineResponse();
   }
+}
+
+// DT-4 (подозрение дейлика 02.11): без потолка за одну версию воркера каждая
+// открытая страница (`/note/<uuid>`, `/diary`, …) оставляла запись — их число
+// росло неограниченно. Держим последние NAV_CACHE_MAX; текущая навигация из-под
+// вытеснения исключена, чтобы офлайн-открытие только что виденной страницы не
+// ломалось (порядок `keys()` вне гарантий спецификации, поэтому не полагаемся на
+// него для «не выбросить свежее»).
+async function putNavigation(request, response) {
+  const cache = await caches.open(NAV_CACHE);
+  await cache.put(request, response);
+  const keys = await cache.keys();
+  if (keys.length <= NAV_CACHE_MAX) return;
+  const stale = keys.filter((k) => k.url !== request.url).slice(0, keys.length - NAV_CACHE_MAX);
+  await Promise.all(stale.map((k) => cache.delete(k)));
 }
 
 self.addEventListener('install', (event) => {
@@ -75,7 +91,9 @@ self.addEventListener('fetch', (event) => {
       fetch(event.request).then((response) => {
         if (response.ok) {
           const clone = response.clone();
-          void caches.open(NAV_CACHE).then((cache) => cache.put(event.request, clone));
+          // DT-4: запись кладётся с потолком; ответ уже получен, поэтому кэш —
+          // фон, и его отказ (приватный режим, квота) не должен ронять навигацию.
+          void putNavigation(event.request, clone).catch(() => {});
         }
         return response;
       }).catch(() => offlineNavigation(event.request))

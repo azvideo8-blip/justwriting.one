@@ -21,6 +21,8 @@ type Confirm = (opts: { title: string; message?: string; confirmLabel?: string; 
 async function serverClockSkewSec(): Promise<number | null> {
   try {
     const res = await fetch('/health', { cache: 'no-store', signal: AbortSignal.timeout(5_000) });
+    // Дейлик 05.11: чужой ответ (портал входа в сеть, прокси) — не наш сервер, его часам не верим.
+    if (!res.ok) return null;
     const serverMs = Date.parse(res.headers.get('date') ?? '');
     return Number.isFinite(serverMs) ? Math.round((Date.now() - serverMs) / 1000) : null;
   } catch {

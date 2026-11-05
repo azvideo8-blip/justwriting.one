@@ -2,7 +2,7 @@ import { useEffect, useCallback, useRef } from 'react';
 import type { AppUser } from '../../../core/auth/types';
 import { buildLocalDraft, persistDraft } from '../utils/draftPersistence';
 import { mayAccountWriteEditorText, markEditorTextOwnedBy } from '../utils/draftOwnerGuard';
-import { applyWrite, getEditorTextOwner, isDraftClosed, markEditorTextOwner, applySessionEnd, pendingRescuePayloads, rememberRescuePayload, takeRescuePayload, type DraftRecord } from '../services/draftWriter';
+import { applyWrite, foreignOwnerHolding, getEditorTextOwner, isDraftClosed, markEditorTextOwner, applySessionEnd, pendingRescuePayloads, rememberRescuePayload, takeRescuePayload, type DraftRecord } from '../services/draftWriter';
 import { useDraftCore, useVisibilitySave, useSyncUnloadSave, type DraftSaveStatus, type DraftErrorKind, type DraftSaveOutcome } from './useDraftCore';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { WritingDraftService } from '../services/WritingDraftService';
@@ -10,6 +10,7 @@ import { useSessionMetaStore } from '../store/useSessionMetaStore';
 import { resetAndClear, resetAllSessionMetadata } from '../store/storeActions';
 import { reportError } from '../../../shared/errors/reportError';
 import { useContentStore } from '../store/useContentStore';
+import { useDraftWriteAlertStore } from '../store/useDraftWriteAlertStore';
 import { onBeforeAccountReload } from '../../../core/auth/accountReload';
 import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
@@ -22,6 +23,36 @@ function vaultKnownOff(uid: string): boolean {
 }
 
 const SKIPPED: DraftSaveOutcome = { localSkipped: true };
+
+/**
+ * VIS T1: ждущий снимок — текст прежнего входа не записан на устройство, и с
+ * сейфом открытой копии у него нет (SEC-56), так что закрытая вкладка его
+ * теряет. Состояние ставится по факту очереди, а не по исходу попытки: повтор
+ * его не удваивает и не гасит, а принятая запись (снятая из очереди) снимает.
+ */
+function syncRescueAlert() {
+  useDraftWriteAlertStore.getState().setRescueNotWritten(pendingRescuePayloads().length > 0);
+}
+
+/**
+ * Ревьюер 04.11: снимок доставлен повтором, а зеркало всё ещё называет прежнего
+ * владельца. Без передачи следующая попытка сочла бы весь буфер его текстом: слова
+ * печатающего ушли бы в чужой адрес (I3) и стёрлись с экрана (I1). На экране ровно
+ * снимок — экран освободит обычное спасение. Иначе остаток принадлежит печатающему.
+ */
+function handOverEditorAfterDelivery(uid: string, delivered: { content?: string | undefined; title?: string | undefined }, typist: string | null): void {
+  if (!typist || typist === uid || getEditorTextOwner() !== uid) return;
+  const { content, title } = useContentStore.getState();
+  const held = delivered.content ?? '';
+  if (content === held) return;
+  const heldTitle = delivered.title ?? '';
+  useContentStore.setState({
+    content: content.startsWith(held) ? content.slice(held.length).trim() : content,
+    title: title.startsWith(heldTitle) ? title.slice(heldTitle.length).trim() : title,
+    ownerUid: typist,
+  });
+  markEditorTextOwner(typist);
+}
 
 function isPristineContinuedSession(content: string, title: string): boolean {
   const meta = useSessionMetaStore.getState();
@@ -45,7 +76,7 @@ export function useDraftAutosave(
   }
 ) {
   const userId = user?.uid ?? null;
-  const { saveStatus, saveErrorKind, lastSavedAt, remotePermanentError, wrapSave } = useDraftCore({ userId });
+  const { saveStatus, saveErrorKind, lastSavedAt, remotePermanentError, wrapSave, clearLocalWriteStuck } = useDraftCore({ userId });
   const draftDataRef = useRef(draftData);
   // Приёмка ai-privacy (код-ревью, M-3): поколение черновика на момент последней
   // правки. Сохранение заметки поднимает поколение и стирает черновик ДО сброса
@@ -128,14 +159,16 @@ export function useDraftAutosave(
     // тогда, когда на экране всё ещё ОН (или его продолжение): иначе это
     // печатает новый владелец, а `clear()` отсюда стёр бы его слова, не записав
     // их. Доставку такого снимка ведёт `retryRescuePayloads`.
+    // На экране ровно снимок: возврат текста — не правка, очистка дала бы мигание
+    // по кругу. Доставку ведёт повтор, а экран освободит следующая попытка спасения.
+    // DW6-4: «продолжение» раньше целиком считалось текстом A и стиралось вместе
+    // с ним. Хвост после снимка — слова того, кто печатает СЕЙЧАС: он не уходит в
+    // адреса A (I3) и не стирается незаписанным (I1).
     const pending = pendingRescuePayloads().find(r => r.userId === prev);
-    if (pending) {
-      const held = pending.content ?? '';
-      const typed = draftDataRef.current.content;
-      // На экране ровно снимок: возврат текста — не правка, очистка дала бы мигание
-      // по кругу. Доставку ведёт повтор, а экран освободит следующая попытка спасения.
-      if (typed === held || !typed.startsWith(held)) return;
-    }
+    const held = pending?.content ?? '';
+    const typed = draftDataRef.current.content;
+    if (pending && (typed === held || !typed.startsWith(held))) return;
+    const tail = pending ? typed.slice(held.length).trim() : '';
     rescuingRef.current = true;
     try {
       const current = draftDataRef.current;
@@ -151,6 +184,29 @@ export function useDraftAutosave(
       // Неизвестна — берём текущую: закрытие, случившееся после снимка, его снимет.
       const payload = rememberRescuePayload(prev, buildLocalDraft({ uid: prev } as AppUser, current, textEpoch ?? WritingDraftService.getDraftGeneration(prev)));
       clear();
+      if (tail) {
+        // Хвост возвращается на экран сразу и тем же ходом записывается владельцу:
+        // «набранное не стирается, не будучи где-то записано».
+        useContentStore.getState().setContent(tail);
+        // Ревьюер 04.11: заголовок считается так же, как текст, а закрепления и сессия
+        // принадлежат снимку прежнего владельца (I3): в строку нового они не идут.
+        const heldTitle = payload.title ?? '';
+        const titleTail = current.title.startsWith(heldTitle) ? current.title.slice(heldTitle.length).trim() : current.title;
+        if (titleTail) useContentStore.setState({ title: titleTail });
+        markEditorTextOwner(userId);
+        const bEpoch = WritingDraftService.getDraftGeneration(userId);
+        const bDraft = buildLocalDraft({ uid: userId } as AppUser, {
+          ...current,
+          content: tail,
+          title: titleTail,
+          pinnedThoughts: [],
+          activeSessionId: null,
+          sessionStartTime: undefined,
+          initialWordCount: undefined,
+          wordCount: tail.split(/\s+/).filter(Boolean).length,
+        }, bEpoch);
+        await persistDraft(bDraft, { remote: false }).catch(e => reportError(e, { action: 'draftAutosave_newOwnerTail', userId }));
+      }
       // Текст закрыт сохранением или удалением — ему некуда возвращаться
       // (храповик DW-10-F-1).
       if (isDraftClosed(prev, payload.epoch)) { takeRescuePayload(prev); return; }
@@ -186,6 +242,7 @@ export function useDraftAutosave(
         { action: 'draftAutosave_saveForPreviousOwner', localOk: res.localOk, localSkipped: res.localSkipped });
     } finally {
       rescuingRef.current = false;
+      syncRescueAlert();
     }
   }, [userId]);
 
@@ -198,7 +255,14 @@ export function useDraftAutosave(
 
   /** Текст этого аккаунта? Ничейный (новый, гостевой) становится его. Чужой —
    *  нет, и запускает спасение для владельца. */
-  const ownsText = useCallback((uid: string): boolean => {
+  const ownsText = useCallback((uid: string, text: string): boolean => {
+    // DW6-4: буфер, начинающийся с чужого ожидающего снимка, — не текст этого
+    // аккаунта, даже если зеркало его потеряло: за ним приходит спасение.
+    const foreign = foreignOwnerHolding(text);
+    if (foreign !== null && foreign !== uid) {
+      void rescueForPreviousOwner(foreign);
+      return false;
+    }
     const owner = getEditorTextOwner();
     if (owner === uid) return true;
     if (!owner || owner.startsWith('guest')) {
@@ -230,13 +294,18 @@ export function useDraftAutosave(
         if (isDraftClosed(uid, rec.epoch)) { takeRescuePayload(uid); continue; }
         const writeEpoch = WritingDraftService.getDraftGeneration(uid);
         const res = await persistDraft({ ...rec, epoch: writeEpoch }, { remote: false });
-        if (res.localOk && !res.localSkipped) { takeRescuePayload(uid); continue; }
+        if (res.localOk && !res.localSkipped) {
+          takeRescuePayload(uid);
+          handOverEditorAfterDelivery(uid, rec, userId);
+          continue;
+        }
         if (res.localSkipOutcome === 'stale-epoch' && isDraftClosed(uid, writeEpoch)) takeRescuePayload(uid);
       }
     } finally {
       retryingRef.current = false;
+      syncRescueAlert();
     }
-  }, []);
+  }, [userId]);
 
   // Не ждём: зависшая база прежнего владельца не должна держать запись текста
   // того, кто печатает сейчас.
@@ -257,16 +326,18 @@ export function useDraftAutosave(
       // DW-9: правило живёт в одном помощнике вместе с записью при закрытии
       // вкладки — два писателя одного текста не могут сверять владельца по-разному.
       if (!mayAccountWriteEditorText(user.uid, current.content)) return SKIPPED;
-    } else if (!ownsText(user.uid)) return SKIPPED;
+    } else if (!ownsText(user.uid, current.content)) return SKIPPED;
 
     // Шаг 5 DW-4: эпоха правки едет в строке (`buildLocalDraft`), а не отдельным
     // аргументом: писателю нечего «забыть назвать», сверяет её мутатор.
     const draft = buildLocalDraft(user, current, draftGenAtEditRef.current);
     const result = await persistDraft(draft, { remote: false });
     if (!result.localOk) {
-      throw new Error('Local save failed');
+      throw result.localError ?? new Error('Local save failed');
     }
-    if (result.localSkipped) return SKIPPED;
+    // VIS: исход отказа доезжает до показа — иначе `no-owner`/`owner-mismatch`
+    // неразличимы со штатным `stale-epoch` и выглядят как «нечего сохранять».
+    if (result.localSkipped) return { localSkipped: true, localSkipOutcome: result.localSkipOutcome };
     // Local only: `remote: false` makes persistDraft report remoteOk=true
     // (nothing was attempted, so nothing failed). Passing that up would clear
     // the cloud-stale flag on every keystroke pause.
@@ -280,7 +351,7 @@ export function useDraftAutosave(
     if (!current.content.trim() && !current.title.trim()) return SKIPPED;
     // D-24: do not save draft for continued notes with no edits
     if (isPristineContinuedSession(current.content, current.title)) return SKIPPED;
-    if (!ownsText(user.uid)) return SKIPPED;
+    if (!ownsText(user.uid, current.content)) return SKIPPED;
 
     const draft = buildLocalDraft(user, current, draftGenAtEditRef.current);
     // DY10-10: тот же токен, что у локальной записи. Уход в фон и 30-секундная
@@ -288,11 +359,11 @@ export function useDraftAutosave(
     // в облако черновик, который сохранение заметки уже стёрло.
     const result = await persistDraft(draft, { remote: true });
     if (!result.localOk) {
-      throw new Error('Local save failed');
+      throw result.localError ?? new Error('Local save failed');
     }
     // N-48: локальная запись пропущена — не «Сохранено», и облачный успех
     // не должен снимать флаг «облако устарело».
-    if (result.localSkipped) return SKIPPED;
+    if (result.localSkipped) return { localSkipped: true, localSkipOutcome: result.localSkipOutcome };
     return result;
   }, [user, ownsText, retryRescueInBackground]);
   const doAutosaveRemote = doSaveWithRemote;
@@ -374,7 +445,13 @@ export function useDraftAutosave(
       const timeout = setTimeout(() => void wrappedAutosaveLocal(), debounceDelay);
       return () => clearTimeout(timeout);
     }
-  }, [draftData.content, draftData.title, draftData.wordCount, user, wrappedAutosaveLocal, layoutMode]);
+    // Заметка ревьюера 04.11 21:55, п.2: текст стёрт — попытки записи пустого
+    // не бывает (условие выше), `markSaved` не зовётся, и баннер «только на
+    // экране» остался бы висеть над пустым редактором неправдой.
+    if (user && !draftData.content.trim() && !draftData.title.trim()) {
+      clearLocalWriteStuck();
+    }
+  }, [draftData.content, draftData.title, draftData.wordCount, user, wrappedAutosaveLocal, layoutMode, clearLocalWriteStuck]);
 
   // Interval safety net: save to cloud (remote) every 30s even if the user types continuously.
   // Boolean dep on purpose: keyed on the text itself the interval would restart

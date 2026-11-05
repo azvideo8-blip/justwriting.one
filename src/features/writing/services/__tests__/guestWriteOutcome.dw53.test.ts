@@ -7,10 +7,10 @@
 import 'fake-indexeddb/auto';
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getLocalDb, resetDbInstance } from '../../../../core/storage/localDb';
+import { getLocalDb, resetDbInstance, getOrCreateGuestId } from '../../../../core/storage/localDb';
 import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
-import { applySave, getDraftGeneration } from '../../services/draftWriter';
-import { deleteGuestDraftFromStorage, saveGuestDraftToStorage } from '../../services/GuestDraftService';
+import { applySave, getDraftGeneration, applyDelete } from '../../services/draftWriter';
+import { saveGuestDraftToStorage } from '../../services/GuestDraftService';
 import { useDraftManager, type DraftData } from '../../hooks/useDraftManager';
 import { useContentStore } from '../../store/useContentStore';
 import { useTimerStore } from '../../store/useTimerStore';
@@ -46,7 +46,7 @@ describe('DW5-3.2: гостевой писатель возвращает ито
     );
     expect(written, 'обычная гостевая запись не вернула итог').toBe('written');
 
-    await deleteGuestDraftFromStorage();
+    await applyDelete(getOrCreateGuestId(), 'close', { guest: true });
     // «Сохранить» поднял эпоху — опоздавшая отсрочка обязана быть отвергнута.
     applySave(GUEST);
 

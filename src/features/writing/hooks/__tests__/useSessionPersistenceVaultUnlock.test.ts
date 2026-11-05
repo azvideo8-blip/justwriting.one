@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useSessionPersistence } from '../useSessionPersistence';
-import { WritingDraftService } from '../../services/WritingDraftService';
 import { VAULT_UNLOCKED_EVENT } from '../../../../core/crypto/useEncryptionStore';
 import { useContentStore } from '../../store/useContentStore';
 import type { AppUser } from '../../../../core/auth/types';
@@ -17,6 +16,15 @@ vi.mock('../../../../shared/hooks/useOnlineStatus', () => ({
 vi.mock('../../utils/draftUtils', () => ({
   applyDraftToStores: vi.fn(),
 }));
+// Шаг 6 DW-4: `resolve` и флаг «облако заперто» живут в мутаторе. Мокается
+// только этот край — проверяется реакция хука на открытие сейфа.
+const cloudLocked = vi.hoisted(() => ({ current: false }));
+vi.mock('../../services/draftWriter', async (importActual) => ({
+  ...(await importActual<typeof import('../../services/draftWriter')>()),
+  resolve: vi.fn(),
+  isCloudDraftLocked: () => cloudLocked.current,
+}));
+import { resolve } from '../../services/draftWriter';
 
 describe('useSessionPersistence S-4 vault unlock draft reload', () => {
   const user: AppUser = {
@@ -48,13 +56,13 @@ describe('useSessionPersistence S-4 vault unlock draft reload', () => {
   it('reloads cloud draft when VAULT_UNLOCKED_EVENT fires', async () => {
     // Initial mount: cloud draft is locked
     let callCount = 0;
-    vi.spyOn(WritingDraftService, 'loadDraft').mockImplementation(async () => {
+    vi.mocked(resolve).mockImplementation(async () => {
       callCount++;
       if (callCount === 1) {
-        WritingDraftService._cloudDraftLocked = true;
+        cloudLocked.current = true;
         return null;
       }
-      WritingDraftService._cloudDraftLocked = false;
+      cloudLocked.current = false;
       return {
         userId: 'vault_user_4',
         title: 'Decrypted Title',
@@ -94,7 +102,7 @@ describe('useSessionPersistence S-4 vault unlock draft reload', () => {
     );
 
     // Initial load ran
-    expect(WritingDraftService.loadDraft).toHaveBeenCalledTimes(1);
+    expect(resolve).toHaveBeenCalledTimes(1);
     expect(mockActions.setHasDraft).not.toHaveBeenCalledWith(true);
 
     // Vault unlocks!
@@ -103,7 +111,7 @@ describe('useSessionPersistence S-4 vault unlock draft reload', () => {
     });
 
     // Draft reloaded and applied
-    expect(WritingDraftService.loadDraft).toHaveBeenCalledTimes(2);
+    expect(resolve).toHaveBeenCalledTimes(2);
     expect(mockActions.setHasDraft).toHaveBeenCalledWith(true);
   });
 });

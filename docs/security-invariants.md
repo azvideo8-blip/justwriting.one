@@ -95,7 +95,8 @@ holds, which test proves it, and whether it holds `structural` or `timing`.
     30-second cloud insurance `:302-307`; synchronous copy at tab close
     `src/features/writing/hooks/useDraftCore.ts:230-318` (`beforeunload` and `pagehide`);
     on load the NEWER of the two local copies wins — `pickNewerLocalCopy`
-    `src/features/writing/services/WritingDraftService.ts:230-266`, called at `:485` (N1-4);
+    `src/features/writing/services/draftWriter.ts:786`, called from `resolve` — the only reader
+    at load (`draftWriter.ts:865`; step 6 deleted `loadDraft` rather than leaving a wrapper) (N1-4);
     guest path: both guest addresses are written by the mutator since DW4-2 —
     `GuestDraftService.saveGuestDraftToStorage` → `applyWrite` (`draftWriter.ts`), read
     `GuestDraftService.ts:63-100` (read that caches).
@@ -112,6 +113,7 @@ holds, which test proves it, and whether it holds `structural` or `timing`.
     I2 as `structural`; the rescue side of it is narrowed further by DW5-2 (§6.1).
 
 - **I2 — text closed by a confirmed save never comes back as a draft.**
+  - **Scope:** the same device, for the same reason as I5: another device keeps its own copy of the draft until it is closed there.
   - Holds in: since DW-4 step 5 the epoch belongs to the mutator end to end. Raising it is
     `applySave` `src/features/writing/services/draftWriter.ts:148` — the only raise in product
     code (a save was accepted, a draft was deleted or reset); leaving the editor raises
@@ -125,12 +127,15 @@ holds, which test proves it, and whether it holds `structural` or `timing`.
     moment of writing. The rule is one line (`isEpochStale`, `draftWriter.ts:176`: a record
     naming an older epoch is refused) and it is checked at four points in `applyWrite`: before
     any write (`:350`), after the database opens (`:366`), inside the row-write queue
-    immediately before `put` (`:378` — deletions run outside that queue, DW5-3.3), and in the
-    catch (`:400`). The cloud half uses the same epoch and the same rule
+    immediately before `put` (`:378`), and in the
+    catch (`:400`). Since step 6 deletions stand in the same queue — `applyDelete` `:569` →
+    `deleteLocalHalf` `:585` — so a queued adoption write can no longer resurrect a row that
+    was deleted behind it (DW5-3.3 closed). The cloud half uses the same epoch and the same rule
     (`src/features/writing/services/WritingDraftService.ts:669`) and refuses a row whose named
     owner is not the address (`:658`); `_lastCloudSignature` and the 60-second SF-2 corridor are
     kept (§4.4 — a quota brake, not an ordering guard). Deleting the draft clears BOTH
-    addresses — `WritingDraftService.ts:384`/`:391` and `clearLegacyDraft` `:574-577`.
+    addresses in one queued step — `draftWriter.ts:585` (IDB row + `draft-<uid>` /
+    `jw_guest_draft`); the service no longer exposes `deleteDraft*`.
   - Proven by: `src/features/writing/hooks/__tests__/draftRescueStaleEpoch.dw51.test.ts` (the
     rescue of the previous owner inside the DY10-10 window touches neither `drafts` nor
     `draft-<uid>`; the guest deferral touches neither `jw_guest_draft` nor `guest_draft`),
@@ -188,15 +193,21 @@ holds, which test proves it, and whether it holds `structural` or `timing`.
     `src/features/auth/services/__tests__/migrateDraftConsumed.test.ts`,
     `src/features/writing/services/__tests__/GuestDraftService.test.ts`, harness I4 over 12 guest seeds.
   - **Holds by: `structural`** for the single migration entrance and the `!existingUserDraft`
-    guard; `timing` for the 7-day TTL, which reads the device clock (`:43`) — an expired guest
-    draft is not migrated *and* not deleted (D13 in the map), which is an accepted gap, not a proof.
+    guard; `timing` for the 7-day TTL, which reads the device clock. D13 (an expired guest
+    draft was neither migrated nor deleted) is closed at step 6: `probeGuestDraft`
+    `src/features/auth/services/migrateDocuments.ts:37` tells «expired» apart from «absent»,
+    `consumeGuestDraftCopies` `:67` erases both guest addresses at sign-in, and the reader
+    `resolveGuest` `draftWriter.ts:1029` deletes through
+    `applyDelete(uid, 'expire', { guest: true })`. The clock itself stays an assumption.
 
-- **I5 — a deleted draft does not come back from another device.**
-  - Holds in: tombstone with the hashes of the deleted content
-    `WritingDraftService.ts:285` (`writeTombstone`), compared by content at `:416-422`;
-    the pending-cloud-delete mark is set in the local half (`:358`), read for the re-send
-    (`:305`) and cleared on either side (`:293`, `:379`), and the re-send runs at load
-    (`:423` `flushPendingCloudDelete`).
+- **I5 — a draft deleted on this device does not come back to this device.**
+  - **Scope (владелец 05.11):** rule is per device. The tombstone lives in this device's storage and the cloud `DELETE` leaves no trace (`src/core/data/providers/drafts.ts`), so another device keeps its own row and uploads it again: daily 05.11 Н-2. A cloud tombstone is in the backlog, after `sync_push_rpc` is on for everyone.
+  - Holds in: since step 6 the whole of it lives in the mutator — tombstone with the hashes
+    of the deleted content `src/features/writing/services/draftWriter.ts:512`
+    (`writeTombstone`, две копии: вкладка + Persistent-ключ), compared by content inside
+    `resolve` (`:865`, `isDeletedByTombstone`); the pending-cloud-delete mark is set in the
+    local half (`:524`, BR-1a), read for the re-send (`:820` `flushPendingCloudDelete`) and
+    cleared on either side (`:520`, `:633`).
   - Proven by: `draftTombstone.ap2-4.test.ts`, `draftTombstoneServerClock.d1-2.test.ts`,
     `draftUnsentEdits.sf21.test.ts`, `draftOfflineFinishKeepsNewDraft.br1.test.ts`,
     `draftExpiryServerClock.d1-6.test.ts`, harness I5.
@@ -209,7 +220,12 @@ holds, which test proves it, and whether it holds `structural` or `timing`.
     (`draftPersistence.ts:36`, the `?? user.uid` fallback covers the genuinely unowned new/guest
     text), the unload copy stamps it directly (`useDraftCore.ts:264,293`), and `applyWrite`
     refuses a row with no owner at all ('no-owner', `draftWriter.ts:341`) before reading
-    anything else. The editor-side helpers stay in `draftOwnerGuard.ts:23-66`, the stamping
+    anything else, and DW6-4 added one more structural rule: a buffer that starts with
+    somebody else's undelivered snapshot is never adopted by typing
+    (`foreignOwnerHolding` `draftWriter.ts:264`, read by `draftOwnerGuard.ts` and by `ownsText`
+    in `useDraftAutosave.ts:216`) — the tail belongs to whoever types it, and it is written to
+    that account's addresses, not discarded (`useDraftAutosave.ts:156-168`).
+    The editor-side helpers stay in `draftOwnerGuard.ts:23-66`, the stamping
     effect at `useDraftAutosave.ts:73-102`; the rescue carries the snapshot with the owner it
     was taken under (`rememberRescuePayload` `draftWriter.ts:229-234`).
   - Proven by: the mutation removing the owner read reddens the no-owner case
@@ -260,3 +276,72 @@ the DW-4 plan (dw4-4) removed two of the three listed here on 01.11:
   return is removed).
 - Guest writes name `{uid, epoch}` to the mutator since dw4-2 (reviewer note 03.11 13:55,
   seed 103); DW-F-2 stays in the map as the history of the finding.
+
+Step 6 (dw6, 04.11) — what moved from `timing` to `structural`, and what stayed `timing`
+with its window named:
+
+- Now `structural` — порядок удаления относительно записей строки. Было: `deleteDraftLocalPart`
+  и `clearGuestDraft` сносили адрес мимо очереди, и защита держалась на том, что «удаление
+  успевает раньше»; стала: `applyDelete` стоит в `queueDraftRowWrite` (`draftWriter.ts:569`,
+  `:585`), поэтому фоновая adopt-запись не может вернуть удалённую строку. Проверено
+  `src/features/writing/services/__tests__/draftDeleteMutator.dw61.test.ts`
+  (мутация «удаление мимо очереди» красит три кейса).
+- Now `structural` — «смешанный буфер не подписывается печатью». Было: повтор спасения
+  верил `typed.startsWith(held)`, и слова нового владельца стерлись незаписанными (окно —
+  весь период, пока база прежнего отказывает); стало: чужой Префикс находится по самой
+  строке-снимку (`foreignOwnerHolding`, `draftWriter.ts:264`), хвост остаётся на экране и
+  уходит в адреса печатающего (`useDraftAutosave.ts:156-168`). Проверено
+  `src/features/writing/hooks/__tests__/draftRescueTail.dw64.test.ts` и N-49-кейсом в
+  `useDraftAutosave.test.ts`.
+- Now `structural` — различие «срок вышел» и «черновика нет» у гостя (D13): `probeGuestDraft`
+  называет исход отдельно (`migrateDocuments.ts:37`), стирание — общий помощник (`:67`).
+- Still `timing`, с окном: неудачное чтение половины не имеет права означать «ничего нет» —
+  правило записано в `resolve` (`!localFailed` перед каждым удалением и перед кэшированием
+  облачной копии, `draftWriter.ts:865`) и закрыто направленными тестами
+  `draftResolveFailures.dw62.test.ts`, но держится оно на честном разделении «прочитано /
+  не прочитано», а не на данных строки: окно — весь пролёт между `Promise.allSettled` и
+  веткой решения, поэтому каждая такая ветка обязана иметь свой тест (приёмка шага 6).
+- Still `timing`: `FLUSH_LIMIT_MS = 1500` (`src/core/auth/accountReload.ts:15,61-67`) — окно
+  потери слов после лимита флеша (I1, принято владельцем); окно снимка спасения после DW5-2
+  (пока база прежнего отказывает, снимок живёт в памяти, а при запертом сейфе открытой копии
+  нет — SEC-56); 60-секундный коридор SF-2 и `_lastCloudSignature` — тормоз облачной квоты,
+  не порядок записей; TTL гостя и «не прочитали хэш → решают часы прибора» (D1-2).
+
+Дейлик 05.11, `structural`: облако не прочитано (отказ, таймаут, битая строка) — `resolve` удаляет только локальную половину, облачную досылка снесёт лишь при совпавшем хэше. Отказ мутатора не снимает копию закрытия вкладки.
+
+Приёмка DW-6 (ревьюер 04.11), `structural`: `resolve` отвечает «нечего загружать», если черновик закрыли, пока читали (`isDraftClosed(uid, readEpoch)`); право удалять теряется при любом набранном в редакторе (`editorHoldsWork`: текст и заголовок, и до чтения, и во время него); хвост нового владельца не берёт заголовок, закрепления и сессию из снимка прежнего (I3).
+
+DW6-5 (находки ревью 0.11.6, тот же шаг 6) — что закрыто правилом мутатора, а не порядком:
+
+- Now `structural` — принятие облачной копии не затирает то, что закрыли во время чтения.
+  Было: `adopt-cloud` писал строку без эпохи (`namedEpoch` не называет её для basis `adopt-*`),
+  и заметка, сохранённая, пока облако ещё не ответило (до 10 с), проигрывала прошлому
+  черновику. Стало: эпоха снимается до чтения (`readEpoch`, `draftWriter.ts:901`) и называется
+  записи (`:1009`, `:1033`) — отвергает её то же правило `isEpochStale`, что и правки; при
+  отказе вызывающий получает локальную копию, а не облачную. Проверено
+  `src/features/writing/services/__tests__/draftAdoptCloudEpoch.dw651.test.ts`.
+- Now `structural` — чтение черновика не имеет права закрывать набираемый текст. Было:
+  ветки `tombstone`/`expire` в `resolve` звали `applyDelete`, тот поднимал эпоху (`applySave`),
+  и автосохранение нового владельца после этого отвергалось как опоздавшее — слова с экрана,
+  нигде не записанные. Стало: правка буфера с начала чтения отнимает у чтения право
+  закрывать и удалять (`editorMoved`, `draftWriter.ts:895`, места `:995`, `:999`, `:1020`,
+  `:1024` и гостевая `:1099`); показывать нечего — решение не отложено. Окно: сигнал —
+  текст стора редактора, поэтому писатель, меняющий буфер мимо `useContentStore`, под защиту
+  не попадает (таких в продукте нет; зеркало владельца текста — то же, DW4-4). Проверено
+  `src/features/writing/services/__tests__/draftResolveTypedDuringRead.dw652.test.ts`.
+- Now `structural` — облачная половина сверяет эпоху ПОСЛЕ ожидания очереди строки
+  (`WritingDraftService.ts:169`, между `rememberCloudSend` и `DataProvider.saveDraft`):
+  `queueDraftRowWrite` — точка, где запись стоит неограниченно, и закрытие черновика в это
+  время раньше не останавливало отправку. Проверено
+  `src/features/writing/services/__tests__/draftCloudSendEpochRecheck.dw653.test.ts`.
+- Narrowed by DW6-5.4 — `429` больше не решает за человека. Было: тормоз висел вокруг всего
+  постраничного забора (429 на странице N перечитывал 0…N−1), а `useEmptyDeviceDetection` и
+  окно восстановления читали облако без него и на любом сбое писали «предложения нет». Стало:
+  повтор на месте страницы (`pageAll.ts:33`), чтения под общим тормозом
+  (`useEmptyDeviceDetection.ts:127`, `RestoreFromCloudModal.tsx:76`), сбой — «нет ответа»:
+  прочитанные числа и предложение остаются (`useEmptyDeviceDetection.ts:135`). Окно:
+  «нет ответа» отличается от «нет» только отсутствием решения — перечитка приходит с `online`,
+  разблокировкой сейфа или первым сохранением, а не по таймеру. Проверено
+  `src/core/data/providers/__tests__/pageAllRateLimit.dw654a.test.ts`,
+  `src/core/sync/__tests__/emptyDeviceCloud429.dw654b.test.ts`,
+  `src/app/modals/__tests__/restoreModalCloud429.dw654c.test.tsx`.

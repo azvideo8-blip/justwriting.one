@@ -68,6 +68,12 @@ export interface GenerateResult {
   model: string;
   /** Provider-side reasoning text, when reasoningEffort was set. */
   reasoning?: string;
+  /**
+   * DT-1 (дейлик 04.11): `finish_reason` поставщика. Без него запасной путь
+   * решает об обрыве только по счётчику токенов и не видит `length`, когда
+   * поставщик недосчитал выдачу. null — сигнала не приходило.
+   */
+  finishReason?: string | null | undefined;
 }
 
 function isTransientError(err: unknown, didTimeout = false): boolean {
@@ -211,19 +217,21 @@ async function generateOpenRouter(params: GenerateParams): Promise<GenerateResul
     res.json().finally(() => clearTimeout(jsonTimerId!)),
     jsonTimeout,
   ])) as {
-    choices?: { message?: { content?: string; reasoning_content?: string; reasoning?: string } }[];
+    choices?: { message?: { content?: string; reasoning_content?: string; reasoning?: string }; finish_reason?: string | null }[];
     usage?: { prompt_tokens?: number; completion_tokens?: number };
   };
 
   const message = data.choices?.[0]?.message;
   const text = message?.content ?? '';
   const reasoning = message?.reasoning_content ?? message?.reasoning;
+  const finishReason = data.choices?.[0]?.finish_reason ?? null;
   return {
     text,
     ...(reasoning ? { reasoning } : {}),
     tokensIn: data.usage?.prompt_tokens ?? 0,
     tokensOut: data.usage?.completion_tokens ?? 0,
     model: activeModel,
+    finishReason,
   };
 }
 

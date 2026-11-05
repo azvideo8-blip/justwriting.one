@@ -1,7 +1,5 @@
-import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { logger } from '../../../shared/errors/logger';
-import { WritingDraftService } from '../services/WritingDraftService';
-import { applySave } from '../services/draftWriter';
+import { applyDelete } from '../services/draftWriter';
 import { SyncService } from '../../../core/services/SyncService';
 
 export function reportKeystrokeStats(
@@ -35,17 +33,16 @@ export async function cleanupDraftsAfterSave(
 ): Promise<{ cloudSynced: boolean }> {
   let cloudSynced = false;
   if (isGuest) {
-    // Дейлик 03.11 Н-1: то же вето DY10-10, что у аккаунта — без подъёма
-    // поколения закрытие вкладки в окне сохранения возвращало сохранённый текст
-    // гостевым черновиком. Шаг 5 DW-4: подъём делает мутатор (`applySave`).
-    applySave(userId);
-    await clearGuestDraft();
+    // Дейлик 03.11 Н-1: то же вето DY10-10, что у аккаунта — без подъёма эпохи
+    // закрытие вкладки в окне сохранения возвращало сохранённый текст гостевым
+    // черновиком. Шаг 5/6 DW-4: подъём и стирание обоих адресов — в мутаторе.
+    await applyDelete(userId, 'post-save', { guest: true });
   } else {
     // N-54: deleteDraft не бросает — результат читается, а не ловится.
     // RA1-2: ждём только локальную половину. Облачное удаление черновика —
     // отдельно и только при связи; без сети надгробие снесёт его при
     // следующей загрузке, а кнопка «Сохранить» не держит человека 5–10 с.
-    const deleted = await WritingDraftService.deleteDraftLocal(userId);
+    const deleted = await applyDelete(userId, 'post-save', { part: 'local' });
     if (!deleted.localOk) {
       logger.warn('sessionActions', 'Draft not deleted after save — it may reappear as an unsaved draft');
     }
@@ -60,7 +57,7 @@ export async function cleanupDraftsAfterSave(
     }
     const online = typeof navigator === 'undefined' || navigator.onLine;
     if (!online) return { cloudSynced: false };
-    const cloudDeleted = await WritingDraftService.deleteDraftCloud(userId);
+    const cloudDeleted = await applyDelete(userId, 'post-save', { part: 'cloud' });
     if (!cloudDeleted.cloudOk) {
       logger.warn('sessionActions', 'Cloud draft not deleted — retry is queued');
     }
@@ -74,17 +71,4 @@ export async function cleanupDraftsAfterSave(
     }
   }
   return { cloudSynced };
-}
-
-async function clearGuestDraft() {
-  localStorage.removeItem(STORAGE_KEYS.GUEST_DRAFT);
-  try {
-    const { getLocalDb } = await import('../../../core/storage/localDb');
-    const db = await getLocalDb();
-    if (db.objectStoreNames.contains('drafts')) {
-      await db.delete('drafts', 'guest_draft');
-    }
-  } catch (idbErr) {
-    logger.warn('sessionActions', 'Failed to delete guest IDB draft', { error: String(idbErr) });
-  }
 }

@@ -83,6 +83,8 @@ export default defineConfig(() => {
     test: {
       globals: true,
       environment: 'jsdom',
+      // Владелец 04.11: 5 с под нагрузкой полного прогона давали ложные красные.
+      testTimeout: 15_000,
       // Абсолютный путь: относительный резолвился от CWD, и `npx vitest` из
       // api/ искал setup в несуществующем api/src/test/.
       setupFiles: [fileURLToPath(new URL('./src/test/setup.ts', import.meta.url))],

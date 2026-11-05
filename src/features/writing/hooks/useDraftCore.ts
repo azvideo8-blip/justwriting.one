@@ -3,10 +3,11 @@ import type { AppUser } from '../../../core/auth/types';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
+import { useDraftWriteAlertStore } from '../store/useDraftWriteAlertStore';
 import { reportError } from '../../../shared/errors/reportError';
 import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
 import { isAccountReloadPending } from '../../../core/auth/accountReload';
-import { applyWrite, buildGuestDraftRecord, getEditorTextOwner, type DraftRecord } from '../services/draftWriter';
+import { applyWrite, buildGuestDraftRecord, getEditorTextOwner, type ApplyWriteOutcome, type DraftRecord } from '../services/draftWriter';
 import { mayAccountWriteEditorText } from '../utils/draftOwnerGuard';
 import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 
@@ -21,6 +22,10 @@ export type DraftErrorKind = 'quota' | 'unknown' | 'cloud-too-large' | 'cloud-re
 export interface DraftSaveOutcome {
   localOk?: boolean;
   localSkipped?: boolean;
+  /** VIS: почему локальная запись не состоялась. Без него пропуск неразличим:
+   *  `stale-epoch` — штатный (молчим), отказ по владельцу — текст на экране и
+   *  ни в одном адресе (показываем существующим статусом ошибки). */
+  localSkipOutcome?: ApplyWriteOutcome | undefined;
   remoteOk?: boolean;
   remoteError?: unknown;
 }
@@ -59,6 +64,20 @@ export function useDraftCore({ userId, onError }: UseDraftCoreOptions) {
   const isMountedRef = useRef(true);
   const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
+  /** VIS T3: сколько записей подряд отказали. Ref, а не состояние: счётчик
+   *  читается и пишется внутри одного `wrapSave`, до следующего рендера. */
+  const localFailStreakRef = useRef(0);
+  /** Заметка ревьюера 04.11 21:55, п.3: исход, который журнал уже записал.
+   *  `null` — состояния отказа в журнале нет (запись принята или был другой
+   *  исход показа). */
+  const refusedLoggedRef = useRef<string | null>(null);
+  // Заметка ревьюера 04.11 21:55, п.2: «текст только на экране» перестало быть
+  // правдой (запись принята, текст стёрт) — снять показ и счётчик подряд. Вызывается
+  // и оттуда, где `markSaved` не звался: пустой редактор в обоих писателях.
+  const clearLocalWriteStuck = useCallback(() => {
+    localFailStreakRef.current = 0;
+    useDraftWriteAlertStore.getState().setLocalWriteStuck(false);
+  }, []);
   // Сохранение, пришедшее во время другого: раньше оно просто отбрасывалось, и
   // «Сохранено» подтверждало текст без последнего абзаца (R3-019).
   const rerunRef = useRef<{ saveFn: () => Promise<DraftSaveOutcome | void>; action: string } | null>(null);
@@ -68,6 +87,11 @@ export function useDraftCore({ userId, onError }: UseDraftCoreOptions) {
     return () => {
       isMountedRef.current = false;
       if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+      // Заметка ревьюера 04.11 21:55, п.2: редактор размонтирован — над ним
+      // баннера нет, а следующая сессия не должна начинаться с чужого «только
+      // на экране». `markSaved` при уходе не зовётся.
+      localFailStreakRef.current = 0;
+      useDraftWriteAlertStore.getState().setLocalWriteStuck(false);
     };
   }, []);
 
@@ -87,6 +111,10 @@ export function useDraftCore({ userId, onError }: UseDraftCoreOptions) {
   }, []);
 
   const markSaved = useCallback((isCloudStale = false) => {
+    // VIS T3: принятая запись снимает и счётчик отказов, и стоячий баннер —
+    // текст снова в адресе, «только на экране» больше не правда.
+    refusedLoggedRef.current = null;
+    clearLocalWriteStuck();
     if (isMountedRef.current) {
       setSaveStatus(isCloudStale ? 'cloud-stale' : 'saved');
       setLastSavedAt(Date.now());
@@ -101,11 +129,20 @@ export function useDraftCore({ userId, onError }: UseDraftCoreOptions) {
         }, 1000);
       }
     }
-  }, []);
+  }, [clearLocalWriteStuck]);
 
   const markError = useCallback((err: unknown, action: string) => {
     const isQuota = err instanceof DOMException && err.name === 'QuotaExceededError';
     clearStatusTimer();
+    // Показ ушёл в другой исход (настоящая ошибка записи): следующий отказ
+    // мутатора по владельцу — новое состояние для журнала.
+    refusedLoggedRef.current = null;
+    // VIS T3 (владелец 04.11, строка 6 карты): одиночный отказ показывается
+    // существующим значком и словами, а два подряд — уже не случайность: текст
+    // стоит только на экране, и вкладку закрывать нельзя. Счётчик подряд, поэтому
+    // удачная запись между отказами его обнуляет (markSaved).
+    localFailStreakRef.current += 1;
+    if (localFailStreakRef.current >= 2) useDraftWriteAlertStore.getState().setLocalWriteStuck(true);
     if (isMountedRef.current) {
       setSaveStatus('error');
       setSaveErrorKind(isQuota ? 'quota' : 'unknown');
@@ -119,6 +156,28 @@ export function useDraftCore({ userId, onError }: UseDraftCoreOptions) {
     }
   }, [onError, userId]);
 
+  /**
+   * VIS (владелец 04.11): мутатор отверг запись по владельцу — это не «нечего
+   * сохранять». Текст стоит на экране, а записи нет ни в одном адресе, и
+   * показывать это надо существующими словами ошибки: нового текста нет.
+   * В журнал — только исход, без текста и заголовка заметки.
+   */
+  const markRefused = useCallback((outcome: ApplyWriteOutcome, action: string) => {
+    clearStatusTimer();
+    if (isMountedRef.current) {
+      setSaveStatus('error');
+      setSaveErrorKind('unknown');
+    }
+    // Заметка ревьюера 04.11 21:55, п.3: автосохранение стучит раз в секунду и
+    // раз в 30 с — журнал ведётся на состояние, а не на попытку. Состояние
+    // ушло и вернулось (markSaved/markError сбросили пометку) — это новая
+    // запись. DRAFT_WRITE_REFUSED живёт только с этим условием.
+    if (refusedLoggedRef.current !== outcome) {
+      refusedLoggedRef.current = outcome;
+      reportError(new Error(`DRAFT_WRITE_REFUSED: ${outcome}`), { action, userId: userId ?? undefined });
+    }
+  }, [userId]);
+
   const wrapSave = useCallback(async (saveFn: () => Promise<DraftSaveOutcome | void>, action: string): Promise<boolean> => {
     if (savingRef.current) {
       rerunRef.current = { saveFn, action };
@@ -131,6 +190,13 @@ export function useDraftCore({ userId, onError }: UseDraftCoreOptions) {
 
       // N-33: запись пропущена (черновик устарел) — это не «Сохранено».
       if (res && res.localSkipped) {
+        // VIS: отказ по владельцу — ошибка записи, а не пропуск. `stale-epoch`
+        // и `vault-cleared` остаются тихими: первый штатный, второй потребитель
+        // не показывает (VIS-3: ни одного исхода без потребителя).
+        if (res.localSkipOutcome === 'no-owner' || res.localSkipOutcome === 'owner-mismatch') {
+          markRefused(res.localSkipOutcome, action);
+          return false;
+        }
         if (isMountedRef.current) setSaveStatus('idle');
         return false;
       }
@@ -181,7 +247,7 @@ export function useDraftCore({ userId, onError }: UseDraftCoreOptions) {
       rerunRef.current = null;
       if (rerun && isMountedRef.current) void wrapSaveRef.current(rerun.saveFn, rerun.action);
     }
-  }, [markSaving, markSaved, markError, userId]);
+  }, [markSaving, markSaved, markError, markRefused, userId]);
   const wrapSaveRef = useRef(wrapSave);
   useEffect(() => { wrapSaveRef.current = wrapSave; }, [wrapSave]);
 
@@ -196,6 +262,7 @@ export function useDraftCore({ userId, onError }: UseDraftCoreOptions) {
     markSaved,
     markError,
     wrapSave,
+    clearLocalWriteStuck,
   };
 }
 

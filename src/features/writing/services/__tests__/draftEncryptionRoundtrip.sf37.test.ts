@@ -5,6 +5,7 @@ import { WritingDraftService } from '../WritingDraftService';
 import { DataProvider } from '../../../../core/data';
 import { generateDataKey, setSessionKey, clearSessionKey } from '../../../../core/crypto/encrypt';
 import { maybeEncrypt, setEncryptionEnabled, setProfileLoaded } from '../../../../core/crypto/cryptoHelpers';
+import { bumpDraftGeneration, resolve } from '../draftWriter';
 
 /**
  * SF3-7 (ревью, раунд 3): спеки SF2-1/SF3-1 подменяли `maybeEncrypt`/`maybeDecrypt`
@@ -133,7 +134,7 @@ describe('SF3-7: круг хэшей черновика на настоящем 
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(T0);
     await (await getLocalDb(UID)).delete('drafts', UID);
-    WritingDraftService.bumpDraftGeneration(UID);
+    bumpDraftGeneration(UID);
     clearSessionKey();
     setProfileLoaded(UID, true);
     setEncryptionEnabled(UID, true);
@@ -170,11 +171,11 @@ describe('SF3-7: круг хэшей черновика на настоящем 
     const v3 = draft('первый-набор и ещё плюс последние слова', 9, T0 + 2 * MIN);
     await WritingDraftService.saveToLocal(v3);
 
-    const loaded = await WritingDraftService.loadDraft(UID);
+    const loaded = await resolve(UID);
     expect(loaded?.content, 'расшифрованная копия = наша отправка: локальный набор цел').toBe(v3.content);
     expect(String((await stored())?.content), 'и в кэше').toBe(v3.content);
 
-    const again = await WritingDraftService.loadDraft(UID);
+    const again = await resolve(UID);
     expect(again?.content, 'второй забор даёт то же самое').toBe(v3.content);
   });
 
@@ -198,7 +199,7 @@ describe('SF3-7: круг хэшей черновика на настоящем 
     });
     expect(String(cloudRow()?.content), 'чужая копия уехала шифром').not.toContain('чужой-набор');
 
-    const loaded = await WritingDraftService.loadDraft(UID);
+    const loaded = await resolve(UID);
     expect(loaded?.content, 'после принятой записи локальных правок нет — берём облако').toBe('чужой-набор-с-другого-прибора');
 
     const accepted = await stored();

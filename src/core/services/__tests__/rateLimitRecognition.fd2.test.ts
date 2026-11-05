@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isRateLimitedError, withRateLimitRetry, rateLimitTuning } from '../../../core/services/CloudSyncService';
+import { isRateLimitedError, withRateLimitRetry, rateLimitTuning } from '../rateGate';
 
 /**
  * FD-2: распознавание `429`. Форма — по замеру на стенде (supabase-js 2.118.0),

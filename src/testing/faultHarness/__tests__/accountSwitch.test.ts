@@ -9,6 +9,7 @@ import { WritingDraftService } from '../../../features/writing/services/WritingD
 import { setEncryptionEnabled, setProfileLoaded } from '../../../core/crypto/cryptoHelpers';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import type { LocalDraft } from '../../../core/storage/localDb';
+import { applyDelete, resolve } from '../../../features/writing/services/draftWriter';
 
 /**
  * Два аккаунта в одном браузере, смена без перезагрузки страницы.
@@ -140,7 +141,7 @@ const IN_FLIGHT: Record<string, (s: Seed) => Promise<unknown>> = {
   sweepOrphans: () => SyncService.sweepOrphanedDocuments(A, 0),
   saveVersion: s => StorageService.saveVersion(A, s.syncedId, note(MARK.edit, 5000)),
   draftToCloud: () => WritingDraftService.saveDraftToCloud(draft(A, MARK.edit)),
-  loadDraft: () => WritingDraftService.loadDraft(A),
+  loadDraft: () => resolve(A),
 };
 
 // Обычный старт B после входа (AppProviders, useBackgroundSync, экран письма).
@@ -150,7 +151,7 @@ async function startAsB(): Promise<void> {
   await SyncService.reconcileLinkedDocuments(B);
   await SyncService.sweepOrphanedDocuments(B, 0);
   await SyncService.syncPending(B, { force: true });
-  await WritingDraftService.loadDraft(B);
+  await resolve(B);
   const { localId } = await StorageService.saveNew(B, note(B_TEXT, 9000));
   await StorageService.addCloudCopy(B, localId);
 }
@@ -176,8 +177,8 @@ async function freshBrowser(): Promise<void> {
   runner.interceptor.onRequest = () => { hook.onSwitchPoint?.(); };
   // Кэш «в облаке уже эта версия черновика» живёт в памяти модуля и пережил бы
   // «новый браузер» — облачная запись черновика молча не случалась бы.
-  await WritingDraftService.deleteDraft(A);
-  await WritingDraftService.deleteDraft(B);
+  await applyDelete(A, 'close');
+  await applyDelete(B, 'close');
   sessionStorage.clear();
 }
 

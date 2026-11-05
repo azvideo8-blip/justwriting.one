@@ -2,6 +2,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { resetDbInstance, type LocalDraft } from '../../../../core/storage/localDb';
 import { WritingDraftService } from '../WritingDraftService';
+import { applyDelete, resolve } from '../draftWriter';
 
 /**
  * D1-2: метку `updated_at` облачного черновика после 0043 ставит сервер, а
@@ -58,7 +59,7 @@ const localDraft = (): LocalDraft => ({
 
 async function deletedThenForeignCloudDraft(serverSkewMs: number): Promise<void> {
   await WritingDraftService.saveToLocal(localDraft());
-  const res = await WritingDraftService.deleteDraft(UID);
+  const res = await applyDelete(UID, 'close');
   expect(res).toEqual({ localOk: true, cloudOk: true });
   cloud.deletes = 0;
   // Другое устройство записало новый черновик уже после удаления. Метку ряда
@@ -97,7 +98,7 @@ describe('D1-2: надгробие не судит серверную метку
   it('прибор спешит на 10 минут — чужой свежий черновик доходит и не удаляется', async () => {
     await deletedThenForeignCloudDraft(-10 * MIN);
 
-    const loaded = await WritingDraftService.loadDraft(UID);
+    const loaded = await resolve(UID);
 
     expect(loaded?.content).toBe(FRESH_TEXT);
     expect(cloud.row?.content, 'облачная копия не снесена').toBe(FRESH_TEXT);
@@ -107,7 +108,7 @@ describe('D1-2: надгробие не судит серверную метку
   it('прибор отстаёт на 10 минут — тот же черновик тоже доходит', async () => {
     await deletedThenForeignCloudDraft(10 * MIN);
 
-    const loaded = await WritingDraftService.loadDraft(UID);
+    const loaded = await resolve(UID);
 
     expect(loaded?.content).toBe(FRESH_TEXT);
     expect(cloud.deletes).toBe(0);
@@ -117,7 +118,7 @@ describe('D1-2: надгробие не судит серверную метку
     await deletedThenForeignCloudDraft(-10 * MIN);
     cloud.row = { ...localDraft() };
 
-    const loaded = await WritingDraftService.loadDraft(UID);
+    const loaded = await resolve(UID);
 
     expect(loaded).toBeNull();
     expect(cloud.deletes, 'облачное удаление дослано').toBe(1);

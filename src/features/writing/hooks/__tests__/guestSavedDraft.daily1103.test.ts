@@ -13,8 +13,8 @@ import { useEncryptionStore } from '@/core/crypto/useEncryptionStore';
 import { useDraftManager } from '@/features/writing/hooks/useDraftManager';
 import { useDraftAutosave } from '@/features/writing/hooks/useDraftAutosave';
 import { cleanupDraftsAfterSave } from '@/features/writing/utils/sessionActions';
-import { WritingDraftService } from '@/features/writing/services/WritingDraftService';
 import type { AppUser } from '@/core/auth/types';
+import { bumpDraftGeneration } from '../../services/draftWriter';
 
 vi.mock('@/shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('@/shared/hooks/useLayoutMode', () => ({ useLayoutMode: () => ({ layoutMode: 'mobile' }) }));
@@ -81,7 +81,7 @@ describe('d34a: окно после «Сохранить» — закрытие 
     const db = await (await import('@/core/storage/localDb')).getLocalDb(UID);
     if (db.objectStoreNames.contains('drafts')) await db.clear('drafts');
     useContentStore.setState({ ownerUid: UID });
-    WritingDraftService.bumpDraftGeneration(UID);
+    bumpDraftGeneration(UID);
     renderHook(() => useDraftAutosave({ uid: UID } as AppUser, draftData()));
     useSessionMetaStore.getState().setSavedDocumentId('d34a-doc');
     await act(async () => { await cleanupDraftsAfterSave(UID, false, null); });

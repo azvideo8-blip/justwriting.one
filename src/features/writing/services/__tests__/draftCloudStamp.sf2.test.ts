@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import 'fake-indexeddb/auto';
 import { getLocalDb, resetDbInstance, LocalDraft } from '../../../../core/storage/localDb';
-import { WritingDraftService, decideDraftCopy } from '../WritingDraftService';
+import { WritingDraftService } from '../WritingDraftService';
+import { bumpDraftGeneration, decideDraftCopy, resolve } from '../draftWriter';
 import { DataProvider } from '../../../../core/data';
 
 // SF-2 (ревью `sync-step0`): миграция 0043 перенесла `drafts.updated_at` на часы
@@ -170,7 +171,7 @@ describe('SF-2: спор черновика решают серверные шт
     // fake-indexeddb переживает resetDbInstance: строку черновика нужно стирать
     // самим, иначе следующий тест прочитает отметку прежнего прогона.
     await (await getLocalDb(UID)).delete('drafts', UID);
-    WritingDraftService.bumpDraftGeneration(UID);
+    bumpDraftGeneration(UID);
   });
 
   afterEach(() => {
@@ -192,7 +193,7 @@ describe('SF-2: спор черновика решают серверные шт
     const v2 = draft('первый-набор плюс дописано', 12, T0 + MIN);
     await WritingDraftService.saveToLocal(v2);
 
-    const loaded = await WritingDraftService.loadDraft(UID);
+    const loaded = await resolve(UID);
     expect(loaded?.content, 'облако не ушло вперёд от запомненной версии — локальный текст цел').toBe(v2.content);
 
     const after = await stored();
@@ -211,7 +212,7 @@ describe('SF-2: спор черновика решают серверные шт
     await DataProvider.saveDraft(UID, { userId: UID, content: 'с-другого-устройства', title: null, wordCount: 30 });
     const cloudStamp = lastStamp();
 
-    const loaded = await WritingDraftService.loadDraft(UID);
+    const loaded = await resolve(UID);
     expect(loaded?.content, 'облако правда новее — оно побеждает, как и раньше').toBe('с-другого-устройства');
     expect(Number((await stored())?._cloudUpdatedAt), 'принятая копия запоминает новую метку').toBe(cloudStamp);
   });
@@ -235,7 +236,7 @@ describe('SF-2: спор черновика решают серверные шт
     await expect(WritingDraftService.saveDraftToCloud(v1)).rejects.toThrow('network down');
     expect((await stored())?._cloudUpdatedAt, 'отказ не имеет права двигать отметку').toBeUndefined();
 
-    const loaded = await WritingDraftService.loadDraft(UID);
+    const loaded = await resolve(UID);
     expect(loaded?.content, 'облако не прочитано — локальная копия остаётся').toBe('текст-отказ');
   });
 
@@ -248,7 +249,7 @@ describe('SF-2: спор черновика решают серверные шт
       updated_at: new Date(T0).toISOString(),
     }];
 
-    const loaded = await WritingDraftService.loadDraft(UID);
+    const loaded = await resolve(UID);
     expect(loaded?.content, 'прежнее правило: облако новее по часам — оно и приезжает').toBe('облачный-свежее');
     expect(Number((await stored())?._cloudUpdatedAt), 'принятая облачная копия запоминает свою метку')
       .toBe(T0);
@@ -260,9 +261,9 @@ describe('SF-2: спор черновика решают серверные шт
     await WritingDraftService.saveDraftToCloud(v1);
     await WritingDraftService.saveToLocal(draft('дописано', 12, T0 + MIN));
 
-    const first = await WritingDraftService.loadDraft(UID);
+    const first = await resolve(UID);
     expect(first?.content).toBe('дописано');
-    const second = await WritingDraftService.loadDraft(UID);
+    const second = await resolve(UID);
     expect(second?.content, 'второй забор обязан дать то же самое').toBe('дописано');
   });
 

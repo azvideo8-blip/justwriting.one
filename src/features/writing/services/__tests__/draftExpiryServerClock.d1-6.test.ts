@@ -2,6 +2,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { resetDbInstance, type LocalDraft } from '../../../../core/storage/localDb';
 import { WritingDraftService } from '../WritingDraftService';
+import { resolve } from '../draftWriter';
 
 /**
  * D1-6 (П-6): срок черновика (7 суток) считался `Date.now()` прибора против
@@ -72,7 +73,7 @@ describe('D1-6: срок черновика не судит серверную �
     vi.setSystemTime(T0 + 8 * DAY);
     cloud.row = { ...draft(T0), } as Record<string, unknown>;
 
-    const loaded = await WritingDraftService.loadDraft(UID);
+    const loaded = await resolve(UID);
 
     expect(loaded?.content, 'свежий облачный черновик доходит').toBe('MARKER_D1_6');
     expect(cloud.deletes, 'облачная копия не снесена').toBe(0);
@@ -82,7 +83,7 @@ describe('D1-6: срок черновика не судит серверную �
     vi.setSystemTime(T0);
     await WritingDraftService.saveToLocal(draft(T0 - 8 * DAY));
 
-    const loaded = await WritingDraftService.loadDraft(UID);
+    const loaded = await resolve(UID);
 
     expect(loaded).toBeNull();
   });

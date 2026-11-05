@@ -629,9 +629,15 @@ describe('useDraftAutosave', () => {
     rerender({ user: inviteeB, data: { ...aData, content: 'Личный текст A.' } });
     await act(async () => { await vi.advanceTimersByTimeAsync(600); });
     expect(result.current.saveStatus).not.toBe('saved');
-    expect(useContentStore.getState().content).toBe('');
-    const asB = vi.mocked(persistDraft).mock.calls.filter(([d]) => (d as { userId: string }).userId === 'invitee-B');
-    expect(asB).toEqual([]);
+    // DW6-4: точка — то, что дописал B. Прежний контракт стирал её вместе со
+    // снимком A; теперь хвост остаётся на экране и записывается в адреса B,
+    // а текст A по-прежнему не уходит в базу B (I3).
+    expect(useContentStore.getState().content).toBe('.');
+    const asB = vi.mocked(persistDraft).mock.calls
+      .filter(([d]) => (d as { userId: string }).userId === 'invitee-B')
+      .map(([d]) => (d as { content: string }).content);
+    expect(asB).toEqual(['.']);
+    expect(asB.filter(c => c.includes('Личный текст A'))).toEqual([]);
   });
 
   // N-48: облачный путь (30-секундная страховка) тоже не рапортует

@@ -19,6 +19,8 @@ import { SessionGlow } from '../../features/writing/components/SessionGlow';
 import { ReturnToWritingCard } from '../../features/writing/components/ReturnToWritingCard';
 import { SyncUnsyncedBar } from '../../core/components/SyncUnsyncedBar';
 import { CloudNotesBanner } from '../../features/writing/components/CloudNotesBanner';
+import { DraftWriteAlertBar } from '../../features/writing/components/DraftWriteAlertBar';
+import { useDraftWriteAlertStore } from '../../features/writing/store/useDraftWriteAlertStore';
 import { StreakChip } from '../../features/writing/components/StreakChip';
 import { OnThisDayCard } from '../../core/components/OnThisDayCard';
 import { useHomeHint } from '../../features/writing/hooks/useHomeHint';
@@ -30,6 +32,25 @@ function LiveAIPanelContent() {
   const content = useContentStore(s => s.content);
   const setContent = useContentStore(s => s.setContent);
   return <AIPanelContent content={content} onApplyContent={setContent} />;
+}
+
+/**
+ * VIS: баннер отказа записи подписан на свой стор отдельным компонентом (как
+ * ИИ-панель выше) — раскладка не перерисовывается от смены флага. Обёртка нужна
+ * ради ширины поля письма и рисуется только когда баннер есть: пустой блок с
+ * отступом сдвинул бы колонку навсегда.
+ */
+function LiveDraftWriteAlert({ editorWidth }: { editorWidth: number }) {
+  const visible = useDraftWriteAlertStore(s => s.rescueNotWritten || s.localWriteStuck);
+  if (!visible) return null;
+  return (
+    <div
+      className="shrink-0 self-center mb-2"
+      style={{ width: editorWidth < 100 ? `${editorWidth}%` : '100%' }}
+    >
+      <DraftWriteAlertBar />
+    </div>
+  );
 }
 
 export function DesktopWritingLayout() {
@@ -179,6 +200,7 @@ export function DesktopWritingLayout() {
             className="shrink-0 mx-auto mb-2"
           />
           <CloudNotesBanner className="shrink-0 mx-auto mb-2 flex items-center gap-3 rounded-xl border border-text-main/10 bg-surface-card/90 px-4 py-2 text-sm text-text-main/70" />
+          <LiveDraftWriteAlert editorWidth={editorWidth} />
           {/* Владелец 30.10: серия и подсказка («Продолжить» или «В этот день») —
               одной тихой строкой по ширине поля письма, а не стопкой плашек
               посреди экрана. Слева серия, справа подсказка. */}

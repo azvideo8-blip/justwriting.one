@@ -187,7 +187,10 @@ export const AIDialogueService = {
         ...(reasoning ? { reasoning: truncate(reasoning) } : {}),
         ...(searchRequest ? { searchRequest: truncate(searchRequest) } : {}),
         ...(degradedReason ? { degradedReason } : {}),
-        ...(contextDocIds?.length ? { contextDocIds } : {}),
+        // DT-3 (дейлик 04.11): пустой список — записанное решение («материалы
+        // скрыли»), а не «клиент про поле не знает»: иначе слияние (dialogueMerge.ts:141)
+        // вернёт id скрытой заметки из старой копии и синк унесёт его в облако.
+        ...(contextDocIds ? { contextDocIds } : {}),
         ...(notesClaimNoRef ? { notesClaimNoRef: true } : {}),
       }, now + 1),
     );
@@ -234,7 +237,8 @@ export const AIDialogueService = {
       ...(reasoning ? { reasoning: truncate(reasoning) } : {}),
       ...(searchRequest ? { searchRequest: truncate(searchRequest) } : {}),
       ...(degradedReason ? { degradedReason } : {}),
-      ...(contextDocIds?.length ? { contextDocIds } : {}),
+      // DT-3: тот же смысл, что в appendMessage, — пустой список пишется явно.
+      ...(contextDocIds ? { contextDocIds } : {}),
       ...(notesClaimNoRef ? { notesClaimNoRef: true } : {}),
     };
     const userIdx = existing.messages.findIndex(m => m.id === replaceUserId);

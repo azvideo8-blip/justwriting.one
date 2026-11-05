@@ -12,6 +12,13 @@ vi.mock('../useDraftAutosave', () => ({
 }));
 vi.mock('../../../../shared/hooks/useOnlineStatus', () => ({ useOnlineStatus: () => true }));
 vi.mock('../../utils/draftUtils', () => ({ applyDraftToStores: vi.fn() }));
+// Шаг 6 DW-4: единственное чтение — `draftWriter.resolve`; хук проверяет, что он
+// делает с ответом, поэтому мокается этот край.
+vi.mock('../../services/draftWriter', async (importActual) => ({
+  ...(await importActual<typeof import('../../services/draftWriter')>()),
+  resolve: vi.fn(),
+}));
+import { resolve } from '../../services/draftWriter';
 
 const user: AppUser = { uid: 'mq3_user', email: 'a@b.c', displayName: 't', photoURL: null, metadata: { creationTime: null, lastSignInTime: null } };
 const actions = {
@@ -25,7 +32,7 @@ const draft = { userId: 'mq3_user', title: '', content: 'Текст из обл�
 describe('MQ-3: draftInEditor', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(WritingDraftService, 'loadDraft').mockResolvedValue(draft);
+    vi.mocked(resolve).mockResolvedValue(draft);
     vi.spyOn(WritingDraftService, 'clearLegacyDraft').mockResolvedValue(undefined);
   });
 

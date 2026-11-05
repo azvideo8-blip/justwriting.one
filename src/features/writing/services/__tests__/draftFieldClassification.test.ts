@@ -5,6 +5,7 @@ import { setEncryptionEnabled, setProfileLoaded } from '../../../../core/crypto/
 import { generateDataKey, setSessionKey, clearSessionKey } from '../../../../core/crypto/encrypt';
 import { DataProvider } from '../../../../core/data';
 import { DRAFT_FIELDS } from '../../../../core/data/providers/fields';
+import { resolve } from '../draftWriter';
 
 describe('LIFE-2: Draft tags encryption & field classification', () => {
   const userId = 'user_draft_test';
@@ -64,7 +65,7 @@ describe('LIFE-2: Draft tags encryption & field classification', () => {
 
     // Test loadDraft round-trip decryption
     vi.spyOn(DataProvider, 'getDraft').mockResolvedValue({ userId, ...savedPayload! });
-    const loaded = await WritingDraftService.loadDraft(userId);
+    const loaded = await resolve(userId);
     expect(loaded?.tags).toEqual(['secret-tag-1', 'private-thoughts']);
     expect(loaded?.title).toBe('Secret Draft Title');
     expect(loaded?.content).toBe('Secret Draft Content');

@@ -140,11 +140,19 @@ export function SaveStatus({
       >
         <Save size={14} aria-hidden="true" />
       </span>
-      {/* Слева от иконки, а не над ней: панель обрезает всё, что выше неё. */}
+      {/* Слева от иконки, а не над ней: панель обрезает всё, что выше неё.
+          VIS (владелец 04.11, строка 6 карты): у ошибки слова видны сразу, без
+          наведения — один значок читался как «что-то не так, но что?»; на
+          телефоне наведения нет вообще, и там эти слова и так постоянные
+          (`save-status-text`). Прочие статусы — по-прежнему только подсказкой:
+          «Сохранено» вслух и глазами на каждую запись мешало бы письму. */}
       <span
         id={tipId}
         role="tooltip"
-        className="pointer-events-none absolute right-full top-1/2 -translate-y-1/2 mr-2 whitespace-nowrap rounded-md border border-border-subtle bg-surface-popup px-2 py-1 text-xs text-text-main opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
+        className={cn(
+          'pointer-events-none absolute right-full top-1/2 -translate-y-1/2 mr-2 whitespace-nowrap rounded-md border border-border-subtle bg-surface-popup px-2 py-1 text-xs text-text-main transition-opacity duration-150',
+          isError ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
+        )}
       >
         {tip}
       </span>

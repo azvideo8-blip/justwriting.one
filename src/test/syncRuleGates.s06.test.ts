@@ -111,7 +111,8 @@ const RULE_MARKS: Record<string, number> = {
   'core/services/ConflictResolver.ts': 1,
   'core/services/LocalStoreSyncService.ts': 3,
   'core/data/providers/localStore.ts': 1,
-  'features/writing/services/WritingDraftService.ts': 1,
+  // Шаг 6 DW-4: `decideDraftCopy` и чтение переехали в мутатор — разметка едет за кодом.
+  'features/writing/services/draftWriter.ts': 1,
 };
 
 /**
@@ -172,7 +173,7 @@ const STAMP_COMPARE_BASELINE: Record<string, string[]> = {
     // облака против запомненной базы, оба серверные.
     'if (typeof base === \'number\' && cloud !== undefined && cloud > base && !(obligated !== null && obligated.has(id))) continue;',
   ],
-  'features/writing/services/WritingDraftService.ts': [
+  'features/writing/services/draftWriter.ts': [
     "if (o.cloudTs <= o.cloudSeen) return 'local';",
     "if (Math.abs(o.localTs - o.cloudTs) < 60_000) return o.localWords >= o.cloudWords ? 'local' : 'cloud';",
     "return o.localTs > o.cloudTs ? 'local' : 'cloud';",

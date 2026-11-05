@@ -25,6 +25,7 @@ import { useSessionMetaStore } from '../../store/useSessionMetaStore';
 import { useTimerStore } from '../../store/useTimerStore';
 import { useDraftAutosave } from '../useDraftAutosave';
 import { buildLocalDraft } from '../../utils/draftPersistence';
+import { bumpDraftGeneration, resolve } from '../../services/draftWriter';
 
 // Облачная синхронизация включена: сценарий DY10-10 — зарегистрированный
 // человек с связью, у которого черновик живёт и локально, и в облаке. С
@@ -121,7 +122,7 @@ beforeEach(async () => {
   useEncryptionStore.setState({ encryptionEnabled: {} });
   const db = await getLocalDb(UID);
   await db.clear('drafts');
-  WritingDraftService.bumpDraftGeneration(UID);
+  bumpDraftGeneration(UID);
 });
 
 afterEach(() => {
@@ -247,7 +248,7 @@ describe('DY10-10: §4 — черновик не теряет записи, ко
     await settle(DEBOUNCE_MS);
 
     // Перезагрузка — свежая загрузка черновика: текст человека на месте.
-    expect((await WritingDraftService.loadDraft(UID))?.content, 'после перезагрузки текста нет').toBe(edited);
+    expect((await resolve(UID))?.content, 'после перезагрузки текста нет').toBe(edited);
   });
 
   it('офлайн-финиш: сохранённый текст не возвращается, облачная копия стирается при связи', async () => {
@@ -269,7 +270,7 @@ describe('DY10-10: §4 — черновик не теряет записи, ко
     expect(await localRow(), 'сохранённый текст вернулся черновиком').toBeUndefined();
 
     setOnline(true);
-    expect(await WritingDraftService.loadDraft(UID), 'после перезагрузки старое вернулось').toBeNull();
+    expect(await resolve(UID), 'после перезагрузки старое вернулось').toBeNull();
     expect(cloud.deletes, 'облачная копия не стёрта, когда связь вернулась').toBe(1);
   });
 
@@ -291,6 +292,6 @@ describe('DY10-10: §4 — черновик не теряет записи, ко
 
     // Облачная строка жива (удаление отказало) — её обязано глушить надгробие,
     // а не часы прибора: метка у неё серверная.
-    expect(await WritingDraftService.loadDraft(UID), 'после перезагрузки старое вернулось из облака').toBeNull();
+    expect(await resolve(UID), 'после перезагрузки старое вернулось из облака').toBeNull();
   });
 });

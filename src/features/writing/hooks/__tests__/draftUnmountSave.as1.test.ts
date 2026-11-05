@@ -8,7 +8,7 @@ import { useTimerStore } from '../../store/useTimerStore';
 import { useSessionMetaStore } from '../../store/useSessionMetaStore';
 import { useEncryptionStore } from '../../../../core/crypto/useEncryptionStore';
 import type { AppUser } from '../../../../core/auth/types';
-import { WritingDraftService } from '../../services/WritingDraftService';
+import { bumpDraftGeneration } from '../../services/draftWriter';
 
 vi.mock('../../../../core/sync/cloudSyncEnabled', () => ({ cloudSyncEnabled: () => false }));
 vi.mock('../../../../core/auth/accountReload', () => ({
@@ -86,7 +86,7 @@ describe('AS-1: размонтирование редактора сохраня
   // на размонтировании с текущим поколением — красный.
   it('после сохранения заметки (поколение поднято) размонтирование черновик не возвращает', async () => {
     const { unmount } = renderHook(() => useDraftAutosave(user, draftData));
-    WritingDraftService.bumpDraftGeneration(user.uid);
+    bumpDraftGeneration(user.uid);
 
     unmount();
     await new Promise(r => setTimeout(r, 50));

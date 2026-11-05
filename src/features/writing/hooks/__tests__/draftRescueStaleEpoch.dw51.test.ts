@@ -18,12 +18,12 @@ import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
 import { useEncryptionStore } from '../../../../core/crypto/useEncryptionStore';
 import { WritingDraftService } from '../../services/WritingDraftService';
 import { cleanupDraftsAfterSave } from '../../utils/sessionActions';
-import { saveGuestDraftToStorage, loadGuestDraftFromStorage } from '../../services/GuestDraftService';
+import { saveGuestDraftToStorage } from '../../services/GuestDraftService';
 import { useContentStore } from '../../store/useContentStore';
 import { useSessionMetaStore } from '../../store/useSessionMetaStore';
 import { useTimerStore } from '../../store/useTimerStore';
 import { useDraftAutosave } from '../useDraftAutosave';
-import { applyWrite, clearEditorTextOwner, markEditorTextOwner } from '../../services/draftWriter';
+import { applyWrite, clearEditorTextOwner, markEditorTextOwner, resolve } from '../../services/draftWriter';
 
 vi.mock('../../../../core/sync/cloudSyncEnabled', () => ({ cloudSyncEnabled: () => true }));
 vi.mock('../../../../core/auth/accountReload', () => ({
@@ -153,7 +153,7 @@ describe('DW5-1: сохранение подняло эпоху — писате
     expect(useContentStore.getState().content, 'текст A вернулся на экран под B').toBe('');
     // Приёмка 2 конца в конец: загрузка обязана не найти черновика ни в одном
     // адресе — строка, копия, облако и надгробие сверяются вместе.
-    expect(await WritingDraftService.loadDraft(A), 'черновик A воскрес при загрузке').toBeNull();
+    expect(await resolve(A), 'черновик A воскрес при загрузке').toBeNull();
     // Надгробие — адрес того же удаления: оно хранит время и хэши, и в него не
     // должен попасть открытый текст (D2 в карте писателей).
     for (const key of [STORAGE_KEYS.DRAFT_DELETED(A), STORAGE_KEYS.DRAFT_DELETED_PERSISTENT(A)]) {
@@ -211,7 +211,7 @@ describe('DW5-1: сохранение подняло эпоху — писате
     const after = await guestAddresses();
     expect(after.copy, `сохранённый текст вернулся гостевым черновиком: ${JSON.stringify(after)}`).not.toBe(SAVED);
     expect(after.row, `сохранённый текст вернулся строкой guest_draft: ${JSON.stringify(after)}`).not.toBe(SAVED);
-    expect(await loadGuestDraftFromStorage(), 'гостевой черновик воскрес при загрузке').toBeNull();
+    expect(await resolve(GUEST, { guest: true }), 'гостевой черновик воскрес при загрузке').toBeNull();
   });
 
   /**

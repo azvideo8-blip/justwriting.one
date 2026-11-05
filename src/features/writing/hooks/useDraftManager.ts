@@ -41,7 +41,7 @@ export function useDraftManager(
   getDraftData: () => DraftData,
   options: DraftManagerOptions
 ) {
-  const { saveStatus, saveErrorKind, lastSavedAt, wrapSave } = useDraftCore({ userId });
+  const { saveStatus, saveErrorKind, lastSavedAt, wrapSave, clearLocalWriteStuck } = useDraftCore({ userId });
   const getDraftDataRef = useRef(getDraftData);
   const onSaveDraftRef = useRef(options.onSaveDraft);
   const timerStatus = useTimerStore(s => s.status);
@@ -107,6 +107,11 @@ export function useDraftManager(
   // interval restarts on every keystroke and never fires while someone types
   // continuously — the case it exists for.
   const hasContent = Boolean(content.trim() || title.trim());
+
+  // Приёмка VIS: текст стёрт — «только на экране» больше не правда, а записи пустого не бывает.
+  useEffect(() => {
+    if (!hasContent) clearLocalWriteStuck();
+  }, [hasContent, clearLocalWriteStuck]);
 
   useEffect(() => {
     const isTimerActive = timerStatus === 'writing' || timerStatus === 'paused';

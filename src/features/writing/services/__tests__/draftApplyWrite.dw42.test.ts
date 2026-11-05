@@ -7,12 +7,12 @@
 // что у отсрочки GuestDraftService.
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getLocalDb, resetDbInstance, type LocalDraft } from '../../../../core/storage/localDb';
+import { getLocalDb, resetDbInstance, type LocalDraft, getOrCreateGuestId } from '../../../../core/storage/localDb';
 import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
 import { useEncryptionStore } from '../../../../core/crypto/useEncryptionStore';
 import { WritingDraftService } from '../WritingDraftService';
-import { applyWrite, buildGuestDraftRecord, bumpDraftGeneration, getDraftGeneration } from '../draftWriter';
-import { deleteGuestDraftFromStorage, saveGuestDraftToStorage } from '../GuestDraftService';
+import { applyWrite, buildGuestDraftRecord, bumpDraftGeneration, getDraftGeneration, resolve, applyDelete } from '../draftWriter';
+import { saveGuestDraftToStorage } from '../GuestDraftService';
 
 const realNow = Date.now;
 
@@ -168,7 +168,7 @@ describe('DW4-2 applyWrite: чего любая запись не должна �
     const copy = JSON.parse(localStorage.getItem(STORAGE_KEYS.DRAFT(uid)) ?? '{}') as { updatedAt?: number };
     expect(copy.updatedAt ?? 0, 'копия закрытия не новее строки').toBeGreaterThan(Number(stored?.updatedAt ?? 0));
 
-    const restored = await WritingDraftService.loadDraft(uid);
+    const restored = await resolve(uid);
     expect(restored?.content).toBe('раз два');
   });
 
@@ -224,7 +224,7 @@ describe('DW4-2 applyWrite: чего любая запись не должна �
     const guest = 'guest_dw42_late';
     // Строка `guest_draft` — один ключ на всех гостевых тестов файла, а
     // fake-indexeddb переживает resetDbInstance: чистим оба адреса явно.
-    await deleteGuestDraftFromStorage();
+    await applyDelete(getOrCreateGuestId(), 'close', { guest: true });
     const fields = {
       content: 'MARKER_DW42_поздняя', title: 'Гость', seconds: 5, status: 'writing',
       wordCount: 2, pinnedThoughts: [], tags: [],

@@ -29,9 +29,7 @@ import { useTimerStore } from '../store/useTimerStore';
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
 import { resetSession, loadDraftIntoStore } from '../store/storeActions';
 import { cleanupDraftsAfterSave } from '../utils/sessionActions';
-import { WritingDraftService } from '../services/WritingDraftService';
-import { loadGuestDraftFromStorage } from '../services/GuestDraftService';
-import { applySessionEnd, clearAllRescuePayloads, getEditorTextOwner, markEditorTextOwner } from '../services/draftWriter';
+import { applySessionEnd, clearAllRescuePayloads, getEditorTextOwner, markEditorTextOwner, resolve } from '../services/draftWriter';
 import { useBaseWritingSession } from '../hooks/useBaseWritingSession';
 import { useSessionPersistence } from '../hooks/useSessionPersistence';
 import { useGuestWritingSession } from '../hooks/useGuestWritingSession';
@@ -524,10 +522,10 @@ class World {
 
     let recovered: string | null = null;
     if (isGuest) {
-      const draft = await settle(loadGuestDraftFromStorage());
+      const draft = await settle(resolve(this.guestUid, { guest: true }));
       recovered = draft?.content ?? null;
     } else {
-      const draft = await settle(WritingDraftService.loadDraft(uid));
+      const draft = await settle(resolve(uid));
       recovered = draft?.content ?? null;
     }
     if (!isGuest) await this.openAccount(uid);
@@ -1048,8 +1046,8 @@ describe('DW-3: харнесс путей записи черновика', () =
    * `GuestDraftService.saveGuestDraftToStorage` (`GuestDraftService.ts:27`)
    * кладёт и `savedDocumentId`, и счётчики, а `useSyncUnloadSave`
    * (`useDraftCore.ts:243`) — только текст, тайминг и сессию. При возврате
-   * `loadGuestDraftFromStorage` берёт новейший по `updatedAt` и ПЕРЕПИСЫВАЕТ им
-   * строку IndexedDB (`GuestDraftService.ts:84-91`), то есть уход со страницы
+   * гостевое чтение (`draftWriter.resolve`, `{ guest: true }`) берёт новейший по
+   * `updatedAt` и ПЕРЕПИСЫВАЕТ им строку IndexedDB, то есть уход со страницы
    * после автосохранения затирает маркер продолженной заметки.
    *
    * Цена — не потеря текста, а потеря идентичности: `applyDraftToStores`
@@ -1068,11 +1066,11 @@ describe('DW-3: харнесс путей записи черновика', () =
     useContentStore.getState().setInitialWordCount(3);
     await w.type(2);
     await w.drain(1_300);
-    const rich = await settle(loadGuestDraftFromStorage());
+    const rich = await settle(resolve(w.guestUid, { guest: true }));
     expect(rich?.savedDocumentId, 'после отсрочки маркер продолженной заметки есть').toBe('dw-f2-note');
     const autosaveRow = JSON.parse(localStorage.getItem(STORAGE_KEYS.GUEST_DRAFT) ?? '{}') as Record<string, unknown>;
     await w.pageHide();
-    const after = await settle(loadGuestDraftFromStorage());
+    const after = await settle(resolve(w.guestUid, { guest: true }));
     const unloadRow = JSON.parse(localStorage.getItem(STORAGE_KEYS.GUEST_DRAFT) ?? '{}') as Record<string, unknown>;
     expect(Object.keys(unloadRow), 'обе записи несут одну форму')
       .toEqual(expect.arrayContaining(Object.keys(autosaveRow)));

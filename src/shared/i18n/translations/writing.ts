@@ -75,6 +75,17 @@ export const writingTranslations: Translations = {
   editor_cloud_refused_hint: { ru: 'Облако не принимает черновик — он сохранён только на этом устройстве', en: 'The cloud does not accept this draft — it is saved on this device only' },
   editor_error_quota: { ru: 'Недостаточно места на устройстве', en: 'Not enough device storage' },
   editor_error_save: { ru: 'Ошибка сохранения', en: 'Save error' },
+  // VIS (утверждено владельцем 04.11): стоячие баннеры отказа записи. Тексты
+  // дословные; обещание «повторит само» проверено кодом — повтор идёт на каждой
+  // попытке автосохранения, при уходе в фон и по 30-секундной страховке.
+  editor_alert_rescue_not_written: {
+    ru: 'Набранный раньше текст не удалось записать на устройство. Не закрывай вкладку — приложение повторит само.',
+    en: "Something you wrote earlier couldn't be saved to this device. Keep this tab open — the app will retry on its own.",
+  },
+  editor_alert_local_write_stuck: {
+    ru: 'Текст только на экране. Не закрывай вкладку.',
+    en: 'The text is only on screen. Keep this tab open.',
+  },
 
   header_sessionTime:  { ru: 'Время сессии',     en: 'Session time' },
   header_sessionWords: { ru: 'Слов в сессии',    en: 'Session words' },

@@ -28,7 +28,13 @@ export function guestDraftNoteTitle(at: number, lang = localStorage.getItem(STOR
   return lang === 'en' ? `Guest draft, ${date}` : `Черновик гостя, ${date}`;
 }
 
-export async function readGuestDraft(guestDb: GuestDb): Promise<LocalDraft | null> {
+/**
+ * D13 (шаг 6 DW-4): «просрочен» и «нет черновика» — разные исходы. Прежний
+ * `readGuestDraft` отдавал null и по тому, и по другому, а весь блок стирания
+ * гостевых адресов живёт внутри `if (guestDraft && …)`, поэтому просроченный
+ * черновик не переносился И не удалялся.
+ */
+async function probeGuestDraft(guestDb: GuestDb): Promise<{ draft: LocalDraft | null; expired: boolean }> {
   const idb = guestDb.objectStoreNames.contains('drafts') ? await guestDb.get('drafts', 'guest_draft') : undefined;
   let ls: LocalDraft | undefined;
   try {
@@ -39,9 +45,33 @@ export async function readGuestDraft(guestDb: GuestDb): Promise<LocalDraft | nul
   }
   // S-55: черновик до 0.7.x нёс `timestamp`, не `updatedAt` — читаем оба, как GuestDraftService.
   const draft = ts(idb) >= ts(ls) ? (idb ?? ls) : ls;
-  if (!draft) return null;
-  if (ts(draft) > 1_000_000_000_000 && Date.now() - ts(draft) > GUEST_DRAFT_TTL_MS) return null;
-  return draft;
+  if (!draft) return { draft: null, expired: false };
+  if (ts(draft) > 1_000_000_000_000 && Date.now() - ts(draft) > GUEST_DRAFT_TTL_MS) return { draft, expired: true };
+  return { draft, expired: false };
+}
+
+export async function readGuestDraft(guestDb: GuestDb): Promise<LocalDraft | null> {
+  const probed = await probeGuestDraft(guestDb);
+  return probed.expired ? null : probed.draft;
+}
+
+/**
+ * Стирование гостевых копий, съеденных переносом (S-55: иначе предложение
+ * «перенесено 1» всплывает вечно). Одна функция на обоих потребителей: перенос
+ * и просроченный срок.
+ *
+ * H-x для шага 6: мутатор `draftWriter.applyDelete` отсюда не позвать —
+ * `import/no-restricted-paths` запрещает auth-зоне импортировать writing, а
+ * ослаблять зону ради одного вызова нельзя.
+ */
+async function consumeGuestDraftCopies(guestDb: GuestDb, userDb: GuestDb, userId: string): Promise<void> {
+  if (guestDb.objectStoreNames.contains('drafts')) {
+    await guestDb.delete('drafts', 'guest_draft');
+    if (userDb !== guestDb) {
+      await guestDb.delete('drafts', userId);
+    }
+  }
+  try { localStorage.removeItem(STORAGE_KEYS.GUEST_DRAFT); } catch { /* ignore */ }
 }
 
 /**
@@ -55,7 +85,6 @@ export async function migrateDocuments(userId: string): Promise<MigrateResult> {
   const guestDb = await getLocalDb('justwriting-local');
   const userDb = await getLocalDb(userId);
 
-  const hasDraftsInGuest = guestDb.objectStoreNames.contains('drafts');
   const hasDraftsInUser = userDb.objectStoreNames.contains('drafts');
 
   let draftMigrated = false;
@@ -63,7 +92,13 @@ export async function migrateDocuments(userId: string): Promise<MigrateResult> {
   let draftNote = false;
   // D-3 / AG-MIG-1: migrate guest draft to user draft (don't clobber existing user draft).
   // S-44.4: черновик берётся из обоих хранилищ, не только из IndexedDB.
-  const guestDraft = await readGuestDraft(guestDb);
+  const probed = await probeGuestDraft(guestDb);
+  const guestDraft = probed.expired ? null : probed.draft;
+  // D13: срок вышел — черновик не переносится, но и не остаётся: после входа
+  // гостевые адреса не читает никто, и без стирания они живут вечно.
+  if (probed.expired) {
+    await consumeGuestDraftCopies(guestDb, userDb, userId);
+  }
   if (guestDraft && hasDraftsInUser) {
     const existingUserDraft = await userDb.get('drafts', userId);
     if (!existingUserDraft) {
@@ -94,13 +129,7 @@ export async function migrateDocuments(userId: string): Promise<MigrateResult> {
       draftMigrated = true;
       draftNote = true;
     }
-    if (hasDraftsInGuest) {
-      await guestDb.delete('drafts', 'guest_draft');
-      if (userDb !== guestDb) {
-        await guestDb.delete('drafts', userId);
-      }
-    }
-    try { localStorage.removeItem(STORAGE_KEYS.GUEST_DRAFT); } catch { /* ignore */ }
+    await consumeGuestDraftCopies(guestDb, userDb, userId);
   }
 
   // AG-MIG-1: migrate profile store if present

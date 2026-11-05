@@ -48,7 +48,9 @@ let storedUidAtSubscribe: string | null = null;
 // не входит в CORS-safelisted, а клиент ходит на VITE_SUPABASE_URL.
 export const CLOCK_SKEW_THRESHOLD_SEC = 300;
 
-let clockSkewSec: number | null = null;
+// DT-2 (дейлик 04.11): замер принадлежит тому аккаунту, при котором снят — без
+// uid в памяти он переходил на следующего человека и на гостя.
+let clockSkew: { uid: string; sec: number } | null = null;
 // CK-2: предупреждение показывается один раз на вкладку, а не на каждое
 // обновление токена — при спешащих часах обновлений бывает десятки подряд.
 let clockSkewWarnedThisTab = false;
@@ -76,7 +78,7 @@ function tokenIatSec(accessToken: unknown): number | null {
 
 /** Запомнить расхождение: в памяти модуля и под ключом аккаунта (переживёт перезагрузку по выходу). */
 function rememberClockSkew(uid: string, skewSec: number): void {
-  clockSkewSec = skewSec;
+  clockSkew = { uid, sec: skewSec };
   try { localStorage.setItem(clockSkewKey(uid), JSON.stringify({ s: skewSec, at: Date.now() })); } catch { /* приватный режим: вход не ломаем */ }
 }
 
@@ -93,7 +95,7 @@ function noteClockSkew(uid: string | null, accessToken: unknown, fresh: boolean)
 
 /** Последнее известное расхождение этого аккаунта; null — «не знаю». */
 export function getClockSkewSec(uid?: string | null): number | null {
-  if (clockSkewSec !== null) return clockSkewSec;
+  if (uid && clockSkew !== null && clockSkew.uid === uid) return clockSkew.sec;
   if (!uid) return null;
   let raw: string | null = null;
   try { raw = localStorage.getItem(clockSkewKey(uid)); } catch { return null; }
@@ -329,7 +331,7 @@ export function _resetAuthStateForTesting(): void {
   subscribed = false;
   isVoluntarySignOut = false;
   storedUidAtSubscribe = null;
-  clockSkewSec = null;
+  clockSkew = null;
   clockSkewWarnedThisTab = false;
   sessionSeenThisTab = false;
 }

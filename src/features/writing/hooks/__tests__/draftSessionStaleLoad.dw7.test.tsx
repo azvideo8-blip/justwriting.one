@@ -1,17 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useDraftSession } from '../useDraftSession';
-import { WritingDraftService } from '../../services/WritingDraftService';
 import { useContentStore } from '../../store/useContentStore';
 import type { LocalDraft } from '../../../../core/storage/localDb';
 
-vi.mock('../../services/WritingDraftService', () => ({
-  WritingDraftService: {
-    loadDraft: vi.fn(),
-    bumpDraftGeneration: vi.fn(),
-    deleteDraft: vi.fn(),
-  },
+// Шаг 6 DW-4: чтение при загрузке — `draftWriter.resolve`. Хук проверяет реакцию
+// на устаревший ответ, поэтому мокается именно этот край; мутатор и правила
+// записи остаются настоящими.
+vi.mock('../../services/draftWriter', async (importActual) => ({
+  ...(await importActual<typeof import('../../services/draftWriter')>()),
+  resolve: vi.fn(),
 }));
+import { resolve } from '../../services/draftWriter';
 
 describe('DW-F-3: useDraftSession не подставляет устаревший ответ загрузки', () => {
   beforeEach(() => {
@@ -21,7 +21,7 @@ describe('DW-F-3: useDraftSession не подставляет устаревши
 
   it('ответ загрузки A, пришедший после смены на B, в редактор не попадает', async () => {
     let resolveLoad!: (value: LocalDraft | null) => void;
-    vi.mocked(WritingDraftService.loadDraft).mockReturnValue(
+    vi.mocked(resolve).mockReturnValue(
       new Promise((resolve) => { resolveLoad = resolve; }),
     );
     const { result, rerender } = renderHook(
@@ -42,7 +42,7 @@ describe('DW-F-3: useDraftSession не подставляет устаревши
   });
 
   it('свой ответ подставляется и помечает владельца', async () => {
-    vi.mocked(WritingDraftService.loadDraft).mockResolvedValue(
+    vi.mocked(resolve).mockResolvedValue(
       { content: 'текст A', title: '', wordCount: 2 } as never,
     );
     const { result } = renderHook(() => useDraftSession('u-a', false));

@@ -7,7 +7,7 @@ import { VAULT_UNLOCKED_EVENT } from '../../../core/crypto/useEncryptionStore';
 
 import { applyDraftToStores } from '../utils/draftUtils';
 import { useDraftAutosave } from './useDraftAutosave';
-import { markEditorTextOwner } from '../services/draftWriter';
+import { applyDelete, isCloudDraftLocked, markEditorTextOwner, resolve } from '../services/draftWriter';
 import { UserProfile } from '../../../types';
 
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
@@ -102,7 +102,7 @@ export function useSessionPersistence(
     if (draftLoadedForRef.current === userId) return;
     if (!userId) return;
     
-    const draftToLoad = await WritingDraftService.loadDraft(userId);
+    const draftToLoad = await resolve(userId);
     if (userIdRef.current !== userId) return;
     if (draftToLoad) {
       setHasDraft(true);
@@ -114,7 +114,7 @@ export function useSessionPersistence(
       await WritingDraftService.clearLegacyDraft(userId);
     }
     // If cloud draft is currently locked, do not prevent reloading once vault is unlocked.
-    if (!WritingDraftService.isCloudDraftLocked()) {
+    if (!isCloudDraftLocked()) {
       draftLoadedForRef.current = userId;
     }
   }, [userId, setHasDraft, setDraftInEditor, applyDraftToStore]);
@@ -124,7 +124,7 @@ export function useSessionPersistence(
    */
   const restoreDraft = useCallback(async () => {
     if (!userId) return;
-    const draftToLoad = await WritingDraftService.loadDraft(userId);
+    const draftToLoad = await resolve(userId);
     if (userIdRef.current !== userId) return;
     if (!draftToLoad) { setHasDraft(false); return; }
     applyDraftToStore(draftToLoad);
@@ -149,7 +149,7 @@ export function useSessionPersistence(
   const handleCancel = useCallback(async () => {
     // Эпоху поднял `deleteDraft` (шаг 5 DW-4): прежний вызов был вторым подъёмом
     // подряд перед тем же удалением.
-    await WritingDraftService.deleteDraft(userId); // намеренно: сброс черновика при отмене сессии
+    await applyDelete(userId, 'close'); // намеренно: сброс черновика при отмене сессии
     actions.setHasDraft(false);
     actions.resetAndClear();
     actions.setStatus('idle');

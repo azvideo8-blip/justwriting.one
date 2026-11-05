@@ -15,6 +15,7 @@ import 'fake-indexeddb/auto';
 import { resetDbInstance, type LocalDraft } from '../../../../core/storage/localDb';
 import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
 import { WritingDraftService } from '../WritingDraftService';
+import { applyDelete, resolve } from '../draftWriter';
 
 const realNow = Date.now;
 
@@ -94,7 +95,7 @@ describe('N1-4: из двух локальных копий берётся но�
     await WritingDraftService.saveToLocal(row('раз', T0 - 10_000));
     writeUnloadCopy('раз два', T0);
 
-    const restored = await WritingDraftService.loadDraft(UID);
+    const restored = await resolve(UID);
 
     expect(restored?.content).toBe('раз два');
   });
@@ -108,7 +109,7 @@ describe('N1-4: из двух локальных копий берётся но�
     } as LocalDraft);
     writeUnloadCopy('раз два', T0);
 
-    const restored = await WritingDraftService.loadDraft(UID);
+    const restored = await resolve(UID);
 
     expect(restored?.content).toBe('раз два');
     expect(restored?.savedDocumentId).toBe('doc-n14');
@@ -120,7 +121,7 @@ describe('N1-4: из двух локальных копий берётся но�
     await WritingDraftService.saveToLocal(row('раз два три', T0));
     writeUnloadCopy('раз', T0 - 10_000);
 
-    const restored = await WritingDraftService.loadDraft(UID);
+    const restored = await resolve(UID);
 
     expect(restored?.content).toBe('раз два три');
   });
@@ -129,7 +130,7 @@ describe('N1-4: из двух локальных копий берётся но�
     await WritingDraftService.saveToLocal(row('раз два', T0));
     localStorage.setItem(STORAGE_KEYS.DRAFT(UID), JSON.stringify({ content: 'раз', seconds: 1 }));
 
-    const restored = await WritingDraftService.loadDraft(UID);
+    const restored = await resolve(UID);
 
     expect(restored?.content).toBe('раз два');
   });
@@ -138,7 +139,7 @@ describe('N1-4: из двух локальных копий берётся но�
     await WritingDraftService.saveToLocal(row('раз два', T0));
     writeUnloadCopy('раз', T0);
 
-    const restored = await WritingDraftService.loadDraft(UID);
+    const restored = await resolve(UID);
 
     expect(restored?.content).toBe('раз два');
   });
@@ -162,7 +163,7 @@ describe('N1-4: из двух локальных копий берётся но�
     // Копия закрытия вкладки штампуется прибором, а его часы отстают на 5 минут.
     writeUnloadCopy('облачное и последние слова', T0 - 300_000);
 
-    const restored = await WritingDraftService.loadDraft(UID);
+    const restored = await resolve(UID);
 
     expect(restored?.content, 'серверная метка обманула выбор: последние слова потеряны')
       .toBe('облачное и последние слова');
@@ -175,7 +176,7 @@ describe('N1-4: из двух локальных копий берётся но�
     } as LocalDraft);
     localStorage.setItem(STORAGE_KEYS.DRAFT(UID), JSON.stringify({ content: 'старое без даты', seconds: 1 }));
 
-    const restored = await WritingDraftService.loadDraft(UID);
+    const restored = await resolve(UID);
 
     expect(restored?.content).toBe('облачное');
   });
@@ -183,7 +184,7 @@ describe('N1-4: из двух локальных копий берётся но�
   it('только копия в localStorage читается как раньше (адрес не потерялся)', async () => {
     writeUnloadCopy('раз два', T0);
 
-    const restored = await WritingDraftService.loadDraft(UID);
+    const restored = await resolve(UID);
 
     expect(restored?.content).toBe('раз два');
   });
@@ -194,7 +195,7 @@ describe('N1-4: то, чего правка не должна сломать', (
     await WritingDraftService.saveToLocal(row('раз', T0 - 10_000));
     writeUnloadCopy('чужие слова', T0 + 10_000, OTHER);
 
-    const restored = await WritingDraftService.loadDraft(UID);
+    const restored = await resolve(UID);
 
     expect(restored?.content).toBe('раз');
   });
@@ -205,22 +206,22 @@ describe('N1-4: то, чего правка не должна сломать', (
 
     // D1/D4: `sessionActions.ts:44` → `deleteDraft` → `deleteDraftLocalPart`,
     // который снимает поколение и убирает `draft-<uid>`.
-    await WritingDraftService.deleteDraft(UID);
+    await applyDelete(UID, 'close');
 
     expect(readUnloadCopy()).toBeNull();
-    expect(await WritingDraftService.loadDraft(UID)).toBeNull();
+    expect(await resolve(UID)).toBeNull();
   });
 
   it('I5: надгробие по хэшу действует и на копию из localStorage', async () => {
     await WritingDraftService.saveToLocal(row('раз два', T0 - 10_000));
     writeUnloadCopy('раз два', T0);
-    await WritingDraftService.deleteDraft(UID); // хэш удалённого содержимого — в надгробии
+    await applyDelete(UID, 'close'); // хэш удалённого содержимого — в надгробии
 
     // Копия вернулась в адрес (вторая вкладка, отказ removeItem) — та же строка,
     // что человек удалил.
     writeUnloadCopy('раз два', T0);
 
-    expect(await WritingDraftService.loadDraft(UID)).toBeNull();
+    expect(await resolve(UID)).toBeNull();
   });
 
   it('копия участвует в споре с облаком, а не обходит его', async () => {
@@ -228,7 +229,7 @@ describe('N1-4: то, чего правка не должна сломать', (
     writeUnloadCopy('раз два', T0);
     cloud.row = { ...row('облачный текст', T0 + 300_000), userId: UID };
 
-    const restored = await WritingDraftService.loadDraft(UID);
+    const restored = await resolve(UID);
 
     // Облако заметно новее обеих локальных копий, о нём ничего не запомнено —
     // по часам выигрывает оно. Правило `decideDraftCopy` стоит НАД выбором

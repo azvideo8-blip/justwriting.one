@@ -3,7 +3,8 @@ import 'fake-indexeddb/auto';
 import { LifecycleRunner } from '../lifecycleRunner';
 import type { InMemoryPostgres } from '../inMemoryPostgres';
 import { Device, activateDevice, forgetDevice } from '../harnessDevice';
-import { CloudSyncService, rateLimitTuning } from '../../../core/services/CloudSyncService';
+import { CloudSyncService } from '../../../core/services/CloudSyncService';
+import { rateLimitTuning } from '../../../core/services/rateGate';
 
 /**
  * FD-1: проход, у которого облако отбило скачивания, не считается полным.

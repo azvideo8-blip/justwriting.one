@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuthStatus } from '../../features/auth/hooks/useAuthStatus';
 import { CloudSyncService } from '../../core/services/CloudSyncService';
+import { withRateLimitRetry } from '../../core/services/rateGate';
 import { emitDomainEvent } from '../../core/events/domainEvents';
 import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
 import { setCloudSyncEnabled } from '../../core/sync/cloudSyncEnabled';
@@ -70,7 +71,9 @@ export function RestoreFromCloudModal({
   // Битый ряд не делает список пустым: прочитанные считаем, нечитаемые — отдельно.
   const readCloudDocs = useCallback(async (uid: string) => {
     try {
-      return { docs: await DocumentService.getUserDocuments(uid), unreadable: 0 };
+      // DW6-5.4: 429 — «помедленнее», а не сбой чтения: список облака под общим
+      // тормозом, как все остальные синхие чтения.
+      return { docs: await withRateLimitRetry(() => DocumentService.getUserDocuments(uid)), unreadable: 0 };
     } catch (e) {
       if (isUnreadableCloudList(e)) return { docs: e.docs, unreadable: e.ids.length };
       throw e;

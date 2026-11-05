@@ -55,4 +55,12 @@ describe('Н-1: перед предложением стереть данные 
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('offline'); }));
     expect(await offer()).toEqual([WIPE]);
   });
+
+  it('дейлик 05.11: чужой ответ с чужими часами — «не знаю», а не «часы спешат»', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('нет', {
+      status: 502,
+      headers: { date: new Date(Date.now() - 2 * 3600_000).toUTCString() },
+    })));
+    expect(await offer()).toEqual([WIPE]);
+  });
 });

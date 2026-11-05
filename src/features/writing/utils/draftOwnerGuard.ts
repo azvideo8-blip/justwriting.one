@@ -1,5 +1,5 @@
 import { useContentStore } from '../store/useContentStore';
-import { getEditorTextOwner, markEditorTextOwner, takeRescuePayload } from '../services/draftWriter';
+import { foreignOwnerHolding, getEditorTextOwner, markEditorTextOwner, takeRescuePayload } from '../services/draftWriter';
 
 /** «Ничей» текст: нового документа, гостевой или уже спасённый у прежнего владельца. */
 function isUnowned(owner: string | null | undefined): boolean {
@@ -25,6 +25,10 @@ export function mayAccountWriteEditorText(uid: string, textToWrite: string): boo
   // Владелец текста — другой аккаунт: этим текстом занимается спасение для его
   // владельца (W6), подписывать его текущему аккаунту нельзя.
   if (owner && !isUnowned(owner) && owner !== uid) return false;
+  // DW6-4: начало буфера — чужой снимок, ждущий доставки. Писатель текущего
+  // аккаунта не имеет права относить такой буфер себе.
+  const foreign = foreignOwnerHolding(textToWrite);
+  if (foreign !== null && foreign !== uid) return false;
   if (isUnowned(owner)) {
     // Владельца нет, а в сторе уже другой текст, чем несёт этот писатель, —
     // это хвост чужой сессии (спасение очистило стор): текущему аккаунту он не
@@ -50,6 +54,9 @@ export function markEditorTextOwnedBy(uid: string, editedContent: string): void 
   const contentState = useContentStore.getState();
   if (contentState.content !== editedContent) return;
   const current = getEditorTextOwner();
+  // DW6-4: смешанный буфер (чужой снимок в начале) печать не присваивает.
+  const foreign = foreignOwnerHolding(editedContent);
+  if (foreign !== null && foreign !== uid) return;
   if (current && !isUnowned(current) && current !== uid) {
     // Печать не присваивает буфер другого АККАУНТА: его ведёт спасение для
     // владельца (DW-F-3), и подпись печатью уводила бы смешанный буфер

@@ -134,7 +134,9 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
   // Same headers the streaming path writes, so the client parser is unchanged.
   const raw = isReasoningMode && gen.reasoning ? `ХОД МЫСЛИ:\n${gen.reasoning}\n\nОТВЕТ:\n${gen.text}` : gen.text;
   // DL-19: ответ упёрся в потолок — пометка в конце (как в потоковом пути).
-  const cut = !isInternalCall && gen.text.length > 0 && answerHitLimit({ providerFinish: null, outTokens: gen.tokensOut, maxTokens });
+  // DT-1 (дейлик 04.11): поставщик может оборвать и недосчитать выдачу, поэтому
+  // тот же сигнал, что читают потоки (`api/chat.ts:397`, `:828`), а не только счётчик.
+  const cut = !isInternalCall && gen.text.length > 0 && answerHitLimit({ providerFinish: gen.finishReason ?? null, outTokens: gen.tokensOut, maxTokens });
   const text = sanitizeAiResponse(raw, { keepReasoning: isReasoningMode }) + (cut ? answerCutNote(replyLang) : '');
 
   callRes.markProduced(gen.text.length);

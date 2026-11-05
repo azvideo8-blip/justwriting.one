@@ -2,6 +2,7 @@ import { onDomainEvent } from '../../../core/events/domainEvents';
 import { WritingDraftService } from '../services/WritingDraftService';
 import { clearAllRescuePayloads, clearEditorTextOwner, markEditorTextOwner } from '../services/draftWriter';
 import { useContentStore, clearWordCalcTimer } from './useContentStore';
+import { useDraftWriteAlertStore } from './useDraftWriteAlertStore';
 import { useTimerStore } from './useTimerStore';
 import { truncateText } from '../../../shared/utils/textLimits';
 import { newDraftNonce, useSessionMetaStore } from './useSessionMetaStore';
@@ -58,6 +59,10 @@ function resetSession() {
   // ждущий спасения, живёт до своей записи (или до возобновления набора
   // владельцем): его чистит спасение и `markEditorTextOwnedBy`, не сброс.
   clearEditorTextOwner();
+  // Заметка ревьюера 04.11 21:55, п.2: сессия сброшена (заметка сохранена через
+  // окно, смена аккаунта) — текста «только на экране» больше нет, и баннер
+  // над пустым редактором был бы неправдой. `markSaved` при этом не зовётся.
+  useDraftWriteAlertStore.getState().setLocalWriteStuck(false);
   useContentStore.setState(createContentDefaults());
   useContentStore.getState().resetHistory();
   useTimerStore.setState(TIMER_DEFAULTS);
@@ -87,6 +92,8 @@ onDomainEvent(e => {
     // текст переживает «стереть всё с этого компьютера» и дописывается в базу,
     // когда её уже нет.
     clearAllRescuePayloads();
+    // VIS T1: очередь пуста — и показу нечего обещать («приложение повторит»).
+    useDraftWriteAlertStore.getState().setRescueNotWritten(false);
     resetSession();
   }
 });

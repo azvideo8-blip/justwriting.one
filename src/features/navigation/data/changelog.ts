@@ -17,6 +17,20 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.7',
+    date: '2026-11-05',
+    items: [
+      { category: 'improvement', ru: 'Если текст не удаётся записать на устройство, приложение теперь предупреждает об этом прямо над редактором и просит не закрывать вкладку.', en: "If your text can't be written to the device, the app now warns you right above the editor and asks you to keep the tab open." },
+      { category: 'fix', ru: 'Если на устройстве кончилось место, приложение так и говорит: и с аккаунтом, и без входа.', en: 'When the device runs out of space, the app says so, signed in or not.' },
+      { category: 'fix', ru: 'Сохранённая заметка не возвращается черновиком, даже если её сохранили, пока черновик загружался из облака.', en: 'A saved note no longer comes back as a draft, even if you saved it while the draft was loading from the cloud.' },
+      { category: 'fix', ru: 'Текст, набранный во время загрузки черновика, больше не теряет сохранение и не затирается облачной копией.', en: 'Text typed while a draft is loading keeps saving and is no longer overwritten by the cloud copy.' },
+      { category: 'fix', ru: 'Если облако или база браузера не ответили, черновики не удаляются: «не прочитали» больше не значит «нечего хранить».', en: 'If the cloud or the browser database doesn\'t answer, drafts are not deleted: "couldn\'t read" no longer means "nothing to keep".' },
+      { category: 'fix', ru: 'Первая загрузка спокойнее переживает перегрузку сервера: повторяется одна страница, а не весь список, и предложение восстановить данные не пропадает от сбоя связи.', en: 'The first download copes better with an overloaded server: it retries one page instead of the whole list, and the restore offer no longer disappears after a network failure.' },
+      { category: 'fix', ru: 'Просроченный черновик без входа теперь удаляется при входе в аккаунт.', en: 'An expired guest draft is now removed when you sign in.' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.11.6',
     date: '2026-11-04',
     announce: false,

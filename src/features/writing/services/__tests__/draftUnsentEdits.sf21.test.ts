@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import 'fake-indexeddb/auto';
 import { getLocalDb, resetDbInstance, LocalDraft } from '../../../../core/storage/localDb';
-import { WritingDraftService, decideDraftCopy } from '../WritingDraftService';
+import { WritingDraftService } from '../WritingDraftService';
+import { bumpDraftGeneration, decideDraftCopy, applyDelete, resolve } from '../draftWriter';
 import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
 import { DataProvider } from '../../../../core/data';
 
@@ -218,7 +219,7 @@ describe('SF2-1: облако сдвинулось по нашей же поте
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(T0);
     await (await getLocalDb(UID)).delete('drafts', UID);
-    WritingDraftService.bumpDraftGeneration(UID);
+    bumpDraftGeneration(UID);
   });
 
   afterEach(() => {
@@ -251,11 +252,11 @@ describe('SF2-1: облако сдвинулось по нашей же поте
     cloudDown = true;
     await expect(WritingDraftService.saveDraftToCloud(v3)).rejects.toThrow(/cloud unavailable/);
 
-    const loaded = await WritingDraftService.loadDraft(UID);
+    const loaded = await resolve(UID);
     expect(loaded?.content, 'облако ушло вперёд НАШЕЙ же записью — локальный текст не имеет права его затирать').toBe(v3.content);
     expect(String((await stored())?.content), 'и в локальном кэше').toBe(v3.content);
 
-    const again = await WritingDraftService.loadDraft(UID);
+    const again = await resolve(UID);
     expect(again?.content, 'второй забор обязан дать то же самое').toBe(v3.content);
   });
 
@@ -291,7 +292,7 @@ describe('SF2-1: облако сдвинулось по нашей же поте
     vi.setSystemTime(T0 + 3 * MIN);
     await DataProvider.saveDraft(UID, { userId: UID, content: 'с-другого-устройства', title: null, wordCount: 30, pinnedThoughts: [], tags: [] });
 
-    const loaded = await WritingDraftService.loadDraft(UID);
+    const loaded = await resolve(UID);
     expect(loaded?.content, 'локальных правок нет — облако новее, оно побеждает').toBe('с-другого-устройства');
     expect(Number((await stored())?._cloudUpdatedAt), 'принятая копия запоминает метку').toBe(sentMark());
     expect(String((await stored())?._cloudAckedHash), 'принятая копия становится нашей базой').not.toBe(acked);
@@ -315,7 +316,7 @@ describe('SF2-1: облако сдвинулось по нашей же поте
     const aEdit = draft('мой-длинный-набор-после-чужой-записи', 12, T0 + 4 * MIN);
     await WritingDraftService.saveToLocal(aEdit);
 
-    const loaded = await WritingDraftService.loadDraft(UID);
+    const loaded = await resolve(UID);
     expect(loaded?.content, 'локальная правка свежее чужой записи — правило main оставляет её').toBe(aEdit.content);
   });
 
@@ -331,7 +332,7 @@ describe('SF2-1: облако сдвинулось по нашей же поте
     vi.setSystemTime(T0 + 3 * MIN);
     await DataProvider.saveDraft(UID, { userId: UID, content: 'чужой-свежее', title: null, wordCount: 40, pinnedThoughts: [], tags: [] });
 
-    const loaded = await WritingDraftService.loadDraft(UID);
+    const loaded = await resolve(UID);
     expect(loaded?.content, 'правка другого устройства новее нашей — правило main отдаёт облако').toBe('чужой-свежее');
   });
 
@@ -372,7 +373,7 @@ describe('SF2-1: облако сдвинулось по нашей же поте
       .toHaveLength(6);
 
     const last = versions[versions.length - 1]!;
-    const loaded = await WritingDraftService.loadDraft(UID);
+    const loaded = await resolve(UID);
     expect(loaded?.content, 'облако держит нашу дошедшую запись — локальный набор цел').toBe(last.content);
     expect(String((await stored())?.content), 'и в локальном кэше').toBe(last.content);
   });
@@ -418,7 +419,7 @@ describe('SF2-1: облако сдвинулось по нашей же поте
     vi.setSystemTime(T0 + 3 * MIN);
     await DataProvider.saveDraft(UID, { userId: UID, content: 'облачное', title: null, wordCount: 9, pinnedThoughts: [], tags: [] });
 
-    const loaded = await WritingDraftService.loadDraft(UID);
+    const loaded = await resolve(UID);
     expect(loaded?.content, 'не знаем, чьё облако и есть ли локальные правки — поведение SF-2').toBe('облачное');
   });
 });
@@ -443,7 +444,7 @@ describe('SF2-6: страж удалённого черновика не суд�
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(T0);
     await (await getLocalDb(UID)).delete('drafts', UID);
-    WritingDraftService.bumpDraftGeneration(UID);
+    bumpDraftGeneration(UID);
   });
 
   afterEach(() => {
@@ -468,7 +469,7 @@ describe('SF2-6: страж удалённого черновика не суд�
 
     // Человек удаляет черновик (часы прибора отстают от серверных на пять минут).
     vi.setSystemTime(T0 + MIN);
-    await WritingDraftService.deleteDraft(UID);
+    await applyDelete(UID, 'close');
     expect(sessionStorage.getItem(STORAGE_KEYS.DRAFT_DELETED(UID)), 'метка удаления стоит')
       .toContain(String(T0 + MIN).slice(0, 10));
 
@@ -476,7 +477,7 @@ describe('SF2-6: страж удалённого черновика не суд�
     await expect(inflight).resolves.toBeDefined();
     expect(cloudRow()?.content, 'облако приняло нашу же уехавшую запись').toBe('текст-до-удаления');
 
-    const loaded = await WritingDraftService.loadDraft(UID);
+    const loaded = await resolve(UID);
     expect(loaded, 'удалённый черновик не возвращается при перезагрузке').toBeNull();
     expect(cloudRow(), 'и ряд в облаке снесён повторно').toBeUndefined();
   });
@@ -509,7 +510,7 @@ describe('SF2-6: страж удалённого черновика не суд�
 
     // …и удаляет черновик.
     vi.setSystemTime(T0 + MIN);
-    await WritingDraftService.deleteDraft(UID);
+    await applyDelete(UID, 'close');
     const mark = sessionStorage.getItem(STORAGE_KEYS.DRAFT_DELETED(UID)) ?? '';
     expect(mark.split('|')[1] ?? '', 'отметка удаления называет больше одного хэша').toContain(',');
 
@@ -519,7 +520,7 @@ describe('SF2-6: страж удалённого черновика не суд�
     await expect(inflight).resolves.toBeDefined();
     expect(cloudRow()?.content, 'в облако легла ровно та версия, что была в полёте').toBe('текст-в-полёте');
 
-    const loaded = await WritingDraftService.loadDraft(UID);
+    const loaded = await resolve(UID);
     expect(loaded, 'удалённая версия не возвращается ни при каких часах').toBeNull();
     expect(cloudRow(), 'и ряд в облаке снесён').toBeUndefined();
   });
@@ -528,13 +529,13 @@ describe('SF2-6: страж удалённого черновика не суд�
     const v1 = draft('текст-до-удаления', 4, T0);
     await WritingDraftService.saveToLocal(v1);
     vi.setSystemTime(T0 + MIN);
-    await WritingDraftService.deleteDraft(UID);
+    await applyDelete(UID, 'close');
 
     // Другое устройство после этого пишет СВОЙ новый черновик.
     vi.setSystemTime(T0 + 3 * MIN);
     await DataProvider.saveDraft(UID, { userId: UID, content: 'новый-с-другого-устройства', title: null, wordCount: 7, pinnedThoughts: [], tags: [] });
 
-    const loaded = await WritingDraftService.loadDraft(UID);
+    const loaded = await resolve(UID);
     expect(loaded?.content, 'содержимое не совпадает с удалённым — это новая работа, её отдаём').toBe('новый-с-другого-устройства');
   });
 });
@@ -562,7 +563,7 @@ describe('SF3-5: новый клиент ДО миграции 0043 эквива
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(T0);
     await (await getLocalDb(UID)).delete('drafts', UID);
-    WritingDraftService.bumpDraftGeneration(UID);
+    bumpDraftGeneration(UID);
   });
 
   afterEach(() => {
@@ -603,7 +604,7 @@ describe('SF3-5: новый клиент ДО миграции 0043 эквива
     await WritingDraftService.saveToLocal(mine);
 
     expect(byMain(T0 + 5 * MIN, 40, cloudTs, 30), 'на main этот исход — локал').toBe('local');
-    const loaded = await WritingDraftService.loadDraft(UID);
+    const loaded = await resolve(UID);
     expect(loaded?.content, 'новый клиент без триггера даёт тот же исход и ничего не теряет').toBe(mine.content);
   });
 
@@ -617,7 +618,7 @@ describe('SF3-5: новый клиент ДО миграции 0043 эквива
 
     // Прибор спешит: локальный штамп принятой копии (T0) отстаёт от чужого (T0+2 мин),
     // и main по свежести оставил бы СВОЮ, уже принятую копию навечно.
-    const loaded = await WritingDraftService.loadDraft(UID);
+    const loaded = await resolve(UID);
     expect(loaded?.content, 'правилу main тут судить нечем: локальная копия = последняя принятая').toBe('чужой-набор');
     const stored2 = await stored();
     expect(stored2?._cloudSentHashes, 'принятая чужая копия закрывает список отправок').toEqual([stored2?._cloudAckedHash]);
