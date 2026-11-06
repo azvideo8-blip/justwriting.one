@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.8 — 2026-11-06
+
+- **[RU]** Кнопка «Стоп» в диктовке срабатывает и после долгой записи: распознанный текст вставляется, даже если браузер перестал отвечать.
+- **[EN]** The Stop button in dictation works after long recordings too: recognized text is inserted even if the browser stops responding.
+- **[RU]** Если браузер сам прервал запись, приложение теперь об этом говорит.
+- **[EN]** If the browser stops the recording on its own, the app now tells you.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.11.7 — 2026-11-05
 
 - **[RU]** Если текст не удаётся записать на устройство, приложение теперь предупреждает об этом прямо над редактором и просит не закрывать вкладку.

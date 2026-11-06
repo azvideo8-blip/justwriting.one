@@ -400,6 +400,8 @@ export async function applyWrite(
       // явно (rowKey), чтобы не перехватывать гостевые строки `saveToLocal`.
       const rowKey = opts.rowKey ?? uid;
       const tx = localDb.transaction('drafts', 'readwrite');
+      // Отказ разберёт catch ниже; без слушателя `done` стал бы ещё и unhandledrejection (Safari).
+      void tx.done.catch(() => undefined);
       const previous = await tx.store.get(rowKey);
       const seen = rec._cloudUpdatedAt ?? previous?._cloudUpdatedAt;
       const acked = rec._cloudAckedHash ?? previous?._cloudAckedHash;

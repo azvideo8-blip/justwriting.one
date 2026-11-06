@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLanguage } from '../i18n';
 import { useToast } from '../components/Toast';
 import { hasOnlyTouchPointer } from '../utils/touchPointer';
+import { reportError } from '../errors/reportError';
 
 interface SpeechRecognitionResult {
   isFinal: boolean;
@@ -63,6 +64,11 @@ const MAX_EMPTY_RESTARTS = 3;
 // на паузе. До 0.9.34 фразы вставлялись по одной, и такой обрыв терял одну
 // фразу; теперь текст копится до Stop, и обрыв не должен заканчивать запись.
 const RECOVERABLE_ERRORS = new Set(['network', 'no-speech']);
+// Владелец 06.11, iPhone: после минуты записи движок перестаёт отвечать, stop() не даёт
+// onend, и кнопка мертва. Обычному движку хватает доли секунды на последнюю фразу.
+const STOP_WATCHDOG_MS = 2000;
+// Перезапуск без события start: браузер его молча не выполнил, и слова дальше не идут.
+const RESTART_WATCHDOG_MS = 4000;
 
 const fold = (s: string) => s.trim().toLowerCase();
 /** Тот же финал повторно или его наращивание (Android Chrome шлёт «привет»,
@@ -111,6 +117,11 @@ export function useSpeechInput({ onSessionEnd, onError, onUnmountText }: UseSpee
   const resultsSinceRestartRef = useRef(0);
   const lastRestartAtRef = useRef<number | null>(null);
   const emptyRestartsRef = useRef(0);
+  const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Только для журнала: когда разберём устройство, важно, на какой минуте умер движок.
+  const sessionStartedAtRef = useRef(0);
+  const restartsRef = useRef(0);
   const { language, t } = useLanguage();
   const { showToast } = useToast();
   // Последний колбэк, не перезапуская cleanup размонтирования на каждом рендере.
@@ -148,14 +159,40 @@ export function useSpeechInput({ onSessionEnd, onError, onUnmountText }: UseSpee
     else if (wantStopRef.current) showToast(t('voice_nothing_heard'), 'info');
   }, [joinSession, onSessionEnd, showToast, t]);
 
-  const stopListening = useCallback(() => {
-    wantStopRef.current = true;
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-    }
+  const clearWatchdogs = useCallback(() => {
+    if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
+    if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+    stopTimerRef.current = null;
+    restartTimerRef.current = null;
   }, []);
 
+  /** Движок не отвечает: дальше его события не принимаем, сказанное отдаём сами. */
+  const abandonEngine = useCallback((recognition: SpeechRecognitionInstance, code: string) => {
+    reportError(new Error(`DICTATION_${code}`), {
+      action: 'dictation_engine_silent',
+      seconds: Math.round((Date.now() - sessionStartedAtRef.current) / 1000),
+      restarts: restartsRef.current,
+    }, 'warning');
+    recognitionRef.current = null;
+    try { recognition.abort(); } catch { /* намеренно: движок и так не отвечает */ }
+    deliver();
+  }, [deliver]);
+
+  const stopListening = useCallback(() => {
+    wantStopRef.current = true;
+    const recognition = recognitionRef.current;
+    if (!recognition) return;
+    try { recognition.stop(); } catch { /* намеренно: завершит страховка ниже */ }
+    if (stopTimerRef.current) return;
+    stopTimerRef.current = setTimeout(() => {
+      stopTimerRef.current = null;
+      if (recognitionRef.current !== recognition || deliveredRef.current) return;
+      abandonEngine(recognition, 'STOP_NO_END');
+    }, STOP_WATCHDOG_MS);
+  }, [abandonEngine]);
+
   const cancel = useCallback(() => {
+    clearWatchdogs();
     cancelledRef.current = true;
     deliveredRef.current = true;
     finalsRef.current = [];
@@ -167,7 +204,7 @@ export function useSpeechInput({ onSessionEnd, onError, onUnmountText }: UseSpee
     if (recognitionRef.current) {
       recognitionRef.current.abort();
     }
-  }, []);
+  }, [clearWatchdogs]);
 
   const startListening = useCallback(() => {
     if (!hasSupport || typeof window === 'undefined') return;
@@ -183,6 +220,9 @@ export function useSpeechInput({ onSessionEnd, onError, onUnmountText }: UseSpee
       recognitionRef.current.abort();
       recognitionRef.current = null;
     }
+    clearWatchdogs();
+    sessionStartedAtRef.current = Date.now();
+    restartsRef.current = 0;
 
     finalsRef.current = [];
     interimRef.current = '';
@@ -210,6 +250,8 @@ export function useSpeechInput({ onSessionEnd, onError, onUnmountText }: UseSpee
 
     recognition.onstart = () => {
       if (!isCurrent()) return;
+      if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
       setIsListening(true);
     };
 
@@ -313,17 +355,27 @@ export function useSpeechInput({ onSessionEnd, onError, onUnmountText }: UseSpee
       // оставляет слот, и счёт по непустым ставил новую фразу поверх последней.
       indexOffsetRef.current = finalsRef.current.length;
       interimRef.current = '';
+      restartsRef.current += 1;
       try {
         recognition.start();
       } catch {
         // Движок не принимает повторный start: отдаём собранное, а не молчим.
         deliver();
+        return;
       }
+      if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = setTimeout(() => {
+        restartTimerRef.current = null;
+        // Человек уже нажал «стоп» — конец записи ведёт страховка остановки.
+        if (!isCurrent() || deliveredRef.current || wantStopRef.current) return;
+        showToast(t('voice_stopped_by_browser'), 'warning');
+        abandonEngine(recognition, 'RESTART_NO_START');
+      }, RESTART_WATCHDOG_MS);
     };
 
     recognitionRef.current = recognition;
     recognition.start();
-  }, [hasSupport, language, publishLive, deliver, onError, showToast, t]);
+  }, [hasSupport, language, publishLive, deliver, abandonEngine, clearWatchdogs, onError, showToast, t]);
 
   // MB-10: уход в фон во время записи — то же самое, что нажатие «Стоп»:
   // собранное отдаётся и дописывается, микрофон остаётся выключенным.
@@ -342,6 +394,7 @@ export function useSpeechInput({ onSessionEnd, onError, onUnmountText }: UseSpee
     unmountedRef.current = false;
     return () => {
       unmountedRef.current = true;
+      clearWatchdogs();
       const text = joinSession();
       const recognition = recognitionRef.current;
       cancelledRef.current = true;
@@ -350,7 +403,7 @@ export function useSpeechInput({ onSessionEnd, onError, onUnmountText }: UseSpee
       // cancel() уже очистил refs — отменённое человеком не отдаём.
       if (text) onUnmountTextRef.current?.(text);
     };
-  }, [joinSession]);
+  }, [joinSession, clearWatchdogs]);
 
   return {
     isListening,

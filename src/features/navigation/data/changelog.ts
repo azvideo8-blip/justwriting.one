@@ -17,6 +17,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.8',
+    date: '2026-11-06',
+    announce: false,
+    items: [
+      { category: 'fix', ru: 'Кнопка «Стоп» в диктовке срабатывает и после долгой записи: распознанный текст вставляется, даже если браузер перестал отвечать.', en: 'The Stop button in dictation works after long recordings too: recognized text is inserted even if the browser stops responding.' },
+      { category: 'fix', ru: 'Если браузер сам прервал запись, приложение теперь об этом говорит.', en: 'If the browser stops the recording on its own, the app now tells you.' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.11.7',
     date: '2026-11-05',
     items: [

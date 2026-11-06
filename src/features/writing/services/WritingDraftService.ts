@@ -96,6 +96,9 @@ export const WritingDraftService = {
       const localDb = await getLocalDb(userId);
       await queueDraftRowWrite(async () => {
         const tx = localDb.transaction('drafts', 'readwrite');
+        // Safari обрывает транзакцию при уходе в фон: бросает `get`, а `done` без
+        // слушателя становится unhandledrejection рядом с уже записанной ошибкой.
+        void tx.done.catch(() => undefined);
         const stored = await tx.store.get(userId);
         if (stored) {
           const next: LocalDraft = { ...stored, _cloudSentHashes: pushSentHash(draftSentHashes(stored), hash) };
@@ -110,7 +113,8 @@ export const WritingDraftService = {
         await tx.done;
       });
     } catch (err) {
-      reportError(err, { action: 'rememberDraftCloudSend', userId });
+      // Служебная метка: текст это не затрагивает, следующий спор копий решит прежнее правило.
+      reportError(err, { action: 'rememberDraftCloudSend', userId }, 'warning');
     }
   },
 

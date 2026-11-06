@@ -183,6 +183,7 @@ export const writingTranslations: Translations = {
   voice_start: { ru: 'Включить диктовку', en: 'Start dictation' },
   voice_stop: { ru: 'Остановить диктовку', en: 'Stop dictation' },
   voice_error: { ru: 'Ошибка диктовки', en: 'Dictation error' },
+  voice_stopped_by_browser: { ru: 'Браузер прервал запись: дальше слова не распознавались.', en: 'The browser stopped the recording: nothing after this point was recognized.' },
   voice_nothing_heard: { ru: 'Не расслышали ни слова — попробуй ещё раз.', en: 'No words were caught — try again.' },
   voice_confirm_title: { ru: 'Голосовой ввод', en: 'Voice dictation' },
   voice_confirm_desc: { ru: 'Голосовой ввод отправляет аудиозапись в службу распознавания речи браузера (Google, Apple) для преобразования в текст. После остановки распознанный текст уходит в ИИ-сервис только затем, чтобы расставить знаки препинания: слова не меняются. Включить?', en: 'Voice dictation sends audio to the browser speech recognition service (Google, Apple) for transcription. After you stop, the recognised text goes to the AI service only to add punctuation: the words are not changed. Enable?' },
