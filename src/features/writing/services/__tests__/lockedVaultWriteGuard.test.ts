@@ -10,7 +10,6 @@ vi.mock('../../../../core/data', () => ({
     createDocument: vi.fn(),
     getDocument: vi.fn(),
     getUserDocuments: vi.fn(),
-    updateDocumentSessionStats: vi.fn(),
     updateDocument: vi.fn(),
     deleteDocument: vi.fn(),
   },

@@ -1,3 +1,4 @@
+import { getEditorTextOwner, markEditorTextOwner } from '../../services/draftWriter';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { loadDraftIntoStore, setSessionConfig } from '../storeActions';
 import { useContentStore } from '../useContentStore';
@@ -74,13 +75,13 @@ describe('storeActions', () => {
     });
 
     it('marks the loaded draft as owned by the account', () => {
-      useContentStore.setState({ ownerUid: 'u-other' });
+      markEditorTextOwner('u-other');
       loadDraftIntoStore({
         content: 'Draft content',
         title: 'Draft Title',
         wordCount: 2,
       }, 'u-owner');
-      expect(useContentStore.getState().ownerUid).toBe('u-owner');
+      expect(getEditorTextOwner()).toBe('u-owner');
     });
 
     it('defaults accumulatedDuration to 0 when not provided', () => {

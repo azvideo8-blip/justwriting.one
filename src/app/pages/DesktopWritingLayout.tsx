@@ -41,7 +41,7 @@ function LiveAIPanelContent() {
  * отступом сдвинул бы колонку навсегда.
  */
 function LiveDraftWriteAlert({ editorWidth }: { editorWidth: number }) {
-  const visible = useDraftWriteAlertStore(s => s.rescueNotWritten || s.localWriteStuck);
+  const visible = useDraftWriteAlertStore(s => s.localWriteStuck);
   if (!visible) return null;
   return (
     <div

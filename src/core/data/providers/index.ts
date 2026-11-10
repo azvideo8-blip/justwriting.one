@@ -19,7 +19,6 @@ import { syncPush } from './syncPush';
 
 export { likePrefix } from './fields';
 export { rowToLocalStoreRecord, parseStampedAt } from './localStore';
-export { isSyncPushMissing } from './syncPush';
 
 export const SupabaseDataProvider: IDataProvider = {
   ...documents,

@@ -127,67 +127,6 @@ describe('SupabaseDataProvider', () => {
       expect(doc).not.toHaveProperty('labelId');
     });
 
-    it('updateDocumentSessionStats sends the delta of this push, never an absolute (R7Q-003)', async () => {
-      await SupabaseDataProvider.updateDocumentSessionStats('user-1', 'doc-1', {
-        totalWords: 300,
-        durationDelta: 600,
-        currentVersion: 3,
-        sessionsDelta: 5,
-        mood: 'calm',
-        lastSessionAt: new Date('2026-08-15T13:00:00.000Z'),
-      });
-
-      expect(mockFrom).toHaveBeenCalledWith('documents');
-      // V-5 (0039): счётчики уходят в rpc, в патче их больше нет — иначе
-      // устаревшая копия устройства перезаписала бы чужие приращения.
-      expect(supabaseClientModule.getSupabase().rpc).toHaveBeenCalledWith('sync_document_stats', {
-        p_uuid: 'doc-1',
-        p_words: 300,
-        p_duration_delta: 600,
-      });
-      expect(supabaseClientModule.getSupabase().rpc).toHaveBeenCalledWith('increment_document_sessions', {
-        p_uuid: 'doc-1',
-        p_delta: 5,
-      });
-      expect(mockQueryBuilder.update).toHaveBeenCalledWith({
-        current_version: 3,
-        mood: 'calm',
-        last_session_at: '2026-08-15T13:00:00.000Z',
-      });
-      expect(mockQueryBuilder.eq).toHaveBeenCalledWith('user_id', 'user-1');
-      expect(mockQueryBuilder.eq).toHaveBeenCalledWith('uuid', 'doc-1');
-    });
-
-    it('updateDocumentSessionStats increments sessionsCount atomically via rpc when not provided', async () => {
-      await SupabaseDataProvider.updateDocumentSessionStats('user-1', 'doc-1', {
-        totalWords: 400,
-        durationDelta: 800,
-        currentVersion: 4,
-      });
-
-      // #48: инкремент атомарен в БД (rpc), read-modify-write больше нет.
-      expect(supabaseClientModule.getSupabase().rpc).toHaveBeenCalledWith('increment_document_sessions', {
-        p_uuid: 'doc-1',
-        p_delta: 1,
-      });
-      // V-5: и счётчики сессий считаются на сервере.
-      expect(supabaseClientModule.getSupabase().rpc).toHaveBeenCalledWith('sync_document_stats', {
-        p_uuid: 'doc-1',
-        p_words: 400,
-        p_duration_delta: 800,
-      });
-      // Метаданные пишутся без sessions_count — его только что посчитал rpc.
-      expect(mockQueryBuilder.update).toHaveBeenCalledWith(
-        expect.not.objectContaining({ sessions_count: expect.anything() })
-      );
-      expect(mockQueryBuilder.update).toHaveBeenCalledWith(
-        expect.objectContaining({ current_version: 4 })
-      );
-      expect(mockQueryBuilder.update).toHaveBeenCalledWith(
-        expect.not.objectContaining({ total_words: expect.anything(), total_duration: expect.anything() })
-      );
-    });
-
     it('clearLabelFromAllDocs uses label_id in both update and eq filter', async () => {
       await SupabaseDataProvider.clearLabelFromAllDocs('user-1', 'label-xyz');
 

@@ -1,7 +1,7 @@
 // TEST-1 §1.3: the recovery link leads to a working password change.
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import { StrictMode } from 'react';
+import { StrictMode, Suspense } from 'react';
 import { LanguageProvider } from '../../../../shared/i18n';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -302,6 +302,35 @@ describe('invite link while another account is signed in', () => {
     before.unmount(); // страница перезагрузилась
     const { unmount } = renderPage(['/reset-password']);
     expect(screen.getAllByText(/Пароль изменён/).length).toBeGreaterThan(0);
+    unmount();
+  });
+});
+
+describe('отметка «пароль изменён» после перезагрузки', () => {
+  it('переживает отброшенную попытку отрисовки и снимается после показа', async () => {
+    sessionStorage.setItem('jw_password_reset_done', 'me@example.com');
+    // Сосед приостанавливается: React отбрасывает первую попытку вместе с состоянием
+    // страницы и вызывает её инициализатор заново, как на стенде при настоящей перезагрузке.
+    let open = false;
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const SuspendOnce = () => {
+      if (!open) throw gate;
+      return null;
+    };
+    const { unmount } = render(
+      <LanguageProvider>
+        <MemoryRouter initialEntries={['/reset-password']}>
+          <Suspense fallback={null}>
+            <ResetPasswordPage />
+            <SuspendOnce />
+          </Suspense>
+        </MemoryRouter>
+      </LanguageProvider>,
+    );
+    await act(async () => { open = true; release(); await gate; });
+    expect(screen.getAllByText(/Пароль изменён/).length).toBeGreaterThan(0);
+    expect(sessionStorage.getItem('jw_password_reset_done')).toBeNull();
     unmount();
   });
 });

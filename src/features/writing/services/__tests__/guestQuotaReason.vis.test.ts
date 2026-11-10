@@ -55,7 +55,7 @@ beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
   failIdb.on = false;
-  useDraftWriteAlertStore.setState({ rescueNotWritten: false, localWriteStuck: false });
+  useDraftWriteAlertStore.setState({ localWriteStuck: false });
 });
 
 afterEach(() => {

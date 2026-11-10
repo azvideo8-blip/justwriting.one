@@ -27,9 +27,9 @@ import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
-import { resetSession, loadDraftIntoStore } from '../store/storeActions';
+import { resetSession } from '../store/storeActions';
 import { cleanupDraftsAfterSave } from '../utils/sessionActions';
-import { applySessionEnd, clearAllRescuePayloads, getEditorTextOwner, markEditorTextOwner, resolve } from '../services/draftWriter';
+import { applySessionEnd, resolve } from '../services/draftWriter';
 import { useBaseWritingSession } from '../hooks/useBaseWritingSession';
 import { useSessionPersistence } from '../hooks/useSessionPersistence';
 import { useGuestWritingSession } from '../hooks/useGuestWritingSession';
@@ -353,15 +353,6 @@ class World {
     this.view = null;
     this.guestView?.unmount();
     this.guestView = null;
-  }
-
-  /** Смена аккаунта без перезагрузки: стор текста переживает переход (N-47). */
-  async switchInApp(uid: string): Promise<void> {
-    this.owner = uid;
-    this.isGuest = false;
-    this.rerender();
-    this.record(`switch-in-app→${uid.slice(0, 5)}`);
-    await this.tick(50);
   }
 
   /** Смена аккаунта по-настоящему: `reloadForAccountChange` и чистая вкладка. */
@@ -723,8 +714,6 @@ beforeEach(() => {
   resetSession();
   // DW4-4: снимок спасения — уровня вкладки, как зеркало владельца; тесту он
   // должен доставаться пустым.
-  clearAllRescuePayloads();
-  useContentStore.setState({ ownerUid: null });
   useTimerStore.setState({ status: 'idle' });
   _resetAccountReloadForTesting();
   Object.defineProperty(window, 'location', {
@@ -764,7 +753,6 @@ const GUEST_OPS = [
 
 async function runAccountSeed(seed: number, steps: number): Promise<World> {
   resetSession();
-  useContentStore.setState({ ownerUid: null });
   const rnd = mulberry32(seed);
   const w = new World(seed);
   await w.openAccount(w.uidA);
@@ -782,7 +770,7 @@ async function runAccountSeed(seed: number, steps: number): Promise<World> {
       case 'reload': await w.reload(); break;
       case 'unload-stale': await w.reloadStale(); break;
       case 'new-tab': await w.reload(true); break;
-      case 'switch': await (roll < 0.5 ? w.switchByReload(w.uidB) : w.switchInApp(w.uidB)); break;
+      case 'switch': await w.switchByReload(w.uidB); break;
       case 'discard': await w.discard(); break;
       case 'device-b': await w.deviceBWrite(roll < 0.5 ? w.uidA : w.uidB, 1 + Math.floor(roll * 4)); break;
       case 'device-b-delete': await w.deviceBDelete(roll < 0.5 ? w.uidA : w.uidB); break;
@@ -801,7 +789,6 @@ async function runAccountSeed(seed: number, steps: number): Promise<World> {
 
 async function runGuestSeed(seed: number, steps: number): Promise<World> {
   resetSession();
-  useContentStore.setState({ ownerUid: null });
   const rnd = mulberry32(seed);
   const w = new World(seed);
   await w.openGuest();
@@ -901,143 +888,6 @@ describe('DW-3: харнесс путей записи черновика', () =
       .toBe(lastWords);
     expect(w.violations, report(w)).toEqual([]);
     w.unmount();
-  });
-
-  /**
-   * DW-F-3: до первого автосохранения владельца текста в сторе не было, и
-   * запись перед перезагрузкой подписывала текст A аккаунту B. Владелец теперь
-   * ставится в момент подстановки черновика (`loadDraftIntoStore`).
-   */
-  it('DW-F-3: подставленный черновик принадлежит своему аккаунту до первого автосохранения', async () => {
-    const w = new World(9_565);
-    await w.openAccount(w.uidA);
-    loadDraftIntoStore({ content: 'dw7 text of A', title: '', wordCount: 4 }, w.uidA);
-    markEditorTextOwner(w.uidA);
-    await w.tick(10);
-    expect(getEditorTextOwner(), 'владелец стоит в момент подстановки').toBe(w.uidA);
-
-    await w.switchInApp(w.uidB);
-    await settle(reloadForAccountChange());
-    // DW4-4: окно «спасение ещё в пути» закрыто — редактор передаётся B пустым
-    // сразу при смене (clear-at-switch), зеркальный владелец снимается синхронно.
-    // Исход спасения детерминирован: либо снимок лёг в базу A, либо (запись не
-    // прошла, B ещё не печатал) текст вернулся на экран. Оба варианта — «текст
-    // A у своего владельца», ждём один из них.
-    for (let i = 0; i < 40; i++) {
-      if (useContentStore.getState().content !== '' || (await w.draftTextFor(w.uidA)) !== null) break;
-      await w.drain(25);
-    }
-    expect(await w.draftTextFor(w.uidB), 'текст A не попал в базу B').toBeNull();
-    const rescued = await w.draftTextFor(w.uidA);
-    const onScreen = useContentStore.getState().content;
-    expect(rescued ?? onScreen, 'текст A спасён в свою базу или остался на экране').toBe('dw7 text of A');
-    w.unmount();
-    // Дать досохранению/спасению завершиться, иначе его `clear()` и подъём
-    // поколения придут в следующий тест.
-    await w.drain(2_000);
-  });
-
-  /**
-   * DW-10: гонка спасения при смене аккаунта. Спасение брало ПОКОЛЕНИЕ, ЖИВОЕ НА
-   * МОМЕНТ ВЫЗОВА (`useDraftAutosave.ts:119` до шага 5), поэтому смена аккаунта
-   * внутри незакрытого сохранения заметки писала сохранённый текст обратно в базу
-   * прежнего владельца. Проверка поколения в `saveToLocal` от этого не спасала:
-   * она отвергала запись, только если подъём успел вклиниться между снятием
-   * поколения и записью, — то есть решала исход гонки, а не правило.
-   *
-   * Шаг 5 DW-4 закрыл дыру: эпоху сохранения поднимает мутатор (`applySave`), а
-   * спасение несёт эпоху СВОЕГО ТЕКСТА (`buildLocalDraft`), поэтому запись с
-   * эпохой до сохранения не меняет ни один адрес. Храповик был `it.fails` и
-   * переехал в обычный зелёный тест по приёмке шага 5 (§4.3, пункт 1).
-   */
-  it('DW-10-F-1: смена аккаунта внутри незакрытого сохранения не возвращает сохранённый текст черновиком', async () => {
-    env.latency = 3_000;
-    const w = new World(9_569);
-    await w.openAccount(w.uidA);
-    await w.type(3);
-    const saved = w.text;
-    // Внутрь окна DY10-10: облачный хвост сохранения ещё не закрыт, `resetSession`
-    // ещё не было, а аккаунт в этой же вкладке уже меняется на B.
-    await w.saveNote(1_500, async () => { await w.switchInApp(w.uidB); });
-    await w.drain(2_000);
-    // Шаг 5: B не получает ничего, и сохранённый заметкой текст не стал черновиком
-    // A — спасение несёт эпоху своего текста, а её подняло сохранение
-    // (`applySave`). Отрицательная форма проверок сохранена намеренно:
-    // положительное «в базе A лежит сохранённое» после починки падает и молча
-    // глушает дыру.
-    expect(await w.draftTextFor(w.uidB), 'у B нет ни строки, ни ключа').toBeNull();
-    expect(await w.draftTextFor(w.uidA), 'сохранённый заметкой текст не должен быть черновиком A').not.toBe(saved);
-    w.unmount();
-    await w.drain(2_000);
-  });
-
-  /**
-   * DW-9 (сид 191): A печатает, в этой же вкладке без перезагрузки включается B,
-   * вкладка закрывается. Запись при закрытии (`useSyncUnloadSave`) брала текст
-   * редактора и писала его в ключ `draft-<B>` — при следующем входе B видел текст A.
-   * Теперь перед записью стоит та же сверка владельца, что у записи на
-   * размонтировании (AS-1): чужой текст не подписываем текущему аккаунту.
-   */
-  it('DW-9: уход со страницы под B не пишет текст A ни в ключ, ни в базу B', async () => {
-    const w = new World(9_191);
-    await w.openAccount(w.uidA);
-    await w.type(2);
-    const textA = w.text;
-    await w.drain(1_200);
-    expect(getEditorTextOwner(), 'владелец текста — A').toBe(w.uidA);
-
-    await w.switchInApp(w.uidB);
-    // DW4-4: окно «редактор под B держит текст A» закрыто — редактор передаётся
-    // пустым сразу при смене (clear-at-switch), текст A уходит снимком в свою
-    // базу. Раньше именно в этом окне ложилась запись при закрытии вкладки;
-    // теперь B на входе не получает ничего, что можно было бы записать.
-    expect(useContentStore.getState().content, 'редактор передан B пустым').toBe('');
-    for (let i = 0; i < 40 && (await w.draftTextFor(w.uidA)) !== textA; i++) await w.drain(25);
-    await w.pageHide();
-
-    expect(localStorage.getItem(STORAGE_KEYS.DRAFT(w.uidB)), 'текст A не лёг в LS-ключ B').toBeNull();
-    expect(await w.draftTextFor(w.uidB), 'текста A нет ни в одном адресе B').toBeNull();
-    expect(await w.draftTextFor(w.uidA), 'текст A не выброшен: он в базе своего владельца').toBe(textA);
-    w.unmount();
-    await w.drain(2_000);
-  });
-
-  /**
-   * DW-9 (самопроверка, находка ревьюера):Tuple правки в `useDraftAutosave` — это
-   * не только текст: заголовок, закрепления, id сессии. Если помечать владельца по
-   * любому из них, то смена аккаунта + одно движение вне текста (переименовал,
-   * нажал «Начать») отдаёт весь текст A аккаунту B — и отсрочка, и 30-секундная
-   * страховка уносят его в облако B. Помечает владельца только изменение текста.
-   */
-  it('DW-9: правка заголовка под B не делает текст A собственностью B', async () => {
-    const w = new World(9_192);
-    await w.openAccount(w.uidA);
-    await w.type(2);
-    const textA = w.text;
-    await w.drain(1_200);
-    expect(getEditorTextOwner(), 'владелец текста — A').toBe(w.uidA);
-
-    await w.switchInApp(w.uidB);
-    // DW4-4: окно «текст A ещё на экране под B» закрыто — редактор передан
-    // пустым, текст A уходит снимком в свою базу. Присваивать больше нечего:
-    // правка заголовка идёт по пустому редактору и не должна ничего поднять.
-    expect(useContentStore.getState().content, 'редактор передан B пустым').toBe('');
-    for (let i = 0; i < 40 && (await w.draftTextFor(w.uidA)) !== textA; i++) await w.drain(25);
-
-    useContentStore.getState().setTitle('заголовок от B');
-    await w.tick(20);
-    // Зеркало здесь может быть и ничейным, и B (пустой редактор его писатель
-    // вправе взять себе) — существенно другое: правка вне текста не вернула
-    // текст A и не сделала его собственностью B.
-    expect(useContentStore.getState().content, 'правка заголовка не вернула текст A на экран').toBe('');
-
-    await w.pageHide();
-    const bLegacy = (JSON.parse(localStorage.getItem(STORAGE_KEYS.DRAFT(w.uidB)) ?? '{}') as { content?: string }).content ?? '';
-    expect(bLegacy, 'в LS-ключ B текст A не лёг').not.toContain(textA);
-    expect(await w.draftTextFor(w.uidB), 'и в адресах B его нет').not.toBe(textA);
-    expect(await w.draftTextFor(w.uidA), 'текст A спасён в свою базу').toBe(textA);
-    w.unmount();
-    await w.drain(2_000);
   });
 
   /**

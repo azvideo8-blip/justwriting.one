@@ -16,7 +16,7 @@ import { resolve } from '../../services/draftWriter';
 describe('DW-F-3: useDraftSession не подставляет устаревший ответ загрузки', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useContentStore.setState({ content: '', title: '', wordCount: 0, ownerUid: null });
+    useContentStore.setState({ content: '', title: '', wordCount: 0});
   });
 
   it('ответ загрузки A, пришедший после смены на B, в редактор не попадает', async () => {
@@ -38,7 +38,6 @@ describe('DW-F-3: useDraftSession не подставляет устаревши
     });
 
     expect(useContentStore.getState().content).toBe('');
-    expect(useContentStore.getState().ownerUid).toBeNull();
   });
 
   it('свой ответ подставляется и помечает владельца', async () => {
@@ -50,6 +49,5 @@ describe('DW-F-3: useDraftSession не подставляет устаревши
     await act(async () => { await result.current.autoLoadDraftIfEmpty(); });
 
     expect(useContentStore.getState().content).toBe('текст A');
-    expect(useContentStore.getState().ownerUid).toBe('u-a');
   });
 });

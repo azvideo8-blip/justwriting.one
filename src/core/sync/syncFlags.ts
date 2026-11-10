@@ -17,12 +17,7 @@ import { reportError } from '../../shared/errors/reportError';
  *  (S1-13/S1-14). */
 const SYNC_PULL_BY_REV_DEFAULT = false;
 
-/** S2-4: запись ИИ-данных и прибавок счётчиков через `sync_push` (0047).
- *  Выключено, сервер без 0047 (PGRST202) или сбой чтения — старые пути записи. */
-const SYNC_PUSH_RPC_DEFAULT = false;
-
 const cached = new Map<string, { uid: string; value: boolean }>();
-let pushUnavailableFor: string | null = null;
 
 async function flagEnabled(flag: string, uid: string, fallback: boolean, action: string): Promise<boolean> {
   const hit = cached.get(flag);
@@ -45,18 +40,7 @@ export async function syncPullByRevEnabled(uid: string): Promise<boolean> {
   return flagEnabled('sync_pull_by_rev', uid, SYNC_PULL_BY_REV_DEFAULT, 'featureFlag_syncPullByRev');
 }
 
-export async function syncPushRpcEnabled(uid: string): Promise<boolean> {
-  if (pushUnavailableFor === uid) return false;
-  return flagEnabled('sync_push_rpc', uid, SYNC_PUSH_RPC_DEFAULT, 'featureFlag_syncPushRpc');
-}
-
-/** S2-4: сервер ответил «функции нет» (PGRST202) — до конца сессии старые пути. */
-export function markSyncPushUnavailable(uid: string): void {
-  pushUnavailableFor = uid;
-}
-
 /** Только для тестов: сбросить кэш флага между сценариями. */
 export function resetSyncFlagsForTests(): void {
   cached.clear();
-  pushUnavailableFor = null;
 }

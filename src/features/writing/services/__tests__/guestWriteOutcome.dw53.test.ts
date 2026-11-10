@@ -27,7 +27,7 @@ beforeEach(() => {
   resetDbInstance();
   vi.clearAllMocks();
   Date.now = () => T0 - 60_000;
-  useContentStore.setState({ content: '', title: '', wordCount: 0, ownerUid: null });
+  useContentStore.setState({ content: '', title: '', wordCount: 0});
   useTimerStore.setState({ status: 'writing' });
 });
 

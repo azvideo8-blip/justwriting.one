@@ -159,185 +159,6 @@
       }
     ]
   },
-  "stats-no-count": {
-    "result": null,
-    "calls": [
-      {
-        "table": "rpc",
-        "chain": [
-          "rpc([\"increment_document_sessions\",{\"p_uuid\":\"doc_1\",\"p_delta\":1}])"
-        ],
-        "payload": {
-          "fn": "increment_document_sessions",
-          "args": {
-            "p_uuid": "doc_1",
-            "p_delta": 1
-          }
-        }
-      },
-      {
-        "table": "rpc",
-        "chain": [
-          "rpc([\"sync_document_stats\",{\"p_uuid\":\"doc_1\",\"p_words\":5,\"p_duration_delta\":60}])"
-        ],
-        "payload": {
-          "fn": "sync_document_stats",
-          "args": {
-            "p_uuid": "doc_1",
-            "p_words": 5,
-            "p_duration_delta": 60
-          }
-        }
-      },
-      {
-        "table": "documents",
-        "chain": [
-          "update([{\"current_version\":4,\"last_session_at\":\"2026-08-25T06:23:16.895Z\"}])"
-        ],
-        "payload": {
-          "current_version": 4,
-          "last_session_at": "2026-08-25T06:23:16.895Z"
-        }
-      },
-      {
-        "table": "documents",
-        "chain": [
-          "update([{\"current_version\":4,\"last_session_at\":\"2026-08-25T06:23:16.895Z\"}])",
-          "eq([\"user_id\",\"u1\"])",
-          "eq([\"uuid\",\"doc_1\"])",
-          "is([\"deleted_at\",null])",
-          "select([\"updated_at\"])"
-        ],
-        "payload": "updated_at"
-      },
-      {
-        "table": "documents",
-        "chain": [
-          "update([{\"current_version\":4,\"last_session_at\":\"2026-08-25T06:23:16.895Z\"}])",
-          "eq([\"user_id\",\"u1\"])",
-          "eq([\"uuid\",\"doc_1\"])",
-          "is([\"deleted_at\",null])",
-          "select([\"updated_at\"])",
-          "<await>"
-        ]
-      }
-    ]
-  },
-  "stats-with-delta": {
-    "result": null,
-    "calls": [
-      {
-        "table": "rpc",
-        "chain": [
-          "rpc([\"increment_document_sessions\",{\"p_uuid\":\"doc_1\",\"p_delta\":9}])"
-        ],
-        "payload": {
-          "fn": "increment_document_sessions",
-          "args": {
-            "p_uuid": "doc_1",
-            "p_delta": 9
-          }
-        }
-      },
-      {
-        "table": "rpc",
-        "chain": [
-          "rpc([\"sync_document_stats\",{\"p_uuid\":\"doc_1\",\"p_words\":5,\"p_duration_delta\":60}])"
-        ],
-        "payload": {
-          "fn": "sync_document_stats",
-          "args": {
-            "p_uuid": "doc_1",
-            "p_words": 5,
-            "p_duration_delta": 60
-          }
-        }
-      },
-      {
-        "table": "documents",
-        "chain": [
-          "update([{\"current_version\":4,\"last_session_at\":\"2025-08-24T01:46:40.000Z\"}])"
-        ],
-        "payload": {
-          "current_version": 4,
-          "last_session_at": "2025-08-24T01:46:40.000Z"
-        }
-      },
-      {
-        "table": "documents",
-        "chain": [
-          "update([{\"current_version\":4,\"last_session_at\":\"2025-08-24T01:46:40.000Z\"}])",
-          "eq([\"user_id\",\"u1\"])",
-          "eq([\"uuid\",\"doc_1\"])",
-          "is([\"deleted_at\",null])",
-          "select([\"updated_at\"])"
-        ],
-        "payload": "updated_at"
-      },
-      {
-        "table": "documents",
-        "chain": [
-          "update([{\"current_version\":4,\"last_session_at\":\"2025-08-24T01:46:40.000Z\"}])",
-          "eq([\"user_id\",\"u1\"])",
-          "eq([\"uuid\",\"doc_1\"])",
-          "is([\"deleted_at\",null])",
-          "select([\"updated_at\"])",
-          "<await>"
-        ]
-      }
-    ]
-  },
-  "stats-zero-delta": {
-    "result": null,
-    "calls": [
-      {
-        "table": "rpc",
-        "chain": [
-          "rpc([\"sync_document_stats\",{\"p_uuid\":\"doc_1\",\"p_words\":5,\"p_duration_delta\":0}])"
-        ],
-        "payload": {
-          "fn": "sync_document_stats",
-          "args": {
-            "p_uuid": "doc_1",
-            "p_words": 5,
-            "p_duration_delta": 0
-          }
-        }
-      },
-      {
-        "table": "documents",
-        "chain": [
-          "update([{\"current_version\":4,\"last_session_at\":\"2026-08-25T06:23:16.896Z\"}])"
-        ],
-        "payload": {
-          "current_version": 4,
-          "last_session_at": "2026-08-25T06:23:16.896Z"
-        }
-      },
-      {
-        "table": "documents",
-        "chain": [
-          "update([{\"current_version\":4,\"last_session_at\":\"2026-08-25T06:23:16.896Z\"}])",
-          "eq([\"user_id\",\"u1\"])",
-          "eq([\"uuid\",\"doc_1\"])",
-          "is([\"deleted_at\",null])",
-          "select([\"updated_at\"])"
-        ],
-        "payload": "updated_at"
-      },
-      {
-        "table": "documents",
-        "chain": [
-          "update([{\"current_version\":4,\"last_session_at\":\"2026-08-25T06:23:16.896Z\"}])",
-          "eq([\"user_id\",\"u1\"])",
-          "eq([\"uuid\",\"doc_1\"])",
-          "is([\"deleted_at\",null])",
-          "select([\"updated_at\"])",
-          "<await>"
-        ]
-      }
-    ]
-  },
   "deleteDocument": {
     "result": null,
     "calls": [
@@ -371,10 +192,10 @@
       {
         "table": "documents",
         "chain": [
-          "update([{\"deleted_at\":\"2026-08-25T06:23:16.896Z\",\"title\":\"\",\"tags\":[],\"mood\":null,\"label_id\":null,\"is_public\":false,\"_encrypted\":false,\"total_words\":0,\"total_duration\":0,\"sessions_count\":0}])"
+          "update([{\"deleted_at\":\"2026-08-25T06:23:16.895Z\",\"title\":\"\",\"tags\":[],\"mood\":null,\"label_id\":null,\"is_public\":false,\"_encrypted\":false,\"total_words\":0,\"total_duration\":0,\"sessions_count\":0}])"
         ],
         "payload": {
-          "deleted_at": "2026-08-25T06:23:16.896Z",
+          "deleted_at": "2026-08-25T06:23:16.895Z",
           "title": "",
           "tags": [],
           "mood": null,
@@ -389,7 +210,7 @@
       {
         "table": "documents",
         "chain": [
-          "update([{\"deleted_at\":\"2026-08-25T06:23:16.896Z\",\"title\":\"\",\"tags\":[],\"mood\":null,\"label_id\":null,\"is_public\":false,\"_encrypted\":false,\"total_words\":0,\"total_duration\":0,\"sessions_count\":0}])",
+          "update([{\"deleted_at\":\"2026-08-25T06:23:16.895Z\",\"title\":\"\",\"tags\":[],\"mood\":null,\"label_id\":null,\"is_public\":false,\"_encrypted\":false,\"total_words\":0,\"total_duration\":0,\"sessions_count\":0}])",
           "eq([\"user_id\",\"u1\"])",
           "eq([\"uuid\",\"doc_1\"])",
           "<await>"

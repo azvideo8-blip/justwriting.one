@@ -58,6 +58,9 @@ export const ConflictResolver = {
     let cloudFetched = false;
     let forkCopied = false;
     let forkVersion = 0;
+    // Версии, которые Pass 1 видел и разобрал. Соседняя вкладка могла сохранить новую
+    // после его чтения: в форке её нет, и Pass 2 не вправе её удалить.
+    const seenByFork = new Set<string>();
     try {
       const cloudVersions = await VersionService.getVersions(userId, linkedCloudId);
       for (const cv of cloudVersions) {
@@ -106,6 +109,7 @@ export const ConflictResolver = {
     // НЕ считается «уже в облаке» — её локальный plaintext копируется в форк!
     try {
       const localVersions = await LocalVersionService.getVersions(documentId, userId);
+      localVersions.forEach(v => seenByFork.add(v.id));
       const readableCloudContent = new Map(
         decryptedCloudVersions.filter(v => !v._decryptionError).map(v => [v.version, v.content])
       );
@@ -191,6 +195,7 @@ export const ConflictResolver = {
       const db = await getLocalDb(userId);
       const tx = db.transaction('versions', 'readwrite');
       for (const lv of localVersions) {
+        if (!seenByFork.has(lv.id)) continue;
         const cv = cloudVerMap.get(lv.version);
         if (!cv) {
           // NARROW-1: В облаке такой версии нет вообще — она никогда не синкалась,
@@ -233,10 +238,13 @@ export const ConflictResolver = {
         });
       }
       const maxCloudVersion = Math.max(cloudDoc.currentVersion, ...decryptedCloudVersions.map(v => v.version), 0);
+      // Версия соседней вкладки остаётся, и счётчик не откатывается ниже неё: следующее
+      // сохранение взяло бы занятый номер. Метка «до какой синхронизировано» — облачная.
+      const newestKept = Math.max(0, ...remainingLocalVersions.filter(v => !seenByFork.has(v.id)).map(v => v.version));
       await LocalStorageService.updateAfterSession(documentId, {
         totalWords: cloudDoc.totalWords ?? data.documentWordCount ?? data.wordCount,
         totalDuration: cloudDoc.totalDuration ?? data.documentDuration ?? data.duration,
-        currentVersion: maxCloudVersion,
+        currentVersion: Math.max(maxCloudVersion, newestKept),
         mood: data.mood,
       }, userId);
 

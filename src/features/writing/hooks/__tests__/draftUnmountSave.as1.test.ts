@@ -49,7 +49,6 @@ describe('AS-1: размонтирование редактора сохраня
       content: draftData.content,
       title: draftData.title,
       wordCount: draftData.wordCount,
-      ownerUid: user.uid,
     });
     useTimerStore.setState({ status: 'writing' });
     useSessionMetaStore.getState().resetSessionMetadata();

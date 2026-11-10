@@ -109,11 +109,13 @@ export async function persistDraft(
   if (!localOk) {
     logger.error('draftPersistence', 'Local save failed', { reason: String(localResult.reason) });
   }
-  if (shouldRemoteSave && !remoteOk) {
-    const err = remoteError as { code?: unknown; status?: unknown; message?: unknown } | undefined;
-    const code = typeof err?.code === 'string' ? err.code : typeof err?.code === 'number' ? String(err.code) : undefined;
-    const status = typeof err?.status === 'string' ? err.status : typeof err?.status === 'number' ? String(err.status) : undefined;
-    const msg = typeof err?.message === 'string' ? err.message : String(remoteError || 'Did not write');
+  // `false` без броска — отправку намеренно не делали (черновик закрыт сохранением, облако
+  // выключено, не прочитано): для журнала это не сбой. Отставание облака считает `useDraftCore`.
+  if (remoteError !== undefined) {
+    const err = remoteError as { code?: unknown; status?: unknown; message?: unknown };
+    const code = typeof err.code === 'string' ? err.code : typeof err.code === 'number' ? String(err.code) : undefined;
+    const status = typeof err.status === 'string' ? err.status : typeof err.status === 'number' ? String(err.status) : undefined;
+    const msg = typeof err.message === 'string' ? err.message : String(remoteError);
     const isPermanent = code === '23514' || status === '400' || msg.includes('check constraint') || msg.includes('23514');
 
     if (isPermanent) {

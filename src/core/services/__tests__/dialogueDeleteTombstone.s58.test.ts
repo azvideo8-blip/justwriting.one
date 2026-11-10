@@ -17,9 +17,11 @@ type Row = { store: string; key: string; payload: Record<string, unknown> };
 const cloud = new Map<string, Row>();
 const rowKey = (store: string, key: string) => `${store}:${key}`;
 const cloudDeletes = vi.fn();
+const push = vi.hoisted(() => ({ empty: false }));
 
 vi.mock('../../data', () => ({
   DataProvider: {
+    syncPush: async (items: unknown[]) => (push.empty ? [] : items.map(() => ({ status: 'ok' as const }))),
     getLocalStoreRecordsByKeyPrefix: async (_uid: string, store: string, prefix: string) =>
       [...cloud.values()].filter(r => r.store === store && r.key.startsWith(prefix)),
     deleteLocalStoreRecordsByKeys: async (_uid: string, store: string, keys: string[]) => {
@@ -104,12 +106,31 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });
   cloud.clear();
   cloudDeletes.mockClear();
+  push.empty = false;
   currentDevice = null;
   localStorage.clear();
 });
 afterEach(() => vi.useRealTimers());
 
 describe('S-58: deleting a dialogue survives a concurrent append on another device', () => {
+  it('пустой ответ sync_push на надгробие — сбой выгрузки, а не «удалено»', async () => {
+    const a = new Device();
+    switchTo(a);
+    at('09:00');
+    const d = await AIDialogueService.create({
+      title: 'Разговор', personaId: 'coach', personaName: 'Коуч', personaEmoji: '🎯',
+      messages: [{ role: 'user', content: 'Вопрос' }],
+    });
+    await AIDialogueService.delete(d.id);
+    await flush();
+    vi.setSystemTime(T('09:00') + TOMBSTONE_TTL_MS + 24 * 60 * 60 * 1000);
+    await listedIds();
+    push.empty = true;
+    const r = await LocalStoreSyncService.flushPending(true);
+    expect(r.failed, 'пустой ответ засчитан как надгробие').toBeGreaterThan(0);
+    expect(cloudDeletes).not.toHaveBeenCalledWith('aiDialogues', d.id);
+  });
+
   it('scenario 15: A deletes, B appends and uploads, A pulls — the dialogue stays deleted everywhere', async () => {
     const a = new Device();
     const b = new Device();

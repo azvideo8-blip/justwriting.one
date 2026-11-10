@@ -1,6 +1,6 @@
 import { onDomainEvent } from '../../../core/events/domainEvents';
 import { WritingDraftService } from '../services/WritingDraftService';
-import { clearAllRescuePayloads, clearEditorTextOwner, markEditorTextOwner } from '../services/draftWriter';
+import { clearEditorTextOwner, markEditorTextOwner } from '../services/draftWriter';
 import { useContentStore, clearWordCalcTimer } from './useContentStore';
 import { useDraftWriteAlertStore } from './useDraftWriteAlertStore';
 import { useTimerStore } from './useTimerStore';
@@ -16,7 +16,6 @@ const createContentDefaults = () => ({
   wordCount: 0, initialWordCount: 0, wpm: 0, wordSnapshots: [],
   lastWordCount: 0, wpmHistory: [],
   tags: [], labelId: undefined,
-  ownerUid: null,
 });
 
 const TIMER_DEFAULTS: {
@@ -55,9 +54,7 @@ const META_DEFAULTS: {
 
 function resetSession() {
   clearWordCalcTimer();
-  // DW4-4: текста в редакторе больше нет — владельца у него тоже. Снимок,
-  // ждущий спасения, живёт до своей записи (или до возобновления набора
-  // владельцем): его чистит спасение и `markEditorTextOwnedBy`, не сброс.
+  // DW4-4: текста в редакторе больше нет — владельца у него тоже.
   clearEditorTextOwner();
   // Заметка ревьюера 04.11 21:55, п.2: сессия сброшена (заметка сохранена через
   // окно, смена аккаунта) — текста «только на экране» больше нет, и баннер
@@ -88,12 +85,6 @@ onDomainEvent(e => {
     return;
   }
   if (e.type === 'account.reset') {
-    // DW5-3.4: стирание аккаунта снимает и ждущие снимки спасения — иначе чужой
-    // текст переживает «стереть всё с этого компьютера» и дописывается в базу,
-    // когда её уже нет.
-    clearAllRescuePayloads();
-    // VIS T1: очередь пуста — и показу нечего обещать («приложение повторит»).
-    useDraftWriteAlertStore.getState().setRescueNotWritten(false);
     resetSession();
   }
 });
@@ -113,11 +104,8 @@ export function loadDraftIntoStore(draft: {
     initialWordCount: draft.wordCount,
     wpm: 0,
     wordSnapshots: [],
-    ownerUid,
   });
-  // DW5-3.4: зеркало редактора (чей текст стоит) — источник правила I3/I6 для
-  // мутатора и писателей. Стор `ownerUid` без зеркала означало «владельца нет»,
-  // и первый писатель подписывал подставленный текст собой.
+  // Зеркало редактора (чей текст стоит) — источник правила I3/I6 мутатора и писателей.
   if (ownerUid) markEditorTextOwner(ownerUid);
   useContentStore.getState().resetHistory();
   useTimerStore.setState({

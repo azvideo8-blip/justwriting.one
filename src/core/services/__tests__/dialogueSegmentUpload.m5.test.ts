@@ -34,6 +34,7 @@ let deleteKeysCalls: string[][] = [];
 
 vi.mock('../../data', () => ({
   DataProvider: {
+    syncPush: async (items: unknown[]) => items.map(() => ({ status: 'ok' as const })),
     getLocalStoreRecordsByKeyPrefix: async (_uid: string, store: string, prefix: string) =>
       [...cloud.values()]
         .filter(r => r.store === store && r.key.startsWith(prefix))

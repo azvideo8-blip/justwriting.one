@@ -54,7 +54,7 @@ beforeEach(async () => {
   vi.clearAllMocks();
   const db = await getLocalDb(UID);
   if (db.objectStoreNames.contains('drafts')) await db.clear('drafts');
-  useContentStore.setState({ content: LAST_WORDS, title: '', wordCount: 4, tags: [], labelId: undefined, ownerUid: UID });
+  useContentStore.setState({ content: LAST_WORDS, title: '', wordCount: 4, tags: [], labelId: undefined});
   useTimerStore.setState({ status: 'writing' });
   useSessionMetaStore.getState().resetSessionMetadata();
   useEncryptionStore.setState({ encryptionEnabled: { [UID]: true } });

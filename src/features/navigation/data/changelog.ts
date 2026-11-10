@@ -17,6 +17,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.9',
+    date: '2026-11-14',
+    announce: false,
+    items: [
+      { category: 'fix', ru: 'Если облако не ответило, черновик ждёт, пока его удастся прочитать, и не затирает облачную копию с другого устройства.', en: 'If the cloud doesn\'t answer, the draft waits until it can be read and no longer overwrites the copy from another device.' },
+      { category: 'fix', ru: 'После выхода с удалением данных с устройства соседняя вкладка больше не записывает черновик обратно.', en: 'After signing out with local data removal, another open tab no longer writes the draft back.' },
+      { category: 'fix', ru: 'Предупреждение «текст только на экране» исчезает, если правки отменены до сохранённой заметки.', en: 'The «text is only on screen» warning goes away when edits are undone back to the saved note.' },
+      { category: 'fix', ru: 'После смены пароля по ссылке страница больше не говорит, что ссылка устарела.', en: 'After resetting the password via the link, the page no longer says the link has expired.' },
+      { category: 'fix', ru: 'Разбор расхождения версий больше не удаляет версию, сохранённую в соседней вкладке.', en: 'Resolving a version conflict no longer deletes a version saved in another tab.' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.11.8',
     date: '2026-11-06',
     announce: false,

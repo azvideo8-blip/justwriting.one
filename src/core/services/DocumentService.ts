@@ -1,7 +1,5 @@
 import { DataProvider } from '../data';
 import type { MetadataField } from '../storage/localDb';
-import { isSyncPushMissing } from '../data/providers';
-import { syncPushRpcEnabled, markSyncPushUnavailable } from '../sync/syncFlags';
 import { queueStatsDelta, pendingStatsDeltas, clearStatsDeltas, markStatsDeltaQueued } from './pendingDelta';
 import { Document } from '../../types';
 import { toTimestampMs } from '../utils/dateUtils';
@@ -282,7 +280,10 @@ export const DocumentService = {
       lastSessionAt?: Date | undefined;
     }
   ): Promise<number | null> {
-    const payload: Parameters<typeof DataProvider.updateDocumentSessionStats>[2] = {
+    const payload: {
+      totalWords: number; durationDelta: number; currentVersion: number; mood: string | null;
+      moodEncrypted?: boolean; sessionsDelta?: number; lastSessionAt?: Date;
+    } = {
       totalWords: data.totalWords,
       durationDelta: data.durationDelta,
       currentVersion: data.currentVersion,
@@ -297,10 +298,6 @@ export const DocumentService = {
       if (encrypted._encrypted === true) payload.moodEncrypted = true;
     }
 
-    if (!(await syncPushRpcEnabled(userId))) {
-      return DataProvider.updateDocumentSessionStats(userId, documentId, payload);
-    }
-
     // S2-7: прибавка — в журнал до отправки; с этого момента её секунды живут там,
     // и ошибка помечается, чтобы вызывающий не положил их долгом второй раз.
     const { entry, queued } = queueStatsDelta(userId, documentId, {
@@ -313,26 +310,10 @@ export const DocumentService = {
       // иначе отправка уходила пустой и сессия молча терялась.
       const pending = pendingStatsDeltas(userId, documentId);
       if (!pending.some(d => d.opId === entry.opId)) pending.push(entry);
-      let results;
-      try {
-        results = await DataProvider.syncPush(pending.map(d => ({
-          table: 'documents' as const, op: 'delta' as const, uuid: documentId, op_id: d.opId,
-          sessions: d.sessions, duration: d.duration, words: d.words,
-        })));
-      } catch (e) {
-        if (!isSyncPushMissing(e)) throw e;
-        // Сервер без 0047: старый путь до конца сессии, журнал сливается одной дельтой.
-        markSyncPushUnavailable(userId);
-        const written = await DataProvider.updateDocumentSessionStats(userId, documentId, {
-          ...payload,
-          sessionsDelta: pending.reduce((n, d) => n + d.sessions, 0),
-          durationDelta: pending.reduce((n, d) => n + d.duration, 0),
-        });
-        // Ревью SYNC2: журнал снимается после записи старым путём, а не до неё —
-        // упавшая запись оставляет прибавки для следующей попытки.
-        clearStatsDeltas(userId, pending.map(d => d.opId));
-        return written;
-      }
+      const results = await DataProvider.syncPush(pending.map(d => ({
+        table: 'documents' as const, op: 'delta' as const, uuid: documentId, op_id: d.opId,
+        sessions: d.sessions, duration: d.duration, words: d.words,
+      })));
       // missing (заметки в облаке ещё нет) остаётся в журнале до следующей выгрузки.
       clearStatsDeltas(userId, pending.filter((_, i) => results[i]!.status !== 'missing').map(d => d.opId));
       const meta: Parameters<typeof DataProvider.updateDocumentSessionMeta>[2] = { currentVersion: payload.currentVersion };

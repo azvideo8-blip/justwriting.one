@@ -43,7 +43,7 @@ function unload(): void {
 beforeEach(() => {
   localStorage.clear();
   accountReloadPending.value = false;
-  useContentStore.setState({ content: TEXT, title: '', wordCount: 2, ownerUid: UID });
+  useContentStore.setState({ content: TEXT, title: '', wordCount: 2});
   // DW4-4: владелец текста — зеркало редактора; стор остаётся до шага 7.
   markEditorTextOwner(UID);
   useTimerStore.setState({ status: 'writing', seconds: 7 });
@@ -68,7 +68,7 @@ describe('MS-2: выгрузка вкладки', () => {
   });
 
   it('чужой текст не подписывается текущим аккаунтом', () => {
-    useContentStore.setState({ content: 'MARKER_MS2_чужой', ownerUid: 'u_other' });
+    useContentStore.setState({ content: 'MARKER_MS2_чужой'});
     markEditorTextOwner('u_other');
     mount('MARKER_MS2_чужой');
     unload();

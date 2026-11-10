@@ -32,13 +32,12 @@ describe('S2-5: надгробие удалённого диалога', () => {
   });
   const cloudRows = () => runner.interceptor.postgres.getRows('local_store_records').filter(r => r.store === 'aiDialogues');
 
-  async function setup(flag: boolean): Promise<{ A: Device; B: Device; uid: string }> {
+  async function setup(): Promise<{ A: Device; B: Device; uid: string }> {
     const A = new Device('A'), B = new Device('B');
     activateDevice(A);
     await runner.setup();
     const uid = runner.userId;
     for (const dev of [A, B]) dev.storage.set('auto_sync_enabled', 'true');
-    runner.interceptor.featureFlagOverrides.set('sync_push_rpc', flag);
 
     await (await getLocalDb(uid)).put('aiDialogues', dialogue('жил', 2000));
     managerOf(A).scheduleStoreSync('aiDialogues', 'd1');
@@ -56,7 +55,7 @@ describe('S2-5: надгробие удалённого диалога', () => {
   }
 
   it('B, дописав свою копию, не воскрешает диалог: копия снимается, в облаке надгробие', async () => {
-    const { B, uid } = await setup(true);
+    const { B, uid } = await setup();
     expect(cloudRows().map(r => [r.key, r.deleted]), 'надгробие, а не пустое место').toEqual([['d1', true]]);
 
     activateDevice(B);
@@ -70,26 +69,4 @@ describe('S2-5: надгробие удалённого диалога', () => {
     expect(cloudRows().map(r => [r.key, r.deleted]), 'B не воскрешает').toEqual([['d1', true]]);
   });
 
-  it('флаг выключен — прежнее физическое удаление', async () => {
-    await setup(false);
-    expect(cloudRows()).toEqual([]);
-  });
-
-  it('сервер без 0047 — физическое удаление, без ошибки', async () => {
-    const A = new Device('A');
-    activateDevice(A);
-    await runner.setup();
-    const uid = runner.userId;
-    A.storage.set('auto_sync_enabled', 'true');
-    runner.interceptor.featureFlagOverrides.set('sync_push_rpc', true);
-    runner.interceptor.postgres.withSyncPush = false;
-    await (await getLocalDb(uid)).put('aiDialogues', dialogue('жил', 2000));
-    managerOf(A).scheduleStoreSync('aiDialogues', 'd1');
-    await managerOf(A).flushPending();
-    await (await getLocalDb(uid)).delete('aiDialogues', 'd1');
-    managerOf(A).scheduleStoreDelete('aiDialogues', 'd1');
-    const res = await managerOf(A).flushPending();
-    expect(res.failed).toBe(0);
-    expect(cloudRows()).toEqual([]);
-  });
 });

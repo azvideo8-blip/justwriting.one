@@ -70,7 +70,7 @@ beforeEach(async () => {
   localStorage.clear();
   sessionStorage.clear();
   vi.clearAllMocks();
-  useContentStore.setState({ content: TEXT, title: '', wordCount: 6, tags: [], labelId: undefined, ownerUid: GUEST });
+  useContentStore.setState({ content: TEXT, title: '', wordCount: 6, tags: [], labelId: undefined});
   useTimerStore.setState({ status: 'writing' });
   useSessionMetaStore.getState().resetSessionMetadata();
   useEncryptionStore.setState({ encryptionEnabled: {} });
@@ -80,7 +80,6 @@ describe('d34a: окно после «Сохранить» — закрытие 
   it('КОНТРОЛЬ (аккаунт): вето поколения стоит — унаследованный ключ не пишется', async () => {
     const db = await (await import('@/core/storage/localDb')).getLocalDb(UID);
     if (db.objectStoreNames.contains('drafts')) await db.clear('drafts');
-    useContentStore.setState({ ownerUid: UID });
     bumpDraftGeneration(UID);
     renderHook(() => useDraftAutosave({ uid: UID } as AppUser, draftData()));
     useSessionMetaStore.getState().setSavedDocumentId('d34a-doc');

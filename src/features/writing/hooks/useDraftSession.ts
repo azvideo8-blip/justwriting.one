@@ -53,9 +53,7 @@ export function useDraftSession(userId: string, isGuest: boolean): DraftSessionS
     }
 
     applyDraftToStores(draft, isGuest ? null : userId);
-    // DW4-4: загруженный черновик назначает зеркало — его владелец, а для
-    // гостя сам гость (у гостевого текста владельца-аккаунта нет, DW-6).
-    markEditorTextOwner(isGuest ? userId : draft.owner ?? userId);
+    markEditorTextOwner(userId);
     setHasDraft(false);
   }, [userId, isGuest]);
 
@@ -71,7 +69,7 @@ export function useDraftSession(userId: string, isGuest: boolean): DraftSessionS
     }
 
     applyDraftToStores(draft, isGuest ? null : userId);
-    markEditorTextOwner(isGuest ? userId : draft.owner ?? userId);
+    markEditorTextOwner(userId);
     setHasDraft(false);
   }, [userId, isGuest]);
 

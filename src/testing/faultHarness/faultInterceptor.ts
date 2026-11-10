@@ -497,11 +497,8 @@ export class FaultInterceptor {
 
   /** RP-3: ответ стенда на `feature_enabled` — по умолчанию включено. */
   public featureFlagsOn = true;
-  /** S2-8: ответ по имени флага поверх `featureFlagsOn` (`sync_push_rpc` вкл/выкл).
-   *  `HARNESS_SYNC_PUSH=0` — весь стенд по старым путям записи (прогон «флаг выключен»). */
-  public featureFlagOverrides = new Map<string, boolean>(
-    process.env.HARNESS_SYNC_PUSH === '0' ? [['sync_push_rpc', false]] : [],
-  );
+  /** S2-8: ответ по имени флага поверх `featureFlagsOn`. */
+  public featureFlagOverrides = new Map<string, boolean>();
 
   public createMockSupabaseClient() {
     return {

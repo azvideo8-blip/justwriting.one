@@ -17,7 +17,7 @@ const type = async (text: string) => {
 
 beforeEach(() => {
   useContentStore.setState({ content: '', title: '' });
-  useDraftWriteAlertStore.setState({ rescueNotWritten: false, localWriteStuck: false });
+  useDraftWriteAlertStore.setState({ localWriteStuck: false });
 });
 
 describe('гость: баннер «только на экране»', () => {

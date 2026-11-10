@@ -17,9 +17,6 @@ import {
 } from '../sync/syncJournal';
 import { reportError } from '../../shared/errors/reportError';
 import { classifySyncError } from '../sync/classifySyncError';
-import { syncPushRpcEnabled, markSyncPushUnavailable } from '../sync/syncFlags';
-import { isSyncPushMissing } from '../data/providers';
-import type { SyncPushResult } from '../data/types';
 import { logger } from '../../shared/errors/logger';
 import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
 import { pageTextOf, parseLocalStoreKey, selectCloudVersion, PAGE_TEXT_FIELDS, type CloudRow } from './localStorePages';
@@ -1779,17 +1776,12 @@ export class LocalStoreSyncManager {
    * диалог и прежде некому было воскрешать, кроме устройства без выгрузки.
    */
   private async tombstoneDialogueRow(uid: string, key: string): Promise<void> {
-    if (!(await syncPushRpcEnabled(uid))) return;
     let base: number | null = null;
     for (let attempt = 0; attempt < 3; attempt++) {
-      const res: SyncPushResult | null = await DataProvider.syncPush([{ table: 'local_store_records', op: 'delete', store: 'aiDialogues', key, base_rev: base }])
-        .then(r => r[0]!, (e: unknown) => {
-          if (!isSyncPushMissing(e)) throw e;
-          markSyncPushUnavailable(uid);
-          return null;
-        });
-      if (res === null || res.status === 'ok') return;
-      if (res.status !== 'conflict' || !res.row) throw new Error(`S2-5: dialogue ${key} tombstone: ${res.status}`);
+      const [res] = await DataProvider.syncPush([{ table: 'local_store_records', op: 'delete', store: 'aiDialogues', key, base_rev: base }]);
+      if (res?.status === 'ok') return;
+      // Пустой ответ — «не знаем», а не «надгробие легло»: диалог вернулся бы с другого устройства.
+      if (res?.status !== 'conflict' || !res.row) throw new Error(`S2-5: dialogue ${key} tombstone: ${res?.status ?? 'no result'}`);
       base = res.row.rev;
     }
     throw new Error(`S2-5: dialogue ${key} kept changing during delete`);

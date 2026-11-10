@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const rpc = vi.fn();
 vi.mock('../../../supabase/client', () => ({ getSupabase: () => ({ rpc }) }));
 
-import { syncPush, isSyncPushMissing } from '../syncPush';
+import { syncPush } from '../syncPush';
 
 const item = { table: 'documents', op: 'delta', uuid: 'd', op_id: 'o', sessions: 1, duration: 1, words: 1 } as const;
 
@@ -34,12 +34,10 @@ describe('S2-4: провайдер syncPush', () => {
     await expect(syncPush([item])).rejects.toThrow(/unknown response/);
   });
 
-  it('ошибка сервера пробрасывается; PGRST202 узнаётся', async () => {
+  it('ошибка сервера пробрасывается: старого пути записи больше нет', async () => {
     const err = { code: 'PGRST202', message: 'not found' };
     rpc.mockResolvedValue({ data: null, error: err });
     await expect(syncPush([item])).rejects.toBe(err);
-    expect(isSyncPushMissing(err)).toBe(true);
-    expect(isSyncPushMissing(new TypeError('Failed to fetch'))).toBe(false);
   });
 
   it('пустая пачка — без запроса', async () => {

@@ -45,10 +45,8 @@ describe('S2-7: прибавки счётчиков через sync_push', () =>
     await runner.setup();
     const uid = runner.userId;
     localStorage.setItem('auto_sync_enabled', 'true');
-    runner.interceptor.featureFlagOverrides.set('sync_push_rpc', true);
     // Стенд переживает тесты файла: «сервер без 0047» оставлял RPC выключенным, и
     // следующий тест молча ехал старым путём.
-    runner.interceptor.postgres.withSyncPush = true;
     return { uid, uuid: await cloudNote(uid) };
   }
 
@@ -89,13 +87,6 @@ describe('S2-7: прибавки счётчиков через sync_push', () =>
     const { uid } = await setup();
     await after(uid, 'not-in-cloud-yet', 1, 30);
     expect(pendingStatsDeltas(uid, 'not-in-cloud-yet')).toHaveLength(1);
-  });
-
-  it('сервер без 0047 — старый путь, журнал пуст', async () => {
-    const { uid, uuid } = await setup();
-    runner.interceptor.postgres.withSyncPush = false;
-    await after(uid, uuid, 1, 30);
-    expect(pendingStatsDeltas(uid, uuid)).toHaveLength(0);
   });
 
   it('ревью SYNC2: журнал прибавок не записался — прибавка уходит из памяти, сессия не теряется', async () => {

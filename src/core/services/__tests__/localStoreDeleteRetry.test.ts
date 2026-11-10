@@ -16,6 +16,7 @@ vi.mock('../../auth', () => ({
 
 describe('Area 1: LocalStoreSyncService delete queue must retry on network failure', () => {
   beforeEach(() => {
+    vi.spyOn(DataProvider, 'syncPush').mockImplementation(async items => items.map(() => ({ status: 'ok' as const })));
     vi.clearAllMocks();
   });
 

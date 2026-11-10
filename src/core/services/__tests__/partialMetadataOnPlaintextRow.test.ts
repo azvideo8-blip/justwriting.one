@@ -52,6 +52,21 @@ vi.mock('../../supabase/client', () => ({
     // приращение по длительности), иначе мок расходился бы с продакшном.
     rpc: async (fn: string, args: Record<string, unknown>) => {
       requests.push(`rpc:${fn}`);
+      // S2-7: прибавки счётчиков идут через sync_push (0047): та же арифметика, что у сервера.
+      if (fn === 'sync_push') {
+        const items = args.items as Array<Record<string, unknown>>;
+        return {
+          data: items.map(it => {
+            const r = table.find(x => x.uuid === it.uuid);
+            if (!r) return { status: 'missing' };
+            r.sessions_count = Math.max(0, Number(r.sessions_count ?? 0) + Number(it.sessions ?? 0));
+            r.total_duration = Math.max(0, Number(r.total_duration ?? 0) + Number(it.duration ?? 0));
+            r.total_words = Math.max(Number(r.total_words ?? 0), Number(it.words ?? 0));
+            return { status: 'ok' };
+          }),
+          error: null,
+        };
+      }
       const row = table.find(r => r.uuid === args.p_uuid);
       if (!row) return { data: null, error: { message: 'no such document' } };
       if (fn === 'increment_document_sessions') {

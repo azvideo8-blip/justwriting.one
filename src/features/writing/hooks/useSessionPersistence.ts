@@ -7,7 +7,7 @@ import { VAULT_UNLOCKED_EVENT } from '../../../core/crypto/useEncryptionStore';
 
 import { applyDraftToStores } from '../utils/draftUtils';
 import { useDraftAutosave } from './useDraftAutosave';
-import { applyDelete, isCloudDraftLocked, markEditorTextOwner, resolve } from '../services/draftWriter';
+import { applyDelete, isCloudDraftLocked, isCloudDraftUnread, markEditorTextOwner, resolve } from '../services/draftWriter';
 import { UserProfile } from '../../../types';
 
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
@@ -49,6 +49,8 @@ export interface PersistenceActions {
   setInitialDuration: (duration: number) => void;
 }
 
+const CLOUD_DRAFT_RETRY_MS = 30_000;
+
 export function useSessionPersistence(
   user: AppUser | null,
   profile: UserProfile | null,
@@ -86,10 +88,8 @@ export function useSessionPersistence(
 
   const applyDraftToStore = useCallback((draft: LocalDraft) => {
     applyDraftToStores(draft, userId || null);
-    // DW4-4: принятый черновик назначает зеркало — его владельцем назван тот,
-    // чей это черновик (старые строки без поля читаются как «свой», база-то
-    // поимённая).
-    markEditorTextOwner(draft.owner ?? userId);
+    // Строка лежит в поимённой базе этого аккаунта, и вкладка держит один аккаунт.
+    if (userId) markEditorTextOwner(userId);
     if (draft.activeSessionId) setActiveSessionId(draft.activeSessionId);
   }, [setActiveSessionId, userId]);
 
@@ -114,7 +114,7 @@ export function useSessionPersistence(
       await WritingDraftService.clearLegacyDraft(userId);
     }
     // If cloud draft is currently locked, do not prevent reloading once vault is unlocked.
-    if (!isCloudDraftLocked()) {
+    if (!isCloudDraftLocked() && !isCloudDraftUnread(userId)) {
       draftLoadedForRef.current = userId;
     }
   }, [userId, setHasDraft, setDraftInEditor, applyDraftToStore]);
@@ -135,6 +135,23 @@ export function useSessionPersistence(
   useEffect(() => {
     void autoLoadDraftIfEmpty();
   }, [autoLoadDraftIfEmpty]);
+
+  // Облако не ответило: чтение повторяется, иначе отправка черновика так и ждала бы его.
+  // Флаг могло поднять и чтение из `restoreDraft`, уже после первой загрузки.
+  useEffect(() => {
+    if (!userId) return;
+    const retry = () => {
+      if (!isCloudDraftUnread(userId)) return;
+      draftLoadedForRef.current = null;
+      void autoLoadDraftIfEmpty();
+    };
+    const timer = setInterval(retry, CLOUD_DRAFT_RETRY_MS);
+    window.addEventListener('online', retry);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('online', retry);
+    };
+  }, [userId, autoLoadDraftIfEmpty]);
 
   // S-4: When the vault is unlocked, reload the now-decryptable cloud draft.
   useEffect(() => {

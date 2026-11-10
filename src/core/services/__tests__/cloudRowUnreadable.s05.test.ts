@@ -48,7 +48,6 @@ vi.mock('../../data', () => ({
     createDocument: (...args: unknown[]) => createDocument(...args),
     getUserDocuments: async () => [],
     updateDocument: async () => {},
-    updateDocumentSessionStats: async () => {},
     deleteDocument: async () => {},
     getVersions: async () => [],
   },

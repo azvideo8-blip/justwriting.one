@@ -209,54 +209,6 @@ export async function updateDocument(userId: string, documentId: string, data: P
   await writeDocumentPatch(userId, documentId, payload);
 }
 
-export async function updateDocumentSessionStats(
-  userId: string,
-  documentId: string,
-  stats: {
-    totalWords: number;
-    durationDelta: number;
-    currentVersion: number;
-    mood?: string | null;
-    /** `mood` — шифротекст; без этого признака он лёг бы на открытую строку. */
-    moodEncrypted?: boolean;
-    /**
-     * R7Q-003: сколько сессий несёт ЭТА выгрузка. Абсолют из локальной копии не
-     * шлётся никогда — им писатель со старой копией уносил облачный счётчик
-     * назад. Нет поля — считаем один ход (обычное сохранение).
-     */
-    sessionsDelta?: number;
-    lastSessionAt?: Date;
-  }
-): Promise<number | null> {
-  const delta = Math.max(0, stats.sessionsDelta ?? 1);
-  if (delta > 0) {
-    // Атомарно в БД (0020): две вкладки или два устройства больше не
-    // теряют инкременты из-за read-modify-write гонки.
-    const { error: rpcError } = await getSupabase()
-      .rpc('increment_document_sessions', { p_uuid: documentId, p_delta: delta });
-    if (rpcError != null) throw rpcError;
-  }
-
-  // V-5 (0039): счётчики сессий складывает сервер. Раньше сюда клались
-  // абсолюты, которые клиент прочитал из локальной копии, и писатель с устаревшей
-  // копией тихо обнулял чужие приращения. Длительность — дельта этой выгрузки,
-  // слова — максимум (в локальной модели это длина заметки, а не сумма).
-  const { error: statsError } = await getSupabase()
-    .rpc('sync_document_stats', {
-      p_uuid: documentId,
-      p_words: Math.max(0, Math.floor(stats.totalWords)),
-      p_duration_delta: Math.floor(stats.durationDelta),
-    });
-  if (statsError != null) throw statsError;
-
-  return updateDocumentSessionMeta(userId, documentId, stats);
-}
-
-/**
- * Поля строки после сессии — номер версии, время, настроение. Пишутся ПОСЛЕ
- * счётчиков: метка из ответа (SF-7) должна быть последней записью этого прогона,
- * иначе своя же прибавка выглядит «облако новее».
- */
 export async function updateDocumentSessionMeta(
   userId: string,
   documentId: string,

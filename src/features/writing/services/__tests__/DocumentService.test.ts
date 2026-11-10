@@ -8,7 +8,8 @@ vi.mock('../../../../core/data', () => ({
     createDocument: vi.fn(),
     getDocument: vi.fn(),
     getUserDocuments: vi.fn(),
-    updateDocumentSessionStats: vi.fn(),
+    syncPush: vi.fn(),
+    updateDocumentSessionMeta: vi.fn(),
     updateDocument: vi.fn(),
     deleteDocument: vi.fn(),
     clearLabelFromAllDocs: vi.fn(),
@@ -158,10 +159,12 @@ describe('DocumentService', () => {
   });
 
   describe('update functions', () => {
-    it('updateDocumentAfterSession calls updateDocumentSessionStats', async () => {
-      vi.mocked(DataProvider.updateDocumentSessionStats).mockResolvedValue(null);
+    it('updateDocumentAfterSession: прибавка через sync_push, остальное отдельной записью', async () => {
+      vi.mocked(DataProvider.syncPush).mockResolvedValue([{ status: 'ok' }]);
+      vi.mocked(DataProvider.updateDocumentSessionMeta).mockResolvedValue(null);
       await DocumentService.updateDocumentAfterSession('u1', 'doc1', { totalWords: 10, durationDelta: 10, currentVersion: 1 });
-      expect(DataProvider.updateDocumentSessionStats).toHaveBeenCalledWith('u1', 'doc1', { totalWords: 10, durationDelta: 10, currentVersion: 1, mood: null });
+      expect(DataProvider.syncPush).toHaveBeenCalledWith([expect.objectContaining({ table: 'documents', op: 'delta', uuid: 'doc1', sessions: 1, duration: 10, words: 10 })]);
+      expect(DataProvider.updateDocumentSessionMeta).toHaveBeenCalledWith('u1', 'doc1', expect.objectContaining({ currentVersion: 1 }));
     });
 
     it('updateTags calls updateDocument', async () => {

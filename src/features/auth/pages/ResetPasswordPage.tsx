@@ -82,13 +82,14 @@ export function ResetPasswordPage() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
+  // Снимается после показа, а не при чтении: инициализатор React вправе вызвать
+  // повторно, и второй вызов остался бы без отметки (форма «ссылка устарела»).
   const [doneEmail] = useState(() => {
-    try {
-      const v = sessionStorage.getItem(RESET_DONE_KEY);
-      sessionStorage.removeItem(RESET_DONE_KEY);
-      return v;
-    } catch { return null; }
+    try { return sessionStorage.getItem(RESET_DONE_KEY); } catch { return null; }
   });
+  useEffect(() => {
+    try { sessionStorage.removeItem(RESET_DONE_KEY); } catch { /* намеренно: отметка без удаления не опасна */ }
+  }, []);
   const [done, setDone] = useState(doneEmail !== null);
   const [error, setError] = useState<string | null>(null);
   const [linkExpired, setLinkExpired] = useState(false);

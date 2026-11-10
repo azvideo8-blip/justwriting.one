@@ -131,9 +131,6 @@ const SCENARIOS: Array<{ name: string; run: (p: Provider) => Promise<unknown> }>
   { name: 'getDocumentWithDeleted', run: p => p['getDocumentWithDeleted']!('u1', 'doc_1') },
   { name: 'getUserDocuments', run: p => p['getUserDocuments']!('u1') },
   { name: 'updateDocument', run: p => p['updateDocument']!('u1', 'doc_1', { title: 'T2', mood: null }) },
-  { name: 'stats-no-count', run: p => p['updateDocumentSessionStats']!('u1', 'doc_1', { totalWords: 5, durationDelta: 60, currentVersion: 4 }) },
-  { name: 'stats-with-delta', run: p => p['updateDocumentSessionStats']!('u1', 'doc_1', { totalWords: 5, durationDelta: 60, currentVersion: 4, sessionsDelta: 9, lastSessionAt: new Date(1756000000000) }) },
-  { name: 'stats-zero-delta', run: p => p['updateDocumentSessionStats']!('u1', 'doc_1', { totalWords: 5, durationDelta: 0, currentVersion: 4, sessionsDelta: 0 }) },
   { name: 'deleteDocument', run: p => p['deleteDocument']!('u1', 'doc_1') },
   { name: 'clearLabelFromAllDocs', run: p => p['clearLabelFromAllDocs']!('u1', 'l1') },
   { name: 'renameTagInAllDocs', run: p => p['renameTagInAllDocs']!('u1', 'a', 'b') },
@@ -252,6 +249,7 @@ describe('SupabaseDataProvider transcript vs golden (AUDIT-part3 5)', () => {
     const golden = JSON.parse(readFileSync(GOLDEN_PATH, 'utf8')) as Record<string, unknown>;
     const declared = SCENARIOS.map(s => s.name);
     expect(Object.keys(golden).sort()).toEqual([...declared].sort());
-    expect(declared.length).toBeGreaterThanOrEqual(47);
+    // 08.11: три сценария updateDocumentSessionStats сняты вместе со старым путём счётчиков (sync_push).
+    expect(declared.length).toBeGreaterThanOrEqual(45);
   });
 });

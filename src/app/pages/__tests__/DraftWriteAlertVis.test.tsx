@@ -6,8 +6,8 @@
 // (`SaveStatus.tsx:147`): человек, который не наводит, значок не расшифрует и
 // закроет вкладку с текстом, которого нет ни в одном адресе.
 //
-// T1/T3, баннер: новое состояние показывается одним баннером над редактором,
-// при совпадении T1 важнее. Новый компонент (`DraftWriteAlertBar`) — без него
+// T3, баннер: новое состояние показывается одним баннером над редактором,
+// Новый компонент (`DraftWriteAlertBar`) — без него
 // нельзя: состояния ставят писатели (`useDraftCore`, `useDraftAutosave`), а
 // показывает одна строка в двух раскладках; через контекст сессии она тащилась
 // бы через четыре возвращаемых типа (причина — в отчёте, VIS-3).
@@ -97,7 +97,6 @@ vi.mock('../../../features/writing/components/BottomStats', async () => {
 vi.mock('../../../features/writing/components/SessionGlow', () => ({ SessionGlow: () => null }));
 
 // Тексты дословные из решения владельца 04.11 (тикет, строки 41 и 43).
-const T1_RU = 'Набранный раньше текст не удалось записать на устройство. Не закрывай вкладку — приложение повторит само.';
 const T3_RU = 'Текст только на экране. Не закрывай вкладку.';
 
 const renderLayout = () => render(
@@ -110,7 +109,7 @@ beforeEach(() => {
   state.saveStatus = 'idle';
   state.saveErrorKind = null;
   state.isZenActive = false;
-  useDraftWriteAlertStore.setState({ rescueNotWritten: false, localWriteStuck: false });
+  useDraftWriteAlertStore.setState({ localWriteStuck: false });
   useContentStore.setState({ content: '', title: '', wordCount: 0 });
   if (typeof globalThis.ResizeObserver === 'undefined') {
     class Stub { observe() {} unobserve() {} disconnect() {} }
@@ -150,14 +149,7 @@ describe('VIS T3: слова ошибки на десктопе видны ср�
   });
 });
 
-describe('VIS T1/T3: баннер над редактором', () => {
-  it('T1: текст прежнего входа не записан — утверждённый текст, один раз', () => {
-    useDraftWriteAlertStore.setState({ rescueNotWritten: true });
-    renderLayout();
-    const bar = screen.getByTestId('draft-alert-rescue-not-written');
-    expect(bar).toHaveTextContent(T1_RU);
-    expect(screen.getAllByRole('status').filter(e => e.textContent === T1_RU), 'сообщение задвоено').toHaveLength(1);
-  });
+describe('VIS T3: баннер над редактором', () => {
 
   it('T3: локальная запись отказала подряд — утверждённый текст', () => {
     useDraftWriteAlertStore.setState({ localWriteStuck: true });
@@ -165,24 +157,17 @@ describe('VIS T1/T3: баннер над редактором', () => {
     expect(screen.getByTestId('draft-alert-local-write-stuck')).toHaveTextContent(T3_RU);
   });
 
-  it('совпали: виден один баннер, T1 важнее', () => {
-    useDraftWriteAlertStore.setState({ rescueNotWritten: true, localWriteStuck: true });
-    renderLayout();
-    expect(screen.getByTestId('draft-alert-rescue-not-written')).toHaveTextContent(T1_RU);
-    expect(screen.queryByTestId('draft-alert-local-write-stuck'), 'два баннера на одно состояние').toBeNull();
-  });
-
   it('нет состояния — нет баннера (колонка не сдвинута)', () => {
     renderLayout();
-    expect(screen.queryByTestId('draft-alert-rescue-not-written')).toBeNull();
+    expect(screen.queryByTestId('draft-alert-local-write-stuck')).toBeNull();
     expect(screen.queryByTestId('draft-alert-local-write-stuck')).toBeNull();
   });
 
   it('I3: в баннере нет ни текста заметки, ни адреса аккаунта', () => {
     useContentStore.setState({ content: 'секретный текст VIS', title: 'заголовок VIS', wordCount: 3 });
-    useDraftWriteAlertStore.setState({ rescueNotWritten: true });
+    useDraftWriteAlertStore.setState({ localWriteStuck: true });
     renderLayout();
-    const text = screen.getByTestId('draft-alert-rescue-not-written').textContent ?? '';
+    const text = screen.getByTestId('draft-alert-local-write-stuck').textContent ?? '';
     expect(text, 'в показе текст заметки').not.toContain('секретный текст VIS');
     expect(text, 'в показе заголовок заметки').not.toContain('заголовок VIS');
     expect(text, 'в показе адрес аккаунта').not.toContain('u1');

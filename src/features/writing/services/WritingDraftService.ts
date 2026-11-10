@@ -14,6 +14,7 @@ import {
   draftSignature,
   draftPayloadHash,
   draftSentHashes,
+  isCloudDraftUnread,
   lastCloudSignature,
   type ApplyWriteOutcome,
   type DraftRecord,
@@ -134,6 +135,7 @@ export const WritingDraftService = {
     if (!isProfileLoaded(draft.userId)) {
       return false;
     }
+    if (isCloudDraftUnread(draft.userId)) return false;
     // Шаг 5 DW-4: облачная половина сверяется по тому же правилу эпохи, что и
     // локальная (`draftWriter.isEpochStale`), и по той же отметке — названной
     // писателем или принесённой строкой. Признак «ничего не изменилось»

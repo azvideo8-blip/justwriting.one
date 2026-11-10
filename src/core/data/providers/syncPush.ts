@@ -22,8 +22,3 @@ export async function syncPush(items: SyncPushItem[]): Promise<SyncPushResult[]>
   }
   return data as SyncPushResult[];
 }
-
-/** Сервер без 0047: PostgREST не нашёл функцию. */
-export function isSyncPushMissing(e: unknown): boolean {
-  return (e as { code?: unknown } | null)?.code === 'PGRST202';
-}

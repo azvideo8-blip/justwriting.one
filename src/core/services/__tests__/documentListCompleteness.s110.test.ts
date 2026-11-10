@@ -56,7 +56,6 @@ vi.mock('../../data', () => ({
     getDocumentWithDeleted: async () => null,
     createDocument: async () => 'cloud_NEW',
     updateDocument: async () => {},
-    updateDocumentSessionStats: async () => {},
     deleteDocument: async () => {},
     getVersions: async () => [],
   },

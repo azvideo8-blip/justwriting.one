@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.11.9 — 2026-11-14
+
+- **[RU]** Если облако не ответило, черновик ждёт, пока его удастся прочитать, и не затирает облачную копию с другого устройства.
+- **[EN]** If the cloud doesn't answer, the draft waits until it can be read and no longer overwrites the copy from another device.
+- **[RU]** После выхода с удалением данных с устройства соседняя вкладка больше не записывает черновик обратно.
+- **[EN]** After signing out with local data removal, another open tab no longer writes the draft back.
+- **[RU]** Предупреждение «текст только на экране» исчезает, если правки отменены до сохранённой заметки.
+- **[EN]** The «text is only on screen» warning goes away when edits are undone back to the saved note.
+- **[RU]** После смены пароля по ссылке страница больше не говорит, что ссылка устарела.
+- **[EN]** After resetting the password via the link, the page no longer says the link has expired.
+- **[RU]** Разбор расхождения версий больше не удаляет версию, сохранённую в соседней вкладке.
+- **[EN]** Resolving a version conflict no longer deletes a version saved in another tab.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.11.8 — 2026-11-06
 
 - **[RU]** Кнопка «Стоп» в диктовке срабатывает и после долгой записи: распознанный текст вставляется, даже если браузер перестал отвечать.

@@ -19,10 +19,12 @@ vi.mock('../../utils/draftUtils', () => ({
 // Шаг 6 DW-4: `resolve` и флаг «облако заперто» живут в мутаторе. Мокается
 // только этот край — проверяется реакция хука на открытие сейфа.
 const cloudLocked = vi.hoisted(() => ({ current: false }));
+const cloudUnread = vi.hoisted(() => ({ current: false }));
 vi.mock('../../services/draftWriter', async (importActual) => ({
   ...(await importActual<typeof import('../../services/draftWriter')>()),
   resolve: vi.fn(),
   isCloudDraftLocked: () => cloudLocked.current,
+  isCloudDraftUnread: () => cloudUnread.current,
 }));
 import { resolve } from '../../services/draftWriter';
 
@@ -113,5 +115,37 @@ describe('useSessionPersistence S-4 vault unlock draft reload', () => {
     // Draft reloaded and applied
     expect(resolve).toHaveBeenCalledTimes(2);
     expect(mockActions.setHasDraft).toHaveBeenCalledWith(true);
+  });
+
+  it('облако не ответило: чтение повторяется по таймеру и по возврату связи, пока не удастся', async () => {
+    vi.useFakeTimers();
+    try {
+      cloudLocked.current = false;
+      cloudUnread.current = true;
+      vi.mocked(resolve).mockResolvedValue(null);
+      renderHook(() =>
+        useSessionPersistence(
+          user,
+          null,
+          { title: '', content: '', pinnedThoughts: [], tags: [], sessionType: 'free', activeSessionId: null, initialDuration: 0, initialWordCount: 0, sessionStartTime: null },
+          { seconds: 0, wpm: 0, wordCount: 0, status: 'idle', timeGoalReached: false, wordGoalReached: false },
+          mockActions
+        )
+      );
+      expect(resolve).toHaveBeenCalledTimes(1);
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+      expect(resolve).toHaveBeenCalledTimes(2);
+
+      await act(async () => { window.dispatchEvent(new Event('online')); });
+      expect(resolve).toHaveBeenCalledTimes(3);
+
+      cloudUnread.current = false;
+      await act(async () => { await vi.advanceTimersByTimeAsync(90_000); });
+      expect(resolve).toHaveBeenCalledTimes(3);
+    } finally {
+      cloudUnread.current = false;
+      vi.useRealTimers();
+    }
   });
 });

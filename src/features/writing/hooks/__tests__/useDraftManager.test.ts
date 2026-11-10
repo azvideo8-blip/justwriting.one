@@ -176,14 +176,14 @@ describe('useDraftManager', () => {
   // N-47: после выхода из аккаунта редактор гостя получает тот же стор текста —
   // текст аккаунта гостю не показывается и гостевым черновиком не сохраняется.
   it('the guest editor drops text that belongs to an account', () => {
-    useContentStore.setState({ content: 'Текст аккаунта', title: 'T', ownerUid: 'acc-1' });
+    useContentStore.setState({ content: 'Текст аккаунта', title: 'T'});
     markEditorTextOwner('acc-1');
     renderHook(() => useDraftManager('guest_x', getDraftData, { onSaveDraft: mockOnSaveDraft }));
     expect(useContentStore.getState().content).toBe('');
   });
 
   it('the guest editor keeps its own (ownerless) text', () => {
-    useContentStore.setState({ content: 'Гостевой текст', title: 'T', ownerUid: null });
+    useContentStore.setState({ content: 'Гостевой текст', title: 'T'});
     renderHook(() => useDraftManager('guest_x', getDraftData, { onSaveDraft: mockOnSaveDraft }));
     expect(useContentStore.getState().content).toBe('Гостевой текст');
   });

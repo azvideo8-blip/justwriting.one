@@ -92,23 +92,23 @@ function renderScreen(overrides: Partial<ComponentProps<typeof MobileWriteScreen
 beforeEach(() => {
   cleanup();
   state.zen = false;
-  useDraftWriteAlertStore.setState({ rescueNotWritten: false, localWriteStuck: false });
+  useDraftWriteAlertStore.setState({ localWriteStuck: false });
   useContentStore.setState({ content: 'текст который печатают', wordCount: 3 });
   useTimerStore.setState({ status: 'writing', sessionType: 'free', wordGoal: 0, timerDuration: 0, sessionStartWords: 0, sessionStartSeconds: 0 } as Partial<ReturnType<typeof useTimerStore.getState>>);
 });
 
 describe('VIS: баннер отказа записи на телефоне', () => {
   it('виден во время письма, без наведения и без прозрачности', () => {
-    useDraftWriteAlertStore.setState({ rescueNotWritten: true });
+    useDraftWriteAlertStore.setState({ localWriteStuck: true });
     renderScreen();
-    const bar = screen.getByTestId('draft-alert-rescue-not-written');
-    expect(bar.textContent, 'сообщение пустое').toContain('editor_alert_rescue_not_written');
+    const bar = screen.getByTestId('draft-alert-local-write-stuck');
+    expect(bar.textContent, 'сообщение пустое').toContain('editor_alert_local_write_stuck');
     // Строкой `className` проверять нельзя: `group-hover:opacity-100` содержит
     // `opacity-100`, и спрятанное до наведения сообщение прошло бы как видимое.
     const classes = [...bar.classList];
     expect(classes.some(c => c.startsWith('opacity-0')), 'сообщение спрятано прозрачностью').toBe(false);
     expect(classes.some(c => c.includes('group-hover') || c.includes('group-focus')), 'сообщение зависит от наведения').toBe(false);
-    expect(screen.getAllByTestId('draft-alert-rescue-not-written'), 'баннер задвоен').toHaveLength(1);
+    expect(screen.getAllByTestId('draft-alert-local-write-stuck'), 'баннер задвоен').toHaveLength(1);
   });
 
   it('виден в дзене', () => {
@@ -120,7 +120,7 @@ describe('VIS: баннер отказа записи на телефоне', ()
 
   it('нет состояния — нет баннера', () => {
     renderScreen();
-    expect(screen.queryByTestId('draft-alert-rescue-not-written')).toBeNull();
+    expect(screen.queryByTestId('draft-alert-local-write-stuck')).toBeNull();
     expect(screen.queryByTestId('draft-alert-local-write-stuck')).toBeNull();
   });
 

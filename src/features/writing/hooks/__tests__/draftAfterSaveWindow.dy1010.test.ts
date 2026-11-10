@@ -116,7 +116,7 @@ beforeEach(async () => {
   cloud.deletes = 0;
   cloud.failDeletes = false;
   cloud.row = null;
-  useContentStore.setState({ content: TEXT, title: '', wordCount: 6, tags: [], labelId: undefined, ownerUid: UID });
+  useContentStore.setState({ content: TEXT, title: '', wordCount: 6, tags: [], labelId: undefined});
   useTimerStore.setState({ status: 'writing' });
   useSessionMetaStore.getState().resetSessionMetadata();
   useEncryptionStore.setState({ encryptionEnabled: {} });

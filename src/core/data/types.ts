@@ -61,23 +61,6 @@ export interface IDataProvider {
   /** S-47: подмножество `uuids`, снятых в облаке надгробием (`deleted_at is not null`). */
   listTombstonedDocumentUuids(userId: string, uuids: string[]): Promise<string[]>;
   updateDocument(userId: string, documentId: string, data: ProviderRecord): Promise<void>;
-  updateDocumentSessionStats(
-    userId: string, 
-    documentId: string, 
-    stats: {
-      totalWords: number;
-      /** V-5: приращение длительности за ЭТУ выгрузку, а не абсолют: складывает
-       *  сервер (0039), поэтому два устройства не теряют счёт друг друга. */
-      durationDelta: number;
-      currentVersion: number;
-      mood?: string | null;      // null implies field deletion
-      moodEncrypted?: boolean;   // mood is ciphertext: the row must be encrypted as a whole
-      /** R7Q-003: приращение числа ходов за ЭТУ выгрузку; абсолют из локальной
-       *  копии не шлётся — им устаревший писатель откатывал облачный счётчик. */
-      sessionsDelta?: number;    // undefined implies incrementing by 1
-      lastSessionAt?: Date;      // undefined implies using the current server time
-    }
-  ): Promise<number | null>;
   /** S2-7: только поля строки после сессии (без счётчиков) — счётчики идут `syncPush` `delta`. */
   updateDocumentSessionMeta(
     userId: string,

@@ -222,57 +222,6 @@ export function clearEditorTextOwner(): void {
 }
 
 /**
- * Снимок текста на момент, когда владелец его лишился (смена аккаунта в той же
- * вкладке). Спасение обязано записать ИМЕННО его: пока спасение в ходу, новый
- * владелец успевает напечатать, буфер становится смешанным, и слова нового
- * владельца чужому адресу не уходят (I3) — они стираются вместе с редактором
- * после подтверждённой записи снимка. Повторы спасения пишут тот же снимок,
- * а не текущий буфер.
- */
-const rescuePayloads = new Map<string, LocalDraft>();
-
-export function rememberRescuePayload(uid: string, rec: LocalDraft): LocalDraft {
-  const existing = rescuePayloads.get(uid);
-  if (existing) return existing;
-  rescuePayloads.set(uid, rec);
-  return rec;
-}
-
-export function takeRescuePayload(uid: string): LocalDraft | undefined {
-  const rec = rescuePayloads.get(uid);
-  rescuePayloads.delete(uid);
-  return rec;
-}
-
-/**
- * DW5-2: снимки, ждущие своего владельца. У держателя вкладки нет открытой
- * копии (сейф не назван выключенным — SEC-56), и повтор записи обязан идти не
- * из текущего буфера, а из этого списка: буфер принадлежит новому владельцу.
- */
-export function pendingRescuePayloads(): LocalDraft[] {
-  return [...rescuePayloads.values()];
-}
-
-export function clearAllRescuePayloads(): void {
-  rescuePayloads.clear();
-}
-
-/**
- * DW6-4: буфер, который начинается с чужого снимка, ожидающего доставки, —
- * смешанный. Его начало принадлежит прежнему владельцу, и подписывать такой
- * буфер печатью нельзя (I3): у него нет одного владельца. `null` — чужого
- * префикса нет, буфер целиком принадлежит печатающему.
- */
-export function foreignOwnerHolding(text: string): string | null {
-  for (const rec of rescuePayloads.values()) {
-    const held = rec.content ?? '';
-    if (!held || rec.userId === undefined) continue;
-    if (text.startsWith(held)) return rec.userId;
-  }
-  return null;
-}
-
-/**
  * Все правки строки черновика в этой вкладке — одной цепочкой. `applyWrite`
  * (текст) и `rememberCloudSend` (служебные метки) — два read-modify-write в
  * разных транзакциях, и без порядка один из них кладёт обратно строку,
@@ -848,6 +797,14 @@ async function flushPendingCloudDelete(userId: string, deletedHashes: readonly s
 let cloudDraftLocked = false;
 export function isCloudDraftLocked(): boolean { return cloudDraftLocked; }
 
+/**
+ * «Не прочитали» — не «там пусто»: строка черновика в облаке одна, и слепой `upsert`
+ * затёр бы единственную копию, которую мы не увидели. Отправка ждёт удачного чтения,
+ * повтор держит `useSessionPersistence`.
+ */
+const cloudDraftUnread = new Set<string>();
+export function isCloudDraftUnread(uid: string): boolean { return cloudDraftUnread.has(uid); }
+
 export interface ResolveOptions {
   /** Гостевой черновик: кандидатов два (`guest_draft` и `jw_guest_draft`), облака и надгробия нет. */
   guest?: boolean | undefined;
@@ -975,6 +932,7 @@ export async function resolve(uid: string, opts: ResolveOptions = {}): Promise<L
   if (cloudResult.status === 'fulfilled') {
     cloudDraft = cloudResult.value;
     cloudDraftLocked = false;
+    cloudDraftUnread.delete(uid);
   } else {
     const reason = cloudResult.reason as Error | undefined;
     if (
@@ -982,6 +940,10 @@ export async function resolve(uid: string, opts: ResolveOptions = {}): Promise<L
       reason?.message?.includes('session key not available')
     ) {
       cloudDraftLocked = true;
+    } else if (reason?.name !== 'DecryptionError') {
+      // Строку прочитали, но она нечитаема (битая, чужая): ответ есть, повтор его не
+      // изменит. Как и строку, не прошедшую схему, её заменяет следующая отправка.
+      cloudDraftUnread.add(uid);
     }
   }
 

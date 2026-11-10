@@ -5,10 +5,8 @@ import { useTimerStore } from '../../store/useTimerStore';
 import { useContentStore } from '../../store/useContentStore';
 import { useSessionMetaStore } from '../../store/useSessionMetaStore';
 import { persistDraft } from '../../utils/draftPersistence';
-import { applySessionEnd, clearAllRescuePayloads, clearEditorTextOwner, getDraftGeneration, markEditorTextOwner, pendingRescuePayloads, rememberRescuePayload } from '../../services/draftWriter';
-import type { LocalDraft } from '../../../../core/storage/localDb';
+import { clearEditorTextOwner } from '../../services/draftWriter';
 import type { AppUser } from '../../../../core/auth/types';
-import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
 import { useEncryptionStore } from '../../../../core/crypto/useEncryptionStore';
 
 vi.mock('../../utils/draftPersistence', () => ({
@@ -33,15 +31,12 @@ describe('useDraftAutosave', () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     useTimerStore.setState({ status: 'writing' });
-    // DW-9: стор текста держит владельца (`ownerUid`, N-47), а не только текст —
-    // без его сброса следующий тест стартует с чужим владельцем и спасение
-    // отрабатывает не там, где его задал тест. DW4-4: и зеркало редактора —
-    // оно модульное и тоже переживает тест.
-    useContentStore.setState({ content: '', title: '', wordCount: 0, ownerUid: null });
+    // DW4-4: зеркало владельца редактора модульное и переживает тест — без сброса
+    // следующий тест стартует с чужим владельцем.
+    useContentStore.setState({ content: '', title: '', wordCount: 0});
     clearEditorTextOwner();
     // Снимки спасения живут в модуле и переживают тест: без съёма следующий тест
     // стартует с чужим ждущим снимком и спасение в нём не запускается.
-    clearAllRescuePayloads();
     useSessionMetaStore.getState().resetSessionMetadata();
     localStorage.clear();
     // Стор сейфа кэширует состояние по uid — без сброса тест наследует чужое.
@@ -428,152 +423,6 @@ describe('useDraftAutosave', () => {
     });
   });
 
-  // Аккаунт сменился под открытым редактором (ссылка-приглашение поверх своей
-  // сессии): текст прежнего аккаунта уходил черновиком нового — и в его облако.
-  it('an account switch keeps the text with its owner and never saves it as the new account', async () => {
-    vi.mocked(persistDraft).mockResolvedValue({ localOk: true, localSkipped: false, remoteOk: true });
-    const ownerA = { uid: 'owner-A' } as AppUser;
-    const inviteeB = { uid: 'invitee-B' } as AppUser;
-    useContentStore.setState({ content: 'Личный текст A', title: 'A', wordCount: 3 });
-    const aData = { ...initialData, content: 'Личный текст A', title: 'A' };
-
-    const { rerender } = renderHook(
-      ({ user, data }) => useDraftAutosave(user, data),
-      { initialProps: { user: ownerA, data: aData } },
-    );
-    await act(async () => { await vi.advanceTimersByTimeAsync(600); });
-    vi.mocked(persistDraft).mockClear();
-
-    rerender({ user: inviteeB, data: aData }); // сессия уже B, в сторе ещё текст A
-    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
-    const c = useContentStore.getState();
-    rerender({ user: inviteeB, data: { ...aData, content: c.content, title: c.title } });
-    await act(async () => { await vi.advanceTimersByTimeAsync(35_000); });
-
-    const calls = vi.mocked(persistDraft).mock.calls.map(([d, o]) => ({ ...(d as { userId: string; content: string }), ...o }));
-    expect(calls.filter(d => d.userId === 'invitee-B' && d.content.includes('Личный текст A'))).toEqual([]);
-    expect(calls).toContainEqual(expect.objectContaining({ userId: 'owner-A', content: 'Личный текст A', remote: false }));
-    expect(useContentStore.getState().content).toBe('');
-  });
-
-  // N-32: persistDraft не бросает. Если спасти текст прежнему владельцу не
-  // удалось, редактор не очищается и под новым аккаунтом ничего не пишется.
-  it('when the rescue write fails, the text stays on screen and is never saved as the new account', async () => {
-    const ownerA = { uid: 'owner-A' } as AppUser;
-    const inviteeB = { uid: 'invitee-B' } as AppUser;
-    useContentStore.setState({ content: 'Личный текст A', title: 'A', wordCount: 3 });
-    const aData = { ...initialData, content: 'Личный текст A', title: 'A' };
-    vi.mocked(persistDraft).mockResolvedValue({ localOk: true, localSkipped: false, remoteOk: true });
-    const { rerender } = renderHook(({ user, data }) => useDraftAutosave(user, data), { initialProps: { user: ownerA, data: aData } });
-    await act(async () => { await vi.advanceTimersByTimeAsync(600); });
-    vi.mocked(persistDraft).mockClear();
-    vi.mocked(persistDraft).mockResolvedValue({ localOk: false, remoteOk: true });
-
-    rerender({ user: inviteeB, data: aData });
-    await act(async () => { await vi.advanceTimersByTimeAsync(35_000); });
-
-    expect(useContentStore.getState().content).toBe('Личный текст A');
-    const asB = vi.mocked(persistDraft).mock.calls.filter(([d]) => (d as { userId: string }).userId === 'invitee-B');
-    expect(asB).toEqual([]);
-  });
-
-  // DW4-4 ревью: редактор отдан новому аккаунту пустым сразу, и пока запись
-  // спасения шла, он уже печатает. Запись не прошла — текст прежнего на экран
-  // не вернуть, а повтора у снимка нет: он ложится в копию прежнего владельца
-  // (`draft-<uid>`, её читает его следующий вход), а не остаётся только в памяти.
-  // Ревью 0.11.6: после пересоздания эпоха текста неизвестна. Снимок берёт текущую
-  // эпоху владельца — иначе закрытие после снимка его не снимет (I2).
-  it('a snapshot taken after a remount names the owner current epoch', async () => {
-    const inviteeB = { uid: 'invitee-B' } as AppUser;
-    useContentStore.setState({ content: 'Личный текст A', title: 'A', wordCount: 3, ownerUid: 'owner-A' });
-    markEditorTextOwner('owner-A');
-    applySessionEnd('owner-A');
-    vi.mocked(persistDraft).mockResolvedValue({ localOk: false, remoteOk: true });
-
-    renderHook(() => useDraftAutosave(inviteeB, { ...initialData, content: 'Личный текст A', title: 'A' }));
-    await act(async () => { await Promise.resolve(); });
-
-    expect(pendingRescuePayloads()[0]?.epoch).toBe(getDraftGeneration('owner-A'));
-    clearAllRescuePayloads();
-  });
-
-  // Ревью 0.11.6: конец сессии поднял эпоху A — копии это не отказ, как и записи строки.
-  it('the owner copy of a failed rescue is not refused by a session end', async () => {
-    const ownerA = { uid: 'owner-A' } as AppUser;
-    const inviteeB = { uid: 'invitee-B' } as AppUser;
-    useContentStore.setState({ content: 'Личный текст A', title: 'A', wordCount: 3, ownerUid: 'owner-A' });
-    markEditorTextOwner('owner-A');
-    localStorage.setItem(STORAGE_KEYS.ENC_ENABLED('owner-A'), '0');
-    const aData = { ...initialData, content: 'Личный текст A', title: 'A' };
-    vi.mocked(persistDraft).mockResolvedValue({ localOk: true, localSkipped: false, remoteOk: true });
-    const { rerender } = renderHook(({ user, data }) => useDraftAutosave(user, data), { initialProps: { user: ownerA, data: aData } });
-    await act(async () => { await Promise.resolve(); });
-    applySessionEnd('owner-A');
-    let fail!: () => void;
-    vi.mocked(persistDraft).mockImplementation(() => new Promise(r => { fail = () => r({ localOk: false, remoteOk: true }); }));
-
-    rerender({ user: inviteeB, data: aData });
-    await act(async () => { await Promise.resolve(); });
-    useContentStore.setState({ content: 'B печатает' });
-    await act(async () => { fail(); await Promise.resolve(); await Promise.resolve(); });
-
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.DRAFT('owner-A')) ?? '{}').content).toBe('Личный текст A');
-  });
-
-  it('a failed rescue while the new account already types keeps the old text in its owner copy', async () => {
-    const inviteeB = { uid: 'invitee-B' } as AppUser;
-    useContentStore.setState({ content: 'Личный текст A', title: 'A', wordCount: 3, ownerUid: 'owner-A' });
-    markEditorTextOwner('owner-A');
-    localStorage.setItem(STORAGE_KEYS.ENC_ENABLED('owner-A'), '0');
-    const aData = { ...initialData, content: 'Личный текст A', title: 'A' };
-    let fail!: () => void;
-    vi.mocked(persistDraft).mockImplementation(() => new Promise(r => { fail = () => r({ localOk: false, remoteOk: true }); }));
-
-    renderHook(({ user, data }) => useDraftAutosave(user, data), { initialProps: { user: inviteeB, data: aData } });
-    await act(async () => { await Promise.resolve(); });
-    expect(useContentStore.getState().content).toBe('');
-    useContentStore.setState({ content: 'B печатает' });
-    await act(async () => { fail(); await Promise.resolve(); await Promise.resolve(); });
-
-    expect(useContentStore.getState().content).toBe('B печатает');
-    expect(localStorage.getItem(STORAGE_KEYS.DRAFT('invitee-B'))).toBeNull();
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.DRAFT('owner-A')) ?? '{}').content).toBe('Личный текст A');
-  });
-
-  it('a failed rescue while the new account already types does not write a plaintext copy when the old account vault state is unknown', async () => {
-    const inviteeB = { uid: 'invitee-B' } as AppUser;
-    useContentStore.setState({ content: 'Личный текст A', title: 'A', wordCount: 3, ownerUid: 'owner-A' });
-    markEditorTextOwner('owner-A');
-    const aData = { ...initialData, content: 'Личный текст A', title: 'A' };
-    let fail!: () => void;
-    vi.mocked(persistDraft).mockImplementation(() => new Promise(r => { fail = () => r({ localOk: false, remoteOk: true }); }));
-
-    renderHook(({ user, data }) => useDraftAutosave(user, data), { initialProps: { user: inviteeB, data: aData } });
-    await act(async () => { await Promise.resolve(); });
-    expect(useContentStore.getState().content).toBe('');
-    useContentStore.setState({ content: 'B печатает' });
-    await act(async () => { fail(); await Promise.resolve(); await Promise.resolve(); });
-
-    expect(useContentStore.getState().content).toBe('B печатает');
-    expect(localStorage.getItem(STORAGE_KEYS.DRAFT('invitee-B'))).toBeNull();
-    expect(localStorage.getItem(STORAGE_KEYS.DRAFT('owner-A'))).toBeNull();
-  });
-
-  // DW-5 ревью: повтор спасения идёт в фоне — зависшая база прежнего владельца
-  // не держит запись текста того, кто печатает сейчас.
-  it('a hung retry of the previous owner rescue does not hold the current writer', async () => {
-    rememberRescuePayload('owner-A', { userId: 'owner-A', owner: 'owner-A', content: 'A', title: '', updatedAt: 1 } as LocalDraft);
-    vi.mocked(persistDraft).mockImplementation((d) => (d as { userId: string }).userId === 'owner-A'
-      ? new Promise(() => {})
-      : Promise.resolve({ localOk: true, localSkipped: false, remoteOk: true }));
-    const { rerender } = renderHook(({ data }) => useDraftAutosave(mockUser, data), { initialProps: { data: initialData } });
-    rerender({ data: { ...initialData, content: 'Some draft text changed' } });
-    await act(async () => { await vi.advanceTimersByTimeAsync(600); });
-    const own = vi.mocked(persistDraft).mock.calls.filter(([d]) => (d as { userId: string }).userId === 'user123');
-    expect(own.length).toBeGreaterThan(0);
-    clearAllRescuePayloads();
-  });
-
   // N-33: запись пропущена по поколению черновика — индикатор не говорит «Сохранено».
   it('a skipped (stale-generation) write does not show «saved»', async () => {
     vi.mocked(persistDraft).mockResolvedValue({ localOk: true, localSkipped: true, remoteOk: true });
@@ -582,62 +431,6 @@ describe('useDraftAutosave', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(510); });
     expect(persistDraft).toHaveBeenCalled();
     expect(result.current.saveStatus).not.toBe('saved');
-  });
-
-  // N-47: редактор размонтирован (ушли на страницу приглашения) и смонтирован
-  // заново уже под другим аккаунтом, а стор текста — тот же. Раньше хозяин
-  // текста жил в ref хука и после remount «забывался».
-  it('remount under another account: the text is rescued for its owner and never saved as the new account', async () => {
-    const ownerA = { uid: 'owner-A' } as AppUser;
-    const inviteeB = { uid: 'invitee-B' } as AppUser;
-    vi.mocked(persistDraft).mockResolvedValue({ localOk: true, localSkipped: false, remoteOk: true });
-    useContentStore.setState({ content: 'Личный текст A', title: 'A', wordCount: 3 });
-    const aData = { ...initialData, content: 'Личный текст A', title: 'A' };
-
-    const first = renderHook(({ user, data }) => useDraftAutosave(user, data), { initialProps: { user: ownerA, data: aData } });
-    await act(async () => { await vi.advanceTimersByTimeAsync(600); });
-    first.unmount();
-    vi.mocked(persistDraft).mockClear();
-
-    const second = renderHook(({ user, data }) => useDraftAutosave(user, data), { initialProps: { user: inviteeB, data: aData } });
-    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
-    const c = useContentStore.getState();
-    second.rerender({ user: inviteeB, data: { ...aData, content: c.content, title: c.title } });
-    await act(async () => { await vi.advanceTimersByTimeAsync(35_000); });
-
-    const calls = vi.mocked(persistDraft).mock.calls.map(([d, o]) => ({ ...(d as { userId: string; content: string }), ...o }));
-    expect(calls.filter(d => d.userId === 'invitee-B' && d.content.includes('Личный текст A'))).toEqual([]);
-    expect(calls).toContainEqual(expect.objectContaining({ userId: 'owner-A', content: 'Личный текст A', remote: false }));
-    expect(useContentStore.getState().content).toBe('');
-  });
-
-  // N-49: спасение не удалось — это не тупик: следующая попытка автосохранения
-  // повторяет его, а индикатор не говорит «Сохранено».
-  it('a failed rescue is retried on the next autosave and never shows «saved»', async () => {
-    const inviteeB = { uid: 'invitee-B' } as AppUser;
-    useContentStore.setState({ content: 'Личный текст A', title: 'A', wordCount: 3, ownerUid: 'owner-A' });
-    // DW4-4: владелец текста теперь живёт в зеркале редактора.
-    markEditorTextOwner('owner-A');
-    const aData = { ...initialData, content: 'Личный текст A', title: 'A' };
-    vi.mocked(persistDraft).mockResolvedValue({ localOk: false, remoteOk: true });
-
-    const { result, rerender } = renderHook(({ user, data }) => useDraftAutosave(user, data), { initialProps: { user: inviteeB, data: aData } });
-    await act(async () => { await Promise.resolve(); });
-    expect(useContentStore.getState().content).toBe('Личный текст A');
-
-    vi.mocked(persistDraft).mockResolvedValue({ localOk: true, localSkipped: false, remoteOk: true });
-    rerender({ user: inviteeB, data: { ...aData, content: 'Личный текст A.' } });
-    await act(async () => { await vi.advanceTimersByTimeAsync(600); });
-    expect(result.current.saveStatus).not.toBe('saved');
-    // DW6-4: точка — то, что дописал B. Прежний контракт стирал её вместе со
-    // снимком A; теперь хвост остаётся на экране и записывается в адреса B,
-    // а текст A по-прежнему не уходит в базу B (I3).
-    expect(useContentStore.getState().content).toBe('.');
-    const asB = vi.mocked(persistDraft).mock.calls
-      .filter(([d]) => (d as { userId: string }).userId === 'invitee-B')
-      .map(([d]) => (d as { content: string }).content);
-    expect(asB).toEqual(['.']);
-    expect(asB.filter(c => c.includes('Личный текст A'))).toEqual([]);
   });
 
   // N-48: облачный путь (30-секундная страховка) тоже не рапортует
@@ -650,28 +443,4 @@ describe('useDraftAutosave', () => {
     expect(result.current.saveStatus).not.toBe('saved');
   });
 
-  // N-73б пересмотрено: сессия уже принадлежит новому человеку, облачная запись
-  // от имени прежнего упрётся в права базы — спасение только локальное, даже
-  // когда у прежнего владельца синхронизация включена.
-  it('N-73 (b): rescue draft stays local even when sync is enabled for the previous owner', async () => {
-    const { setCloudSyncEnabled } = await import('../../../../core/sync/cloudSyncEnabled');
-    const ownerA = { uid: 'owner-sync-A' } as AppUser;
-    const inviteeB = { uid: 'invitee-B' } as AppUser;
-    setCloudSyncEnabled('owner-sync-A', true);
-    vi.mocked(persistDraft).mockResolvedValue({ localOk: true, localSkipped: false, remoteOk: true });
-    useContentStore.setState({ content: 'Личный текст с синхронизацией', title: 'A', wordCount: 3 });
-    const aData = { ...initialData, content: 'Личный текст с синхронизацией', title: 'A' };
-
-    const first = renderHook(({ user, data }) => useDraftAutosave(user, data), { initialProps: { user: ownerA, data: aData } });
-    await act(async () => { await vi.advanceTimersByTimeAsync(600); });
-    first.unmount();
-    vi.mocked(persistDraft).mockClear();
-
-    renderHook(({ user, data }) => useDraftAutosave(user, data), { initialProps: { user: inviteeB, data: aData } });
-    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
-
-    const calls = vi.mocked(persistDraft).mock.calls.map(([d, o]) => ({ ...(d as { userId: string; content: string }), ...o }));
-    expect(calls).toContainEqual(expect.objectContaining({ userId: 'owner-sync-A', content: 'Личный текст с синхронизацией', remote: false }));
-    expect(calls).not.toContainEqual(expect.objectContaining({ userId: 'owner-sync-A', remote: true }));
-  });
 });

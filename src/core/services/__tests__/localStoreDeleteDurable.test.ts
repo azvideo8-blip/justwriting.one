@@ -18,6 +18,7 @@ vi.mock('../../auth', () => ({
 // возвращало удалённое.
 describe('LocalStoreSyncService: cloud deletes survive closing the tab (EA-5)', () => {
   beforeEach(() => {
+    vi.spyOn(DataProvider, 'syncPush').mockImplementation(async items => items.map(() => ({ status: 'ok' as const })));
     vi.clearAllMocks();
     localStorage.clear();
     syncOn = false;

@@ -28,6 +28,7 @@ vi.mock('../../crypto/cryptoHelpers', () => ({
 describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () => {
   beforeEach(async () => {
     vi.restoreAllMocks();
+    vi.spyOn(DataProvider, 'syncPush').mockImplementation(async items => items.map(() => ({ status: 'ok' as const })));
     vi.spyOn(DataProvider, 'getUserEmbeddingsPaginated').mockResolvedValue({ items: [], readCount: 0 });
     // S-34: диалог перед выгрузкой читает облачную строку; здесь облако пусто.
     vi.spyOn(DataProvider, 'getLocalStoreRecord').mockResolvedValue(null);

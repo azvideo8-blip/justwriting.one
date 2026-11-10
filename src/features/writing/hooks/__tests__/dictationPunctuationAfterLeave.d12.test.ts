@@ -78,7 +78,6 @@ beforeEach(async () => {
     title: 'П1',
     pinnedThoughts: [],
     wordCount: 1,
-    ownerUid: user.uid,
   });
   useTimerStore.setState({ status: 'writing' });
   useSessionMetaStore.getState().resetSessionMetadata();

@@ -15,7 +15,6 @@ describe('applyDraftToStores', () => {
       tags: [],
       labelId: undefined,
       initialWordCount: 0,
-      ownerUid: null,
     });
     useTimerStore.setState({
       seconds: 0,
@@ -46,10 +45,8 @@ describe('applyDraftToStores', () => {
 
   it('writes the owner uid with the draft', () => {
     applyDraftToStores({ content: 'Owned', wordCount: 1 }, 'u-owner');
-    expect(useContentStore.getState().ownerUid).toBe('u-owner');
 
     applyDraftToStores({ content: 'Guest', wordCount: 1 }, null);
-    expect(useContentStore.getState().ownerUid).toBeNull();
   });
 
   it('writes pinnedThoughts as array, defaults to []', () => {

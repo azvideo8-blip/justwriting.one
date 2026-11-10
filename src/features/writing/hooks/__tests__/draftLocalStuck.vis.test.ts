@@ -20,7 +20,7 @@ import { useSessionMetaStore } from '../../store/useSessionMetaStore';
 import { useTimerStore } from '../../store/useTimerStore';
 import { useEncryptionStore } from '../../../../core/crypto/useEncryptionStore';
 import { useDraftWriteAlertStore } from '../../store/useDraftWriteAlertStore';
-import { applySave, clearAllRescuePayloads, clearEditorTextOwner } from '../../services/draftWriter';
+import { applySave, clearEditorTextOwner } from '../../services/draftWriter';
 import { useDraftAutosave } from '../useDraftAutosave';
 
 const fail = vi.hoisted(() => ({ uid: '' }));
@@ -102,9 +102,8 @@ beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
   resetDbInstance();
-  clearAllRescuePayloads();
   clearEditorTextOwner();
-  useDraftWriteAlertStore.setState({ rescueNotWritten: false, localWriteStuck: false });
+  useDraftWriteAlertStore.setState({ localWriteStuck: false });
   useEncryptionStore.setState({ encryptionEnabled: {} });
   useSessionMetaStore.getState().resetSessionMetadata();
   useTimerStore.setState({ status: 'writing' });
@@ -112,7 +111,7 @@ beforeEach(() => {
 
 afterEach(() => {
   fail.uid = '';
-  useDraftWriteAlertStore.setState({ rescueNotWritten: false, localWriteStuck: false });
+  useDraftWriteAlertStore.setState({ localWriteStuck: false });
 });
 
 describe('VIS T3: локальная запись отказала подряд — текст только на экране', () => {
@@ -159,6 +158,25 @@ describe('VIS T3: локальная запись отказала подряд 
 
     expect((await row(A))?.content, 'текст не записан').toBe('текст после восстановления');
     expect(stuck(), 'принятая запись не сняла состояние').toBe(false);
+    unmount();
+  });
+
+  it('правки отменены до сохранённой заметки — баннер снимается: текст уже в заметке', async () => {
+    const A = 'u_vis_t3_A9';
+    fail.uid = A;
+    const { rerender, unmount } = renderHook(
+      ({ d }) => useDraftAutosave({ uid: A } as AppUser, d),
+      { initialProps: { d: data('') } },
+    );
+    await settle(200);
+    useSessionMetaStore.setState({ savedDocumentId: 'note_9', loadedContent: 'сохранённая заметка', loadedTitle: '' });
+    await type(rerender, 'сохранённая заметка и правка');
+    await type(rerender, 'сохранённая заметка и ещё правка');
+    expect(stuck(), 'состояние не поднялось').toBe(true);
+
+    await type(rerender, 'сохранённая заметка');
+    expect(stuck(), 'баннер «только на экране» над сохранённым текстом').toBe(false);
+    useSessionMetaStore.setState({ savedDocumentId: null, loadedContent: null, loadedTitle: null });
     unmount();
   });
 
