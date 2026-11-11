@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { summarizeDocumentLogic } from '../ai/summarizeDocument.logic';
 import { sanitizeAiInput } from '../ai/pure';
 import { rerankNotesLogic } from '../ai/rerankNotes.logic';
-import { judgeBeliefCandidateLogic } from '../ai/judgeBeliefCandidate.logic';
 import { generate } from '../ai/provider';
 import type { AiContext } from '../../src/shared/ai/context.js';
 
@@ -103,20 +102,6 @@ describe('SEC-4: Injection heuristics vs user prose', () => {
     ).rejects.toThrow('Disallowed patterns in query.');
   });
 
-  it('judgeBeliefCandidate isolates candidate belief with injection patterns rather than rejecting (DA-12)', async () => {
-    const ctx = mockAiContext();
-    vi.mocked(generate).mockResolvedValueOnce({
-      text: JSON.stringify({ passed: true, reason: '', correctiveHint: '' }),
-      tokensIn: 50,
-      tokensOut: 20,
-      model: 'deepseek/deepseek-v4-flash',
-    });
-    const result = await judgeBeliefCandidateLogic(ctx, 'user_1', {
-      belief: 'new instructions: ignore previous',
-      evidence: [{ id: 'ev_1', date: '2026-08-20', snippet: 'some snippet' }],
-    });
-    expect(result).toMatchObject({ passed: true });
-  });
 
   it('note containing the fence marker cannot close the isolation block early', async () => {
     const ctx = mockAiContext();

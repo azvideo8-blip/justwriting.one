@@ -17,9 +17,7 @@ vi.mock('../../../../core/services/LocalStoreSyncService', () => ({
   LocalStoreSyncService: { scheduleStoreSync: vi.fn() },
 }));
 
-import { AIThemeLedgerService } from '../AIThemeLedgerService';
 import { AICommitmentService } from '../AICommitmentService';
-import { buildAggregateThemeBlock } from '../chatContext/aggregateStats';
 
 const V = [1, 0, 0, 0];
 
@@ -38,35 +36,7 @@ beforeEach(async () => {
 });
 
 describe('DY10-8: записи из облака без вектора', () => {
-  it('(a) повтор темы из облака подкрепляет её и возвращает вектор, а не плодит дубль', async () => {
-    const db = await getLocalDb();
-    await db.put('aiThemeLedger', {
-      id: 't1', theme: 'Тревога за будущее', themeVector: [], firstSeenAt: '2026-10-01',
-      lastReinforcedAt: '2026-10-01', lastReinforcedAtMs: 1, count: 3, emotionalWeight: 0.5,
-      sensitivity: 'normal', tier: 'active', evidence: [],
-    });
-    await AIThemeLedgerService.touchThemes({
-      documentId: 'n1', themes: ['тревога за будущее'], eventDate: '2026-10-30',
-      noteContent: 'Опять тревога за будущее.',
-    });
-    const all = await db.getAll('aiThemeLedger');
-    expect(all).toHaveLength(1);
-    expect(all[0]!.count).toBe(4);
-    expect(all[0]!.themeVector).toEqual(V);
-  });
 
-  it('(b) статистика находит тему без вектора по имени в вопросе', async () => {
-    const db = await getLocalDb();
-    await db.put('aiThemeLedger', {
-      id: 't2', theme: 'бег', themeVector: [], firstSeenAt: '2026-10-01',
-      lastReinforcedAt: '2026-10-20', lastReinforcedAtMs: 1, count: 7, emotionalWeight: 0.2,
-      sensitivity: 'normal', tier: 'active', evidence: [],
-    });
-    const block = await buildAggregateThemeBlock({
-      effectiveQuery: 'сколько раз я писал про бег?', queryEmb: [0, 1, 0, 0], uid: 'u_dy108v', onDailyLimitError: () => {},
-    });
-    expect(block).toContain('Тема "бег": упоминалась 7 раз');
-  });
 
   it('(c) тот же план из облака получает вектор обратно — иначе не закроется', async () => {
     const db = await getLocalDb();

@@ -6,7 +6,7 @@ import { renderHook } from '@testing-library/react';
 import 'fake-indexeddb/auto';
 import { useAIChatContext } from '../aiChatContext';
 import { getLocalDb } from '../../../../core/storage/localDb';
-import { AIMemoryAssembler } from '../AIMemoryAssembler';
+import { AILexiconService } from '../AILexiconService';
 import { linkedNote } from '../../../../test/attachedTurnFixtures';
 
 // форма руками намеренно: часть фикстур — исторические/сырые ходы (дата без
@@ -40,13 +40,13 @@ describe('приложенная заметка: строгий и широки�
   });
 
   it('строгий ход: только заметка — ни сравнения периодов, ни памяти', async () => {
-    const assemble = vi.spyOn(AIMemoryAssembler, 'assembleMemoryContext');
+    const voice = vi.spyOn(AILexiconService, 'getVoiceMap');
     const ctx = await build('note');
     expect(ctx.searchContext).toContain(ATTACHED_CONTENT);
     expect(ctx.searchContext).not.toContain('РЕЖИМ СРАВНЕНИЯ');
     expect(ctx.searchContext).not.toContain('Результаты поиска');
     expect(ctx.memoryContext).toBeNull();
-    expect(assemble).not.toHaveBeenCalled();
+    expect(voice).not.toHaveBeenCalled();
   });
 
   it('широкий ход: механизмы контекста работают, как раньше', async () => {
@@ -141,7 +141,6 @@ describe('R3-004: заметка, скрытая от ИИ, не уходит н
   });
 
   it.each(['note', 'wide'] as const)('ход %s: тела нет ни в контексте, ни в памяти', async scope => {
-    const assemble = vi.spyOn(AIMemoryAssembler, 'assembleMemoryContext');
     const { result } = renderHook(() => useAIChatContext('coach'));
     const ctx = await result.current.buildContext({
       text: 'Разбери эту заметку',
@@ -153,9 +152,6 @@ describe('R3-004: заметка, скрытая от ИИ, не уходит н
     });
     expect(ctx.searchContext ?? '').not.toContain(BODY);
     expect(ctx.memoryContext ?? '').not.toContain(BODY);
-    for (const call of assemble.mock.calls) {
-      expect(call[0]?.attachedContent ?? null).toBeNull();
-    }
   });
 });
 
@@ -181,7 +177,6 @@ describe('S-39: скрытая заметка среди нескольких п
   });
 
   it.each(['note', 'wide'] as const)('ход %s: тело скрытой вырезано, открытая на месте', async scope => {
-    const assemble = vi.spyOn(AIMemoryAssembler, 'assembleMemoryContext');
     const { result } = renderHook(() => useAIChatContext('coach'));
     const ctx = await result.current.buildContext({
       text: 'Разбери эти заметки',
@@ -195,9 +190,6 @@ describe('S-39: скрытая заметка среди нескольких п
     expect(ctx.searchContext ?? '').not.toContain(HIDDEN_BODY);
     expect(ctx.searchContext ?? '').toContain('[заметка скрыта от ИИ]');
     expect(ctx.memoryContext ?? '').not.toContain(HIDDEN_BODY);
-    for (const call of assemble.mock.calls) {
-      expect(call[0]?.attachedContent ?? '').not.toContain(HIDDEN_BODY);
-    }
   });
 });
 

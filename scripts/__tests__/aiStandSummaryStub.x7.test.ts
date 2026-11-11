@@ -51,11 +51,8 @@ describe('X-7: разбор заметки от стендовой заглуш�
     expect(parsed.success, parsed.success ? '' : JSON.stringify(parsed.error.issues)).toBe(true);
   });
 
-  it('цитата дословная, тон и суть — читаемые по признаку кириллицы', async () => {
-    const { validateVerbatimQuote } = await import('../../api/ai/summarizeDocument.logic');
+  it('тон и суть — читаемые по признаку кириллицы', async () => {
     const parsed = JSON.parse(await completionContent(messages));
-
-    expect(validateVerbatimQuote(NOTE, parsed.quotableSentence)).toBe(parsed.quotableSentence);
 
     const cyrRatio = (value: unknown) => ((String(value).match(/[а-яё]/g) ?? []).length / String(value).length);
     expect(cyrRatio(parsed.summary), 'суть заметки не переживёт фильтр isUsable').toBeGreaterThanOrEqual(0.2);
@@ -80,8 +77,6 @@ describe('X-7: разбор заметки от стендовой заглуш�
 
     expect(typeof out.summary, 'суть съедена isUsable продукта').toBe('string');
     expect(String(out.summary)).toContain('бежал шесть километров');
-    expect(typeof out.quotableSentence, 'цитата не пережила validateVerbatimQuote продукта').toBe('string');
-    expect(NOTE).toContain(String(out.quotableSentence));
     expect(Array.isArray(out.themes) && (out.themes as unknown[]).length).toBeGreaterThan(0);
     expect(Array.isArray(out.extractedFacts) && (out.extractedFacts as unknown[]).length).toBeGreaterThan(0);
     expect(out.tone).toBe('задумчивый');

@@ -14,7 +14,6 @@ vi.mock('../ai/provider', async (importOriginal) => {
 import { validateCustomPromptLogic } from '../ai/validateCustomPrompt.logic';
 import { summarizeDocumentLogic } from '../ai/summarizeDocument.logic';
 import { editWithAILogic } from '../ai/editWithAI.logic';
-import { judgeBeliefCandidateLogic } from '../ai/judgeBeliefCandidate.logic';
 import type { AiContext } from '../../src/shared/ai/context.js';
 
 function makeCtx(): AiContext {
@@ -61,6 +60,44 @@ describe('2.20 model JSON validated by zod, refund on schema failure', () => {
       extractedFacts: ['гулял у реки'],
       summary: 'Тихий день у реки.',
     });
+  });
+
+  it('MB-6: в журнал идут путь и код первой ошибки схемы, а не значение', async () => {
+    generateMock.mockResolvedValue({
+      text: JSON.stringify({
+        tone: 'СЕКРЕТ-ЗАМЕТКИ '.repeat(20),
+        frequentWords: ['река'],
+        insights: ['x'],
+        themes: ['t'],
+        extractedFacts: ['f'],
+      }),
+      usage: { promptTokens: 10, completionTokens: 10 },
+    });
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await expect(summarizeDocumentLogic(makeCtx(), 'u1', { content })).rejects.toMatchObject({ code: 'unavailable' });
+    const logged = err.mock.calls.map(c => c.map(String).join(' ')).join('\n');
+    err.mockRestore();
+    expect(logged).toContain('first: tone too_big');
+    expect(logged).not.toContain('СЕКРЕТ');
+  });
+
+  it('MB-6: строка вместо списка, список объектов и "[]" приводятся к списку строк', async () => {
+    generateMock.mockResolvedValue({
+      text: JSON.stringify({
+        tone: 'спокойный',
+        frequentWords: 'река',
+        insights: 'Тело вспоминает движения через первые километры.',
+        themes: ['бег'],
+        extractedFacts: [{ fact: 'пробежала два километра' }, 'купила майку'],
+        commitments: '[]',
+      }),
+      usage: { promptTokens: 10, completionTokens: 10 },
+    });
+    const out = await summarizeDocumentLogic(makeCtx(), 'u1', { content }) as Record<string, unknown>;
+    expect(out.frequentWords).toEqual(['река']);
+    expect(out.insights).toEqual(['Тело вспоминает движения через первые километры.']);
+    expect(out.extractedFacts).toEqual(expect.arrayContaining(['пробежала два километра', 'купила майку']));
+    expect(out.commitments ?? []).toEqual([]);
   });
 
   it('frequentWords as a number is rejected and refunded, not a TypeError after charging', async () => {
@@ -150,17 +187,5 @@ describe('DEEP-9: editWithAI and validateCustomPrompt pass chargedDay to refundD
     expect(ctx.refundGlobalRequest).toHaveBeenCalled();
   });
 
-  it('ERR-7: judgeBeliefCandidateLogic throws unavailable on model failure/timeout', async () => {
-    const ctx = makeCtx();
-    generateMock.mockRejectedValue(new Error('upstream model timeout'));
-
-    await expect(judgeBeliefCandidateLogic(ctx, 'user_1', {
-      belief: 'Пользователь любит бег',
-      evidence: [{ id: 'e1', date: '2026-09-01', snippet: 'Бегал утром' }],
-    })).rejects.toMatchObject({ code: 'unavailable' });
-
-    expect(ctx.refundBulkLimit).toHaveBeenCalled();
-    expect(ctx.refundGlobalRequest).toHaveBeenCalled();
-  });
 });
 

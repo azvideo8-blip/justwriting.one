@@ -5,6 +5,7 @@
 // and 500s the whole /api/chat endpoint. Vite resolves the .js → .ts for the SPA.
 import { z } from 'zod';
 import { PERSONA_PROMPTS, TOPIC_GUARD, NOTES_GUARD_BASE, NOTES_SEARCH_GUARD, OPEN_QUESTION_POOL, REFLECTION_GUIDE, SAFETY_GUIDE, EDITOR_PROMPT_BODY, EDITOR_EVAL_TAIL, EDITOR_LIST_TAIL } from './prompts.js';
+import { ARCHIVE_TURN_MARK, ARCHIVE_ANSWER_RULE } from './archiveAnswerRule.js';
 import { evalAskMode, listAskMode } from './evalAsk.js';
 import { ENGLISH_NUDGE, questionOnly } from './languageNudge.js';
 
@@ -259,6 +260,14 @@ export function buildChatSystemPrompt(params: ChatPromptParams): string {
     base += noteFence;
   }
 
+  // Вопрос о записях (флаг answer_chronicle_v2): правило хода — после всех оград
+  // данных, последним перед репликой. Метку ставит клиент в блок записей; без
+  // неё (флаг выключен, старый клиент) промпт побайтно прежний. У редактора свой
+  // формат (пост), строгий ход по заметке хронику не получает.
+  if (documentContent && !strictNote && personaId !== 'editor' && crisis !== true && documentContent.includes(ARCHIVE_TURN_MARK)) {
+    base += `\n\n---\n${ARCHIVE_ANSWER_RULE}`;
+  }
+
   return base;
 }
 
@@ -378,7 +387,10 @@ export function sanitizeAiInputShared(content: string): string {
 
 export const chatInputSchema = z.object({
   personaId: z.enum(['group_psychology', 'cbt', 'coach', 'editor', 'parts', 'custom']),
-  customSystemPrompt: z.string().max(500).nullish(),
+  // MB-11: служебные промпты разделов портрета (system_task, белый список) — 870–1031
+  // знак. При общем потолке 500 каждый раздел отклонялся до модели, и портрет
+  // не пересобирался. Свой промпт человека по-прежнему до 500 — проверка ниже.
+  customSystemPrompt: z.string().max(2_000).nullish(),
   messages: z.array(z.object({
     role: z.enum(['user', 'assistant']),
     content: z.string().max(MAX_AI_CONTENT_LENGTH),
@@ -400,6 +412,10 @@ export const chatInputSchema = z.object({
     title: z.string().max(NOTE_SCOPE_TITLE_MAX),
     date: z.string().max(60),
   }).nullish(),
+}).superRefine((d, ctx) => {
+  if (d.callType !== 'system_task' && (d.customSystemPrompt?.length ?? 0) > 500) {
+    ctx.addIssue({ code: 'custom', path: ['customSystemPrompt'], message: 'Custom system prompt exceeds 500 characters.' });
+  }
 });
 
 export interface ChatPromptInput {

@@ -1067,7 +1067,6 @@ export async function reattachOrphanedAnalysis(): Promise<ReattachResult> {
  * Rebuilds the timeline row that AISummaryService.save() would have written.
  * Deliberately does NOT call save(): that also triggers monthly digest
  * generation, which in a loop over every restored note is a digest storm.
- * The theme ledger is re-driven through its normal governed queue instead.
  */
 async function rebuildTimelineEntry(
   db: Awaited<ReturnType<typeof getLocalDb>>,

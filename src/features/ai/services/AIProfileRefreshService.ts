@@ -4,9 +4,7 @@ import { withUserRun } from './AIBackgroundBudget';
 import { AIProfileFacetService } from './AIProfileFacetService';
 import { AIFacetJudgeService } from './AIFacetJudgeService';
 import { AIProfileService } from './AIProfileService';
-import { AIThemeLedgerService, getPendingThemeTouches } from './AIThemeLedgerService';
 import { AIMonthlyDigestService } from './AIMonthlyDigestService';
-import { AIConsolidationService } from './AIConsolidationService';
 
 /**
  * Обновление профиля — единственный способ пересчитать производные ИИ.
@@ -16,28 +14,34 @@ import { AIConsolidationService } from './AIConsolidationService';
  * (D4.23), и вместо него человек нажимает кнопку в «Обо мне», заранее видя,
  * во сколько вызовов это обойдётся и сколько останется от дневного лимита.
  *
- * Все вызовы внутри помечаются `charge: 'user'` и списываются с того же
- * дневного лимита, что и чат: обновление не должно быть бесплатным.
+ * Вызовы внутри помечаются `charge: 'user'` и списываются с того же дневного
+ * лимита, что и чат: обновление не должно быть бесплатным. Кроме портрета (MB-11):
+ * его разделы идут служебным чатом (`callType: 'system_task'`), обработчик чата
+ * `charge` не читает и списывает их из служебного пула `internal_chat`, а не
+ * из квоты человека — поэтому в `limitCalls` они не входят.
  */
 
 /** Сколько примерно длится один вызов, с учётом пауз между ними. */
 const SECONDS_PER_CALL = 6;
 
+/** Разделов портрета (AIProfileService.generate); перегенерируются только изменившиеся. */
+const PORTRAIT_SECTIONS = 5;
+
 /** Судья пакует грани по три в вызов (или по объёму — тогда чаще). */
 const FACETS_PER_JUDGE_CALL = 3;
 
-/** Консолидация тратит два вызова на кластер: формулировка и проверка. */
-const CALLS_PER_CLUSTER = 2;
 
 export interface RefreshEstimate {
   /** Разбивка по шагам: что и во сколько вызовов обойдётся. */
   steps: { key: RefreshStepKey; calls: number }[];
   totalCalls: number;
+  /** Сколько из них спишется с дневного лимита человека (без портрета — он из служебного пула). */
+  limitCalls: number;
   /** Грубая оценка длительности в секундах. */
   seconds: number;
 }
 
-export type RefreshStepKey = 'facets' | 'judge' | 'portrait' | 'themes' | 'digests' | 'consolidation';
+export type RefreshStepKey = 'facets' | 'judge' | 'portrait' | 'digests';
 
 export interface RefreshProgress {
   step: RefreshStepKey;
@@ -93,42 +97,19 @@ export const AIProfileRefreshService = {
     const needSummary = facets.filter(f => f.dirty || f.pendingSummary).length;
     const judgeCalls = facets.length > 0 ? Math.ceil(facets.length / FACETS_PER_JUDGE_CALL) : 0;
 
-    // Реестр тем разбирает очередь заметок, разобранных с прошлого раза.
-    // Стоимость — по одному вызову на каждую тему, которой в реестре ещё нет:
-    // знакомые темы берутся из кеша векторов и не стоят ничего.
-    const known = new Set((await db.getAll('aiThemeLedger')).map(t => t.theme));
-    const pending = getPendingThemeTouches();
-    const freshThemes = new Set<string>();
-    for (const docId of pending) {
-      const summary = await db.get('aiSummaries', docId);
-      for (const theme of summary?.themes ?? []) {
-        if (theme && !known.has(theme)) freshThemes.add(theme);
-      }
-    }
-
     const digests = await countDigestMonths();
-
-    // Кластеры считаем по тем же данным, что и сам проход, но без вызовов.
-    let clusters = 0;
-    try {
-      const units = await AIConsolidationService.gatherMemoryUnits();
-      clusters = units.length < 2 ? 0 : AIConsolidationService.clusterMemoryUnits(units).length;
-    } catch (e) {
-      reportError(e, { action: 'profileRefresh_estimateClusters' }, 'warning');
-    }
 
     const all: { key: RefreshStepKey; calls: number }[] = [
       { key: 'facets', calls: needSummary },
       { key: 'judge', calls: judgeCalls },
-      { key: 'portrait', calls: 1 },
-      { key: 'themes', calls: freshThemes.size },
+      { key: 'portrait', calls: PORTRAIT_SECTIONS },
       { key: 'digests', calls: digests },
-      { key: 'consolidation', calls: clusters * CALLS_PER_CLUSTER },
     ];
     const steps = all.filter(s => s.calls > 0);
 
     const totalCalls = steps.reduce((sum, s) => sum + s.calls, 0);
-    return { steps, totalCalls, seconds: totalCalls * SECONDS_PER_CALL };
+    const limitCalls = totalCalls - PORTRAIT_SECTIONS;
+    return { steps, totalCalls, limitCalls, seconds: totalCalls * SECONDS_PER_CALL };
   },
 
   /**
@@ -166,7 +147,6 @@ export const AIProfileRefreshService = {
           await AIProfileFacetService.summarizePending(undefined, chargeOpt);
         });
         await step('judge', () => AIFacetJudgeService.review(chargeOpt));
-        await step('themes', () => AIThemeLedgerService.processPendingThemeTouches());
         await step('digests', async () => {
           const db = await getLocalDb();
           const timeline = await db.getAll('aiTimeline');
@@ -175,7 +155,6 @@ export const AIProfileRefreshService = {
             await AIMonthlyDigestService.generateForMonth(month, chargeOpt);
           }
         });
-        await step('consolidation', () => AIConsolidationService.processConsolidationPass(chargeOpt));
         // Портрет последним: он читает уже пересчитанные и проверенные грани.
         await step('portrait', () => AIProfileService.generate(chargeOpt));
       });

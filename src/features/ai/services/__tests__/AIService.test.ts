@@ -29,7 +29,7 @@ describe('AIService', () => {
     });
   });
 
-  // N1: judgeFacets and deriveTaxonomy used to return raw Firebase error codes
+  // N1: judgeFacets used to return raw Firebase error codes
   // (e.g. 'internal'), but the caller in AIFacetJudgeService compared against
   // normalised codes ('SERVER_ERROR', 'RATE_LIMIT', 'DAILY_LIMIT'), so the
   // break condition never fired and every chunk got its own failure.
@@ -54,21 +54,6 @@ describe('AIService', () => {
       expect(res.ok).toBe(false);
       if (!res.ok) {
         expect(res.error).not.toBe('deadline-exceeded');
-        expect(['SERVER_ERROR', 'RATE_LIMIT', 'DAILY_LIMIT', 'AUTH_REQUIRED', 'UPSTREAM', 'TOO_LONG', 'NETWORK'])
-          .toContain(res.error);
-      }
-    });
-  });
-
-  describe('deriveTaxonomy reports a normalised error code', () => {
-    beforeEach(() => mockCallAi.mockReset());
-
-    it('maps a transport failure to a normalised code', async () => {
-      mockCallAi.mockRejectedValueOnce(Object.assign(new Error('internal'), { code: 'functions/internal' }));
-      const res = await AIService.deriveTaxonomy({ digest: 'test' });
-      expect(res.ok).toBe(false);
-      if (!res.ok) {
-        expect(res.error).not.toBe('internal');
         expect(['SERVER_ERROR', 'RATE_LIMIT', 'DAILY_LIMIT', 'AUTH_REQUIRED', 'UPSTREAM', 'TOO_LONG', 'NETWORK'])
           .toContain(res.error);
       }

@@ -4,7 +4,6 @@ import { getLocalDb } from '../../../../core/storage/localDb';
 import { AIProfileService } from '../AIProfileService';
 import { AIMonthlyDigestService } from '../AIMonthlyDigestService';
 import { AIProfileRefreshService } from '../AIProfileRefreshService';
-import { AIConsolidationService } from '../AIConsolidationService';
 import { LocalDocumentService } from '../../../../core/services/LocalDocumentService';
 import { AIService } from '../AIService';
 import { AITimelineService } from '../AITimelineService';
@@ -182,41 +181,4 @@ describe('AG-PROF-1: Portrait Integrity & Service Guards', () => {
     expect(localStorage.getItem('ai_user_portrait')).toBeNull();
   });
 
-  it('Requirement 6: AIConsolidationService.gatherMemoryUnits excludes units from aiBeliefRejections', async () => {
-    const db = await getLocalDb();
-
-    await db.put('aiChatMemory', {
-      id: 'mem_rejected_1',
-      dialogueId: 'd1',
-      kind: 'fact',
-      text: 'Отклонённая мысль',
-      sourceDocumentIds: [],
-      updatedAt: Date.now(),
-    } as never);
-
-    await db.put('aiChatMemory', {
-      id: 'mem_fresh_2',
-      dialogueId: 'd1',
-      kind: 'fact',
-      text: 'Свежая мысль',
-      sourceDocumentIds: [],
-      updatedAt: Date.now(),
-    } as never);
-
-    await db.put('aiBeliefRejections', {
-      id: 'rej_1',
-      timestamp: Date.now(),
-      clusterSize: 1,
-      firstSeenAt: '2026-08-01',
-      reason: 'Слишком тривиально',
-      kind: 'judge_rejected',
-      rewriteAttempted: false,
-      rejectedTextSnippet: 'Отклонённая мысль',
-      unitIds: ['mem_rejected_1'],
-    } as never);
-
-    const units = await AIConsolidationService.gatherMemoryUnits();
-    expect(units.some(u => u.id === 'mem_rejected_1')).toBe(false);
-    expect(units.some(u => u.id === 'mem_fresh_2')).toBe(true);
-  });
 });

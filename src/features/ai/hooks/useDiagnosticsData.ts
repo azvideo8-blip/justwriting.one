@@ -20,7 +20,7 @@ import { requestEmbeddingRestore } from '../services/AIRestoreService';
 import { callAi } from '../../../core/ai/callAi';
 import { isDayLimitError } from '../types/aiErrors';
 
-export type Tab = 'stats' | 'sync' | 'db' | 'users' | 'ai_usage' | 'ai_profile' | 'queue' | 'memory_assembler' | 'beliefs';
+export type Tab = 'stats' | 'sync' | 'db' | 'users' | 'ai_usage' | 'ai_profile' | 'queue';
 
 export interface AIUsageRow {
   uid: string;

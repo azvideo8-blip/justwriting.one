@@ -11,7 +11,6 @@ import { AISummaryService } from '../AISummaryService';
 import { AIProfileFacetBuilder } from '../AIProfileFacetBuilder';
 import { AIProfileFacetSummarizer } from '../AIProfileFacetSummarizer';
 import { AIProfileService } from '../AIProfileService';
-import { AIThemeLedgerService, enqueuePendingThemeTouch, getPendingThemeTouches } from '../AIThemeLedgerService';
 import { writeFacetStore } from '../../../../core/services/facetLock';
 import { LocalVersionService } from '../../../../core/services/LocalVersionService';
 import { indexDocument } from '../../utils/embeddingIndexer';
@@ -83,7 +82,6 @@ describe('AP2-3: анализ не восстанавливает скрытые
     expect(await analyzing).toEqual({ ok: false, error: 'EXCLUDED' });
     expect(await db.get('aiSummaries', hidden)).toBeUndefined();
     expect(await db.get('aiTimeline', hidden)).toBeUndefined();
-    expect(getPendingThemeTouches()).not.toContain(hidden);
     expect(AIService.embed).not.toHaveBeenCalled();
   });
 
@@ -150,19 +148,6 @@ describe('AP2-3: анализ не восстанавливает скрытые
     expect(JSON.stringify(chat.mock.calls)).not.toContain(marker);
   });
 
-  it('очередь тем не векторизует скрытые остатки', async () => {
-    const db = await getLocalDb();
-    await db.put('documents', doc(hidden, { excludedFromAI: true }));
-    await db.put('aiSummaries', { ...summary(hidden), themes: [marker] });
-    await db.put('aiSummaries', { ...summary('visible-1'), themes: [publicMarker] });
-    enqueuePendingThemeTouch(hidden);
-    enqueuePendingThemeTouch('visible-1');
-    await AIThemeLedgerService.processPendingThemeTouches();
-    expect(AIService.embed).toHaveBeenCalled();
-    expect(JSON.stringify(vi.mocked(AIService.embed).mock.calls)).toContain(publicMarker);
-    expect(JSON.stringify(vi.mocked(AIService.embed).mock.calls)).not.toContain(marker);
-    expect(JSON.stringify(await db.getAll('aiThemeLedger'))).not.toContain(marker);
-  });
 });
 
 // Ревью AP2 (M3): векторы и обязательства тоже пишутся после вызова провайдера.

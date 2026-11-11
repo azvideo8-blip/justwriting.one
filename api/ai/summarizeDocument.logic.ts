@@ -14,33 +14,44 @@ import { safeErrorShape } from '../../src/shared/ai/errorShape.js';
 // settled/refund-регион, что и фейл JSON.parse.
 // X-7: схема экспортируется — стендовая заглушка обязана отвечать ей, и это
 // проверяется тестом, а не совпадением двух копий текста.
+/**
+ * MB-6: список строк, который модель иногда отдаёт не той формы — строкой вместо
+ * списка («текст» или "[]"), списком объектов ([{ fact: … }], [{ action, detail }]).
+ * На стенде так терялось ~3 % заметок: весь разбор отклонялся схемой. Приводим к
+ * списку строк; всё прочее (число, null) по-прежнему отклоняется.
+ */
+function lenientStringList(max: number, itemMax = 2_000) {
+  return z.preprocess((v) => {
+    if (typeof v === 'string') {
+      const t = v.trim();
+      if (t.startsWith('[')) {
+        try {
+          const parsed: unknown = JSON.parse(t);
+          if (Array.isArray(parsed)) v = parsed;
+        } catch { /* не JSON — обычная строка */ }
+      }
+      if (typeof v === 'string') return t ? [t] : [];
+    }
+    if (!Array.isArray(v)) return v;
+    return v.map(x => (x && typeof x === 'object' && !Array.isArray(x))
+      ? Object.values(x).filter((s): s is string => typeof s === 'string' && s.trim() !== '').join(' — ')
+      : x);
+  }, z.array(z.string().max(itemMax)).max(max));
+}
+
 export const summarySchema = z.object({
   tone: z.string().max(200),
-  frequentWords: z.array(z.string().max(64)).max(10),
-  insights: z.array(z.string().max(2_000)).max(12),
+  frequentWords: lenientStringList(10, 64),
+  insights: lenientStringList(12),
   themes: z.array(z.string().max(200)).max(5),
-  extractedFacts: z.array(z.string().max(2_000)).max(30),
+  extractedFacts: lenientStringList(30),
   summary: z.string().max(20_000).optional(),
-  authorPhrases: z.array(z.string().max(200)).max(8).optional(),
-  quotableSentence: z.string().max(2_000).optional(),
-  commitments: z.array(z.string().max(2_000)).max(30).optional(),
+  commitments: lenientStringList(30).optional(),
   valence: z.number().finite().min(-1).max(1).optional(),
   arousal: z.number().finite().min(0).max(1).optional(),
-  echo: z.string().max(2_000).optional(),
   eventDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 type ParsedJson = z.infer<typeof summarySchema>;
-
-export function validateVerbatimQuote(sanitizedContent: string, candidateQuote?: string): string | undefined {
-  if (!candidateQuote || typeof candidateQuote !== 'string') return undefined;
-  const quote = candidateQuote.trim();
-  if (!quote) return undefined;
-  if (sanitizedContent.includes(quote)) return quote;
-  const normalize = (s: string) =>
-    s.toLowerCase().replace(/ё/g, 'е').replace(/[«»""']/g, '"').replace(/[—–-]/g, '-');
-  if (normalize(sanitizedContent).includes(normalize(quote))) return quote;
-  return undefined;
-}
 
 const SUMMARY_SYSTEM_PROMPT = `Проанализируй личную заметку и верни JSON. Отвечай СТРОГО на русском языке.
 
@@ -51,9 +62,7 @@ const SUMMARY_SYSTEM_PROMPT = `Проанализируй личную заме�
 - summary: 1–2 предложения от третьего лица о чём эта запись и какова её главная суть («Автор размышляет о...»).
 - tone: одно слово из списка: нейтральный / задумчивый / тревожный / вдохновляющий / радостный / грустный / злой / усталый / ностальгический / противоречивый / благодарный / растерянный.
 - frequentWords: 3–6 самых значимых слов из текста (существительные или глаголы, не стоп-слова, не «я», «это», «что»).
-- authorPhrases: 0–4 характерных авторских слова, идиомы или словечка, отражающих уникальный язык автора. Если нет — [].
 - insights: ключевые мысли или внутренние наблюдения — только то, что реально написано.
-- quotableSentence: одна дословная яркая цитата (предложение) из текста. Верни ДОСЛОВНО как в оригинале.
 - themes: 1–3 основные темы.
 - extractedFacts: конкретные факты — только то, что УЖЕ ПРОИЗОШЛО или происходит сейчас. Сохраняй оговорки автора.
 - commitments: всё, что ещё НЕ произошло: планы, намерения, желания, обязательства, то, что нужно сделать. Если нет — [].
@@ -191,7 +200,10 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
   const validated = summarySchema.safeParse(rawParsed);
   if (!validated.success) {
     await callRes.settle('failed', { tokensIn, tokensOut, model: usedModel });
-    console.error('[AI summarize] model output failed schema:', validated.error.issues.length, 'issues');
+    // MB-6: путь и код первой ошибки — по ним видно, какое поле ломается. Значений
+    // и сообщения zod нет: в них текст заметки.
+    const first = validated.error.issues[0];
+    console.error('[AI summarize] model output failed schema:', validated.error.issues.length, 'issues; first:', first ? `${first.path.join('.')} ${first.code}` : '-');
     throw new AiError('unavailable', 'Model returned malformed summary.');
   }
   const parsed_json: ParsedJson = validated.data;
@@ -216,15 +228,12 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
   }
 
   const rawSummary = sanitizeAiResponse(parsed_json.summary ?? '');
-  const validatedQuote = validateVerbatimQuote(sanitizedContent, parsed_json.quotableSentence);
 
   return {
     summary: isUsable(rawSummary) ? rawSummary : undefined,
     tone: sanitizeAiResponse(parsed_json.tone ?? 'нейтральный'),
     frequentWords: (parsed_json.frequentWords ?? []).map(s => sanitizeAiResponse(s)).filter(isUsable),
-    authorPhrases: (parsed_json.authorPhrases ?? []).map(s => sanitizeAiResponse(s)).filter(isUsable),
     insights: (parsed_json.insights ?? []).map(s => sanitizeAiResponse(s)).filter(isUsable),
-    quotableSentence: validatedQuote ? sanitizeAiResponse(validatedQuote) : undefined,
     themes: (parsed_json.themes ?? []).map(s => sanitizeAiResponse(s)).filter(isUsable),
     ...(() => {
       // Модель регулярно кладёт намерение в факты вопреки промпту, а факты

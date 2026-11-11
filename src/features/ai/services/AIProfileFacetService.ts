@@ -82,10 +82,6 @@ export const AIProfileFacetService = {
     return AIProfileFacetBuilder.build(onProgress);
   },
 
-  async incrementalUpdate(noteId: string): Promise<{ updated: number }> {
-    return AIProfileFacetBuilder.incrementalUpdate(noteId);
-  },
-
   async resummarizeDirty(onProgress?: (p: FacetBuildProgress) => void, opts?: CallAiOptions): Promise<{ count: number }> {
     return AIProfileFacetSummarizer.resummarizeDirty(onProgress, opts);
   },

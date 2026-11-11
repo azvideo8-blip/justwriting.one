@@ -59,7 +59,6 @@ vi.mock('../../utils/embeddingIndexer', () => ({
   sha256Hex: async (text: string) => `hash-of:${text}`,
 }));
 
-vi.mock('../AIThemeLedgerService', () => ({ enqueuePendingThemeTouch: vi.fn() }));
 
 const summaryDocs: Array<{ id: string; data: () => unknown }> = [];
 const embeddingDocs: Array<{ id: string; data: () => unknown }> = [];

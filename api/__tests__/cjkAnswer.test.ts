@@ -14,24 +14,6 @@ vi.mock('../ai/provider', async (importOriginal) => {
 });
 
 import { sanitizeAiResponse } from '../ai/pure';
-import { summarizeDocumentLogic } from '../ai/summarizeDocument.logic';
-import type { AiContext } from '../../src/shared/ai/context.js';
-
-function makeCtx(): AiContext {
-  return {
-    checkAndIncrementLimit: vi.fn().mockResolvedValue({ ok: true, day: '2026-08-23' }),
-    checkDailyLimit: vi.fn().mockResolvedValue({ ok: true, day: '2026-08-23' }),
-    checkAndIncrementBulkLimit: vi.fn().mockResolvedValue({ ok: true, day: '2026-08-23' }),
-    refundDailyLimit: vi.fn().mockResolvedValue(undefined),
-    refundBulkLimit: vi.fn().mockResolvedValue(undefined),
-    refundGlobalRequest: vi.fn().mockResolvedValue(undefined),
-    tryReserveGlobalRequest: vi.fn().mockResolvedValue({ date: '2026-08-23', shardId: '0', allowance: 8192 }),
-    recordUsage: vi.fn().mockResolvedValue(undefined),
-    getDailyLimitCount: vi.fn(),
-    getUserDailyLimit: vi.fn().mockResolvedValue(20),
-    isAdmin: vi.fn().mockResolvedValue(false),
-  } as unknown as AiContext;
-}
 
 beforeEach(() => {
   generateMock.mockReset();
@@ -45,24 +27,6 @@ describe('AG-CJK-1: CJK в ответе человека не вырезаетс
     expect(sanitizeAiResponse(answer)).toBe(answer);
   });
 
-  it('quotableSentence с японской фразой доходит до результата разбора', async () => {
-    const content = 'Весь день вспоминал фразу из книги: 静かの海 — и успокаивался. ' +
-      'Это было почти медитацией, дышалось легко и свободно.';
-    generateMock.mockResolvedValue({
-      text: JSON.stringify({
-        tone: 'спокойный',
-        frequentWords: ['фраза'],
-        insights: ['успокаивается через цитаты'],
-        themes: ['отдых'],
-        extractedFacts: [],
-        summary: 'День прошёл спокойно.',
-        quotableSentence: '静かの海',
-      }),
-      usage: { promptTokens: 10, completionTokens: 10 },
-    });
-    const out = (await summarizeDocumentLogic(makeCtx(), 'u1', { content })) as { quotableSentence?: string };
-    expect(out.quotableSentence).toBe('静かの海');
-  });
 
   it('ответ с ХОД МЫСЛИ:/ОТВЕТ: по-прежнему отдаёт только раздел ответа', () => {
     // Охраняет соседний блок разметки — единственное, что теперь отделяет

@@ -9,14 +9,11 @@ import { extractChatMemoryLogic } from './ai/extractChatMemory.logic';
 import { getAIUsageStatsLogic } from './ai/getAIUsageStats.logic';
 import { resetUserLimitLogic } from './ai/resetUserLimit.logic';
 import { getAiQuotaLogic } from './ai/getAiQuota.logic';
-import { judgeBeliefCandidateLogic } from './ai/judgeBeliefCandidate.logic';
 import { judgeFacetsLogic } from './ai/judgeFacets.logic';
 import { rerankNotesLogic } from './ai/rerankNotes.logic';
-import { summarizeBeliefClusterLogic } from './ai/summarizeBeliefCluster.logic';
 import { summarizeDocumentLogic } from './ai/summarizeDocument.logic';
 import { summarizeFacetLogic } from './ai/summarizeFacet.logic';
 import { validateCustomPromptLogic } from './ai/validateCustomPrompt.logic';
-import { deriveTaxonomyLogic } from './ai/deriveTaxonomy.logic';
 import { deleteAccountLogic } from './account';
 import { adminDeleteUserLogic, inviteUserLogic, listAdminActionsLogic, listUsersWithStatusLogic, listStaleInvitesLogic, deleteStaleInvitesLogic } from './admin/admin.logic';
 import { safeErrorShape } from '../src/shared/ai/errorShape.js';
@@ -36,14 +33,11 @@ const LOGIC_MAP: Record<string, LogicFn> = {
   getAIUsageStats: getAIUsageStatsLogic,
   getAiQuota: getAiQuotaLogic,
   resetUserLimit: resetUserLimitLogic,
-  judgeBeliefCandidate: judgeBeliefCandidateLogic,
   judgeFacets: judgeFacetsLogic,
   rerankNotes: rerankNotesLogic,
-  summarizeBeliefCluster: summarizeBeliefClusterLogic,
   summarizeDocument: summarizeDocumentLogic,
   summarizeFacet: summarizeFacetLogic,
   validateCustomPrompt: validateCustomPromptLogic,
-  deriveTaxonomy: deriveTaxonomyLogic,
   // Not AI, but the client reaches them the same way and they need the same
   // auth gate — so they live behind the same dispatcher.
   deleteAccount: deleteAccountLogic,

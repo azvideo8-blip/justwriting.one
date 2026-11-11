@@ -18,6 +18,8 @@ import { isExcludedFromAI } from '../utils/isExcludedFromAI';
 // читаемым среди зашифрованных соседей.
 // contentHash (R3-4): SHA-256 полного текста заметки. Открытым он даёт серверу
 // проверку догадки «совпадает ли текст» и связку одинаковых заметок.
+// echo (MB-5): больше не пишется и не читается, но в старых локальных сводках
+// лежит — из списка не убирать, иначе при выгрузке уйдёт открытым текстом.
 const STRING_FIELDS = ['summary', 'tone', 'echo', 'eventDate', 'quotableSentence', 'contentHash'] as const;
 const ARRAY_FIELDS = ['frequentWords', 'authorPhrases', 'insights', 'themes', 'extractedFacts', 'commitments'] as const;
 const STRING_FIELDS_LIST: string[] = [...STRING_FIELDS];
@@ -72,7 +74,6 @@ export async function decodeCloudSummary(
   const decrypted = await maybeDecrypt(data, STRING_FIELDS_LIST, ARRAY_FIELDS_LIST);
   const docId = typeof decrypted.documentId === 'string' ? decrypted.documentId : documentId;
   const tone = typeof decrypted.tone === 'string' ? decrypted.tone : '';
-  const echo = typeof decrypted.echo === 'string' ? decrypted.echo : '';
   const frequentWords = Array.isArray(decrypted.frequentWords) ? decrypted.frequentWords.map(String) : [];
   const authorPhrases = Array.isArray(decrypted.authorPhrases) ? decrypted.authorPhrases.map(String) : undefined;
   const insights = Array.isArray(decrypted.insights) ? decrypted.insights.map(String) : [];
@@ -99,7 +100,6 @@ export async function decodeCloudSummary(
   if (commitments.length > 0) result.commitments = commitments;
   if (valence !== undefined) result.valence = valence;
   if (arousal !== undefined) result.arousal = arousal;
-  if (echo) result.echo = echo;
   if (typeof decrypted.eventDate === 'string') result.eventDate = decrypted.eventDate;
   const hash = decrypted.contentHash;
   if (typeof hash === 'string') result.contentHash = hash;
@@ -180,7 +180,6 @@ export const AISummaryService = {
         // убран — заметки обрабатываются только по нажатию. Реестр тем,
         // портрет, грани и дайджесты ждут отдельной кнопки пересчёта (D4.24).
 
-
         // Upsert commitments
 
         if (summary.commitments && summary.commitments.length > 0) {
@@ -214,32 +213,6 @@ export const AISummaryService = {
     await db.delete('aiSummaries', documentId);
     await db.delete('aiTimeline', documentId);
     LocalStoreSyncService.scheduleStoreDelete('aiTimeline', documentId);
-  },
-
-  async exportAsMarkdown(documentId: string, docTitle: string): Promise<string> {
-    const db = await getLocalDb();
-    const summary = await db.get('aiSummaries', documentId);
-    if (!summary) return '';
-
-    const dateStr = new Date(summary.processedAt).toLocaleString();
-    const lines = [
-      `# Анализ документа: ${docTitle}`,
-      `Дата анализа: ${dateStr}`,
-      '',
-      `**Тональность:** ${summary.tone}`,
-      `**Ключевые слова:** ${summary.frequentWords.join(', ')}`,
-      `**Темы:** ${summary.themes.join(', ')}`,
-      '',
-      '## Инсайты',
-      ...summary.insights.map(i => `- ${i}`),
-    ];
-
-    const facts = summary.extractedFacts ?? [];
-    if (facts.length > 0) {
-      lines.push('', '## Факты', ...facts.map(f => `- ${f}`));
-    }
-
-    return lines.join('\n');
   },
 
   async hasAll(): Promise<Record<string, boolean>> {

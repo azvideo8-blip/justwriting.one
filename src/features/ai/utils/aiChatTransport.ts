@@ -77,18 +77,6 @@ export function looksLikeNoteAnalysis(text: string): boolean {
   return ANALYSIS_INTENT.every(re => re.test(text));
 }
 
-const AGGREGATE_PATTERNS: RegExp[] = [
-  /сколько раз/i,
-  /как часто/i,
-  new RegExp(`${LB}(статистик|динамик|тенденц|закономерн|паттерн|чаще всего)`, 'i'),
-  new RegExp(`(вс[ею]|каждую|всю базу|целиком|полностью).{0,30}${LB}(замет|запис)`, 'i'),
-  new RegExp(`${LB}(замет|запис).{0,30}(вс[ею]|каждую|всю базу|целиком|полностью)`, 'i'),
-];
-
-export function looksLikeAggregateQuery(text: string): boolean {
-  return AGGREGATE_PATTERNS.some(re => re.test(text));
-}
-
 /**
  * Whether to run the full-archive search for this turn.
  *

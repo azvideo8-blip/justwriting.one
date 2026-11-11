@@ -3,11 +3,7 @@ import 'fake-indexeddb/auto';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { AITimelineService } from '../AITimelineService';
 import { NoteAnalysisService } from '../NoteAnalysisService';
-import { AIThemeLedgerService } from '../AIThemeLedgerService';
-import { AIThreadService } from '../AIThreadService';
-import { AIMemoryAssembler } from '../AIMemoryAssembler';
 import { buildTemporalBlocks } from '../chatContext/temporalBlocks';
-import { buildAggregateThemeBlock } from '../chatContext/aggregateStats';
 import { AISummaryService } from '../AISummaryService';
 import { AIEmbeddingService } from '../AIEmbeddingService';
 import { AIProfileFacetService } from '../AIProfileFacetService';
@@ -151,34 +147,8 @@ describe('R7Q-019/R7F-010: производные скрытой или корз
     expect(res.appended).not.toContain(FACT_TRASHED);
   });
 
-  it('реестр тем: тема с доказательством из скрытой заметки не отдаётся', async () => {
-    expect((await AIThemeLedgerService.getActive()).map(t => t.theme)).toEqual([THEME_OK]);
-  });
 
-  it('блок точной статистики: дословной фразы скрытой заметки нет', async () => {
-    const block = await buildAggregateThemeBlock({
-      effectiveQuery: 'сколько раз я писал про работу',
-      queryEmb: [1, 0],
-      uid: 'u_r7q019',
-      onDailyLimitError: () => {},
-    });
-    expect(block).not.toBeNull();
-    expect(block).toContain(SENTENCE_OK);
-    expect(block).not.toContain(SENTENCE_HIDDEN);
-    expect(block).not.toContain(THEME_HIDDEN);
-  });
 
-  it('сборщик памяти: «Дословная цитата» не из скрытой заметки', async () => {
-    const text = await AIMemoryAssembler.assembleMemoryContext();
-    expect(text).toContain('Дословная цитата');
-    expect(text).toContain(SENTENCE_OK);
-    expect(text).not.toContain(SENTENCE_HIDDEN);
-    expect(text).not.toContain(THEME_HIDDEN);
-  });
-
-  it('сюжетные линии: линия со скрытой заметкой не отдаётся', async () => {
-    expect((await AIThreadService.getRelevant([1, 0], 3)).map(t => t.id)).toEqual(['th_ok']);
-  });
 
   it('облачный вектор скрытой заметки не принимается, если текст уже не совпадает', async () => {
     const db = await getLocalDb();

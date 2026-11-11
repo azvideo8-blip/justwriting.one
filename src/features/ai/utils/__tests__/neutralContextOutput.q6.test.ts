@@ -70,7 +70,7 @@ describe('Q-6: собранный контекст не говорит о чел
       status: 'open', createdAt: now,
     } as never);
 
-    const block = await buildProactiveBlock({ personaId: 'coach', turnEmb: undefined });
+    const block = await buildProactiveBlock({ personaId: 'coach' });
 
     expect(block, 'проактивный блок пуст — стенд ничего не собирает').toContain('[Недавние записи]');
     expect(block).toContain('[Открытые планы / обязательства]');

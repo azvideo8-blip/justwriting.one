@@ -33,11 +33,4 @@ describe('AP2-5: динамика настроения считает тольк
     expect(trend.map(t => t.month)).not.toContain('2026-09');
   });
 
-  it('getAffectTrend не берёт чувства скрытой заметки', async () => {
-    const trend = await AITimelineService.getAffectTrend(30);
-    expect(trend).toHaveLength(1);
-    expect(trend[0]).toEqual({ date: '2026-08-15', valence: 0.5, arousal: 0.4 });
-    expect(JSON.stringify(trend)).not.toContain(marker);
-    expect(trend.some(e => e.valence < 0)).toBe(false);
-  });
 });

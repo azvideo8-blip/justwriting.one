@@ -7,10 +7,8 @@ import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { ActivityLogBadge } from '../../../app/ActivityLogBadge';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
 import { ProfilePage } from '../../../app/pages/ProfilePage';
-import { BeliefsDiagnostics } from '../components/BeliefsDiagnostics';
 import { EmbeddingDiagnostics } from '../components/EmbeddingDiagnostics';
 import { FacetDiagnostics } from '../components/FacetDiagnostics';
-import { MemoryAssemblerDiagnostics } from '../components/MemoryAssemblerDiagnostics';
 import { QueueExplorer } from '../components/QueueExplorer';
 import { SyncDiagnostics } from '../components/SyncDiagnostics';
 
@@ -78,35 +76,6 @@ vi.mock('../../../features/profile/hooks/useProfileStats', () => ({
   }),
 }));
 
-vi.mock('../services/AIConsolidationService', () => ({
-  AIConsolidationService: {
-    getAllBeliefs: vi.fn().mockResolvedValue([
-      {
-        id: 'b1',
-        belief: 'Writing brings clarity to thoughts',
-        judgeVerdict: 'PASSED',
-        judgeReason: 'Consistent reflection',
-        firstSeenAt: '2026-09-01',
-        evidence: [{ id: 'e1', date: '2026-09-01', snippet: 'Clarity emerges when writing' }],
-      },
-    ]),
-    getAllRejections: vi.fn().mockResolvedValue([
-      {
-        id: 'r1',
-        rejectedTextSnippet: 'Distorted thought snippet',
-        reason: 'Contradicts earlier facts',
-        timestamp: Date.now(),
-        clusterSize: 3,
-        firstSeenAt: '2026-08-01',
-        unitIds: ['u1'],
-        kind: 'judge_rejected',
-        rewriteAttempted: true,
-      },
-    ]),
-    clearRejections: vi.fn().mockResolvedValue(undefined),
-  },
-}));
-
 vi.mock('../utils/embeddingIndexer', () => ({
   getIndexCoverage: vi.fn().mockResolvedValue({
     totalDocs: 10,
@@ -125,47 +94,6 @@ vi.mock('../services/AIEmbeddingService', () => ({
   AIEmbeddingService: {
     getAll: vi.fn().mockResolvedValue([]),
     syncPendingToCloud: vi.fn().mockResolvedValue({ synced: 1, locked: false }),
-  },
-}));
-
-vi.mock('../services/injectionJournal', () => ({
-  InjectionJournal: {
-    getStats: () => ({
-      totalTurns: 105,
-      medianOverlap: 0.85,
-      mandatoryDropsCount: 0,
-      p90BudgetUsage: 1200,
-      maxBudget: 2000,
-      wouldHaveDroppedByCategory: { 'fact': 2 },
-    }),
-    getEntries: () => [
-      {
-        id: 'j1',
-        timestamp: Date.now(),
-        candidates: ['c1', 'c2'],
-        shadowComparison: {
-          overlapRatio: 0.9,
-          wouldHaveDropped: ['c1'],
-        },
-      },
-    ],
-    loadEntriesFromDb: vi.fn().mockResolvedValue(undefined),
-    clearJournal: vi.fn(),
-  },
-}));
-
-vi.mock('../services/memoryFlags', () => ({
-  MemoryFlagsService: {
-    getFlags: () => ({
-      ff_memory_assembler_shadow: true,
-      ff_memory_assembler_chat_memory: true,
-      ff_memory_assembler_retrieval: true,
-      ff_memory_assembler_turn1: true,
-      ff_memory_assembler_portrait: true,
-      ff_memory_assembler_beliefs: true,
-    }),
-    setFlag: vi.fn(),
-    resetFlags: vi.fn(),
   },
 }));
 
@@ -279,10 +207,6 @@ describe('T-1 (d) Diagnostics components English localization (no Cyrillic chara
     checkNoCyrillicInNode(container);
   });
 
-  it('BeliefsDiagnostics has no Cyrillic in English', async () => {
-    const { container } = renderInLanguage(<BeliefsDiagnostics />, 'en');
-    checkNoCyrillicInNode(container);
-  });
 
   it('EmbeddingDiagnostics has no Cyrillic in English', async () => {
     const { container } = renderInLanguage(<EmbeddingDiagnostics />, 'en');
@@ -294,10 +218,6 @@ describe('T-1 (d) Diagnostics components English localization (no Cyrillic chara
     checkNoCyrillicInNode(container);
   });
 
-  it('MemoryAssemblerDiagnostics has no Cyrillic in English', () => {
-    const { container } = renderInLanguage(<MemoryAssemblerDiagnostics />, 'en');
-    checkNoCyrillicInNode(container);
-  });
 
   it('QueueExplorer has no Cyrillic in English', () => {
     const { container } = renderInLanguage(<QueueExplorer userId="u123" />, 'en');

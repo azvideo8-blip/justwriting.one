@@ -341,9 +341,7 @@ export const aiTranslations: Translations = {
   ai_refresh_step_facets: { ru: 'Грани профиля', en: 'Profile facets' },
   ai_refresh_step_judge: { ru: 'Проверка граней', en: 'Facet verification' },
   ai_refresh_step_portrait: { ru: 'Портрет', en: 'Portrait' },
-  ai_refresh_step_themes: { ru: 'Реестр тем', en: 'Topic registry' },
   ai_refresh_step_digests: { ru: 'Месячные обзоры', en: 'Monthly digests' },
-  ai_refresh_step_consolidation: { ru: 'Убеждения', en: 'Beliefs' },
   ai_refresh_estimating: { ru: 'Считаю объём…', en: 'Estimating…' },
   ai_refresh_btn: { ru: 'Обновить профиль', en: 'Refresh profile' },
   ai_refresh_empty: {

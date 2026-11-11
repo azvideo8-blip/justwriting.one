@@ -11,12 +11,11 @@ import { dialogueCitesHidden } from '../../utils/dialogueFacetVisibility';
 
 interface BuildProactiveBlockParams {
   personaId: string;
-  turnEmb: number[] | undefined;
 }
 
 // «Недавние записи» + память о прошлых сессиях. Инжектится один раз за
 // сессию — флаг recentContextInjectedRef остаётся в хуке.
-export async function buildProactiveBlock({ personaId, turnEmb }: BuildProactiveBlockParams): Promise<string> {
+export async function buildProactiveBlock({ personaId }: BuildProactiveBlockParams): Promise<string> {
   let proactiveBlock = '';
   const shownIds = new Set<string>();
 
@@ -163,24 +162,39 @@ export async function buildProactiveBlock({ personaId, turnEmb }: BuildProactive
     const { AICommitmentService } = await import('../AICommitmentService');
     const openCommitments = await AICommitmentService.getOpenCommitments();
     if (openCommitments.length > 0) {
-      // DLG-Q5 (Fable T-9): дата извлечения вместо даты заметки — на стенде
-      // все 25 планов выглядели «сегодня», а без id заметки модель сочиняла ссылки
-      // вида [#планирует-…]. Ссылка [#id · дата] — тот же формат, что у шапок заметок,
-      // включая запись даты (R-7): здесь она лежит как «2026-09-20», а в шапках —
-      // «20260920».
-      const commitmentsLines = openCommitments.map(c => `- «${c.text}» [#${c.documentId} · ${c.date.replace(/-/g, '')}]`).join('\n');
-      const commitmentsBlock = `[Открытые планы / обязательства]\n${commitmentsLines}`;
-      proactiveBlock = proactiveBlock ? `${proactiveBlock}\n\n${commitmentsBlock}` : commitmentsBlock;
-    }
-
-    // Narrative threads
-    if (turnEmb) {
-      const { AIThreadService } = await import('../AIThreadService');
-      const relevantThreads = await AIThreadService.getRelevant(turnEmb, 2);
-      if (relevantThreads.length > 0) {
-        const threadLines = relevantThreads.map(t => `- [Сюжетная линия, активность ${t.ageDays} дней назад]: ${t.summary}`).join('\n');
-        const threadBlock = `[Связанные сюжетные линии]\n${threadLines}`;
-        proactiveBlock = proactiveBlock ? `${proactiveBlock}\n\n${threadBlock}` : threadBlock;
+      // MB-3: «Разобрать архив» открывает планы всего архива разом (закрытие
+      // ищется по заметкам позже момента извлечения, а он у всех один) —
+      // без потолка блок раздувал первый ход до десятков тысяч знаков.
+      // Не больше 15 планов из заметок не старше 60 дней, свежие первыми.
+      const DAY_MS = 24 * 60 * 60 * 1000;
+      const d = new Date();
+      const todayMs = Date.parse(
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+      );
+      const planTime = (date: string): number => {
+        const m = /^(\d{4})-?(\d{2})-?(\d{2})$/.exec(date.trim());
+        return m ? Date.parse(`${m[1]}-${m[2]}-${m[3]}`) : NaN;
+      };
+      const fresh = openCommitments
+        .filter(c => {
+          const t = planTime(c.date);
+          return Number.isFinite(t) && todayMs - t <= 60 * DAY_MS;
+        })
+        .sort((a, b) => planTime(b.date) - planTime(a.date) || b.createdAt - a.createdAt);
+      const shown = fresh.slice(0, 15);
+      if (shown.length > 0) {
+        // DLG-Q5 (Fable T-9): дата извлечения вместо даты заметки — на стенде
+        // все 25 планов выглядели «сегодня», а без id заметки модель сочиняла ссылки
+        // вида [#планирует-…]. Ссылка [#id · дата] — тот же формат, что у шапок заметок,
+        // включая запись даты (R-7): здесь она лежит как «2026-09-20», а в шапках —
+        // «20260920».
+        const commitmentsLines = shown.map(c => `- «${c.text}» [#${c.documentId} · ${c.date.replace(/-/g, '')}]`).join('\n');
+        const notShown = openCommitments.length - shown.length;
+        const header = notShown > 0
+          ? `[Открытые планы / обязательства] (не показано: ${notShown})`
+          : '[Открытые планы / обязательства]';
+        const commitmentsBlock = `${header}\n${commitmentsLines}`;
+        proactiveBlock = proactiveBlock ? `${proactiveBlock}\n\n${commitmentsBlock}` : commitmentsBlock;
       }
     }
   } catch (e) {

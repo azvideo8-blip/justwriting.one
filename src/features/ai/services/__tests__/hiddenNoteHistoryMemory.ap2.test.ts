@@ -134,7 +134,7 @@ describe('AP-2: цитаты скрытой заметки не идут из и
       personaName: 'Коуч', summary: `СОБЫТИЕ-${VISIBLE_MARKER}`,
     });
 
-    const block = await buildProactiveBlock({ personaId: 'coach', turnEmb: undefined });
+    const block = await buildProactiveBlock({ personaId: 'coach' });
 
     expect(block).not.toContain(MARKER);
     expect(block).toContain(VISIBLE_MARKER);

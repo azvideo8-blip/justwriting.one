@@ -17,6 +17,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.10',
+    date: '2026-11-11',
+    items: [
+      { category: 'improvement', ru: 'На вопросы о своих записях — «когда я впервые…», «как менялось…», «что я решила…», «что я писала про…» — ИИ теперь получает подборку записей по датам с дословными отрывками и отвечает точнее.', en: 'Questions about your own notes — «when did I first…», «how did it change…», «what did I decide…», «what did I write about…» — now get a dated selection of entries with verbatim excerpts, so the AI answers more accurately.' },
+      { category: 'fix', ru: '«Обновить профиль» снова пересобирает портрет в «Обо мне».', en: '«Refresh profile» rebuilds the portrait in «About me» again.' },
+      { category: 'improvement', ru: 'В начале диалога ИИ видит только свежие планы — до 15 из заметок за последние два месяца, а не все планы за год.', en: 'At the start of a chat the AI sees only recent plans — up to 15 from the last two months, not every plan from the past year.' },
+      { category: 'fix', ru: 'Разбор заметок больше не пропускает заметки, на которых модель отвечала в неожиданном виде.', en: 'Note analysis no longer skips notes where the model replied in an unexpected format.' },
+      { category: 'improvement', ru: 'Убраны устаревшие слои памяти ИИ («убеждения», «реестр тем»): на ответы они почти не влияли. «Обновить профиль» стал быстрее и точнее показывает расход дневного лимита.', en: 'Outdated AI memory layers («beliefs», «topic registry») were removed: they barely affected answers. «Refresh profile» is faster and shows the daily limit cost more accurately.' },
+      { category: 'fix', ru: 'Уточнены тексты о поиске по смыслу: векторы считаются на сервере justwriting и сторонним сервисам не передаются.', en: 'Semantic search texts were clarified: vectors are computed on the justwriting server and are not passed to third-party services.' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.11.9',
     date: '2026-11-14',
     announce: false,

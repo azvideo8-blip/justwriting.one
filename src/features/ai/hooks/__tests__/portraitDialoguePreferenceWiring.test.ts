@@ -3,7 +3,6 @@ import { renderHook } from "@testing-library/react";
 import "fake-indexeddb/auto";
 import { useAIChatContext } from "../../services/aiChatContext";
 import { AIProfileService } from "../../services/AIProfileService";
-import { AIMemoryAssembler } from "../../services/AIMemoryAssembler";
 import {
   setSendPortraitInDialogue,
   usePortraitDialoguePreferenceStore,
@@ -20,16 +19,14 @@ const PORTRAIT_TEXT = "Пишет по вечерам, часто о работ�
 
 // Backlog "de-personalised portrait", shape 1 (docs/backlog-ideas-2026-09-11.md):
 // the switch must keep the portrait out of BOTH the reply the caller reads
-// (ctx.userPortrait) AND AIMemoryAssembler's own copy — gating only the first
-// would leave it riding into the prompt through the memory budget's 600-char
-// floor for the 'portrait' category (AIMemoryAssembler.ts:88-92).
+// (ctx.userPortrait) AND the memory context (AIMemoryAssembler used to carry its
+// own copy; it is gone since MB-10, the check stays).
 describe("portrait-in-dialogue preference wiring", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     localStorage.clear();
     usePortraitDialoguePreferenceStore.setState({ values: {} });
     vi.spyOn(AIProfileService, "getPortrait").mockResolvedValue(PORTRAIT_TEXT);
-    vi.spyOn(AIMemoryAssembler, "assembleMemoryContext").mockResolvedValue(null);
   });
 
   it("sends the portrait when the preference is on (the default)", async () => {
@@ -44,9 +41,6 @@ describe("portrait-in-dialogue preference wiring", () => {
     });
 
     expect(ctx.userPortrait).toBe(PORTRAIT_TEXT);
-    expect(AIMemoryAssembler.assembleMemoryContext).toHaveBeenCalledWith(
-      expect.objectContaining({ userPortrait: PORTRAIT_TEXT })
-    );
   });
 
   it("keeps the portrait out of the reply and the memory assembler when the preference is off", async () => {
@@ -63,9 +57,7 @@ describe("portrait-in-dialogue preference wiring", () => {
     });
 
     expect(ctx.userPortrait).toBeFalsy();
-    expect(AIMemoryAssembler.assembleMemoryContext).toHaveBeenCalledWith(
-      expect.objectContaining({ userPortrait: null })
-    );
+    expect(ctx.memoryContext ?? '').not.toContain(PORTRAIT_TEXT);
   });
 
   it("PROMPT-3: never sends portrait to editor persona even when preference is on", async () => {

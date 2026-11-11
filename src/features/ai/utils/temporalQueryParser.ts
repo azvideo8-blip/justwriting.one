@@ -55,6 +55,60 @@ function yearFor(m: number, d: number, today: Date): number {
   return candidate - todayStart > PREV_YEAR_WINDOW_DAYS * DAY_MS ? y - 1 : y;
 }
 
+const SEASON_START: Record<string, number> = { весн: 3, лет: 6, осен: 9, зим: 12 };
+// «лет[оа]», не «лету»: «с лету» — оборот, а не период (ревью 0.11.10).
+const SEASON_WORD = '(весн[аыуе]|лет[оа]|осен[ьи]|зим[аыуе])';
+
+/** Первый день месяца или времени года: названный год, иначе — последний уже начавшийся. */
+function periodStart(word: string, year: string | undefined, now: Date): Date | undefined {
+  const seasonKey = Object.keys(SEASON_START).find(k => word.startsWith(k));
+  const m = seasonKey ? SEASON_START[seasonKey] : monthNumberOf(word);
+  if (!m) return undefined;
+  const y = year ? parseInt(year, 10) : (new Date(now.getFullYear(), m - 1, 1) <= now ? now.getFullYear() : now.getFullYear() - 1);
+  return new Date(y, m - 1, 1);
+}
+
+/** Сколько месяцев длится названное: месяц — 1, время года — 3. */
+function periodMonths(word: string): number {
+  return Object.keys(SEASON_START).some(k => word.startsWith(k)) ? 3 : 1;
+}
+
+export function parseOpenRange(lowerText: string, now: Date): { from: string; to: string } | null {
+  const LB = '(?:^|[^а-яёa-z0-9])';
+  const RB = '(?![а-яёa-z0-9])';
+  const unit = `(?:${DATE_MONTH_STEM}|${SEASON_WORD})`;
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const clip = (d: Date) => localDayKey(d > today ? today : d);
+  // с <месяц|сезон> [год] [до|по <месяц|сезон> [год]]
+  const since = lowerText.match(new RegExp(`${LB}с\\s+${unit}(?:\\s+(\\d{4}))?(?:\\s+(?:до|по)\\s+${unit}(?:\\s+(\\d{4}))?)?${RB}`, 'i'));
+  if (since) {
+    const startWord = since[1] ?? since[2];
+    const start = startWord ? periodStart(startWord, since[3], now) : undefined;
+    if (start && start <= today) {
+      const endWord = since[4] ?? since[5];
+      if (!endWord) return { from: localDayKey(start), to: localDayKey(today) };
+      // Конец — первое такое время после начала: «с ноября до марта» переходит через год.
+      let from = start;
+      let end = periodStart(endWord, since[6] ?? String(start.getFullYear()), now);
+      if (end && end < start && !since[6]) end = new Date(end.getFullYear() + 1, end.getMonth(), 1);
+      // Ревью 0.11.10 (Qoder): конец ещё не наступил и годы не названы — речь о прошлом
+      // таком периоде. «с ноября до марта» 11 ноября — это прошлая зима, а не 11 дней.
+      if (end && end > today && !since[3] && !since[6]) {
+        from = new Date(start.getFullYear() - 1, start.getMonth(), 1);
+        end = new Date(end.getFullYear() - 1, end.getMonth(), 1);
+      }
+      if (end) return { from: localDayKey(from), to: clip(new Date(end.getFullYear(), end.getMonth() + periodMonths(endWord), 0)) };
+    }
+  }
+  // за [эту|прошлую|всю] осень
+  const season = lowerText.match(new RegExp(`${LB}за\\s+(?:(?:эт[уо]|прошл(?:ую|ое)|вс[юеё])\\s+)?(весну|лето|осень|зиму)${RB}`, 'i'));
+  if (season) {
+    const start = periodStart(season[1]!, undefined, now);
+    if (start) return { from: localDayKey(start), to: clip(new Date(start.getFullYear(), start.getMonth() + 3, 0)) };
+  }
+  return null;
+}
+
 /** PR-4: «за две недели», «за 14 дней», «за последнюю неделю» — от сегодня.
  *  Ревью 0.10.12: слово целиком («за деньги» — не срок) и не «за неделю до …»
  *  (это точка в прошлом, а не последние дни). */
@@ -156,6 +210,11 @@ export function parseTemporalQuery(text: string): TemporalQuery {
   // октября» отдавало весь октябрь, а «10 октября» — тоже весь месяц.
   const range = parseMonthRange(lowerText, now) ?? parseNumericRange(lowerText, now);
   if (range) return { type: 'dateRange', ...range, rawText };
+  // «с июня», «с лета до октября», «за осень»: открытый период и времена года.
+  // Раньше «как с июня менялось…» срезалось до одного июня, а «с лета до
+  // октября» — до одного октября (стенд ai-memory-base-fable-2026-11, Q19/Q20).
+  const open = parseOpenRange(lowerText, now);
+  if (open) return { type: 'dateRange', ...open, rawText };
   const single = parseSingleDate(lowerText, now);
   if (single) return { ...single, rawText };
   const span = parseRelativeSpan(lowerText, now);

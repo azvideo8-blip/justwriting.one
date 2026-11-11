@@ -43,7 +43,6 @@ vi.mock('../../../../core/data', () => ({ DataProvider: { deleteSummary: vi.fn()
 vi.mock('../AIService', () => ({ AIService: { summarize } }));
 vi.mock('../AISummaryService', () => ({ AISummaryService: { save: saveSummary, delete: vi.fn() } }));
 vi.mock('../AIEmbeddingService', () => ({ AIEmbeddingService: { delete: vi.fn() } }));
-vi.mock('../AIThemeLedgerService', () => ({ enqueuePendingThemeTouch: vi.fn() }));
 const indexPending = vi.fn(async () => ({ ok: 0, skipped: 0, failed: 0, stopped: null }));
 vi.mock('../../utils/embeddingIndexer', () => ({
   indexDocument,

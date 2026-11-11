@@ -17,8 +17,6 @@ import { detectPersonMentions, buildPersonQuotesBlock, personQuoteIds, type Pers
 import { isSmallTalkTurn, PSYCHE_PERSONAS } from '../utils/smallTalk';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { AIChatMemoryService } from './AIChatMemoryService';
-import { AIMemoryAssembler, extractDocumentIdsFromText } from './AIMemoryAssembler';
-import { MemoryFlagsService } from './memoryFlags';
 import { setAIStage } from '../store/useAIStageStore';
 import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
@@ -28,11 +26,14 @@ import { reportAIDegradation, isDailyLimitError } from '../utils/aiDegradationRe
 import type { ChatContextResult, BuildContextParams } from './chatContext/types';
 import { getCorpusStats, formatDateYYYYMMDD, getDocDate } from './chatContext/corpusStats';
 import { extractCitationIds, validateCitationIds, extractContextTitles } from './chatContext/citations';
+import { AILexiconService } from './AILexiconService';
 import { createEmbedOnce } from './chatContext/embeddings';
 import { buildProactiveBlock } from './chatContext/proactive';
 import { buildTemporalBlocks } from './chatContext/temporalBlocks';
-import { buildAggregateThemeBlock } from './chatContext/aggregateStats';
 import { buildLiteRetrievalBlock } from './chatContext/liteRetrieval';
+import { buildTopicChronicleBlock } from './chatContext/topicChronicle';
+import { answerChronicleV2Enabled } from '../../../core/sync/syncFlags';
+import { ARCHIVE_TURN_MARK } from '../../../shared/ai/archiveAnswerRule';
 import { buildRelatedDaysBlock } from './chatContext/relatedDays';
 import { AI_WRITTEN_LINE, ATTACHED_BLOCK_SEP, formatRefTag, type AttachedNoteBlock } from '../utils/attachedNoteFormat';
 import { markAiWritten } from '../utils/aiAuthorship';
@@ -321,6 +322,7 @@ export function useAIChatContext(personaId: string): {
     let degradedDueToDailyLimit = false;
 
     let turnEmb: number[] | undefined;
+    let chronicleDatesOut: string[] = [];
     const uid = getCurrentUser()?.uid;
     // X-1: светский ход («привет», «спасибо», «как дела») не тянет за собой
     // архив — ни векторизации реплики, ни лайт-поиска, ни проактивного блока.
@@ -418,9 +420,8 @@ export function useAIChatContext(personaId: string): {
     const [rawPortrait, customPersonaObj] = await Promise.all([portraitPromise, personaPromise]);
     // Backlog idea "de-personalised portrait" (docs/backlog-ideas-2026-09-11.md),
     // shape 1: gated here, the single point everything downstream reads the
-    // portrait from — both AIMemoryAssembler.assembleMemoryContext below (whose
-    // 'comp-portrait' item has a 600-char floor, so a raw value would survive
-    // even a tight budget) and effectivePortrait further down. Gating only at
+    // portrait from — effectivePortrait further down (the memory assembler that
+    // also carried a copy is gone since MB-10). Gating only at
     // useAIChat's attach site, as the backlog note first sketched, would leave
     // the portrait riding into memoryContext regardless.
     const userPortrait = (getSendPortraitInDialogue(uid) && personaId !== 'editor') ? rawPortrait : null;
@@ -843,16 +844,6 @@ export function useAIChatContext(personaId: string): {
         searchContext = (searchContext ?? '') + temporal.appended;
       }
 
-      const aggregateBlock = await buildAggregateThemeBlock({
-        effectiveQuery,
-        queryEmb,
-        uid,
-        onDailyLimitError: () => { degradedDueToDailyLimit = true; },
-      });
-      if (aggregateBlock) {
-        searchContext = (searchContext ?? '') + aggregateBlock;
-      }
-
       if (explicitSearch || stickySearch) {
         const candidateNames = [...new Set([
           ...effectiveQuery.match(/[А-ЯЁ][а-яё]{2,}/g) ?? [],
@@ -1113,7 +1104,33 @@ export function useAIChatContext(personaId: string): {
 
       // Lite retrieval if no full search was performed
       const performedFullSearch = explicitSearch || stickySearch;
-      if (!attached && !performedFullSearch && !noteIntentNoText && !smallTalk) {
+      // Хроника по вопросу: вопрос о прошлом получает больше заметок, чем три куска
+      // лёгкого поиска, и ленту записей по датам. Вызовов модели нет — только
+      // вектор реплики и векторы заметок. В кризис архив не поднимаем.
+      let chronicleDates: string[] = [];
+      let chronicleBuilt = false;
+      if (!attached && !noteIntentNoText && !smallTalk && !crisis) {
+        const chronicle = await buildTopicChronicleBlock({
+          text,
+          turnEmb,
+          db,
+          minTime,
+          maxTime,
+          performedFullSearch,
+          injectedDocumentIds,
+          // X-5: индекс векторов, уже поднятый поиском этого хода, второй раз не читается.
+          allEmbeddings,
+          nameRegexes: detectPersonMentions(text, { selfName: getCurrentUser()?.displayName ?? undefined }).map(p => p.pattern),
+          v2Enabled: () => answerChronicleV2Enabled(uid),
+        });
+        if (chronicle) {
+          chronicleBuilt = true;
+          chronicleDates = chronicle.dates;
+          searchContext = searchContext ? `${searchContext}\n\n${chronicle.block}` : chronicle.block;
+        }
+      }
+      chronicleDatesOut = chronicleDates;
+      if (!attached && !performedFullSearch && !noteIntentNoText && !smallTalk && !chronicleBuilt) {
         const liteBlock = await buildLiteRetrievalBlock({
           turnEmb,
           db,
@@ -1294,7 +1311,7 @@ export function useAIChatContext(personaId: string): {
     // 3. Proactive recent context and dialogue memory
     const shouldInjectProactive = (isFirstTurn || onlySmallTalkBefore) && !explicitSearch && !smallTalk && !recentContextInjectedRef.current;
     if (shouldInjectProactive) {
-      const proactiveBlock = await buildProactiveBlock({ personaId, turnEmb });
+      const proactiveBlock = await buildProactiveBlock({ personaId });
       if (proactiveBlock) {
         searchContext = searchContext ? `${proactiveBlock}\n\n${searchContext}` : proactiveBlock;
         recentContextInjectedRef.current = true;
@@ -1304,33 +1321,23 @@ export function useAIChatContext(personaId: string): {
     let memoryContext: string | null = null;
     try {
       setAIStage('memory');
-      memoryContext = await AIMemoryAssembler.assembleMemoryContext({
-        query: text,
-        attachedDocumentId: isAttachedExcluded ? null : (subjectId ?? null),
-        attachedContent: isAttachedExcluded || !attached ? null : attachedContent,
-        userPortrait,
-        proactiveBlock: searchContext,
-        dialogueId: params.dialogueId ?? null,
-      });
+      // MB-10: от сборщика памяти W2 в ход доходила одна строка — «свои слова»
+      // (он работал в теневом режиме, «впервые» и цитата ушли с реестром тем).
+      // Текст строки тот же, что в 0.11.8.
+      const voiceMap = await AILexiconService.getVoiceMap();
+      if (voiceMap && voiceMap.formattedPromptSnippet && voiceMap.terms.length > 0) {
+        memoryContext = `Пользователь часто использует свои слова: ${voiceMap.formattedPromptSnippet}`;
+      }
     } catch {
-      /* ignore assembler errors */
+      /* «свои слова» необязательны: без них ход идёт как есть */
     }
 
-    const currentFlags = MemoryFlagsService.getFlags();
-    const effectivePortrait = (!currentFlags.ff_memory_assembler_shadow && currentFlags.ff_memory_assembler_portrait)
-      ? null
-      : (userPortrait ?? null);
-    const effectiveSearchContext = (!currentFlags.ff_memory_assembler_shadow && currentFlags.ff_memory_assembler_turn1)
-      ? undefined
-      : (searchContext ?? undefined);
+    const effectivePortrait = userPortrait ?? null;
+    const effectiveSearchContext = searchContext ?? undefined;
 
-    const allowedFirstSeenDates = [
-      ...extractFirstSeenDates(memoryContext),
-      ...extractFirstSeenDates(searchContext),
-    ];
 
-    const memoryDocIds = extractDocumentIdsFromText(memoryContext);
-    const searchDocIds = extractDocumentIdsFromText(searchContext);
+    const memoryDocIds = [...new Set(extractCitationIds(memoryContext ?? ''))];
+    const searchDocIds = [...new Set(extractCitationIds(searchContext ?? ''))];
     // AUDIT-M3: id'шники, вытащенные из ТЕКСТА (заметка может содержать
     // произвольные [#...] маркеры), валидируются по корпусу — исключённые из AI
     // и несуществующие документы не попадают в allowlist цитат.
@@ -1342,6 +1349,25 @@ export function useAIChatContext(personaId: string): {
     const allInjectedDocIds = [
       ...injectedDocumentIds,
       ...validatedDocIds,
+    ];
+    // answer_chronicle_v2: правило хода велит называть дату каждой записи. Дата из
+    // шапки показанной заметки (полный поиск, полные куски) законна так же, как
+    // дата из ленты; без этого страж вырезал верную дату записи из фразы со словом
+    // «впервые» (стенд: 1 ход из 156). Только у id, прошедших сверку с корпусом.
+    const headerDates: string[] = [];
+    if (searchContext?.includes(ARCHIVE_TURN_MARK)) {
+      const shownIds = new Set(allInjectedDocIds);
+      for (const m of searchContext.matchAll(/\[#([a-zA-Z0-9_.-]+) · (\d{4}-\d{2}-\d{2})\]/g)) {
+        if (m[1] && m[2] && shownIds.has(m[1])) headerDates.push(m[2]);
+      }
+    }
+    const allowedFirstSeenDates = [
+      ...extractFirstSeenDates(memoryContext),
+      ...extractFirstSeenDates(searchContext),
+      // Дата записи из хроники — законный ответ на «когда впервые»: это дата
+      // настоящей заметки хода, а не вывод модели.
+      ...chronicleDatesOut,
+      ...headerDates,
     ];
     // DLG-Q8: названия, которые модель реально видела в этом ходе, — по ним
     // sanitizeCitations отличает законную ссылку на заметку от выдуманной.

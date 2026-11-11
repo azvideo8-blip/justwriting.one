@@ -20,7 +20,6 @@ const EXCERPT_CHARS = 2_000;
 const MERGE_THRESHOLD = 0.80;
 const MAX_DISCOVERED = 6;
 const DOMAIN_THRESHOLD = 0.45;
-const PRIMARY_THRESHOLD = 0.55;
 
 export interface FacetBuildProgress { done: number; total: number }
 export type FacetBuildResult =
@@ -361,7 +360,6 @@ export const AIProfileFacetBuilder = {
         });
       }
 
-
       const newFacets = facets;
       const newIds = new Set(newFacets.map(f => f.id));
       const tx = facetStore.transaction();
@@ -381,70 +379,4 @@ export const AIProfileFacetBuilder = {
     });
   },
 
-  async incrementalUpdate(noteId: string): Promise<{ updated: number }> {
-    return writeFacetStore(async (facetStore) => {
-      const db = await getLocalDb();
-      const facets = await db.getAll('aiProfileFacets');
-      if (facets.length === 0) return { updated: 0 };
-
-      if (!(await loadVisibleNoteKeys()).has(noteId)) return { updated: 0 };
-      const emb = await AIEmbeddingService.get(noteId);
-      if (!emb || !emb.vectors?.length) return { updated: 0 };
-
-      const chunks: { vector: number[]; text: string }[] = [];
-      for (let i = 0; i < emb.vectors.length; i++) {
-        chunks.push({ vector: emb.vectors[i]!, text: emb.chunkTexts?.[i] ?? '' });
-      }
-
-      const INCREMENT_THRESHOLD = 0.48;
-      const dirty = new Set<string>();
-
-      for (const ch of chunks) {
-        let bestFacet: AIProfileFacet | null = null;
-        let bestSim = INCREMENT_THRESHOLD;
-        for (const f of facets) {
-          const s = cosineSimilarity(ch.vector, f.centroid);
-          if (s >= bestSim) { bestSim = s; bestFacet = f; }
-        }
-        if (bestFacet) {
-          if (!bestFacet.noteIds.includes(noteId)) {
-            bestFacet.noteIds.push(noteId);
-            bestFacet.noteCount = bestFacet.noteIds.length;
-          }
-          if (bestSim >= PRIMARY_THRESHOLD) {
-            if (!bestFacet.primaryNoteIds) bestFacet.primaryNoteIds = [];
-            if (!bestFacet.primaryNoteIds.includes(noteId)) bestFacet.primaryNoteIds.push(noteId);
-          } else {
-            if (!bestFacet.secondaryNoteIds) bestFacet.secondaryNoteIds = [];
-            if (!bestFacet.secondaryNoteIds.includes(noteId)) bestFacet.secondaryNoteIds.push(noteId);
-          }
-          const n = bestFacet.chunkCount ?? bestFacet.noteCount;
-          if (bestFacet.centroid.length > 0 && n > 0) {
-            const w = 1 / (n + 1);
-            const blended = bestFacet.centroid.map((x, idx) => x * (1 - w) + (ch.vector[idx] ?? 0) * w);
-            bestFacet.centroid = normalize(blended);
-          } else {
-            bestFacet.centroid = ch.vector.slice();
-          }
-          bestFacet.chunkCount = (bestFacet.chunkCount ?? n) + 1;
-          bestFacet.dirty = true;
-          dirty.add(bestFacet.id);
-        }
-      }
-
-      const doc = (await db.getAll('documents')).find(d => d.id === noteId);
-      const ts = doc?.lastSessionAt ?? Date.now();
-
-      for (const f of facets) {
-        if (dirty.has(f.id)) {
-          if (ts < f.firstAt || !f.firstAt) f.firstAt = ts;
-          if (ts > f.lastAt) f.lastAt = ts;
-          await facetStore.put(f);
-          LocalStoreSyncService.scheduleStoreSync('aiProfileFacets', f.id);
-        }
-      }
-
-      return { updated: dirty.size };
-    });
-  },
 };

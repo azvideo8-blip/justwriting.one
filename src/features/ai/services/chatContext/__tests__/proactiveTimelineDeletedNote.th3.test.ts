@@ -76,7 +76,7 @@ describe('TH-3: тема удалённой заметки не попадает
   });
 
   it('блок не несёт тему заметки, которой нет на устройстве', async () => {
-    const block = await buildProactiveBlock({ personaId: 'coach', turnEmb: undefined });
+    const block = await buildProactiveBlock({ personaId: 'coach' });
     // Контроль: блок действительно собрался и видимую тему назвал — иначе
     // проверка ниже зеленела бы на пустой строке.
     expect(block).toContain(THEME_OK);

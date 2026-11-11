@@ -503,10 +503,6 @@ export const authScreensTranslations: Translations = {
     ru: 'Грани личности в профиле',
     en: 'Personality facets in profile',
   },
-  indexing_consent_disabled_item_4: {
-    ru: 'Смысловые цепочки заметок (ветки)',
-    en: 'Semantic note chains (threads)',
-  },
   indexing_consent_enabled_title: {
     ru: 'Продолжает работать:',
     en: 'Continues to work:',
@@ -520,8 +516,8 @@ export const authScreensTranslations: Translations = {
     en: 'Manual analysis of individual notes',
   },
   indexing_consent_enabled_item_3: {
-    ru: 'Хронология и журнал тем',
-    en: 'Timeline and theme ledger',
+    ru: 'Хронология',
+    en: 'Timeline',
   },
   indexing_consent_enabled_item_4: {
     ru: 'Обязательства и цели',
@@ -759,8 +755,8 @@ export const authScreensTranslations: Translations = {
     en: 'Personality, dialogues, and life story',
   },
   restore_cloud_opt_profile_desc: {
-    ru: 'Портрет, грани профиля, история чатов, реестр тем и убеждения',
-    en: 'Portrait, profile facets, chat history, theme ledger, and beliefs',
+    ru: 'Портрет, грани профиля и история чатов',
+    en: 'Portrait, profile facets, and chat history',
   },
   restore_cloud_btn_not_now: {
     ru: 'Не сейчас',

@@ -101,7 +101,7 @@ describe('AP-1: скрытая заметка не остаётся в меся�
 
     expect(del).toHaveBeenCalledWith('aiMonthlyDigest', '2026-09');
 
-    const proactive = await buildProactiveBlock({ personaId: 'editor', turnEmb: undefined });
+    const proactive = await buildProactiveBlock({ personaId: 'editor' });
     expect(proactive).not.toContain(MARKER);
 
     const recent = await buildTemporalBlocks({

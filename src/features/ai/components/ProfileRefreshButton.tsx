@@ -64,7 +64,7 @@ export function ProfileRefreshButton() {
       const { failed } = await AIProfileRefreshService.run(p => setRunning(p.step));
       // Счётчик лимита на клиенте догоняет сервер: каждый вызов там уже списан.
       const store = useAiLimitStore.getState();
-      for (let i = 0; i < planned.totalCalls; i++) store.useRequest();
+      for (let i = 0; i < planned.limitCalls; i++) store.useRequest();
       void store.loadLimitFromServer();
 
       if (failed.length === 0) {
@@ -80,7 +80,7 @@ export function ProfileRefreshButton() {
     }
   };
 
-  const notEnough = estimate !== null && estimate.totalCalls > remaining;
+  const notEnough = estimate !== null && estimate.limitCalls > remaining;
   const nothingToDo = estimate !== null && estimate.totalCalls === 0;
 
   return (
@@ -151,7 +151,7 @@ export function ProfileRefreshButton() {
 
               {notEnough && (
                 <p className="text-xs text-accent-danger mb-4">
-                  {t('ai_refresh_not_enough_limit', { needed: String(estimate.totalCalls), remaining: String(remaining) })}
+                  {t('ai_refresh_not_enough_limit', { needed: String(estimate.limitCalls), remaining: String(remaining) })}
                 </p>
               )}
             </>

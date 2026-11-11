@@ -21,8 +21,6 @@ import { QueueExplorer } from '../../features/ai/components/QueueExplorer';
 import { FacetDiagnostics } from '../../features/ai/components/FacetDiagnostics';
 import { ContactDoors } from '../../features/ai/components/ContactDoors';
 import { AuthorPortrait } from '../../features/ai/components/AuthorPortrait';
-import { MemoryAssemblerDiagnostics } from '../../features/ai/components/MemoryAssemblerDiagnostics';
-import { BeliefsDiagnostics } from '../../features/ai/components/BeliefsDiagnostics';
 import { Button } from '../../shared/components/Button';
 import { IconButton } from '../../shared/components/IconButton';
 import { useToast } from '../../shared/components/Toast';
@@ -352,24 +350,6 @@ export function DiagnosticsPage() {
           )}
         >
           {t('admin_tab_ai_profile')}
-        </Button>
-        <Button
-          onClick={() => setActiveTab('memory_assembler')}
-          className={cn(
-            "px-4 py-2 rounded-xl text-xs font-bold transition-[color,background-color,box-shadow] duration-200",
-            activeTab === 'memory_assembler' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
-          )}
-        >
-          {t('admin_tab_memory')}
-        </Button>
-        <Button
-          onClick={() => setActiveTab('beliefs')}
-          className={cn(
-            "px-4 py-2 rounded-xl text-xs font-bold transition-[color,background-color,box-shadow] duration-200",
-            activeTab === 'beliefs' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
-          )}
-        >
-          {t('admin_tab_beliefs')}
         </Button>
         <Button
           onClick={() => setActiveTab('stats')}
@@ -859,16 +839,6 @@ export function DiagnosticsPage() {
               </Button>
             </div>
           </div>
-        )}
-
-        {/* Tab 7: Memory Assembler */}
-        {activeTab === 'memory_assembler' && (
-          <MemoryAssemblerDiagnostics />
-        )}
-
-        {/* Tab 8: Beliefs (MIND W3) */}
-        {activeTab === 'beliefs' && (
-          <BeliefsDiagnostics />
         )}
 
         {/* Tab 7: Stats */}

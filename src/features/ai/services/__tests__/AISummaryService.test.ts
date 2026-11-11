@@ -138,23 +138,6 @@ describe('AISummaryService', () => {
     });
   });
 
-  describe('exportAsMarkdown', () => {
-    it('returns empty string if summary not found', async () => {
-      mockGet.mockResolvedValue(undefined);
-      const md = await AISummaryService.exportAsMarkdown('doc-123', 'My Doc');
-      expect(md).toBe('');
-    });
-
-    it('formats summary correctly to markdown', async () => {
-      mockGet.mockResolvedValue(dummySummary);
-      const md = await AISummaryService.exportAsMarkdown('doc-123', 'My Doc');
-      expect(md).toContain('# Анализ документа: My Doc');
-      expect(md).toContain('**Тональность:** neutral');
-      expect(md).toContain('- insight 1');
-      expect(md).toContain('- fact 1');
-    });
-  });
-
   describe('hasAll', () => {
     it('returns a map of existing summaries', async () => {
       mockGetAll.mockResolvedValue([dummySummary]);
@@ -191,6 +174,18 @@ describe('documentUuid survives the round trip through the cloud', () => {
     );
 
     expect(decoded.documentUuid).toBeUndefined();
+  });
+
+  it('MB-5: старая облачная сводка с echo читается, echo в результат не идёт', async () => {
+    mockMaybeDecrypt.mockImplementation(async (d: Record<string, unknown>) => d);
+
+    const decoded = await decodeCloudSummary(
+      { documentId: 'doc-1', tone: 'calm', processedAt: 1, summary: 'суть', echo: 'старое эхо', insights: ['и'] },
+      'doc-1',
+    );
+
+    expect(decoded).toMatchObject({ documentId: 'doc-1', tone: 'calm', summary: 'суть', insights: ['и'] });
+    expect(decoded).not.toHaveProperty('echo');
   });
 
   it('F-040: decodes missing processedAt as 0 instead of Date.now()', async () => {

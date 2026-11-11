@@ -173,6 +173,11 @@ describe('AccountAISection — «Удалить все данные ИИ» (WT-2
         [...SUPPORTED_LOCAL_STORES]
       );
     });
+    // MB-7/MB-9/MB-5 (N-8): код реестра тем, убеждений, сюжетных линий и «истории
+    // жизни» удалён, но их строки лежат в облаке у живых людей — полное удаление
+    // (152-ФЗ) обязано их чистить, даже если стор уйдёт из синхронизации.
+    const stores = mockDeleteLocalStoreRecordsByStores.mock.calls[0]?.[1] as string[];
+    expect(stores).toEqual(expect.arrayContaining(['aiThemeLedger', 'aiBeliefs', 'aiBeliefRejections', 'aiThreads', 'lifeStory']));
   });
 });
 

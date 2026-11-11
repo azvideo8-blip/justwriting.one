@@ -23,15 +23,12 @@ export interface AISummaryPayload {
   summary?: string;
   tone: string;
   frequentWords: string[];
-  authorPhrases?: string[];
   insights: string[];
-  quotableSentence?: string;
   themes: string[];
   extractedFacts: string[];
   commitments?: string[];
   valence?: number;
   arousal?: number;
-  echo?: string;
   eventDate?: string;
   promptVersion?: number;
 }
@@ -259,20 +256,6 @@ export const AIService = {
     }
   },
 
-  async deriveTaxonomy(params: { digest: string }, opts?: CallAiOptions): Promise<
-    { ok: true; domains: { label: string; seed: string }[] } | { ok: false; error: AIErrorCode }
-  > {
-    try {
-      const res = await withTimeout(callAi<{ domains: { label: string; seed: string }[] }>('deriveTaxonomy', params, opts), 60_000);
-      return { ok: true, domains: res.domains ?? [] };
-    } catch (e) {
-      reportError(e, { action: 'deriveTaxonomy' }, 'warning');
-      // Сырой код Firebase здесь бесполезен: вызывающая сторона сравнивает его с
-      // нормализованными кодами, и сравнение не совпадало никогда.
-      return { ok: false, error: mapAIError(e) };
-    }
-  },
-
   async judgeFacets(params: { facets: { facetId: string; label: string; summary: string; evidence: string }[] }, opts?: CallAiOptions): Promise<
     { ok: true; verdicts: { facetId: string; ok: boolean; issues: string[]; hint: string }[] } | { ok: false; error: AIErrorCode }
   > {
@@ -295,48 +278,6 @@ export const AIService = {
       return { ok: true, memories: data.memories };
     } catch (e: unknown) {
       reportError(e, { action: 'extractChatMemory' }, 'warning');
-      return { ok: false, error: mapAIError(e) };
-    }
-  },
-
-  async summarizeBeliefCluster(params: {
-    evidence: { id: string; date: string; snippet?: string }[];
-    firstSeenAt: string;
-    correctionHint?: string;
-  }, opts?: CallAiOptions): Promise<{ ok: true; belief: string } | { ok: false; error: string }> {
-    try {
-      const data = await withTimeout(callAi<{ belief: string }>('summarizeBeliefCluster', params, opts), 60_000);
-      return { ok: true, belief: data.belief };
-    } catch (e: unknown) {
-      // No chat() fallback here on purpose: this is background consolidation, and
-      // this.chat() without a callType spends the user's INTERACTIVE daily quota
-      // (plus the cooldown). A background pass must never eat the allowance the
-      // user needs to actually talk to the AI — failing soft and retrying on the
-      // next idle pass is the correct degradation.
-      reportError(e, { action: 'summarizeBeliefCluster' }, 'warning');
-      return { ok: false, error: mapAIError(e) };
-    }
-  },
-
-  async judgeBeliefCandidate(params: {
-    belief: string;
-    evidence: { id: string; date: string; snippet?: string }[];
-  }, opts?: CallAiOptions): Promise<{ ok: true; passed: boolean; reason: string; correctiveHint?: string } | { ok: false; error: string }> {
-    try {
-      const data = await withTimeout(callAi<{ passed: boolean; reason: string; correctiveHint?: string }>('judgeBeliefCandidate', params, opts), 60_000);
-      const hint = data.correctiveHint ?? undefined;
-      return {
-        ok: true,
-        passed: data.passed,
-        reason: data.reason,
-        ...(hint ? { correctiveHint: hint } : {}),
-      };
-    } catch (e: unknown) {
-      // No chat() fallback: same reason as summarizeBeliefCluster — a background
-      // judge must not spend the user's interactive chat quota. Failing soft also
-      // keeps the fail-open guarantee intact: no verdict means the belief is not
-      // published and the raw units stay queryable.
-      reportError(e, { action: 'judgeBeliefCandidate' }, 'warning');
       return { ok: false, error: mapAIError(e) };
     }
   },

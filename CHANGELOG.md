@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.11.10 — 2026-11-11
+
+- **[RU]** На вопросы о своих записях — «когда я впервые…», «как менялось…», «что я решила…», «что я писала про…» — ИИ теперь получает подборку записей по датам с дословными отрывками и отвечает точнее.
+- **[EN]** Questions about your own notes — «when did I first…», «how did it change…», «what did I decide…», «what did I write about…» — now get a dated selection of entries with verbatim excerpts, so the AI answers more accurately.
+- **[RU]** «Обновить профиль» снова пересобирает портрет в «Обо мне».
+- **[EN]** «Refresh profile» rebuilds the portrait in «About me» again.
+- **[RU]** В начале диалога ИИ видит только свежие планы — до 15 из заметок за последние два месяца, а не все планы за год.
+- **[EN]** At the start of a chat the AI sees only recent plans — up to 15 from the last two months, not every plan from the past year.
+- **[RU]** Разбор заметок больше не пропускает заметки, на которых модель отвечала в неожиданном виде.
+- **[EN]** Note analysis no longer skips notes where the model replied in an unexpected format.
+- **[RU]** Убраны устаревшие слои памяти ИИ («убеждения», «реестр тем»): на ответы они почти не влияли. «Обновить профиль» стал быстрее и точнее показывает расход дневного лимита.
+- **[EN]** Outdated AI memory layers («beliefs», «topic registry») were removed: they barely affected answers. «Refresh profile» is faster and shows the daily limit cost more accurately.
+- **[RU]** Уточнены тексты о поиске по смыслу: векторы считаются на сервере justwriting и сторонним сервисам не передаются.
+- **[EN]** Semantic search texts were clarified: vectors are computed on the justwriting server and are not passed to third-party services.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.11.9 — 2026-11-14
 
 - **[RU]** Если облако не ответило, черновик ждёт, пока его удастся прочитать, и не затирает облачную копию с другого устройства.

@@ -331,8 +331,8 @@ export const settingsTranslations: Translations = {
     en: 'Disable semantic search (vector indexing)?',
   },
   settings_ai_withdraw_indexing_message: {
-    ru: 'Новые заметки перестанут отправляться для вычисления числовых векторов. Поиск будет работать только по ключевым словам. Ранее созданные индексы останутся на устройстве и на сервере до явного удаления через «Удалить все данные ИИ».',
-    en: 'New notes will no longer be sent for vector calculations. Search will work by keyword only. Previously created indexes will remain on device and on the server until deleted via "Delete all AI data".',
+    ru: 'Векторы заметок больше не будут вычисляться, в том числе при разборе. Поиск будет работать только по ключевым словам. Уже созданные векторы останутся на устройстве и в облаке до удаления через «Удалить все данные ИИ».',
+    en: 'Note vectors will no longer be calculated, including during analysis. Search will work by keyword only. Vectors already created will remain on the device and in the cloud until deleted via "Delete all AI data".',
   },
   settings_ai_clear_data_title: {
     ru: 'Удалить все данные ИИ?',
@@ -437,12 +437,12 @@ export const settingsTranslations: Translations = {
     en: 'Not selected',
   },
   settings_ai_semantic_desc_1: {
-    ru: 'Для поиска по смыслу (семантического поиска), связывания мыслей и подбора заметок в диалогах фрагменты текста отправляются поставщику ИИ для построения числового вектора (эмбеддинга). Векторы хранятся на этом устройстве без шифрования; в облако, если включена синхронизация, уходят зашифрованными.',
-    en: 'For semantic search, idea linking, and note matching in chats, text fragments are sent to the AI provider to generate a numerical vector (embedding). Vectors are stored on this device without encryption; if sync is on, they go to the cloud encrypted.',
+    ru: 'Для поиска по смыслу (семантического поиска), связывания мыслей и подбора заметок в диалогах фрагменты текста отправляются на сервер justwriting для построения числового вектора (эмбеддинга); сторонним сервисам они не передаются. Векторы хранятся на этом устройстве без шифрования; в облако, если включена синхронизация, уходят зашифрованными.',
+    en: 'For semantic search, idea linking, and note matching in chats, text fragments are sent to the justwriting server to generate a numerical vector (embedding); they are not passed to third-party services. Vectors are stored on this device without encryption; if sync is on, they go to the cloud encrypted.',
   },
   settings_ai_semantic_desc_2: {
-    ru: 'При отключении поиск работает по точным совпадениям слов (BM25), а разбор заметок, хронология и журнал тем продолжают работать без ограничений. Существующие индексы сохраняются на устройстве.',
-    en: 'When disabled, search works via exact word matches (BM25), while note analysis, timeline, and topic ledger continue to work without limitations. Existing indices are preserved on the device.',
+    ru: 'При отключении поиск работает по точным совпадениям слов (BM25), а разбор заметок и хронология продолжают работать без ограничений. Существующие индексы сохраняются на устройстве.',
+    en: 'When disabled, search works via exact word matches (BM25), while note analysis and timeline continue to work without limitations. Existing indices are preserved on the device.',
   },
   settings_ai_disable_semantic: {
     ru: 'Отключить (искать только по словам)',

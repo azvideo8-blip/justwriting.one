@@ -188,7 +188,6 @@ export const NoteAnalysisService = {
     if (res.summary.commitments !== undefined) summary.commitments = res.summary.commitments;
     if (res.summary.valence !== undefined) summary.valence = res.summary.valence;
     if (res.summary.arousal !== undefined) summary.arousal = res.summary.arousal;
-    if (res.summary.echo !== undefined) summary.echo = res.summary.echo;
     if (res.summary.eventDate !== undefined) summary.eventDate = res.summary.eventDate;
     const beforeSave = await db.get('documents', documentId);
     if (!beforeSave || isExcludedFromAI(beforeSave)) return { ok: false, error: 'EXCLUDED' };
@@ -202,15 +201,6 @@ export const NoteAnalysisService = {
     }
     await tx.store.put({ ...fresh, aiProcessed: true });
     await tx.done;
-
-    // Темы заметки складываются в очередь реестра тем. Разбирает очередь
-    // «Обновить профиль» — здесь её трогать нельзя: touchThemes не идемпотентен
-    // (счётчик темы растёт на каждый вызов), да и лишние вызовы к поставщику
-    // человек не заказывал.
-    if ((summary.themes?.length ?? 0) > 0) {
-      const { enqueuePendingThemeTouch } = await import('./AIThemeLedgerService');
-      enqueuePendingThemeTouch(documentId);
-    }
 
     // Вектор — вторым шагом и не критично: сводка уже сохранена, а без вектора
     // заметка просто не участвует в поиске по смыслу до следующего нажатия.

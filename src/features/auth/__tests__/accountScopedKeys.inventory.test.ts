@@ -183,10 +183,16 @@ describe('accountScopedKeys inventory test (LS-5 + LS-8)', () => {
       });
 
     const deadTemplates: string[] = [];
+    // Писатель снят, а ключ остаётся в списке стирания: в браузерах людей лежат
+    // старые значения, выход обязан их убрать.
+    const RETIRED = new Set([
+      'jw_pending_theme_touches_', // MB-7 (N-8): реестр тем удалён, очередь больше не пишется
+    ]);
 
     for (const tpl of declared) {
       const at = tpl.indexOf(SENTINEL);
       const prefix = tpl.slice(0, at);
+      if (RETIRED.has(prefix)) continue;
       const stem = prefix.replace(/[^a-zA-Z0-9_-]/g, '');
 
       let hasWriter = false;

@@ -158,14 +158,6 @@ const ALLOWED: Readonly<Record<string, string>> = {
     'персоны — настройки человека, не производные заметок',
   'src/features/ai/services/AIProfileRefreshService.ts':
     'оценка стоимости обновления профиля: месяцы, темы и числа для счётчика; текст модели не отдаёт',
-  'src/features/ai/services/AITaxonomyService.ts':
-    'спит: ensureBootstrap/rederive не вызываются вне файла (только getActive/getStored/save); оживить = сначала фильтр',
-  'src/features/ai/services/AIThreadService.ts':
-    'спит: rebuildThreads не вызывается вне файла; оживить = сначала фильтр (сам разбор читает documents и aiEmbeddings целиком)',
-  'src/features/ai/services/injectionJournal.ts':
-    'журнал теневого сборщика памяти: локальная диагностика, пишется уже после фильтра сборщика; модели не отдаёт',
-  'src/features/ai/services/LifeStoryService.ts':
-    '«История жизни» — экран и экспорт; autoPopulateFromTimeline без вызовов вне файла, в промпт не уходит',
   'src/features/archive/hooks/useArchiveWordCloud.ts':
     'облако слов архива: локальный показ, вызовов модели нет',
   'src/features/auth/services/localDataInventory.ts':

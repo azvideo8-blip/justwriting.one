@@ -299,6 +299,7 @@ export interface AIDocumentSummary {
   commitments?: string[];
   valence?: number;
   arousal?: number;
+  /** Не пишется с MB-5; лежит в старых сводках — шифруется при выгрузке. */
   echo?: string;
   contentHash?: string;
   eventDate?: string;

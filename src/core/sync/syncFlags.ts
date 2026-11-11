@@ -40,6 +40,16 @@ export async function syncPullByRevEnabled(uid: string): Promise<boolean> {
   return flagEnabled('sync_pull_by_rev', uid, SYNC_PULL_BY_REV_DEFAULT, 'featureFlag_syncPullByRev');
 }
 
+/**
+ * Ответ по подборке записей, вторая версия (стенд ai-answer-chronicle-fable-2026-11):
+ * второй кусок длинной заметки и правило ответа вне ограды данных. Выключено,
+ * нет строки в `feature_flags`, гость или сбой чтения — ход идёт как в 0.11.10.
+ */
+export async function answerChronicleV2Enabled(uid: string | undefined): Promise<boolean> {
+  if (!uid) return false;
+  return flagEnabled('answer_chronicle_v2', uid, false, 'featureFlag_answerChronicleV2');
+}
+
 /** Только для тестов: сбросить кэш флага между сценариями. */
 export function resetSyncFlagsForTests(): void {
   cached.clear();

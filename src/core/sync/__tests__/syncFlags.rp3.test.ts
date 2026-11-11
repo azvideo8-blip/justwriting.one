@@ -10,7 +10,7 @@ const rpc = vi.fn();
 vi.mock('../../supabase/client', () => ({ getSupabase: () => ({ rpc }) }));
 vi.mock('../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 
-import { syncPullByRevEnabled, resetSyncFlagsForTests } from '../syncFlags';
+import { syncPullByRevEnabled, answerChronicleV2Enabled, resetSyncFlagsForTests } from '../syncFlags';
 
 describe('RP-3: флаг sync_pull_by_rev с сервера', () => {
   beforeEach(() => { rpc.mockReset(); resetSyncFlagsForTests(); });
@@ -53,3 +53,28 @@ describe('RP-3: флаг sync_pull_by_rev с сервера', () => {
 // S2-4: флаг записи через sync_push — свой кэш, а «функции нет» (PGRST202) выключает
 // новый путь до конца сессии. Мутации: общий кэш на оба флага → красный «два флага
 // не путаются»; забыть markSyncPushUnavailable → красный «после PGRST202 — старый путь».
+
+// answer_chronicle_v2 (стенд ai-answer-chronicle-fable-2026-11). Мутации: fallback
+// true → красный «сбой — выключено»; убрать `if (!uid) return false` → красный «гость».
+describe('флаг answer_chronicle_v2', () => {
+  beforeEach(() => { rpc.mockReset(); resetSyncFlagsForTests(); });
+
+  it('спрашивается по имени; сервер сказал «да» — включено', async () => {
+    rpc.mockResolvedValue({ data: true, error: null });
+    expect(await answerChronicleV2Enabled('u1')).toBe(true);
+    expect(rpc).toHaveBeenCalledWith('feature_enabled', { flag: 'answer_chronicle_v2' });
+  });
+
+  it('сбой чтения — выключено, а не «включено»', async () => {
+    rpc.mockRejectedValue(new TypeError('Failed to fetch'));
+    expect(await answerChronicleV2Enabled('u1')).toBe(false);
+    rpc.mockResolvedValue({ data: null, error: { code: 'PGRST202', message: 'not found' } });
+    expect(await answerChronicleV2Enabled('u1')).toBe(false);
+  });
+
+  it('гость — выключено, сервер не спрашивается', async () => {
+    rpc.mockResolvedValue({ data: true, error: null });
+    expect(await answerChronicleV2Enabled(undefined)).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+});

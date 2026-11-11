@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import 'fake-indexeddb/auto';
 import { getLocalDb, type AIDocumentSummary } from '../../../../core/storage/localDb';
 import { AILexiconService } from '../AILexiconService';
-import { AIMemoryAssembler } from '../AIMemoryAssembler';
-import { MemoryFlagsService } from '../memoryFlags';
+import { renderHook } from '@testing-library/react';
+import { useAIChatContext } from '../aiChatContext';
 import { LocalStoreSyncService } from '../../../../core/services/LocalStoreSyncService';
 import { emitDomainEvent, _resetDomainEventHandlersForTests } from '../../../../core/events/domainEvents';
 import { initAiDomainEvents } from '../../subscribeDomainEvents';
@@ -90,7 +90,6 @@ describe('DY6-1: лексикон «своих слов» — страж вид�
     _resetDomainEventHandlersForTests();
     vi.restoreAllMocks();
     AILexiconService.clearCache();
-    MemoryFlagsService.resetFlags();
     const db = await getLocalDb();
     for (const store of ['documents', 'aiSummaries', 'aiTimeline', 'aiProfileFacets', 'aiThemeLedger', 'aiChatMemory', 'aiBeliefs'] as const) {
       await db.clear(store);
@@ -120,14 +119,15 @@ describe('DY6-1: лексикон «своих слов» — страж вид�
     expect(map?.formattedPromptSnippet ?? '').toContain(WORD_VISIBLE);
   });
 
-  it('(б) сборщик памяти не отдаёт слово скрытой заметки модели при включённом переключении', async () => {
+  it('(б) ход: строка «свои слова» — байт в байт как в 0.11.8, без слова скрытой заметки', async () => {
     await seed(false);
-    MemoryFlagsService.setFlag('ff_memory_assembler_shadow', false);
-    MemoryFlagsService.setFlag('ff_memory_assembler_chat_memory', true);
-    const text = await AIMemoryAssembler.assembleMemoryContext({ query: 'привет' });
-    expect(text ?? '').toContain('свои слова');
-    expect(text ?? '').toContain(WORD_VISIBLE);
-    expect(text ?? '').not.toContain(WORD_HIDDEN);
+    const map = await AILexiconService.getVoiceMap({ forceRefresh: true });
+    const { result } = renderHook(() => useAIChatContext('coach'));
+    const ctx = await result.current.buildContext({ text: 'привет', attached: null, mood: undefined, messageHistory: [], isFirstTurn: false });
+    // MB-10: сборщик W2 удалён; в 0.11.8 он в теневом режиме отдавал ровно эту строку.
+    expect(ctx.memoryContext).toBe(`Пользователь часто использует свои слова: ${map!.formattedPromptSnippet}`);
+    expect(ctx.memoryContext).toContain(WORD_VISIBLE);
+    expect(ctx.memoryContext).not.toContain(WORD_HIDDEN);
   });
 
   it('(в) кэш лексикона сбрасывается, когда заметку скрывают', async () => {

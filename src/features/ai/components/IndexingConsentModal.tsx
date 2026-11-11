@@ -68,7 +68,6 @@ export function IndexingConsentModal({ isOpen, onConsent, onRefuse }: IndexingCo
                 <li>{t('indexing_consent_disabled_item_1')}</li>
                 <li>{t('indexing_consent_disabled_item_2')}</li>
                 <li>{t('indexing_consent_disabled_item_3')}</li>
-                <li>{t('indexing_consent_disabled_item_4')}</li>
               </ul>
             </div>
 
