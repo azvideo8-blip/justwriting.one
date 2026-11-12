@@ -20,6 +20,10 @@ import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncServ
 
 import type { CallAiOptions } from '../../../core/ai/callAi';
 
+/** Потолок данных раздела портрета: сообщение ≤ 50 000 знаков вместе с заголовком,
+ *  метриками стиля и просьбой о формате. */
+const PORTRAIT_INPUT_MAX = 40_000;
+
 /**
  * Кэш портрета в localStorage — ПРИВЯЗАН К АККАУНТУ.
  *
@@ -250,24 +254,38 @@ export const AIProfileService = {
       const styleBlock = `\n\n[Метрики стиля письма: средняя длина слова ${styleMetrics.avgWordLength.toFixed(1)} симв, средняя длина предложения ${styleMetrics.avgSentenceLength.toFixed(1)} слов, восклицания ${styleMetrics.exclamationRate.toFixed(2)} на предложение, вопросы ${styleMetrics.questionRate.toFixed(2)} на предложение]`;
 
       const allSummaries = (await db.getAll('aiSummaries')).filter(s => visibleKeys.has(s.documentId));
+      // Владелец 11.11: «Обновить профиль» → четыре раздела «Invalid payload». Вход
+      // раздела — одно сообщение, а схема чата пускает до MAX_AI_CONTENT_LENGTH
+      // (50 000) знаков; все сводки архива в несколько сотен заметок больше. Берём
+      // самое весомое (грани по числу заметок, сводки — свежие первыми), пока влезает.
+      const fit = (items: string[], sep: string): string => {
+        const out: string[] = [];
+        let len = 0;
+        for (const it of items) {
+          // Не влезает — пропускаем, а не обрываем: следующее может быть короче.
+          if (len + it.length + sep.length > PORTRAIT_INPUT_MAX) continue;
+          out.push(it);
+          len += it.length + sep.length;
+        }
+        return out.join(sep);
+      };
       let baseInput = '';
       if (facets.length >= 3) {
-        baseInput = facets
+        baseInput = fit(facets
           .sort((a, b) => b.noteCount - a.noteCount)
-          .map(f => `**${f.label}** (${f.noteCount} заметок): ${f.summary}`)
-          .join('\n');
+          .map(f => `**${f.label}** (${f.noteCount} заметок): ${f.summary}`), '\n');
       } else {
         if (allSummaries.length < 3) {
           return { ok: false, error: 'NOT_ENOUGH_DATA' };
         }
-        baseInput = allSummaries.map((s, i) => {
+        baseInput = fit([...allSummaries].sort((a, b) => (b.processedAt ?? 0) - (a.processedAt ?? 0)).map((s, i) => {
           const parts = [`Запись ${i + 1}:`];
           if (s.summary) parts.push(`  Суть: ${s.summary}`);
           if (s.tone) parts.push(`  Тон: ${s.tone}`);
           if (s.themes?.length) parts.push(`  Темы: ${s.themes.join(', ')}`);
           if (s.insights?.length) s.insights.forEach(ins => parts.push(`  • ${ins}`));
           return parts.join('\n');
-        }).join('\n\n');
+        }), '\n\n');
       }
 
       // PX-2: у раздела «Стиль общения» больше нет baseInput — на всех сводках с

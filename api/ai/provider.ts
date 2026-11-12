@@ -32,7 +32,12 @@ const OPENROUTER_BASE_URL = resolveChatBaseUrl();
 const OPENROUTER_EMBED_MODEL = process.env.OPENROUTER_EMBED_MODEL ?? 'qwen/qwen3-embedding-8b';
 // Embeddings can point at a separate (e.g. local) server without moving chat
 // off RouterAI — AI_BASE_URL is shared with generateOpenRouter() and api/chat.ts.
-const EMBED_BASE_URL = process.env.AI_EMBED_BASE_URL ?? OPENROUTER_BASE_URL;
+// Ревью Qoder 0.11.10 (C): тексты согласия обещают, что векторы считаются на сервере
+// justwriting. На проде без AI_EMBED_BASE_URL векторы не считаются вовсе — отказ,
+// а не тихий уход к общему провайдеру; /ready при этом «не готов».
+const EMBED_BASE_URL: string | null = process.env.AI_EMBED_BASE_URL
+  // ['NODE_ENV'] — во время работы, а не подстановкой сборщика.
+  ?? (process.env['NODE_ENV'] === 'production' ? null : OPENROUTER_BASE_URL);
 
 async function getActiveModel(): Promise<string> {
   return ACTIVE_CHAT_MODEL;
@@ -249,6 +254,7 @@ export async function embed(texts: string[]): Promise<EmbedResult> {
 async function embedOpenRouter(texts: string[]): Promise<EmbedResult> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) throw new Error('OPENROUTER_API_KEY not set');
+  if (!EMBED_BASE_URL) throw new Error('AI_EMBED_BASE_URL not set: embeddings refused in production');
 
   const MAX_ATTEMPTS = 3;
   const totalAbortMs = 60_000;

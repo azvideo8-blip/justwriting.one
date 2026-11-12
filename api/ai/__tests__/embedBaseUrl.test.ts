@@ -52,6 +52,17 @@ describe('embed() base URL', () => {
     expect(calledUrl).toBe('https://routerai.ru/api/v1/embeddings');
   });
 
+  it('на проде без AI_EMBED_BASE_URL векторы не считаются и наружу ничего не уходит (ревью Qoder C)', async () => {
+    process.env.AI_BASE_URL = 'https://routerai.ru/api/v1';
+    process.env.NODE_ENV = 'production';
+    delete process.env.AI_EMBED_BASE_URL;
+    const fetchMock = mockFetchOnce();
+
+    const { embed } = await import('../provider');
+    await expect(embed(['привет'])).rejects.toThrow(/AI_EMBED_BASE_URL/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('preserves local AI_EMBED_BASE_URL while passing provider routing when AI_PROVIDER_COUNTRY is set', async () => {
     process.env.AI_BASE_URL = 'https://routerai.ru/api/v1';
     process.env.AI_EMBED_BASE_URL = 'http://127.0.0.1:8081/v1';

@@ -17,6 +17,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.11',
+    date: '2026-11-11',
+    announce: false,
+    items: [
+      { category: 'fix', ru: '«Обновить профиль» пересобирает портрет и на большом архиве заметок.', en: '«Refresh profile» rebuilds the portrait on a large archive of notes too.' },
+      { category: 'fix', ru: 'Заметки, разобранные на другом устройстве, теперь находятся поиском по смыслу и на этом — без повторного разбора.', en: 'Notes analysed on another device are now found by semantic search on this one too, without re-analysis.' },
+      { category: 'fix', ru: 'Вопрос о периоде, за который записей нет, больше не скрывает остальной архив: ИИ скажет, что за этот период пусто, и покажет найденное рядом.', en: 'A question about a period with no entries no longer hides the rest of the archive: the AI says the period is empty and shows what it found nearby.' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.11.10',
     date: '2026-11-11',
     items: [

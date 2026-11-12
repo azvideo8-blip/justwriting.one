@@ -185,4 +185,21 @@ describe('AUD-13 restore throttle is per-account and only after success', () => 
     expect(mockRestore).toHaveBeenCalled();
     expect(localStorage.getItem('ai_restore_done_date_u_throttle_1')).toBeNull();
   });
+
+  // MB (0.11.11): упал раздел обычной догрузки (например, векторы) — курсор стоит,
+  // иначе непрочитанное за это окно больше не приедет.
+  it('инкрементальный забор с упавшим разделом не двигает курсор', async () => {
+    mockRestore.mockResolvedValue({ restored: 0, hasMore: false });
+    localStorage.setItem('ai_pull_since_u_throttle_1', '1000');
+    mockRestoreAi.mockImplementation(async (_uid: string, opts?: { sinceMs?: number }) =>
+      opts?.sinceMs !== undefined
+        ? { skippedLocked: false, failed: 0, sectionFailed: true, maxUpdatedAt: 9_000 }
+        : { skippedLocked: false, failed: 0, sectionFailed: false, maxUpdatedAt: 0 });
+
+    renderHook(() => useBackgroundSync());
+    await vi.advanceTimersByTimeAsync(5_100);
+
+    expect(mockRestoreAi.mock.calls.some(c => (c[1] as { sinceMs?: number } | undefined)?.sinceMs !== undefined)).toBe(true);
+    expect(localStorage.getItem('ai_pull_since_u_throttle_1')).toBe('1000');
+  });
 });

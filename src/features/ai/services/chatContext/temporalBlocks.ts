@@ -340,7 +340,15 @@ export async function buildTemporalBlocks(
   if (minTime && maxTime) {
     try {
       const noteCountForPeriod = await countNotesInWindow(db, minTime, maxTime);
-      if (noteCountForPeriod <= 2) {
+      if (noteCountForPeriod === 0 && !continuePeriod && maxTime - minTime > 8 * 86_400_000) {
+        // Ревью Qoder 0.11.10: догадка разбора периода не сужает архив. Окно пусто —
+        // поиск идёт по всему архиву: неверно угаданный период стоит лишнего контекста,
+        // а не ложного «записей нет». Окно до недели («вчера», «на прошлой неделе»)
+        // однозначно — там пустое окно и есть ответ (X-4), оно остаётся.
+        minTime = undefined;
+        maxTime = undefined;
+        appends.push(`\n\n[За названный период записей нет. Ниже — найденное по всему архиву: называй даты записей и не выдавай их за этот период.]`);
+      } else if (noteCountForPeriod <= 2) {
         appends.push(`\n\n[СИСТЕМНОЕ ПРЕДУПРЕЖДЕНИЕ: За выбранный период найдено мало записей (${noteCountForPeriod}). Обязательно честно скажи об этом пользователю ("за этот период мало записей — ...") вместо того, чтобы придумывать или обобщать.]`);
       }
     } catch { /* ignore */ }

@@ -144,7 +144,10 @@ export function useBackgroundSync(): void {
         const pulled = await restoreAIDataFromCloud(uid, { sinceMs: pullSince(last) });
         // Формула — общая с сетевым фуззом (pullCursor.ts): по отметке, реально
         // увиденной в облаке, с часами устройства только как потолком.
-        if (!pulled.skippedLocked) {
+        // Раздел упал (сбой чтения облака) — курсор стоит: иначе непрочитанное за
+        // это окно больше не приедет («нет ответа» ≠ «нечего забирать»). Повтор
+        // перечитает окно целиком, запись строк идемпотентна.
+        if (!pulled.skippedLocked && !pulled.sectionFailed) {
           localStorage.setItem(pullKey, String(nextPullCursor(startedAt, last, pulled.maxUpdatedAt)));
         }
       } catch (e) {

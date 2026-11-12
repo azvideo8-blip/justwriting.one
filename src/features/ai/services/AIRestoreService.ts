@@ -853,8 +853,50 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
     reportError(e, { action: 'restoreAIData_local_store_records', userId });
   }
 
-  // Векторы — только при полном восстановлении: инкрементальный проход их не трогает,
-  // а продолжение начатой догрузки идёт каждым фоновым проходом (`continueEmbeddingDownload`).
+  // Обычная догрузка забирает векторы заметок, разобранных на другом устройстве
+  // с прошлого прохода. Раньше они приезжали только полным восстановлением, и
+  // поиск по смыслу и хроника на втором устройстве таких заметок не видели.
+  if (sinceMs !== undefined) try {
+    let changed = false;
+    const rows = await DataProvider.getUserEmbeddingsSince(userId, sinceMs);
+    // В облаке вектор лежит под постоянным номером заметки (uuid), а заметка,
+    // созданная на этом устройстве, — под местным. Без сопоставления пересчитанный
+    // на другом устройстве вектор ложился бы сиротой рядом со старым.
+    const localIdOf = new Map<string, string>();
+    if (rows.length > 0) {
+      for (const doc of await db.getAll('documents')) {
+        localIdOf.set(doc.id, doc.id);
+        if (doc.uuid) localIdOf.set(doc.uuid, doc.id);
+      }
+    }
+    for (const d of rows) {
+      const dId = d.id as string;
+      if (pendingAnalysisDeletes.has(dId)) continue;
+      try {
+        const decoded = await decodeCloudEmbedding(d, dId);
+        const targetId = localIdOf.get(decoded.documentId) ?? decoded.documentId;
+        if (pendingAnalysisDeletes.has(targetId)) continue;
+        const target = { ...decoded, documentId: targetId };
+        const local = await db.get('aiEmbeddings', targetId);
+        // Тот же текст — вектор уже есть. Другой — заметку пересчитали на другом
+        // устройстве: облачный вектор берётся, только если описывает текущий текст.
+        if (local?.contentHash && local.contentHash === target.contentHash) continue;
+        if (!(await cloudVectorMatchesNote(target))) continue;
+        await db.put('aiEmbeddings', { ...target, cloudSyncedAt: Date.now() });
+        result.embeddings++;
+        changed = true;
+      } catch {
+        result.failed++;
+      }
+    }
+    if (changed) invalidateEmbeddingIndexCache();
+  } catch (e) {
+    result.sectionFailed = true;
+    reportError(e, { action: 'restoreAIData_embeddings_since', userId });
+  }
+
+  // Полное восстановление: догрузка всего индекса, а продолжение начатой догрузки
+  // идёт каждым фоновым проходом (`continueEmbeddingDownload`).
   if (sinceMs === undefined) try {
     // П-6 (замер 08.10.2026): кнопка в диагностике = «форсировать». Без неё
     // догрузка начинается сама, если свежих локальных векторов нет хотя бы для

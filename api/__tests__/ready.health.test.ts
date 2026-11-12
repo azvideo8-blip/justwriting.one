@@ -36,6 +36,7 @@ beforeEach(() => {
     DATABASE_URL: process.env.DATABASE_URL,
     AI_EMBED_BASE_URL: process.env.AI_EMBED_BASE_URL,
     AI_BASE_URL: process.env.AI_BASE_URL,
+    NODE_ENV: process.env.NODE_ENV,
   };
   process.env.DATABASE_URL = DSN;
   process.env.AI_EMBED_BASE_URL = EMBED_URL;
@@ -92,6 +93,18 @@ describe('/ready (SA-4)', { timeout: 30_000 }, () => {
     const fallback = await ready();
     expect(fallback.body.checks.find(c => c.name === 'ai_embed_base_url'))
       .toEqual({ name: 'ai_embed_base_url', status: 'fallback_default' });
+  });
+
+  it('прод без AI_EMBED_BASE_URL — 503 и missing (ревью Qoder C)', async () => {
+    QUERY.mockResolvedValue({ rows: [{ '?column?': 1 }] });
+    // Модуль сервера грузится в тестовом окружении (иначе он начал бы слушать порт),
+    // прод включается только на сам запрос.
+    expect((await ready()).status).toBe(200);
+    process.env.NODE_ENV = 'production';
+    delete process.env.AI_EMBED_BASE_URL;
+    const { status, body } = await ready();
+    expect(status).toBe(503);
+    expect(body.checks.find(c => c.name === 'ai_embed_base_url')).toEqual({ name: 'ai_embed_base_url', status: 'missing' });
   });
 
   it('без DATABASE_URL readiness честно 503 (L-9 / R4-082)', async () => {

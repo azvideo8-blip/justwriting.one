@@ -237,6 +237,28 @@ describe('AIProfileService', () => {
       },
     ];
 
+    // Владелец 11.11: «Обновить профиль» на архиве в сотни заметок — четыре раздела
+    // «Invalid payload»: все сводки в одном сообщении больше 50 000 знаков схемы чата.
+    // Мутация: убрать потолок (PORTRAIT_INPUT_MAX = Infinity) → красный.
+    it('большой архив: вход раздела проходит схему чата, свежие сводки — в нём', async () => {
+      const many = Array.from({ length: 400 }, (_, i) => ({
+        documentId: `doc-${i}`, tone: 'спокойный', frequentWords: [], themes: ['тема'],
+        insights: [`мысль номер ${i} `.padEnd(280, 'ж')], processedAt: 1000 + i,
+      }));
+      summaryReads(many);
+      mockGetAllFromIndex.mockResolvedValue([]);
+      vi.mocked(AIService.chat).mockResolvedValue({ ok: true, text: 'Раздел.' });
+
+      await AIProfileService.generate();
+      const { chatInputSchema } = await import('../../../../shared/ai/buildChatPrompt');
+      const calls = vi.mocked(AIService.chat).mock.calls.map(c => c[0]);
+      expect(calls.length).toBe(5);
+      for (const p of calls) expect(chatInputSchema.safeParse(p).success).toBe(true);
+      const themes = String(calls[0]!.messages[0]!.content);
+      expect(themes).toContain('мысль номер 399');
+      expect(themes).not.toContain('мысль номер 0 ');
+    });
+
     it('returns error if there are fewer than 3 summaries', async () => {
       summaryReads(dummySummaries.slice(0, 1));
       mockGetAllFromIndex.mockResolvedValue([]);

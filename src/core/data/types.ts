@@ -112,6 +112,7 @@ export interface IDataProvider {
   listEmbeddingDocumentIds(userId: string): Promise<string[]>;
   getUserEmbeddings(userId: string): Promise<ProviderRecord[]>;
   getUserEmbeddingsPaginated(userId: string, limitCount: number, cursorId?: string): Promise<{ items: ProviderRecord[]; nextCursorId?: string; readCount: number }>;
+  getUserEmbeddingsSince(userId: string, sinceMs: number): Promise<ProviderRecord[]>;
   getEmbeddingsPage(userId: string, limitCount: number, startAfterId?: string): Promise<ProviderRecord[]>;
   countEmbeddings(userId: string): Promise<number>;
 

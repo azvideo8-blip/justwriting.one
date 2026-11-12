@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.11.11 — 2026-11-11
+
+- **[RU]** «Обновить профиль» пересобирает портрет и на большом архиве заметок.
+- **[EN]** «Refresh profile» rebuilds the portrait on a large archive of notes too.
+- **[RU]** Заметки, разобранные на другом устройстве, теперь находятся поиском по смыслу и на этом — без повторного разбора.
+- **[EN]** Notes analysed on another device are now found by semantic search on this one too, without re-analysis.
+- **[RU]** Вопрос о периоде, за который записей нет, больше не скрывает остальной архив: ИИ скажет, что за этот период пусто, и покажет найденное рядом.
+- **[EN]** A question about a period with no entries no longer hides the rest of the archive: the AI says the period is empty and shows what it found nearby.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.11.10 — 2026-11-11
 
 - **[RU]** На вопросы о своих записях — «когда я впервые…», «как менялось…», «что я решила…», «что я писала про…» — ИИ теперь получает подборку записей по датам с дословными отрывками и отвечает точнее.

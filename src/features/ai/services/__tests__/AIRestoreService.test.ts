@@ -82,6 +82,13 @@ vi.mock('../../../../core/data', () => ({
         readCount: slice.length,
       };
     },
+    getUserEmbeddingsSince: async (...a: unknown[]) => {
+      providerCalls.push(['embeddingsSince', a]);
+      const since = a[1] as number;
+      return embeddingDocs
+        .map(d => ({ id: d.id, ...(d.data() as any) }))
+        .filter(d => typeof d.processedAt !== 'number' || d.processedAt > since);
+    },
     getLocalStoreRecords: async (...a: unknown[]) => {
       providerCalls.push(['localStore', a]);
       // Как настоящий провайдер (providers/localStore.ts): инкрементальный забор
@@ -156,13 +163,50 @@ describe('restoreAIDataFromCloud', () => {
 
   // Разбор с компьютера доезжал до ноутбука только на следующий день: полный
   // забор шёл раз в сутки. Инкрементальный — каждый фоновый проход.
-  it('incremental pull asks the cloud only for changes since the cursor and skips vectors', async () => {
+  it('incremental pull asks the cloud only for changes since the cursor, vectors included, without the full index', async () => {
     providerCalls.length = 0;
     requestEmbeddingRestore('user_1');
     await restoreAIDataFromCloud('user_1', { sinceMs: 1_790_000_000_000 });
     expect(providerCalls).toContainEqual(['summaries', ['user_1', 1_790_000_000_000]]);
     expect(providerCalls).toContainEqual(['localStore', ['user_1', undefined, 1_790_000_000_000]]);
+    expect(providerCalls).toContainEqual(['embeddingsSince', ['user_1', 1_790_000_000_000]]);
     expect(providerCalls.some(([k]) => k === 'embeddings')).toBe(false);
+  });
+
+  // Заметку разобрали на компьютере: её вектор приезжал на телефон только полным
+  // восстановлением, и поиск по смыслу и хроника на телефоне её не видели.
+  it('incremental pull brings the vector of a note analysed on another device; same text — skipped, stale text — not taken', async () => {
+    localStore.documents.set('n_new', { id: 'n_new', lastSessionAt: 1000 });
+    latestContent.set('n_new', 'текст новой');
+    localStore.documents.set('n_same', { id: 'n_same', lastSessionAt: 1000 });
+    localStore.aiEmbeddings.set('n_same', { documentId: 'n_same', contentHash: 'hash-of:текст той же', vectors: [[0]] });
+    localStore.documents.set('n_edited', { id: 'n_edited', lastSessionAt: 1000 });
+    latestContent.set('n_edited', 'уже другой текст');
+    decodeCloudEmbedding.mockImplementation(async (d: Record<string, unknown>, id: string) => ({ documentId: id, vectors: [[1]], contentHash: d.contentHash as string }));
+    embeddingDocs.push(
+      { id: 'n_new', data: () => ({ contentHash: 'hash-of:текст новой', processedAt: 5000 }) },
+      { id: 'n_same', data: () => ({ contentHash: 'hash-of:текст той же', processedAt: 5000 }) },
+      { id: 'n_edited', data: () => ({ contentHash: 'hash-of:старый текст', processedAt: 5000 }) },
+    );
+
+    const r = await restoreAIDataFromCloud('user_1', { sinceMs: 4000 });
+    expect(r.embeddings).toBe(1);
+    expect(localStore.aiEmbeddings.get('n_new')).toMatchObject({ vectors: [[1]] });
+    expect(localStore.aiEmbeddings.get('n_same')).toMatchObject({ vectors: [[0]] });
+    expect(localStore.aiEmbeddings.has('n_edited')).toBe(false);
+
+    // Заметка этого устройства (местный номер, в облаке — uuid) пересчитана на
+    // другом: новый вектор ложится на местный номер, а не сиротой под uuid.
+    localStore.documents.set('local_x', { id: 'local_x', uuid: 'uuid-x', lastSessionAt: 1000 });
+    latestContent.set('local_x', 'переписанный текст');
+    localStore.aiEmbeddings.set('local_x', { documentId: 'local_x', contentHash: 'hash-of:прежний текст', vectors: [[0]] });
+    embeddingDocs.length = 0;
+    embeddingDocs.push({ id: 'uuid-x', data: () => ({ contentHash: 'hash-of:переписанный текст', processedAt: 6000 }) });
+    await restoreAIDataFromCloud('user_1', { sinceMs: 5500 });
+    expect(localStore.aiEmbeddings.get('local_x')).toMatchObject({ contentHash: 'hash-of:переписанный текст', vectors: [[1]] });
+    expect(localStore.aiEmbeddings.has('uuid-x')).toBe(false);
+    decodeCloudEmbedding.mockReset();
+    decodeCloudEmbedding.mockImplementation(async (_d: Record<string, unknown>, id: string) => ({ documentId: id, vectors: [[1]] }));
   });
 
   // Повторный разбор заметки на компьютере не доезжал до ноутбука: любой

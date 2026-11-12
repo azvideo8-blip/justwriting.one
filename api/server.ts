@@ -70,6 +70,7 @@ const server = http.createServer((req, res) => {
     let dbOk = false;
     let dbErrorCode: string | undefined;
     const databaseConfigured = Boolean(process.env.DATABASE_URL);
+    const embedRequired = process.env['NODE_ENV'] === 'production';
     if (databaseConfigured) {
       try {
         await pool.query('SELECT 1');
@@ -87,13 +88,14 @@ const server = http.createServer((req, res) => {
         ...(dbErrorCode ? { code: dbErrorCode } : {}),
       },
       {
-        // configured | fallback_default — сам адрес не печатается.
+        // configured | fallback_default | missing — сам адрес не печатается.
+        // missing: прод без своего сервера векторов — векторы не считаются (provider.ts).
         name: 'ai_embed_base_url',
-        status: process.env.AI_EMBED_BASE_URL ? 'configured' : 'fallback_default',
+        status: process.env.AI_EMBED_BASE_URL ? 'configured' : embedRequired ? 'missing' : 'fallback_default',
       },
     ];
 
-    const isReady = databaseConfigured && dbOk;
+    const isReady = databaseConfigured && dbOk && (!embedRequired || Boolean(process.env.AI_EMBED_BASE_URL));
     return json(res, isReady ? 200 : 503, {
       status: isReady ? 'ready' : 'not_ready',
       checks,

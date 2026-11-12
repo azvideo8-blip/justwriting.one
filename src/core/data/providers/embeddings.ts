@@ -90,6 +90,21 @@ export async function getEmbeddingsPage(userId: string, limitCount: number, star
   return ownRows(data ?? [], userId).map(row => fromDb(AI_EMBEDDING_REV, row));
 }
 
+/** Векторы, посчитанные после `sinceMs` (`processed_at`) — для обычной догрузки:
+ *  заметки, разобранные на другом устройстве с прошлого прохода. */
+export async function getUserEmbeddingsSince(userId: string, sinceMs: number): Promise<ProviderRecord[]> {
+  const allRows = await pageAll((from, to) =>
+    getSupabase()
+      .from('ai_embeddings')
+      .select('*')
+      .eq('user_id', userId)
+      .gt('processed_at', Math.floor(sinceMs))
+      .order('document_id', { ascending: true })
+      .range(from, to),
+  );
+  return ownRows(allRows, userId).map(row => fromDb(AI_EMBEDDING_REV, row as Record<string, unknown>));
+}
+
 export async function getUserEmbeddings(userId: string): Promise<ProviderRecord[]> {
   const allRows = await pageAll((from, to) =>
     getSupabase()
