@@ -290,10 +290,13 @@ describe('W-4: места печати сбоя провайдера', () => {
     const line = logs.find(l => l.includes('[chat-end]')) ?? '';
     const parsed = JSON.parse(line.split('[chat-end]')[1]!.trim()) as Record<string, unknown>;
     // MD-2 и MD-3: ход с материалами дополняет строку четырьмя полями — два
-    // булевых и два числа. К21-4 добавляет пятое число — пересказ без ссылок.
+    // булевых и два числа. К21-4 добавляет пятое число — пересказ без ссылок,
+    // AG-1/AG-2 (0.11.12) — ещё два числа: опора предложений и даты не по шапке.
     expect(Object.keys(parsed).sort()).toEqual([
-      'empty_claim_with_results', 'finish', 'foreign_ids', 'ms', 'note_text_denied', 'notes_claim_no_ref', 'out_tokens', 'quote_unquoted',
+      'date_off_header', 'empty_claim_with_results', 'finish', 'foreign_ids', 'ms', 'note_text_denied', 'notes_claim_no_ref', 'out_tokens', 'quote_unquoted', 'weak_ref',
     ]);
+    expect(typeof parsed.weak_ref).toBe('number');
+    expect(typeof parsed.date_off_header).toBe('number');
     expect(parsed.finish).toBe('stop');
     expect(parsed.note_text_denied).toBe(false);
     expect(parsed.empty_claim_with_results).toBe(false);

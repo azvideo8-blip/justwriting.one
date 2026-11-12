@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.12 — 2026-11-12
+
+- **[RU]** Панель заметки можно развернуть на весь экран или растянуть мышкой до нужной ширины — читать длинные записи удобнее.
+- **[EN]** The note panel can be expanded to full screen or dragged to any width for easier reading of long entries.
+- **[RU]** Собеседники теперь называются «Группа консультантов» и «КПТ-консультант».
+- **[EN]** The companions are now called «Group of consultants» and «CBT consultant».
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.11.11 — 2026-11-11
 
 - **[RU]** «Обновить профиль» пересобирает портрет и на большом архиве заметок.

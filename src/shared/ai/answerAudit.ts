@@ -59,6 +59,60 @@ export interface AnswerAudit {
    * 1, иначе 0. Тот же признак рисует пометку под ответом на клиенте.
    */
   notes_claim_no_ref: number;
+  /**
+   * AG-1 (12.11): предложения со ссылкой [#id], у которых меньше 30 % значимых слов
+   * есть в показанном тексте этой заметки, — кандидаты в выдумку без кавычек.
+   * Только счёт: удалять или нет — по частоте на проде.
+   */
+  weak_ref: number;
+  /**
+   * AG-2 (12.11): даты «D месяца» в предложении со ссылкой, которые не совпадают с
+   * датой шапки этой заметки (±2 дня) и не встречаются в её тексте.
+   */
+  date_off_header: number;
+}
+
+const MONTHS = ['январ', 'феврал', 'март', 'апрел', 'ма', 'июн', 'июл', 'август', 'сентябр', 'октябр', 'ноябр', 'декабр'];
+const RU_DATE_RE = /(?<![\d])(\d{1,2})\s+(январ[ья]|феврал[ья]|марта?|апрел[ья]|ма[яй]|июн[ья]|июл[ья]|августа?|сентябр[ья]|октябр[ья]|ноябр[ья]|декабр[ья])/gi;
+const HEADER_RE = /\[#([^\s·\]]+) · (\d{4})-?(\d{2})-?(\d{2})\]/g;
+
+/** Показанный текст каждой заметки хода: от шапки «[#id · дата]» до следующей шапки. */
+function notesOf(doc: string): Map<string, { text: string; month: number; day: number }> {
+  const out = new Map<string, { text: string; month: number; day: number }>();
+  const heads = [...doc.matchAll(HEADER_RE)];
+  heads.forEach((m, i) => {
+    const id = m[1] ?? '';
+    const start = (m.index ?? 0) + m[0].length;
+    const end = heads[i + 1]?.index ?? doc.length;
+    const prev = out.get(id);
+    out.set(id, { text: `${prev?.text ?? ''}\n${doc.slice(start, end)}`, month: Number(m[3]), day: Number(m[4]) });
+  });
+  return out;
+}
+
+const stemsOf = (s: string): string[] => (fold(s).match(/[а-яa-z]{5,}/g) ?? []).map(w => w.slice(0, 5));
+
+function groundingCounts(answer: string, doc: string): { weak_ref: number; date_off_header: number } {
+  const notes = notesOf(doc);
+  let weak = 0;
+  let offDate = 0;
+  if (notes.size === 0) return { weak_ref: 0, date_off_header: 0 };
+  for (const sentence of answer.split(/(?<=[.!?…])\s+/)) {
+    const ids = [...sentence.matchAll(ANSWER_REF_RE)].map(m => m[1] ?? '').filter(id => notes.has(id));
+    if (ids.length === 0) continue;
+    const shown = ids.map(id => notes.get(id)!);
+    const hay = fold(shown.map(n => n.text).join('\n'));
+    const stems = stemsOf(sentence.replace(ANSWER_REF_RE, ''));
+    if (stems.length >= 4 && stems.filter(st => hay.includes(st)).length / stems.length < 0.3) weak++;
+    for (const d of sentence.matchAll(RU_DATE_RE)) {
+      const day = Number(d[1]);
+      const month = MONTHS.findIndex(p => fold(d[2] ?? '').startsWith(p)) + 1;
+      const near = shown.some(n => n.month === month && Math.abs(n.day - day) <= 2);
+      const inText = hay.includes(fold(d[0]));
+      if (!near && !inText) offDate++;
+    }
+  }
+  return { weak_ref: weak, date_off_header: offDate };
 }
 
 /**
@@ -89,5 +143,6 @@ export function auditAnswer(
     foreign_ids: refs.size,
     quote_unquoted: countAbsentQuotes(answer, quoteMaterials ?? doc),
     notes_claim_no_ref: notesClaimWithoutRef(answer, doc) ? 1 : 0,
+    ...groundingCounts(answer, doc),
   };
 }

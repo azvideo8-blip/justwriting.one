@@ -4,10 +4,10 @@ import { callAi } from '../../../core/ai/callAi';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 
 /** `nameInstrumental` — имя в творительном падеже для «Диалог с …»: подставить
- *  именительный в этот слот значит получить «Диалог с Группа психологов». */
+ *  именительный в этот слот значит получить «Диалог с Группа консультантов». */
 export const PRESET_PERSONAS = [
-  { id: 'group_psychology', name: 'Группа психологов', nameInstrumental: 'Группой психологов', emoji: '\u{1FAC2}', isPreset: true },
-  { id: 'cbt', name: 'КПТ-психолог', nameInstrumental: 'КПТ-психологом', emoji: '\u{1F9E0}', isPreset: true },
+  { id: 'group_psychology', name: 'Группа консультантов', nameInstrumental: 'Группой консультантов', emoji: '\u{1FAC2}', isPreset: true },
+  { id: 'cbt', name: 'КПТ-консультант', nameInstrumental: 'КПТ-консультантом', emoji: '\u{1F9E0}', isPreset: true },
   { id: 'coach', name: 'Коуч', nameInstrumental: 'Коучем', emoji: '\u{1F680}', isPreset: true },
   { id: 'editor', name: 'Редактор', nameInstrumental: 'Редактором', emoji: '\u{270D}\u{FE0F}', isPreset: true },
 ] as const;

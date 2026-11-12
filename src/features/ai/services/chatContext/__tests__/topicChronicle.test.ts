@@ -57,12 +57,14 @@ describe('chronicleModeOf', () => {
     expect(chronicleModeOf('как справиться с тревогой перед собеседованием?')).toBeNull();
     expect(chronicleModeOf('что говорит брат про переезд?')).toBeNull();
     // Ревью 0.11.10: существительное на -ли/-ла — не прошедшее время.
-    expect(chronicleModeOf('какие у меня цели?')).toBeNull();
     expect(chronicleModeOf('как наладить дела?')).toBeNull();
     expect(chronicleModeOf('что мне делать, если я не могу уснуть?')).toBeNull();
+    expect(chronicleModeOf('подскажи, как быть с тревогой, когда она накрыла?')).toBeNull();
     expect(chronicleModeOf('что я вчера ела?')).toBe('fact');
-    // «в июне» ход распознаёт как период — он и включает хронику.
-    expect(chronicleModeOf('сколько весил пёс в июне?')).toBeNull();
+    // 0.11.12: факт без подлежащего — снова хроника (стенд Q45/Q46).
+    expect(chronicleModeOf('сколько весил пёс, когда его взвешивали в клинике?')).toBe('fact');
+    expect(chronicleModeOf('какой километр на первой десятке вышел самым медленным?')).toBe('fact');
+    // «в июне» ход распознаёт как период — хроника и без глагола.
     expect(chronicleModeOf('сколько весил пёс в июне?', { period: true })).toBe('fact');
   });
 

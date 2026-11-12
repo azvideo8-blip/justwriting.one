@@ -28,7 +28,7 @@ import { MobileNoteReader } from '../MobileNoteReader';
 import { AssistantTurn } from '../../../ai/components/AIChatPresentational';
 import type { ArchiveSession } from '../../types';
 
-const PERSONA = 'Группа психологов';
+const PERSONA = 'Группа консультантов';
 const TITLE = 'Про обжиг';
 const BODY = 'Длинный текст читалки, чтобы померять строку.';
 const ANSWER = 'Ответ собеседника, который надо читать, а не рассматривать.';

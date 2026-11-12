@@ -218,6 +218,8 @@ export const archiveTranslations: Translations = {
   archive_preview_refresh_hint: { ru: 'Обнови страницу, чтобы увидеть разбор', en: 'Refresh the page to see the analysis' },
   archive_preview_ai_excluded: { ru: 'Заметка скрыта от ИИ. Разбор недоступен', en: 'Note is hidden from AI. Analysis unavailable' },
   archive_preview_ai_title: { ru: 'Что заметил ИИ', en: 'AI Observation' },
+  preview_expand: { ru: 'Развернуть на весь экран', en: 'Expand to full screen' },
+  preview_collapse: { ru: 'Свернуть', en: 'Collapse' },
   archive_preview_tone: { ru: 'Тональность:', en: 'Tone:' },
   archive_preview_insights: { ru: 'Инсайты:', en: 'Insights:' },
   archive_preview_facts: { ru: 'Факты:', en: 'Facts:' },

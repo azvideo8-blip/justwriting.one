@@ -49,6 +49,32 @@ describe('DocumentPreview — AI Analysis button states', () => {
     mockFetchRelatedNotes.mockResolvedValue([]);
   });
 
+  // Владелец 12.11: заметку можно развернуть на весь экран и свернуть обратно.
+  // Мутация: ширина без expanded → красный.
+  // Владелец 12.11: мышкой — до всей ширины окна (раньше потолок был 60 %).
+  // Мутация: вернуть innerWidth * 0.6 → красный.
+  it('край панели тянется мышкой шире 60 % окна', async () => {
+    renderPreview(mockSession);
+    const panel = (await screen.findByRole('button', { name: 'Развернуть на весь экран' })).closest('.glass-panel') as HTMLElement;
+    const handle = panel.querySelector('.cursor-ew-resize') as HTMLElement;
+    fireEvent.mouseDown(handle, { clientX: 1000 });
+    fireEvent.mouseMove(document, { clientX: 50 });
+    fireEvent.mouseUp(document);
+    expect(parseFloat(panel.style.width)).toBeGreaterThan(window.innerWidth * 0.6);
+    localStorage.removeItem('preview_width');
+  });
+
+  it('разворачивается на весь экран и сворачивается обратно', async () => {
+    renderPreview(mockSession);
+    const panel = (await screen.findByRole('button', { name: 'Развернуть на весь экран' })).closest('.glass-panel') as HTMLElement;
+    const before = panel.style.width;
+    expect(before).not.toBe('100vw');
+    fireEvent.click(screen.getByRole('button', { name: 'Развернуть на весь экран' }));
+    expect(panel.style.width).toBe('100vw');
+    fireEvent.click(screen.getByRole('button', { name: 'Свернуть' }));
+    expect(panel.style.width).toBe(before);
+  });
+
   it('renders "Разобрать заметку через ИИ" button and not a spinner when note has no summary', async () => {
     renderPreview(mockSession);
 

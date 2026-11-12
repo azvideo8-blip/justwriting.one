@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { X, ArrowRight, Download, ChevronDown, Sparkles, ChevronUp, Loader2, Paperclip, Copy, Lock, AlertCircle } from 'lucide-react';
+import { X, ArrowRight, Download, ChevronDown, Sparkles, ChevronUp, Loader2, Paperclip, Copy, Lock, AlertCircle, Maximize2, Minimize2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Label } from '../../../types';
 import { ArchiveSession } from '../types';
@@ -82,6 +82,9 @@ export function DocumentPreview({
   const [labelPopupOpen, setLabelPopupOpen] = useState(false);
   const labelPopupRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(Math.min(600, Math.max(380, window.innerWidth * 0.6)));
+  // Владелец 12.11: заметку можно развернуть на весь экран для чтения. Текст при этом
+  // держится колонкой ~760px по центру — строка во всю ширину монитора не читается.
+  const [expanded, setExpanded] = useState(false);
   const isDragging = useRef(false);
   const startX = useRef(0);
   const startWidth = useRef(0);
@@ -268,10 +271,11 @@ export function DocumentPreview({
     document.body.style.userSelect = 'none';
   };
 
+  // Владелец 12.11: мышкой — до всей ширины окна (раньше потолок был 60 %).
   useEffect(() => {
     if (isMobile) return;
     const saved = localStorage.getItem('preview_width');
-    if (saved) setTimeout(() => setWidth(Math.max(380, Math.min(window.innerWidth * 0.6, Number(saved)))), 0);
+    if (saved) setTimeout(() => setWidth(Math.max(380, Math.min(window.innerWidth, Number(saved)))), 0);
   }, [isMobile]);
 
   useEffect(() => {
@@ -279,7 +283,7 @@ export function DocumentPreview({
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging.current) return;
       const delta = startX.current - e.clientX;
-      const newWidth = Math.max(380, Math.min(window.innerWidth * 0.6, startWidth.current + delta));
+      const newWidth = Math.max(380, Math.min(window.innerWidth, startWidth.current + delta));
       currentWidthRef.current = newWidth;
       if (panelRef.current) panelRef.current.style.width = `${newWidth}px`;
     };
@@ -460,7 +464,8 @@ export function DocumentPreview({
         top: 0,
         right: 0,
         bottom: 0,
-        width: width,
+        width: expanded ? '100vw' : width,
+        ...(expanded ? { paddingLeft: 'max(0px, calc((100vw - 760px) / 2))', paddingRight: 'max(0px, calc((100vw - 760px) / 2))' } : {}),
       }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
@@ -469,8 +474,8 @@ export function DocumentPreview({
       {isMobile && (
         <div className="w-9 h-1 rounded-sm bg-white/15 mt-2.5 mx-auto shrink-0" />
       )}
-      {/* Drag handle (Disabled on mobile) */}
-      {!isMobile && (
+      {/* Drag handle (Disabled on mobile and when expanded) */}
+      {!isMobile && !expanded && (
         <div
           onMouseDown={handleMouseDown}
           className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize z-10 group"
@@ -630,6 +635,13 @@ export function DocumentPreview({
             </div>
           )}
         </div>
+        <IconButton
+          onClick={() => setExpanded(v => !v)}
+          className="w-10 h-10 md:w-8 md:h-8 rounded-xl flex items-center justify-center text-text-main/60 hover:text-text-main hover:bg-text-main/5 transition-colors shrink-0 cursor-pointer"
+          label={expanded ? t('preview_collapse') : t('preview_expand')}
+          aria-pressed={expanded}
+          icon={expanded ? <Minimize2 size={18} className="md:w-4 md:h-4" /> : <Maximize2 size={18} className="md:w-4 md:h-4" />}
+        />
         <IconButton
           onClick={onClose}
           className="w-10 h-10 md:w-8 md:h-8 rounded-xl flex items-center justify-center text-text-main/60 hover:text-text-main hover:bg-text-main/5 transition-colors shrink-0 cursor-pointer"

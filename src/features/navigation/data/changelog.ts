@@ -17,6 +17,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.12',
+    date: '2026-11-12',
+    announce: false,
+    items: [
+      { category: 'improvement', ru: 'Панель заметки можно развернуть на весь экран или растянуть мышкой до нужной ширины — читать длинные записи удобнее.', en: 'The note panel can be expanded to full screen or dragged to any width for easier reading of long entries.' },
+      { category: 'improvement', ru: 'Собеседники теперь называются «Группа консультантов» и «КПТ-консультант».', en: 'The companions are now called «Group of consultants» and «CBT consultant».' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.11.11',
     date: '2026-11-11',
     announce: false,

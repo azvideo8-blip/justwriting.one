@@ -86,7 +86,7 @@ describe('MD-2: когда аудита нет', () => {
 
   it('результат — только булевы и числа', () => {
     const audit = auditAnswer('Заголовок без текста, [#5742]', ATTACHED_DOC);
-    expect(audit).toEqual({ note_text_denied: true, empty_claim_with_results: false, foreign_ids: 1, quote_unquoted: 0, notes_claim_no_ref: 0 });
+    expect(audit).toEqual({ note_text_denied: true, empty_claim_with_results: false, foreign_ids: 1, quote_unquoted: 0, notes_claim_no_ref: 0, weak_ref: 0, date_off_header: 0 });
   });
 
   // MD-3: тот же счётчик, что снимает кавычки на клиенте.

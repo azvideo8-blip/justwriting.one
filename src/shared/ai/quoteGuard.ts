@@ -311,6 +311,23 @@ export function unquoteAbsent(
   return { text: out + text.slice(last), stripped };
 }
 
+/**
+ * Ход «вопрос о записях» (флаг answer_chronicle_v2): цитата, которой нет в
+ * материалах, — признак выдумки. Предложение с ней удаляется целиком вместе со
+ * ссылкой (владелец 12.11: выдуманный «контракт» со ссылкой на настоящую заметку).
+ * Сверка по началу цитаты: цитата из нескольких фраз рвётся разбиением на предложения.
+ */
+export function dropFabricatedSentences(text: string, materials: string | null | undefined): string {
+  const { stripped } = unquoteAbsent(text, materials, { markPersonal: false });
+  if (stripped.length === 0) return text;
+  const heads = stripped.map(q => q.slice(0, 24));
+  const parts = text.split(/(?<=[.!?…])(\s+)/);
+  const kept = parts.filter((part, i) => i % 2 === 1 || !heads.some(h => part.includes(h))).join('').trim();
+  // Всё ответа держалось на выдуманных цитатах — пустой ответ хуже: остаётся
+  // прежняя чистка (кавычки сняты, слова на месте).
+  return kept || text;
+}
+
 /** Сколько кавычек правило сняло — счётчик для журнала, без правки текста. */
 export function countAbsentQuotes(text: string, materials: string | null | undefined): number {
   return unquoteAbsent(text, materials).stripped.length;

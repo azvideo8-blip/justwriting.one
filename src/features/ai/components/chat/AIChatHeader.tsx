@@ -152,10 +152,13 @@ export function AIChatHeader(props: AIChatHeaderProps) {
             <button
               type="button"
               onClick={() => setPersonaSheetOpen(true)}
-              className="press flex items-center gap-2 min-h-11 max-w-full px-2 rounded-full text-sm font-semibold text-text-main truncate"
+              className="press flex items-center gap-1.5 min-[380px]:gap-2 min-h-11 max-w-full px-2 rounded-full text-[13px] tracking-tight min-[380px]:text-sm min-[380px]:tracking-normal font-semibold text-text-main truncate"
               style={{ background: `${headerVisual.color}14`, borderColor: `${headerVisual.color}55`, borderWidth: 1 }}
             >
               <Monogram color={headerVisual.color} mono={headerVisual.mono} size={18} />
+              {/* 0.11.12: «Группа консультантов» на 360 px не помещалась на 7 px —
+                  до 380 px шрифт имени 13 px, буквы плотнее, зазор у знака 6 px (e2e MP-3:
+                  в CI 13 px дали 153 > 148). */}
               {/* MP-3: роль в токене не участвует — на 375–390 px она не
                   сжималась («shrink-0») и резала имя до «Г…». Роль остаётся
                   второй строкой листа персон (MR-3). */}

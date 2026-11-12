@@ -5,8 +5,8 @@ import { AIChatHeader, type AIChatHeaderProps } from '../AIChatHeader';
 import { renderWithProviders } from '../../../../../test/utils/render';
 
 const personas = [
-  { id: 'gp', name: 'Группа психологов', emoji: '🙂', isPreset: true },
-  { id: 'cbt', name: 'КПТ-психолог', emoji: '🧠', isPreset: true },
+  { id: 'gp', name: 'Группа консультантов', emoji: '🙂', isPreset: true },
+  { id: 'cbt', name: 'КПТ-консультант', emoji: '🧠', isPreset: true },
   { id: 'coach', name: 'Коуч', emoji: '🚀', isPreset: true },
 ];
 
@@ -14,7 +14,7 @@ function base(isMobile: boolean, extra: Partial<AIChatHeaderProps> = {}): AIChat
   return {
     isMobile,
     headerVisual: { color: '#888', mono: 'Гп' },
-    activePersonaName: 'Группа психологов',
+    activePersonaName: 'Группа консультантов',
     activeRole: 'многогранная перспектива',
     dialogueTitle: 'Заголовок',
     hasActiveDialogue: true,
@@ -42,14 +42,14 @@ function base(isMobile: boolean, extra: Partial<AIChatHeaderProps> = {}): AIChat
 describe('MR-3: выбор персоны на телефоне', () => {
   it('в мобильной шапке один контроль персоны — токен', () => {
     renderWithProviders(<AIChatHeader {...base(true)} />);
-    expect(screen.getAllByRole('button', { name: /Группа психологов/ })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /Группа консультантов/ })).toHaveLength(1);
     // Второго выпадающего списка «СОБЕСЕДНИК: …» на телефоне нет.
     expect(screen.queryByText(/собеседник/i)).toBeNull();
   });
 
   it('тап по токену открывает лист: по строке на персону, не меньше 48 px', () => {
     renderWithProviders(<AIChatHeader {...base(true)} />);
-    fireEvent.click(screen.getByRole('button', { name: /Группа психологов/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Группа консультантов/ }));
     const sheet = screen.getByRole('dialog');
     for (const p of personas) {
       // Строку ищем внутри листа: токен в шапке носит то же имя.
@@ -64,8 +64,8 @@ describe('MR-3: выбор персоны на телефоне', () => {
   it('выбор персоны вызывает setSelectedPersonaId и закрывает лист', async () => {
     const props = base(true);
     renderWithProviders(<AIChatHeader {...props} />);
-    fireEvent.click(screen.getByRole('button', { name: /Группа психологов/ }));
-    fireEvent.click(screen.getByRole('button', { name: /КПТ-психолог/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Группа консультантов/ }));
+    fireEvent.click(screen.getByRole('button', { name: /КПТ-консультант/ }));
     expect(props.setSelectedPersonaId).toHaveBeenCalledWith('cbt');
     // MF-20: лист уходит анимацией ~200 мс, а не в тот же кадр.
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
@@ -73,7 +73,7 @@ describe('MR-3: выбор персоны на телефоне', () => {
 
   it('на десктопе выпадающий список персоны остаётся как был', () => {
     renderWithProviders(<AIChatHeader {...base(false)} />);
-    expect(screen.getByRole('button', { name: /Группа психологов/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Группа консультантов/ })).toBeTruthy();
     expect(screen.queryByText(/ai_interlocutor/i) ?? screen.getAllByText(/собеседник/i).length).toBeTruthy();
   });
 });

@@ -9,7 +9,7 @@ vi.mock('../../../../shared/i18n', () => ({
 }));
 
 const ANSWER = 'Текст ответа.';
-const PERSONA = 'Группа психологов';
+const PERSONA = 'Группа консультантов';
 
 const handlers = {
   onCopy: vi.fn(),

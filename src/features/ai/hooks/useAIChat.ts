@@ -42,7 +42,8 @@ import { detectAuthorGender } from '../../../shared/ai/authorGender';
 import type { AttachedNoteBlock } from '../utils/attachedNoteFormat';
 import { extractCitationIds } from '../services/chatContext/citations';
 import { sanitizeFirstSeenDates } from '../utils/dateGuard';
-import { normalizeQuoteText, quoteMaterialsText, unquoteAbsent } from '../../../shared/ai/quoteGuard';
+import { normalizeQuoteText, quoteMaterialsText, unquoteAbsent, dropFabricatedSentences } from '../../../shared/ai/quoteGuard';
+import { ARCHIVE_TURN_MARK } from '../../../shared/ai/archiveAnswerRule';
 import { notesClaimWithoutRef } from '../../../shared/ai/notesRefRule';
 import { CITATION_RE, isRecognisedCitation, extractSearchRequest } from '../shared/citationPatterns';
 import { setAIStage } from '../store/useAIStageStore';
@@ -131,6 +132,13 @@ export interface SanitizeCitationsOptions {
    * набором (`materialsText`).
    */
   quoteMaterialsText?: string | undefined;
+  /**
+   * Ход «вопрос о записях» (флаг answer_chronicle_v2): цитата, которой нет в
+   * материалах, — признак выдумки, а не огрех пересказа. Предложение с ней
+   * удаляется целиком вместе со ссылкой, а не остаётся «по смыслу» (владелец
+   * 12.11: выдуманный «контракт» со ссылкой на настоящую заметку).
+   */
+  dropFabricatedSentences?: boolean | undefined;
 }
 
 export function sanitizeCitations(
@@ -209,6 +217,7 @@ export function sanitizeCitations(
     // RA1-8: если ход называет источник кавычек, сверяем только с ним; иначе
     // прежнее поведение — весь набор материалов (редактор, широкий ход).
     const quoteMaterials = opts?.quoteMaterialsText !== undefined ? opts.quoteMaterialsText : materialsText;
+    if (opts?.dropFabricatedSentences) cleaned = dropFabricatedSentences(cleaned, quoteMaterials);
     cleaned = unquoteAbsent(cleaned, quoteMaterials, { markPersonal: opts?.personaId !== 'editor' }).text;
   }
 
@@ -684,6 +693,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // человека. Фон и память — пересказ ИИ; ссылки и названия ниже сверяются
       // с полным набором, как раньше. DY7-7: то же собрание считает сервер.
       const quoteMaterials = turnMode === 'note' ? quoteMaterialsText({ ...quoteInput, strict: true }) : undefined;
+      // Ход «вопрос о записях»: метку в блок записей кладёт клиент с флагом answer_chronicle_v2.
+      const archiveTurn = Boolean(searchContext?.includes(ARCHIVE_TURN_MARK));
 
       const customSystemPrompt = customPersona;
       const effectivePersonaId = customPersona ? 'custom' : personaId;
@@ -715,7 +726,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             signal: controller.signal,
             onChunk: (partial, reasoning) => {
               const cleanPartial = sanitizeFirstSeenDates(
-                sanitizeCitations(partial, citeIds, injectedTitles, materialsText, { personaId: effectivePersonaId, quoteMaterialsText: quoteMaterials }),
+                sanitizeCitations(partial, citeIds, injectedTitles, materialsText, { personaId: effectivePersonaId, quoteMaterialsText: quoteMaterials, dropFabricatedSentences: archiveTurn }),
                 allowedFirstSeenDates || []
               );
               const cleanReasoning = reasoning
@@ -775,7 +786,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             if (cleanAnswer) {
               setStreamingMessage(
                 sanitizeFirstSeenDates(
-                  sanitizeCitations(cleanAnswer, citeIds, injectedTitles, materialsText, { personaId: effectivePersonaId, quoteMaterialsText: quoteMaterials }),
+                  sanitizeCitations(cleanAnswer, citeIds, injectedTitles, materialsText, { personaId: effectivePersonaId, quoteMaterialsText: quoteMaterials, dropFabricatedSentences: archiveTurn }),
                   allowedFirstSeenDates || []
                 )
               );
@@ -813,7 +824,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // текста до разбора возвращала в сохранённый ход мыслей «по смыслу», которых
       // во время стрима не было.
       const clean = (s: string, reasoningPart: boolean) => sanitizeFirstSeenDates(
-        sanitizeCitations(s, citeIds, injectedTitles, materialsText, reasoningPart ? { reasoning: true } : { personaId: effectivePersonaId, quoteMaterialsText: quoteMaterials }),
+        sanitizeCitations(s, citeIds, injectedTitles, materialsText, reasoningPart ? { reasoning: true } : { personaId: effectivePersonaId, quoteMaterialsText: quoteMaterials, dropFabricatedSentences: archiveTurn }),
         allowedFirstSeenDates || []
       );
       let savedText = clean(extractAnswer(fullText), false);

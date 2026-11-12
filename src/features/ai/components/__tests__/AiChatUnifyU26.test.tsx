@@ -24,7 +24,7 @@ vi.mock('../../../../shared/hooks/useLayoutMode', () => ({
   useLayoutMode: () => ({ layoutMode, setLayoutMode: vi.fn() }),
 }));
 
-const PERSONA = 'Группа психологов';
+const PERSONA = 'Группа консультантов';
 const ANSWER = 'Текст ответа.';
 const DAY = 86_400_000;
 
@@ -127,7 +127,7 @@ function personaSheetProps(overrides: Partial<MobilePersonaSheetProps> = {}): Mo
     // («Гп», «К»), у выдуманного id — первая буква имени.
     personas: [
       { id: 'group_psychology', name: PERSONA, emoji: '🙂', isPreset: true },
-      { id: 'cbt', name: 'КПТ-психолог', emoji: '🧠', isPreset: true },
+      { id: 'cbt', name: 'КПТ-консультант', emoji: '🧠', isPreset: true },
     ],
     selectedPersonaId: 'group_psychology',
     onSelect: vi.fn(),
