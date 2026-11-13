@@ -37,6 +37,7 @@ import {
   _streamUnavailableUntil
 } from '../utils/aiChatTransport';
 import { hiddenNoteIdsFromDocs } from '../utils/hiddenNoteIds';
+import { localDocIds } from '../utils/canonicalDocumentId';
 import { isPastedAttachmentId } from '../utils/isExcludedFromAI';
 import { detectAuthorGender } from '../../../shared/ai/authorGender';
 import type { AttachedNoteBlock } from '../utils/attachedNoteFormat';
@@ -334,6 +335,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       });
     };
     refresh();
+    // CX-2: старым ответам этого диалога дозаписывается таблица ссылок — один раз на открытие.
+    void AIDialogueService.backfillCiteRefs(dialogueId);
     window.addEventListener('dialogue-updated', refresh);
     return () => { cancelled = true; window.removeEventListener('dialogue-updated', refresh); };
     // context is a stable ref-backed wrapper; getAttachedNote/setAttachedNote are personaId-independent.
@@ -585,7 +588,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       const legacyParse = { legacyNoteHidden: await legacyNoteHidden(currentDialogue, localDb) };
       // AP-2: цитата скрытой заметки в старом ответе — тот же запрет, что и на
       // тело приложенной заметки. Снимок документов один на ход.
-      const hiddenCiteIds = hiddenNoteIdsFromDocs(await localDb.getAll('documents'));
+      const allDocs = await localDb.getAll('documents');
+      const hiddenCiteIds = hiddenNoteIdsFromDocs(allDocs);
       // Н-1: тот же разбор (без названий скрытых заметок) — и для извлечения памяти ниже.
       const parseOpts = { ...legacyParse, hiddenCitationIds: hiddenCiteIds };
       const apiMessages = prepareApiMessages(sourceForApi, parseOpts);
@@ -594,7 +598,10 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
       // К21-1: материалы прошлого ответа — по id из его реплики (К21-3). Ход
       // «откуда ты это взял?» поднимает те же записи, а не ищет по тексту вопроса.
-      const prevTurnDocIds = [...baseMessages].reverse().find(m => m.role === 'assistant')?.contextDocIds;
+      // CX-5: ответ с другого устройства — id там местные; переводим по его citeRefs.
+      // Служебное уведомление (role assistant, type system) — не ответ (ревью 0.11.13).
+      const prevAssistant = [...baseMessages].reverse().find(m => m.role === 'assistant' && m.type !== 'system');
+      const prevTurnDocIds = localDocIds(prevAssistant?.contextDocIds, prevAssistant?.citeRefs, allDocs);
 
       const {
         userPortrait,

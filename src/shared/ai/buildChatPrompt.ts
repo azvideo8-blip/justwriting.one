@@ -5,7 +5,7 @@
 // and 500s the whole /api/chat endpoint. Vite resolves the .js → .ts for the SPA.
 import { z } from 'zod';
 import { PERSONA_PROMPTS, TOPIC_GUARD, NOTES_GUARD_BASE, NOTES_SEARCH_GUARD, OPEN_QUESTION_POOL, REFLECTION_GUIDE, SAFETY_GUIDE, EDITOR_PROMPT_BODY, EDITOR_EVAL_TAIL, EDITOR_LIST_TAIL } from './prompts.js';
-import { ARCHIVE_TURN_MARK, ARCHIVE_ANSWER_RULE } from './archiveAnswerRule.js';
+import { ARCHIVE_TURN_MARK, archiveAnswerRule } from './archiveAnswerRule.js';
 import { evalAskMode, listAskMode } from './evalAsk.js';
 import { ENGLISH_NUDGE, questionOnly } from './languageNudge.js';
 
@@ -265,7 +265,7 @@ export function buildChatSystemPrompt(params: ChatPromptParams): string {
   // неё (флаг выключен, старый клиент) промпт побайтно прежний. У редактора свой
   // формат (пост), строгий ход по заметке хронику не получает.
   if (documentContent && !strictNote && personaId !== 'editor' && crisis !== true && documentContent.includes(ARCHIVE_TURN_MARK)) {
-    base += `\n\n---\n${ARCHIVE_ANSWER_RULE}`;
+    base += `\n\n---\n${archiveAnswerRule(responseLength)}`;
   }
 
   return base;

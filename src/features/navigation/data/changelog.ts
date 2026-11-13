@@ -17,6 +17,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.13',
+    date: '2026-11-13',
+    announce: false,
+    items: [
+      { category: 'fix', ru: 'Ссылки на заметки в ответах ИИ открываются и на другом устройстве — например, ответ, написанный на компьютере, на телефоне.', en: 'Note links in AI answers now open on another device too — for example, an answer written on the computer, on the phone.' },
+      { category: 'fix', ru: 'Строка «Модель видела …» под ответом и вопрос «откуда ты это взял?» работают на любом устройстве.', en: 'The «The model saw …» line under an answer and the question «where did you get that?» work on any device.' },
+      { category: 'fix', ru: 'Текст заметки уходит ИИ только после того, как вы нажали «Разобрать»: согласие на поиск по смыслу больше не отправляет неразобранные заметки.', en: 'A note’s text reaches the AI only after you press «Analyse»: consenting to semantic search no longer sends unanalysed notes.' },
+      { category: 'improvement', ru: 'Если при открытой заметке написать «как я писал про …», ИИ найдёт ту запись в архиве.', en: 'With a note open, writing «as I wrote about …» makes the AI find that entry in the archive.' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.11.12',
     date: '2026-11-12',
     announce: false,

@@ -43,6 +43,7 @@ describe('D4.27 — Indexing Consent Contract', () => {
     await db.clear('documents');
     await db.clear('versions');
     await db.clear('aiEmbeddings');
+    await db.clear('aiSummaries');
 
     // Seed document with version
     await db.put('documents', {
@@ -57,6 +58,8 @@ describe('D4.27 — Indexing Consent Contract', () => {
       version: 1,
       content: 'Сегодня я изучал архитектуру поисковых индексов и векторных эмбеддингов.',
     } as never);
+    // AN-1: вектор строится только у разобранной заметки.
+    await db.put('aiSummaries', { documentId: 'doc_1', summary: 'суть', processedAt: 1 } as never);
   });
 
   it('1. With no answer recorded (unanswered), NO embedding request is made for indexing', async () => {

@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { AIDialogue, LocalDocument } from '../../../../core/storage/localDb';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { LocalVersionService } from '../../../../core/services/LocalVersionService';
 import type { ArchiveSession } from '../../../../shared/types/common';
 import { CITATION_RE, isRecognisedCitation } from '../../shared/citationPatterns';
 import { useLanguage } from '../../../../shared/i18n';
+import { isExcludedFromAI } from '../../utils/isExcludedFromAI';
 
 export type ChatMessage = AIDialogue['messages'][number];
 
@@ -39,16 +40,27 @@ export async function buildDocIndex(db: LocalDb) {
 }
 
 /**
+ * CX-1: id не нашёлся — ищем по таблице ответа (`citeRefs`: id → uuid заметки).
+ * Ответ писался на другом устройстве, там у заметки свой местный id. Скрытая от
+ * ИИ или лежащая в корзине заметка этим путём не открывается.
+ */
+export function resolveCited(index: Map<string, LocalDocument>, id: string, ref: string | undefined) {
+  const own = index.get(id);
+  if (own) return own;
+  const viaRef = ref ? index.get(ref) : undefined;
+  return viaRef && !isExcludedFromAI(viaRef) ? viaRef : undefined;
+}
+
+/**
  * Заметка по id ссылки. Возвращает живую копию: если под одним uuid/облачным id
  * легли и обычная, и удалённая копия, открывается обычная.
  */
-async function findCitedDocument(db: LocalDb, id: string) {
+async function findCitedDocument(db: LocalDb, id: string, ref: string | undefined) {
   // Локальный id уникален — сначала прямое чтение, полный проход только для
   // uuid/облачного id или копии из корзины.
   const direct = await db.get('documents', id);
   if (direct && !direct.trashedAt) return direct;
-  const index = await buildDocIndex(db);
-  return index.get(id);
+  return resolveCited(await buildDocIndex(db), id, ref);
 }
 
 export function useCitationMeta(
@@ -68,6 +80,13 @@ export function useCitationMeta(
   const metaCacheRef = useRef<Record<string, CitationInfo | { missAt: number }>>({});
   // Id уже в полёте: не запускаем второй getAll, пока первый не доехал.
   const inflightRef = useRef<Set<string>>(new Set());
+  // CX-1: таблицы всех ответов диалога одной картой. ponytail: не пары
+  // (ссылка, её сообщение) — местный id случаен, и один id в двух ответах — это
+  // одна и та же заметка; клик к тому же приходит без сообщения.
+  const citeRefs = useMemo(
+    () => Object.assign({}, ...displayMessages.map(m => m.citeRefs ?? {})) as Record<string, string>,
+    [displayMessages],
+  );
 
   useEffect(() => {
     const ids = new Set<string>();
@@ -113,7 +132,7 @@ export function useCitationMeta(
         const resolved: Record<string, CitationInfo> = {};
         for (const id of pending) {
           inflightRef.current.delete(id);
-          const doc = index.get(id);
+          const doc = resolveCited(index, id, citeRefs[id]);
           if (doc) {
             const date = doc.lastSessionAt
               ? new Date(doc.lastSessionAt).toLocaleDateString(language, { day: 'numeric', month: 'short' })
@@ -136,7 +155,7 @@ export function useCitationMeta(
     })();
     // citationMeta не в зависимостях: результат держим в ref-кеше, иначе эффект
     // перезапускался бы на каждое setCitationMeta и гонял getAll повторно.
-  }, [displayMessages, streamingMessage, t, language]);
+  }, [displayMessages, streamingMessage, citeRefs, t, language]);
 
   const processCitations = (text: string | null | undefined): string => {
     if (!text) return '';
@@ -160,7 +179,7 @@ export function useCitationMeta(
     void (async () => {
       try {
         const db = await getLocalDb();
-        const doc = await findCitedDocument(db, id);
+        const doc = await findCitedDocument(db, id, citeRefs[id]);
         if (!doc) { onMissing?.(); return; }
         const content = await LocalVersionService.getLatestContent(doc.id);
         const session: ArchiveSession = {
@@ -184,7 +203,7 @@ export function useCitationMeta(
         console.error('[AIPage] failed to preview cited note:', e);
       }
     })();
-  }, [setPreviewSession, onMissing, t]);
+  }, [setPreviewSession, onMissing, citeRefs, t]);
 
   return { processCitations, handleCitationClick };
 }

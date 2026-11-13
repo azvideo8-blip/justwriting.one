@@ -12,7 +12,7 @@ import { AIService } from './AIService';
 import { reportError } from '../../../shared/errors/reportError';
 import { detectRisk } from '../utils/riskDetect';
 import { analyzeDoors, aggregateDoors, doorLabel } from '../utils/contactDoors';
-import { shouldRunFullSearch, asksForSimilarNotes, asksForOtherNotes, referencedEarlierTopics, HIDDEN_NOTE_TITLE } from '../utils/aiChatTransport';
+import { shouldRunFullSearch, asksForSimilarNotes, asksForOtherNotes, referencedEarlierTopics, referencedOwnTopics, HIDDEN_NOTE_TITLE } from '../utils/aiChatTransport';
 import { detectPersonMentions, buildPersonQuotesBlock, personQuoteIds, type PersonNote } from './chatContext/personQuotes';
 import { isSmallTalkTurn, PSYCHE_PERSONAS } from '../utils/smallTalk';
 import { cosineSimilarity } from '../utils/vectorSearch';
@@ -367,7 +367,11 @@ export function useAIChatContext(personaId: string): {
       && stickyTurnsRef.current > 0
       && lastSearchQueryRef.current.length > 0;
     const provenanceContinuation = provenanceByIds || provenanceByQuery;
-    const strictNoteTurn = params.scope === 'note' && !!attached && !consentContinuation && !provenanceContinuation;
+    // К23-1 (случай #23): «как я писал про X» при приложенной заметке — человек
+    // отсылает к другой своей записи. Строгий ход её не искал и честно отвечал
+    // «в материалах нет»; теперь ход ищет по X, заметка остаётся на месте.
+    const ownTopics = attached && params.scope === 'note' ? referencedOwnTopics(text) : [];
+    const strictNoteTurn = params.scope === 'note' && !!attached && !consentContinuation && !provenanceContinuation && ownTopics.length === 0;
     // Кризис ищем и в приложенной заметке: текст хода теперь — только вопрос.
     const crisis = detectRisk(attached ? [text, ...attached.blocks.map(b => b.content ?? '')].join('\n') : text).isRisk;
     if (!strictNoteTurn && !provenanceContinuation && !smallTalk && text.trim().length > 0 && hasIndexingConsent(uid)) {
@@ -592,6 +596,14 @@ export function useAIChatContext(personaId: string): {
         // просьбой о других записях не должен оставаться без поиска вовсе.
         explicitSearch = true;
       }
+    }
+
+    // Запрос — из слов человека, не из текста заметки: скрытая от ИИ заметка не мешает.
+    // Ревью 0.11.13: id, процитированные в самой заметке, — не находка поиска.
+    const preSearchIds = new Set(injectedDocumentIds);
+    if (!forcedSearchQuery && attached && ownTopics.length > 0) {
+      explicitSearch = true;
+      effectiveQuery = ownTopics.join('. ');
     }
 
     // Строгий ход: заметка, портрет (фон — правило в системном промпте) и, при
@@ -1387,7 +1399,10 @@ export function useAIChatContext(personaId: string): {
       allowedFirstSeenDates: [...new Set(allowedFirstSeenDates)],
       degradedReason: degradedDueToDailyLimit ? 'daily_limit' : undefined,
       crisis,
-      ...(consentContinuation || provenanceContinuation ? { effectiveScope: 'wide' as const } : {}),
+      // К23-1: нашлась запись по отсылке — ход для сервера широкий (иначе правило
+      // «только эта заметка» спорит с выдачей); не нашлась — остаётся строгим.
+      ...(consentContinuation || provenanceContinuation
+        || (ownTopics.length > 0 && allInjectedDocIds.some(id => !attachedTurnIds.has(id) && !preSearchIds.has(id))) ? { effectiveScope: 'wide' as const } : {}),
     };
 
   };

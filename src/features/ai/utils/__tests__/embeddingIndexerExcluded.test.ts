@@ -29,7 +29,7 @@ describe('embeddingIndexer excludes AI-hidden and trashed notes (D-1)', () => {
     setIndexingConsent('u1', 'granted');
 
     const db = await getLocalDb();
-    for (const store of ['documents', 'aiEmbeddings'] as const) {
+    for (const store of ['documents', 'aiEmbeddings', 'aiSummaries'] as const) {
       const all = await db.getAll(store);
       for (const rec of all) {
         const key = (rec as { id?: string; documentId?: string }).id
@@ -55,6 +55,8 @@ describe('embeddingIndexer excludes AI-hidden and trashed notes (D-1)', () => {
     await put(NORMAL_ID, { excludedFromAI: false });
     await put(HIDDEN_ID, { excludedFromAI: true });
     await put(TRASHED_ID, { excludedFromAI: false, trashedAt: Date.now() });
+    // AN-1: все три разобраны — отсекает именно скрытость и корзина.
+    for (const id of [NORMAL_ID, HIDDEN_ID, TRASHED_ID]) await db.put('aiSummaries', { documentId: id, summary: 'суть', processedAt: 1 } as never);
 
     vi.spyOn(LocalVersionService, 'getLatestContent').mockImplementation(async (id: string) => CONTENTS[id] ?? '');
     vi.spyOn(AIEmbeddingService, 'getAll').mockResolvedValue([] as never);

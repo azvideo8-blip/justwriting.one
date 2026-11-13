@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildChatSystemPrompt, type ChatPromptParams } from '../buildChatPrompt.js';
-import { ARCHIVE_ANSWER_RULE, ARCHIVE_TURN_MARK } from '../archiveAnswerRule.js';
+import { ARCHIVE_ANSWER_RULE, ARCHIVE_TURN_MARK, archiveAnswerRule } from '../archiveAnswerRule.js';
 
 // Правило ответа на вопрос о записях (флаг answer_chronicle_v2). Метку ставит
 // клиент в блок записей; сервер по ней добавляет правило ВНЕ ограды данных.
@@ -13,7 +13,7 @@ import { ARCHIVE_ANSWER_RULE, ARCHIVE_TURN_MARK } from '../archiveAnswerRule.js'
 const NOTES = '[Возможно релевантные заметки]\n[#local_a · 2026-09-01]\nЗаметка 1: "Коплю"\nтекст';
 
 const build = (extra: Partial<ChatPromptParams> = {}): string => buildChatSystemPrompt({
-  personaId: 'coach', responseLength: 'detailed', documentContent: `${ARCHIVE_TURN_MARK}\n\n${NOTES}`, rnd: () => 0, ...extra,
+  personaId: 'coach', responseLength: 'standard', documentContent: `${ARCHIVE_TURN_MARK}\n\n${NOTES}`, rnd: () => 0, ...extra,
 });
 
 describe('правило ответа на вопрос о записях', () => {
@@ -49,5 +49,17 @@ describe('правило ответа на вопрос о записях', () =
     // цифры в правиле — только потолки длины; образца даты (день + месяц, ГГГГ-ММ) нет
     expect(ARCHIVE_ANSWER_RULE).not.toMatch(/(19|20)\d\d|\d{1,2}\s+(январ|феврал|март|апрел|ма[йя]|июн|июл|август|сентябр|октябр|ноябр|декабр)/);
     expect(ARCHIVE_ANSWER_RULE).not.toMatch(/«[^»]{20,}»/);
+  });
+
+  // Владелец 12.11: на «объёмно» ответ по записям оставался коротким — потолок
+  // правила перекрывал настройку длины. Мутация: archiveAnswerRule без ветки → красный.
+  it('потолок длины правила — от настройки «кратко / нормально / объёмно»', () => {
+    expect(build({ responseLength: 'standard' }).endsWith(ARCHIVE_ANSWER_RULE)).toBe(true);
+    const detailed = build({ responseLength: 'detailed' });
+    expect(detailed.endsWith(archiveAnswerRule('detailed'))).toBe(true);
+    expect(archiveAnswerRule('detailed')).not.toContain('~600');
+    expect(archiveAnswerRule('detailed')).toContain('потолка длины нет');
+    expect(build({ responseLength: 'short' })).toContain('до ~400 знаков');
+    expect(archiveAnswerRule(undefined)).toBe(ARCHIVE_ANSWER_RULE);
   });
 });

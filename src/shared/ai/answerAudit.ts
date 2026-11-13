@@ -70,6 +70,32 @@ export interface AnswerAudit {
    * датой шапки этой заметки (±2 дня) и не встречаются в её тексте.
    */
   date_off_header: number;
+  /**
+   * К23-2 (шаг 1): сколько ответов подряд, включая этот, кончаются вопросом.
+   * 0 — этот ответ вопросом не кончается. Порог строки «подведи итог» — по замеру.
+   */
+  question_run: number;
+  /** К23-5: последний вопрос ответа — выбор «A или B» без выхода; 1, иначе 0. */
+  either_or_end: number;
+}
+
+// Ревью 0.11.13: «…? [#id]» — тоже вопрос в конце; ссылки после него не считаются.
+const ENDS_WITH_QUESTION_RE = /\?[\s»")]*(?:\[#[^\]]+\][\s.]*)*$/;
+// Выход из выбора: «или что-то другое», «или иначе», «или ни то ни другое»…
+const CHOICE_EXIT_RE = /или\s+(?:(?:про|о|об|в|на|с|к)\s+)?(?:что-то|как-то|нечто|ни то|и то|по-другому|иначе|еще|вообще)|а может/;
+
+function questionRun(answer: string, priorAssistant: readonly string[]): number {
+  if (!ENDS_WITH_QUESTION_RE.test(answer.trim())) return 0;
+  let run = 1;
+  for (let i = priorAssistant.length - 1; i >= 0 && ENDS_WITH_QUESTION_RE.test((priorAssistant[i] ?? '').trim()); i--) run++;
+  return run;
+}
+
+function eitherOrEnd(answer: string): number {
+  const last = answer.trim().split(/(?<=[.!?…])\s+/).filter(s => ENDS_WITH_QUESTION_RE.test(s)).pop();
+  if (!last) return 0;
+  const q = fold(last);
+  return /\sили\s/.test(q) && !CHOICE_EXIT_RE.test(q) ? 1 : 0;
 }
 
 const MONTHS = ['январ', 'феврал', 'март', 'апрел', 'ма', 'июн', 'июл', 'август', 'сентябр', 'октябр', 'ноябр', 'декабр'];
@@ -128,6 +154,8 @@ export function auditAnswer(
   answer: string,
   documentContent: string | null | undefined,
   quoteMaterials?: string | null | undefined,
+  /** К23-2: прошлые ответы ассистента этого диалога, по порядку. */
+  priorAssistant: readonly string[] = [],
 ): AnswerAudit | null {
   const doc = documentContent ?? '';
   if (!doc.trim() || !answer.trim()) return null;
@@ -144,5 +172,7 @@ export function auditAnswer(
     quote_unquoted: countAbsentQuotes(answer, quoteMaterials ?? doc),
     notes_claim_no_ref: notesClaimWithoutRef(answer, doc) ? 1 : 0,
     ...groundingCounts(answer, doc),
+    question_run: questionRun(answer, priorAssistant),
+    either_or_end: eitherOrEnd(answer),
   };
 }

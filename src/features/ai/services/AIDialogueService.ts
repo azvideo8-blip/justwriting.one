@@ -13,6 +13,7 @@ import { isExcludedFromAI, isPastedAttachmentId } from '../utils/isExcludedFromA
 
 import { writeFacetStore } from '../../../core/services/facetLock';
 import { truncateText } from '../../../shared/utils/textLimits';
+import { extractCitationIds } from './chatContext/citations';
 
 function formatDateYYYYMMDD(timestamp: number): string {
   const date = new Date(timestamp);
@@ -64,6 +65,32 @@ async function latestVersionContent(db: LocalDb, documentId: string): Promise<st
   if (versions.length === 0) return null;
   versions.sort((a, b) => b.version - a.version);
   return versions[0]?.content ?? null;
+}
+
+/**
+ * CX-1: таблица «id из ссылки → uuid заметки» для ответа. Заметки нет, она
+ * скрыта от ИИ или без общего для устройств номера — id в таблицу не идёт.
+ * Чтение не удалось — таблицы нет вовсе (`undefined` = «не посчитано», её
+ * дозапишет CX-2), а ход всё равно сохраняется.
+ */
+async function citeRefsOf(
+  db: LocalDb,
+  texts: (string | undefined)[],
+  // CX-4: id строки «заметки этого хода» — тоже местные; кладём их в ту же таблицу.
+  contextDocIds: readonly string[] = [],
+): Promise<Record<string, string> | undefined> {
+  try {
+    const refs: Record<string, string> = {};
+    for (const id of new Set([...texts.flatMap(t => extractCitationIds(t ?? '')), ...contextDocIds])) {
+      const doc = await db.get('documents', id);
+      const ref = doc && !isExcludedFromAI(doc) ? doc.uuid || doc.linkedCloudId : undefined;
+      if (ref) refs[id] = ref;
+    }
+    return Object.keys(refs).length > 0 ? refs : undefined;
+  } catch (e) {
+    console.warn('[AIDialogueService] citeRefs lookup failed:', e);
+    return undefined;
+  }
 }
 
 /** Цитата под маркером заметки: её текущий текст либо заглушка, если её нет в открытом доступе ИИ. */
@@ -170,6 +197,8 @@ export const AIDialogueService = {
   ): Promise<void> {
     const truncate = (s: string) => s.length > MAX_MSG_LENGTH ? truncateText(s, MAX_MSG_LENGTH, { maxCodeUnits: MAX_MSG_LENGTH }) + '\n[...truncated]' : s;
     const db = await getLocalDb();
+    // CX-1: до транзакции — чтение другого стора посреди неё её закрыло бы.
+    const citeRefs = await citeRefsOf(db, [truncate(assistantMsg), reasoning && truncate(reasoning)], contextDocIds ?? []);
     const tx = db.transaction('aiDialogues', 'readwrite');
     const existing = await tx.store.get(id);
     // S-58: ответ, пришедший после удаления диалога, в надгробие не дописывается.
@@ -192,6 +221,7 @@ export const AIDialogueService = {
         // вернёт id скрытой заметки из старой копии и синк унесёт его в облако.
         ...(contextDocIds ? { contextDocIds } : {}),
         ...(notesClaimNoRef ? { notesClaimNoRef: true } : {}),
+        ...(citeRefs ? { citeRefs } : {}),
       }, now + 1),
     );
     existing.updatedAt = now;
@@ -223,6 +253,8 @@ export const AIDialogueService = {
   ): Promise<void> {
     const truncate = (s: string) => s.length > MAX_MSG_LENGTH ? truncateText(s, MAX_MSG_LENGTH, { maxCodeUnits: MAX_MSG_LENGTH }) + '\n[...truncated]' : s;
     const db = await getLocalDb();
+    // CX-1: тот же расчёт, что в appendMessage, и тоже до транзакции.
+    const citeRefs = await citeRefsOf(db, [truncate(assistantMsg), reasoning && truncate(reasoning)], contextDocIds ?? []);
     const tx = db.transaction('aiDialogues', 'readwrite');
     const existing = await tx.store.get(id);
     if (!existing || existing.deletedAt) { await tx.done; return; }
@@ -240,6 +272,7 @@ export const AIDialogueService = {
       // DT-3: тот же смысл, что в appendMessage, — пустой список пишется явно.
       ...(contextDocIds ? { contextDocIds } : {}),
       ...(notesClaimNoRef ? { notesClaimNoRef: true } : {}),
+      ...(citeRefs ? { citeRefs } : {}),
     };
     const userIdx = existing.messages.findIndex(m => m.id === replaceUserId);
     // Ответ хода — первая реплика ассистента после вопроса; служебные
@@ -267,6 +300,50 @@ export const AIDialogueService = {
     await tx.store.put(existing);
     await tx.done;
     LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
+  },
+
+  /**
+   * CX-2: ответам, сохранённым до CX-1, таблица `citeRefs` дозаписывается на
+   * устройстве, где заметки из ссылок лежат под теми же местными id (то есть на
+   * авторе ответа). Только там, где таблицы нет; записанную не трогаем. Модель
+   * не вызывается. `updatedAt` диалога и реплик здесь НЕ растёт: дозапись не
+   * правка, в споре скаляров с другим устройством она не должна побеждать.
+   * Отметку поднимет сама выгрузка (союз отличается от облака — S-34, сервер
+   * ставит свою — 0037): диалог один раз встаёт наверх списка, владелец согласен
+   * (12.11). ponytail: ответ, у которого ни одна ссылка не нашлась, остаётся без
+   * таблицы и проверяется при каждом открытии — это чтения по ключу, без записи.
+   */
+  async backfillCiteRefs(id: string): Promise<void> {
+    try {
+      const db = await getLocalDb();
+      const snapshot = await db.get('aiDialogues', id);
+      if (!snapshot || snapshot.deletedAt) return;
+      // Заметки читаем до транзакции: чтение другого стора посреди неё её закрыло бы.
+      const found = new Map<string, { content: string; refs: Record<string, string> }>();
+      for (const m of withMessageIds(snapshot).messages) {
+        if (m.role !== 'assistant' || m.type === 'system' || m.citeRefs !== undefined) continue;
+        const refs = await citeRefsOf(db, [m.content, m.reasoning], m.contextDocIds);
+        if (refs) found.set(m.id!, { content: m.content, refs });
+      }
+      if (found.size === 0) return;
+      const tx = db.transaction('aiDialogues', 'readwrite');
+      const existing = await tx.store.get(id);
+      if (!existing || existing.deletedAt) { await tx.done; return; }
+      existing.messages = withMessageIds(existing).messages;
+      let changed = false;
+      for (const m of existing.messages) {
+        const hit = found.get(m.id!);
+        // Ответ успели перегенерировать или таблицу уже принесла синхронизация — не трогаем.
+        if (!hit || m.citeRefs !== undefined || m.content !== hit.content) continue;
+        m.citeRefs = hit.refs;
+        changed = true;
+      }
+      if (changed) await tx.store.put(existing);
+      await tx.done;
+      if (changed) LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
+    } catch (e) {
+      console.warn('[AIDialogueService] backfillCiteRefs failed:', e);
+    }
   },
 
   async deleteMessage(id: string, messageId: string): Promise<void> {

@@ -38,10 +38,13 @@ export async function findStaleDocuments(): Promise<string[]> {
   const documents = await db.getAll('documents');
   const embeddings = await AIEmbeddingService.getAll();
   const embMap = new Map(embeddings.map(e => [e.documentId, e]));
+  // AN-1 (владелец 13.11): вектор — только у разобранной заметки; без разбора
+  // она к ИИ не уходит. Неразобранная — не «ждёт вектора».
+  const analysed = new Set((await db.getAllKeys('aiSummaries')).map(String));
 
   const stale: string[] = [];
   for (const doc of documents) {
-    if (isExcludedFromAI(doc)) continue;
+    if (isExcludedFromAI(doc) || !analysed.has(doc.id)) continue;
     if (!isEmbeddingFresh(embMap.get(doc.id))) {
       stale.push(doc.id);
     }
@@ -59,6 +62,13 @@ export async function indexDocument(documentId: string, force = false): Promise<
 
   const doc = await db.get('documents', documentId);
   if (isExcludedFromAI(doc)) {
+    return 'skip';
+  }
+  // AN-1 (владелец 13.11): «ИИ не видит заметку, пока вы её не разобрали» —
+  // правда для всех путей: согласие на поиск, догрузка после разбора архива,
+  // «пересчитать всё». Текст неразобранной заметки на векторы не уходит.
+  // Разбор пишет сводку раньше вектора (NoteAnalysisService), так что свой путь не режет.
+  if (!(await db.get('aiSummaries', documentId))) {
     return 'skip';
   }
 

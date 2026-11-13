@@ -561,7 +561,9 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     memoryContext: parsed.data.memoryContext,
     humanTurns: messages.filter(m => m.role === 'user').map(m => m.content),
   });
-  const answerAudit = (answer: string): AnswerAudit | null => auditAnswer(answer, parsed.data.documentContent, quoteMaterials);
+  const answerAudit = (answer: string): AnswerAudit | null => auditAnswer(
+    answer, parsed.data.documentContent, quoteMaterials, messages.filter(m => m.role === 'assistant').map(m => m.content),
+  );
   const lastUserText = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
   const replyLang: ReplyLanguage = !isInternalCall && needsEnglishNudge(questionPart(lastUserText)) ? 'en' : 'ru';
   const providerRequest = reasoning === true

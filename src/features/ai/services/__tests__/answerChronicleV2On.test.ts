@@ -35,7 +35,7 @@ import { getLocalDb } from '../../../../core/storage/localDb';
 import { setIndexingConsent } from '../../../../core/ai/indexingConsent';
 import { buildChatSystemPrompt } from '../../../../shared/ai/buildChatPrompt';
 import { resetSyncFlagsForTests } from '../../../../core/sync/syncFlags';
-import { ARCHIVE_ANSWER_RULE, ARCHIVE_TURN_MARK } from '../../../../shared/ai/archiveAnswerRule';
+import { ARCHIVE_TURN_MARK, archiveAnswerRule } from '../../../../shared/ai/archiveAnswerRule';
 import { sanitizeFirstSeenDates } from '../../utils/dateGuard';
 import { quoteMaterialsText, unquoteAbsent } from '../../../../shared/ai/quoteGuard';
 
@@ -106,14 +106,14 @@ describe('answer_chronicle_v2 включён', () => {
     // у длинной заметки — лучший кусок и второй по близости, в порядке заметки
     expect(sc).toContain('Середина: разговор с начальником о смене работы и о сроках.\nКонец: решила вернуться к этому в мае, записала сумму 120 000.');
     expect(sc.split('[Возможно релевантные заметки]').length - 1).toBe(1);
-    expect(prompt.endsWith(ARCHIVE_ANSWER_RULE)).toBe(true);
+    expect(prompt.endsWith(archiveAnswerRule('detailed'))).toBe(true);
   });
 
   it('совет «что мне делать с этой тревогой?» идёт как раньше: без хроники, метки и правила', async () => {
     const { sc, prompt } = await turn('что мне делать с этой тревогой?');
     expect(sc).not.toContain('[Хроника по вопросу');
     expect(sc).not.toContain(ARCHIVE_TURN_MARK);
-    expect(prompt).not.toContain(ARCHIVE_ANSWER_RULE);
+    expect(prompt).not.toContain('ЭТОТ ХОД — ВОПРОС О ЗАПИСЯХ');
     // лёгкий поиск: один кусок на заметку — второй кусок длинной не приехал
     expect(sc).not.toContain('Конец: решила вернуться к этому в мае');
   });

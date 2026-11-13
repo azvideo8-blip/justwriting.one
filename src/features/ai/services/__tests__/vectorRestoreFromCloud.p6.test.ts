@@ -78,6 +78,8 @@ async function seedNotes(n: number) {
       id: `${id}_v1`, documentId: id, guestId: UID, version: 1, content: textOf(i),
       wordCount: 8, wordsAdded: 8, charsAdded: 55, duration: 0, wpm: 0, createdAt: 1000,
     } as never);
+    // AN-1: вектор строится только у разобранной заметки.
+    await db.put('aiSummaries', { documentId: id, summary: 'суть', processedAt: 1 } as never);
   }
 }
 
@@ -126,6 +128,8 @@ async function seedNotesKeepingVectors(total: number) {
       id: `${id}_v1`, documentId: id, guestId: UID, version: 1, content: textOf(i),
       wordCount: 8, wordsAdded: 8, charsAdded: 55, duration: 0, wpm: 0, createdAt: 1000,
     } as never);
+    // AN-1: вектор строится только у разобранной заметки.
+    await db.put('aiSummaries', { documentId: id, summary: 'суть', processedAt: 1 } as never);
   }
 }
 

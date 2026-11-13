@@ -147,6 +147,13 @@ function mergePair(x: DialogueMessage, y: DialogueMessage): DialogueMessage {
     ...(base.notesClaimNoRef === undefined && other.notesClaimNoRef !== undefined && base.content === other.content
       ? { notesClaimNoRef: other.notesClaimNoRef }
       : {}),
+    // CX: таблицу «ссылка → uuid» пишет устройство-автор, в том числе дозаписью
+    // у старого ответа (updatedAt реплики при этом не растёт). Копия без таблицы
+    // её не затирает; перенос только при том же тексте — у перегенерированного
+    // ответа свои ссылки.
+    ...(base.citeRefs === undefined && other.citeRefs !== undefined && base.content === other.content
+      ? { citeRefs: other.citeRefs }
+      : {}),
   };
 }
 

@@ -17,7 +17,7 @@ import {
   ATTACHED_FILE_RE,
 } from '../AIChatPresentational';
 import type { PersonaVisual } from '../../constants/personaVisuals';
-import { useCitationMeta, buildDocIndex, type ChatMessage } from './useCitationMeta';
+import { useCitationMeta, buildDocIndex, resolveCited, type ChatMessage } from './useCitationMeta';
 import { ThinkingIndicator } from './ThinkingIndicator';
 import type { ConsentCode } from '../../hooks/useAIChat';
 import { diffPostAgainstNote, postBody } from '../../utils/editorDiff';
@@ -121,7 +121,12 @@ function findSourceNote(messages: readonly ChatMessage[], before: number): Sourc
 // К21-3: строка под ответом — какие заметки модель видела в этом ходу. Скрытые,
 // удалённые и отсутствующие на устройстве в список не попадают: показывать их —
 // значит раскрывать то, что человек от ИИ спрятал.
-function ContextNotesRow({ ids, onOpenNote }: { ids: string[]; onOpenNote: (id: string) => void }) {
+export function ContextNotesRow({ ids, refs, onOpenNote }: {
+  ids: string[];
+  /** CX-4: ход писался на другом устройстве — id местные там, ищем по uuid из таблицы. */
+  refs: Record<string, string> | undefined;
+  onOpenNote: (id: string) => void;
+}) {
   const { t, tp } = useLanguage();
   const [notes, setNotes] = useState<{ id: string; title: string }[] | null>(null);
   const [open, setOpen] = useState(false);
@@ -134,7 +139,7 @@ function ContextNotesRow({ ids, onOpenNote }: { ids: string[]; onOpenNote: (id: 
         const index = await buildDocIndex(db);
         const visible: { id: string; title: string }[] = [];
         for (const id of ids) {
-          const doc = index.get(id);
+          const doc = resolveCited(index, id, refs?.[id]);
           if (!doc || isExcludedFromAI(doc)) continue;
           visible.push({ id, title: doc.title || t('archive_untitled') });
         }
@@ -145,7 +150,7 @@ function ContextNotesRow({ ids, onOpenNote }: { ids: string[]; onOpenNote: (id: 
       }
     })();
     return () => { cancelled = true; };
-  }, [ids, t]);
+  }, [ids, refs, t]);
 
   if (!notes || notes.length === 0) return null;
   return (
@@ -465,7 +470,7 @@ export function AIChatMessages(props: AIChatMessagesProps) {
                     </div>
                   )}
                   {msg.contextDocIds && msg.contextDocIds.length > 0 && (
-                    <ContextNotesRow ids={msg.contextDocIds} onOpenNote={handleCitationClick} />
+                    <ContextNotesRow ids={msg.contextDocIds} refs={msg.citeRefs} onOpenNote={handleCitationClick} />
                   )}
                   {convPersonaId === 'editor' && msg.content.includes('— — —') && (
                     <EditorPostDiff
