@@ -32,6 +32,7 @@ import { AIService } from '../AIService';
 import { AIEmbeddingService } from '../AIEmbeddingService';
 import { LocalVersionService } from '../../../../core/services/LocalVersionService';
 import { useAiLimitStore } from '../../store/useAiLimitStore';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../utils/aiDegradationReporter', async (importOriginal) => {
@@ -84,6 +85,7 @@ describe('П-5: поиск по имени в чате видит падежны
         id, guestId: 'u1', title: `Запись ${id}`, currentVersion: 1, totalWords: 90, totalDuration: 0,
         sessionsCount: 1, firstSessionAt: 1000, lastSessionAt: 1000, tags: [], excludedFromAI: excluded,
       } as never);
+      await markAllAnalysed(db);
     }
     vi.spyOn(LocalVersionService, 'getLatestContent').mockImplementation(async (id: string) => {
       if (id === HIDDEN) return `Мариной не делюсь. ${HIDDEN_MARK}`;

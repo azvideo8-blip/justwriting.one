@@ -9,6 +9,7 @@ import { setIndexingConsent } from '../../../../core/ai/indexingConsent';
 import { AIProfileService } from '../AIProfileService';
 import { LocalVersionService } from '../../../../core/services/LocalVersionService';
 import { invalidateMiniSearchCache } from '../../utils/noteRetriever';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 // X-4: «что я писал вчера?» отвечалось двухнедельной catch-up-сводкой без текстов
 // заметок: ветка `recent` брала десять последних событий таймлайна и не имела
@@ -44,6 +45,7 @@ async function seedDoc(id: string, title: string, content: string, lastSessionAt
     totalWords: 50, totalDuration: 0, sessionsCount: 1,
     firstSessionAt: lastSessionAt, lastSessionAt, tags: [],
   } as never);
+  await markAllAnalysed(db);
   await AIEmbeddingService.save({
     documentId: id, vectors: [VECTOR], chunkTexts: [content],
     model: 'test', dim: 3, contentHash: `hash-${id}`, processedAt: lastSessionAt,

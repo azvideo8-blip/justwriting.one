@@ -8,6 +8,7 @@ import { extractCitationIds } from '../chatContext/citations';
 const extractDocumentIdsFromText = (t: string) => [...new Set(extractCitationIds(t))];
 import { useAIChatContext } from '../aiChatContext';
 import { getLocalDb } from '../../../../core/storage/localDb';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 // DLG-Q5 (Fable T-9): блок открытых планов печатал `- «текст» (создано: сегодня)`
 // — createdAt это время извлечения, поэтому все планы выглядели «сегодня», а без
@@ -52,7 +53,9 @@ describe('Q-5: строка открытого плана', () => {
   it('ход чата: id плана попадает в allowlist цитат, план из скрытой заметки — нет', async () => {
     const db = await getLocalDb();
     await db.put('documents', { id: 'local_open', title: 'Планы', currentVersion: 1, lastSessionAt: Date.now() } as never);
+    await markAllAnalysed(db);
     await db.put('documents', { id: 'local_hidden', title: 'Личное', currentVersion: 1, lastSessionAt: Date.now(), excludedFromAI: true } as never);
+    await markAllAnalysed(db);
     const now = Date.now();
     await db.put('aiCommitments', { id: 'k1', text: 'Позвонить маме', documentId: 'local_open', createdAt: now, date: '2026-09-20', status: 'open' } as never);
     await db.put('aiCommitments', { id: 'k2', text: 'SECRET план из скрытой заметки', documentId: 'local_hidden', createdAt: now, date: '2026-09-21', status: 'open' } as never);

@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { getLocalDb } from '../../../core/storage/localDb';
 import type { LocalDocument, AIDocumentSummary } from '../../../core/storage/localDb';
-import { loadDocumentSnapshot, loadSummarySnapshot } from '../utils/retrieval/docSnapshot';
+import { loadAnalysedIds, loadDocumentSnapshot, loadSummarySnapshot } from '../utils/retrieval/docSnapshot';
 import { AIProfileService } from './AIProfileService';
 import { AIPersonaService, PRESET_PERSONAS } from './AIPersonaService';
 import { AIProfileFacetService } from './AIProfileFacetService';
@@ -457,9 +457,12 @@ export function useAIChatContext(personaId: string): {
         if (chars >= PROVENANCE_BUDGET_CHARS) break;
         const doc = docsAll.get(raw) ?? byOtherKey.get(raw);
         if (!doc || isExcludedFromAI(doc) || doc.trashedAt) continue;
+        // TR-9: старый ответ мог сослаться на неразобранную заметку — её текст
+        // повторно не уходит (приложенная к ходу идёт своим блоком, не отсюда).
+        const summary = await summaryAt(doc.id);
+        if (!summary) continue;
         const content = await LocalVersionService.getLatestContent(doc.id);
         if (!content) continue;
-        const summary = await summaryAt(doc.id);
         const summaryPrefix = summary?.summary ? `[Суть: ${summary.summary}]\n` : '';
         const snippet = content.length > PROVENANCE_PER_NOTE_CHARS
           ? `${content.slice(0, PROVENANCE_PER_NOTE_CHARS)}…`
@@ -899,7 +902,11 @@ export function useAIChatContext(personaId: string): {
             // Текст, прочитанный для поиска по имени без вектора: те же заметки
             // включаются в контекст ниже, второе чтение IndexedDB не нужен.
             const scannedContent = new Map<string, string>();
-            const nameSearchEmb = candidateNames.length > 0 ? (allEmbeddings ?? await AIEmbeddingService.getAll()) : [];
+            // TR-9: поиск по имени — только по разобранным заметкам, с вектором и без.
+            const analysedIds = await loadAnalysedIds();
+            const nameSearchEmb = candidateNames.length > 0
+              ? (allEmbeddings ?? await AIEmbeddingService.getAll()).filter(e => analysedIds.has(e.documentId))
+              : [];
             if (nameRegexes.length > 0) {
               for (const emb of nameSearchEmb) {
                 if (nameSearchIds.has(emb.documentId)) continue;
@@ -915,7 +922,7 @@ export function useAIChatContext(personaId: string): {
               const embeddedIds = new Set(nameSearchEmb.map(e => e.documentId));
               const docsAll = await (docsSnap ??= loadDocumentSnapshot());
               const withoutVectors = [...docsAll.values()]
-                .filter(d => !embeddedIds.has(d.id) && !isExcludedFromAI(d) && !nameSearchIds.has(d.id))
+                .filter(d => !embeddedIds.has(d.id) && !isExcludedFromAI(d) && analysedIds.has(d.id) && !nameSearchIds.has(d.id))
                 .sort((a, b) => (b.lastSessionAt ?? 0) - (a.lastSessionAt ?? 0))
                 .slice(0, NAME_SCAN_NO_VECTOR_LIMIT);
               for (const doc of withoutVectors) {
@@ -945,7 +952,7 @@ export function useAIChatContext(personaId: string): {
 
             for (const docId of [...extraIds, ...nameIds]) {
               const doc = await docAt(docId); // X-5
-              if (!doc || isExcludedFromAI(doc)) continue;
+              if (!doc || isExcludedFromAI(doc) || !analysedIds.has(doc.id)) continue;
               const content = scannedContent.get(docId) ?? await LocalVersionService.getLatestContent(docId);
               if (!content) continue;
               allNotes.push({
@@ -970,7 +977,9 @@ export function useAIChatContext(personaId: string): {
         try {
           if (allNotes.length > 0) {
             const allLocalDocs = await db.getAll('documents');
-            const excludedSet = new Set(allLocalDocs.filter(d => isExcludedFromAI(d)).map(d => d.id));
+            // TR-9: общий рубеж выдачи хода — и скрытые, и неразобранные.
+            const analysedNow = await loadAnalysedIds();
+            const excludedSet = new Set(allLocalDocs.filter(d => isExcludedFromAI(d) || !analysedNow.has(d.id)).map(d => d.id));
             if (excludedSet.size > 0) {
               allNotes = allNotes.filter(n => !excludedSet.has(n.documentId));
             }
@@ -1275,7 +1284,10 @@ export function useAIChatContext(personaId: string): {
             }
             if (docsList.length > 0) {
               const perNote: { doors: ReturnType<typeof analyzeDoors>; ts: number }[] = [];
+              // TR-9 (ревью 0.11.14): «двери» читают текст — только разобранных и не скрытых.
+              const doorsAnalysed = await loadAnalysedIds();
               for (const d of docsList) {
+                if (!doorsAnalysed.has(d.id) || isExcludedFromAI(d as LocalDocument)) continue;
                 const content = await LocalVersionService.getLatestContent(d.id);
                 if (!content) continue;
                 perNote.push({ doors: analyzeDoors(content), ts: d.lastSessionAt ?? d.firstSessionAt ?? 0 });

@@ -124,6 +124,7 @@ export function Toolbar({
         {hasSupport && (
           <motion.button
             type="button"
+            data-tour="mic"
             onClick={toggle}
             title={dictationMicLabel(isListening, isVaultActive, aiNoticeRemaining !== null, t)}
             aria-label={dictationMicLabel(isListening, isVaultActive, aiNoticeRemaining !== null, t)}

@@ -13,6 +13,7 @@ import { AIEmbeddingService } from '../../services/AIEmbeddingService';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { LocalVersionService } from '../../../../core/services/LocalVersionService';
 import { setIndexingConsent } from '../../../../core/ai/indexingConsent';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 
@@ -31,6 +32,7 @@ async function seed() {
       id, guestId: 'u1', title, currentVersion: 1, totalWords: 40, totalDuration: 0,
       sessionsCount: 1, firstSessionAt: 1000, lastSessionAt: 1000, tags: [],
     } as never);
+    await markAllAnalysed(db);
   }
   vi.spyOn(LocalVersionService, 'getLatestContent').mockImplementation(async (id: string) =>
     id === 'local_p2_1' ? 'Ходили вдоль пруда, ветер с воды.' : 'Молоко, хлеб, свечи и батарейки.');

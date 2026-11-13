@@ -3,6 +3,7 @@ import { AIEmbeddingService } from '../AIEmbeddingService';
 import { cosineSimilarity } from '../../../../shared/utils/vectorMath';
 import { reportError } from '../../../../shared/errors/reportError';
 import { formatDateYYYYMMDD } from './corpusStats';
+import { loadAnalysedIds } from '../../utils/retrieval/docSnapshot';
 import { isExcludedFromAI } from '../../utils/isExcludedFromAI';
 import { ARCHIVE_TURN_MARK } from '../../../../shared/ai/archiveAnswerRule';
 
@@ -273,8 +274,9 @@ export async function buildTopicChronicleBlock(deps: {
       db.getAll('documents'),
       v2Enabled ? v2Enabled().catch(() => false) : false,
     ]);
+    const analysed = await loadAnalysedIds(); // TR-9
     const live = docs.filter(d => {
-      if (isExcludedFromAI(d)) return false;
+      if (isExcludedFromAI(d) || !analysed.has(d.id)) return false;
       const ts = d.lastSessionAt || d.firstSessionAt;
       if (!ts) return false;
       if (minTime !== undefined && ts < minTime) return false;

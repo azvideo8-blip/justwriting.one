@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import 'fake-indexeddb/auto';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { AICommitmentService } from '../AICommitmentService';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../core/auth', () => ({ getCurrentUser: () => ({ uid: 'u_dy108' }) }));
@@ -16,6 +17,7 @@ describe('ревью 0.10.13: план удалённой заметки не у
     const db = await getLocalDb();
     for (const s of ['documents', 'aiCommitments'] as const) await db.clear(s);
     await db.put('documents', { id: 'doc_ok_r13', title: 'т', currentVersion: 1, lastSessionAt: Date.now() } as never);
+    await markAllAnalysed(db);
     for (const [id, doc, text] of [['c1', 'doc_ok_r13', 'ПЛАН_ВИДИМЫЙ_R13'], ['c2', 'doc_gone_r13', 'ПЛАН_УДАЛЁННОЙ_R13']] as const) {
       await db.put('aiCommitments', { id, text, documentId: doc, createdAt: Date.now(), date: '2026-10-27', status: 'open' });
     }
@@ -38,6 +40,7 @@ describe('DY10-8: дубль обязательства без вектора л
     const db = await getLocalDb();
     for (const s of ['documents', 'aiCommitments'] as const) await db.clear(s);
     await db.put('documents', { id: 'doc_dy108', title: 'т', currentVersion: 1, lastSessionAt: Date.now() } as never);
+    await markAllAnalysed(db);
     await db.put('aiCommitments', { id: 'from_cloud', text: 'Позвонить маме', documentId: 'doc_dy108', createdAt: 1, date: '2026-10-28', status: 'open' });
     setIndexingConsent('u_dy108', 'granted');
     vi.spyOn(AIService, 'embed').mockResolvedValue({ ok: true, vectors: [[0.1, 0.2]] } as never);

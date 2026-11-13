@@ -4,6 +4,7 @@ import { topKMultiWithChunkIndex } from '../../utils/vectorSearch';
 import { LITE_FLOOR } from '../../utils/retrieval/types';
 import { reportError } from '../../../../shared/errors/reportError';
 import { formatDateYYYYMMDD } from './corpusStats';
+import { loadAnalysedIds } from '../../utils/retrieval/docSnapshot';
 import { isExcludedFromAI } from '../../utils/isExcludedFromAI';
 
 interface LiteRetrievalDeps {
@@ -22,8 +23,9 @@ export async function buildLiteRetrievalBlock(deps: LiteRetrievalDeps): Promise<
   try {
     const allEmb = await AIEmbeddingService.getAll();
     const docs = await db.getAll('documents');
+    const analysed = await loadAnalysedIds(); // TR-9
     const usable = new Set(docs.filter(d => {
-      if (isExcludedFromAI(d)) return false;
+      if (isExcludedFromAI(d) || !analysed.has(d.id)) return false;
       const ts = d.lastSessionAt || d.firstSessionAt;
       if (minTime !== undefined && (!ts || ts < minTime)) return false;
       if (maxTime !== undefined && (!ts || ts > maxTime)) return false;

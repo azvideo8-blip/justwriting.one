@@ -21,6 +21,7 @@ import { useProfileStats } from '../../features/profile/hooks/useProfileStats';
 import { useSyncStatus } from '../../core/sync/useSyncStatus';
 import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
 import { useEncryptionStore } from '../../core/crypto/useEncryptionStore';
+import { startTour } from '../../shared/tourEvent';
 import { useVaultPasswordOutOfSync } from '../../core/crypto/useVaultPasswordOutOfSync';
 import { useAdminStatus } from '../../features/auth/hooks/useAdminStatus';
 import { getDateLocale } from '../../core/utils/dateUtils';
@@ -63,6 +64,8 @@ function MobileStatusCard({ uid }: { uid: string | null }) {
     { label: t('activity_log_aria'), value: activityText, dot: errorCount + warnCount > 0, danger: errorCount > 0, onTap: () => setPanelOpen(true) },
     { label: t('me_status_vault'), value: t(unlocked ? (vaultStale ? 'me_status_vault_stale' : 'me_status_vault_open') : 'me_status_vault_locked'), dot: !unlocked || vaultStale, onTap: () => void navigate('/settings#security') },
   ];
+  // TR-6: знакомство можно пройти ещё раз — с любого аккаунта и гостю.
+  rows.push({ label: t('tour_open'), value: '', dot: false, onTap: startTour });
   if (isAdmin) rows.push({ label: t('admin_tab_diagnostics'), value: '', dot: false, onTap: () => void navigate('/diagnostics') });
   // SA-25: точка на вкладке «Профиль» ведёт сюда — строки, где что-то не так, идут первыми
   // и говорят словами (13 px, без обрезки), а не 11 px в углу.

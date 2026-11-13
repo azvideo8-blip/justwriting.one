@@ -159,6 +159,29 @@ async function untickBox(dialog: Locator, name: RegExp): Promise<boolean> {
 }
 
 /**
+ * TR-7: знакомство «Как всё устроено» само стартует у вошедшего с нулём заметок —
+ * то есть у каждого свежего аккаунта этого набора, и карточка закрыла бы экран в
+ * десятках спеков. По умолчанию харнесс его глушит: отметка `jw_tour_v1_<uid>`
+ * читается как `done` для любого uid (вход бывает и мимо `login()`, где uid под
+ * рукой нет). Сам тур проверяет `tour.tr.spec.ts` — он входит с `{ tour: true }`.
+ */
+export async function suppressTour(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __jwTourSuppressed?: boolean };
+    if (w.__jwTourSuppressed) return;
+    w.__jwTourSuppressed = true;
+    const get = Storage.prototype.getItem;
+    Storage.prototype.getItem = function (key: string) {
+      const value = get.call(this, key);
+      return value === null && typeof key === 'string' && key.startsWith('jw_tour_v1_') ? 'done' : value;
+    };
+  });
+}
+
+/** TR-7: окна первого входа — без карточки знакомства: она тоже `role=dialog`. */
+const NOT_TOUR = ':not([data-tour-card])';
+
+/**
  * Автообработчики (из харнесса Fable): окно сейфа и онбординговые окна снимаются,
  * когда мешают действию, а не только там, где тест про них вспомнил. Окна первого
  * запуска приезжают с задержкой в несколько секунд — без этого клик висит до
@@ -167,7 +190,8 @@ async function untickBox(dialog: Locator, name: RegExp): Promise<boolean> {
  * `autoUnlock: false` — для спеков про запертый сейф: иначе обработчик сам
  * введёт пароль и разблокирует его раньше, чем тест успеет увидеть баннер.
  */
-export async function autoHandlers(page: Page, password: string, opts: { autoUnlock?: boolean } = {}): Promise<void> {
+export async function autoHandlers(page: Page, password: string, opts: { autoUnlock?: boolean; tour?: boolean } = {}): Promise<void> {
+  if (!opts.tour) await suppressTour(page);
   const unlock = page.getByRole('button', { name: 'Разблокировать', exact: true });
   if (opts.autoUnlock !== false) await page.addLocatorHandler(unlock, async () => {
     const dialog = page.getByRole('dialog').filter({ has: unlock });
@@ -182,7 +206,7 @@ export async function autoHandlers(page: Page, password: string, opts: { autoUnl
   // каждое действие теста и ждёт, пока она скроется, — чего не происходит, пока
   // не проставлены галочки окна.
   // MF-3: лист сессии — не окно первого запуска: его «Продолжить» снимает паузу.
-  const go = page.getByRole('dialog').filter({ hasNot: page.locator('[data-session-rows]') })
+  const go = page.locator(`[role="dialog"]${NOT_TOUR}`).filter({ hasNot: page.locator('[data-session-rows]') })
     .getByRole('button', { name: GO_NAMES, disabled: false }).first();
   await page.addLocatorHandler(go, async () => {
     const dialog = page.getByRole('dialog').filter({ has: go }).first();
@@ -243,7 +267,7 @@ export async function dismissFirstLoginDialogs(page: Page, syncOn = true, budget
     let open = false;
     // MC-6: сначала степпер — на мобильном макете окон первого входа нет вовсе.
     if (await walkFirstRunStepper(page, syncOn, forgetDevice, seen)) acted = true;
-    for (const dialog of await page.getByRole('dialog').all()) {
+    for (const dialog of await page.locator(`[role="dialog"]${NOT_TOUR}`).all()) {
       if (!(await dialog.isVisible().catch(() => false))) continue;
       open = true;
       const heading = await dialog.getByRole('heading').first().innerText().catch(() => '');
@@ -301,7 +325,7 @@ export async function waitForQuietDialogs(page: Page, budgetMs = 25_000): Promis
   const deadline = Date.now() + budgetMs;
   let quiet = 0;
   while (Date.now() < deadline) {
-    const visible = await page.locator('[role="dialog"], [data-testid="first-run-stepper"]')
+    const visible = await page.locator(`[role="dialog"]${NOT_TOUR}, [data-testid="first-run-stepper"]`)
       .evaluateAll(els => els.filter(e => {
         const r = e.getBoundingClientRect();
         return r.width > 0 && r.height > 0;
@@ -321,7 +345,8 @@ export async function waitForQuietDialogs(page: Page, budgetMs = 25_000): Promis
 }
 
 /** Вход и проход через окна первого запуска. */
-export async function login(page: Page, u: Account): Promise<void> {
+export async function login(page: Page, u: Account, opts: { tour?: boolean } = {}): Promise<void> {
+  if (!opts.tour) await suppressTour(page);
   await page.goto('/login');
   const email = page.locator('input[type="email"]');
   await email.waitFor({ state: 'visible', timeout: 20_000 }).catch(async () => {

@@ -69,6 +69,18 @@ async function saveNoteToArchive(page: Page, text: string) {
   await waitForNavigationSettled(page);
 }
 
+/** TR-9: разбор заметки тем же путём, что у человека: «Заметки» → запись → «Инфо» → «Разобрать». */
+async function analyseNoteInArchive(page: Page) {
+  await page.goto('/archive');
+  await waitForNavigationSettled(page);
+  await page.getByText(NOTE_MARK).first().click();
+  await page.getByRole('button', { name: 'Инфо' }).click();
+  const analyse = page.getByRole('button', { name: 'Разобрать заметку через ИИ' });
+  await analyse.click();
+  await expect(analyse, 'разбор заметки не завершился').toBeHidden({ timeout: 60_000 });
+  await expect(page.getByText('анализируется…'), 'разбор заметки завис').toHaveCount(0, { timeout: 60_000 });
+}
+
 /** Ход считается состоявшимся по ответу заглушки, а не по тексту в композере:
  *  строка вопроса совпадает с текстом поля ввода, и одна она ход не подтверждает. */
 async function ask(page: Page, text: string) {
@@ -120,6 +132,9 @@ test('К21-4: пересказ выдачи без ссылок помечен �
   // Для широкого хода запись нужна в архиве, не во вложении: сохраняем её
   // кнопкой листа завершения и только потом идём в диалог.
   await saveNoteToArchive(page, NOTE_TEXT);
+  // TR-9: в разговор попадают только разобранные заметки — без разбора поиск по
+  // словам эту запись больше не находит, и пометка под ответом не появилась бы.
+  await analyseNoteInArchive(page);
   await page.goto('/ai');
   await waitForNavigationSettled(page);
 

@@ -8,6 +8,7 @@ import { LocalVersionService } from '../../../core/services/LocalVersionService'
 import { searchNotes, vectorScore01 } from '../utils/noteRetriever';
 import { setIndexingConsent } from '../../../core/ai/indexingConsent';
 import { getCurrentUser } from '../../../core/auth';
+import { markAllAnalysed } from '../../../test/utils/markAnalysed';
 
 vi.mock('../../../core/auth', () => ({
   getCurrentUser: vi.fn(() => ({ uid: 'guest' })),
@@ -40,6 +41,7 @@ describe('AG-VERIFY-2: путь без индексации живёт в шка
         id: `doc-${i}`, title: `Заметка про ${word}`, content: '', excludedFromAI: false,
         lastSessionAt: Date.now(), version: 1,
       } as never);
+      await markAllAnalysed(db);
     }
   });
 

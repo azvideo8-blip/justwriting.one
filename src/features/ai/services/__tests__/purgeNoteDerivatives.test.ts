@@ -6,6 +6,7 @@ import { AIEmbeddingService } from '../AIEmbeddingService';
 import { AICommitmentService } from '../AICommitmentService';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { LocalStoreSyncService } from '../../../../core/services/LocalStoreSyncService';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../core/auth', () => ({ getCurrentUser: vi.fn(() => null) }));
@@ -21,6 +22,7 @@ describe('N-4: a note leaves no derivatives behind', () => {
     const db = await getLocalDb();
     const D = 'doc_x', O = 'doc_other';
     await db.put('documents', { id: D, uuid: 'uuid_x', guestId: 'g', title: '', currentVersion: 1, totalWords: 1, totalDuration: 1, sessionsCount: 1, firstSessionAt: 1, lastSessionAt: 1, tags: [] });
+    await markAllAnalysed(db);
     await db.put('aiTimeline', { documentId: D, date: '2026-09-01', month: '2026-09', facts: ['секрет'] });
     await db.put('aiCommitments', { id: 'c1', text: 'позвонить маме', documentId: D, createdAt: 1, date: '2026-09-01', status: 'open' });
     await db.put('aiCommitments', { id: 'c2', text: 'чужое', documentId: O, createdAt: 1, date: '2026-09-01', status: 'open' });
@@ -46,9 +48,11 @@ describe('N-4: a note leaves no derivatives behind', () => {
     const db = await getLocalDb();
     await db.clear('aiCommitments');
     await db.put('documents', { id: 'doc_h', guestId: 'g', title: '', currentVersion: 1, totalWords: 1, totalDuration: 1, sessionsCount: 1, firstSessionAt: 1, lastSessionAt: 1, tags: [], excludedFromAI: true });
+    await markAllAnalysed(db);
     await db.put('aiCommitments', { id: 'c3', text: 'скрытое', documentId: 'doc_h', createdAt: Date.now(), date: '2026-09-01', status: 'open' });
     // Ревью 0.10.13: видимая — это заметка, которая есть и не скрыта; «нет в documents» = не видна.
     await db.put('documents', { id: 'doc_other', guestId: 'g', title: '', currentVersion: 1, totalWords: 1, totalDuration: 1, sessionsCount: 1, firstSessionAt: 1, lastSessionAt: 1, tags: [] });
+    await markAllAnalysed(db);
     await db.put('aiCommitments', { id: 'c4', text: 'видимое', documentId: 'doc_other', createdAt: Date.now(), date: '2026-09-01', status: 'open' });
     expect((await AICommitmentService.getOpenCommitments()).map(c => c.id)).toEqual(['c4']);
   });

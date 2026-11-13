@@ -47,6 +47,8 @@ describe("D4.18 Note Retriever Exclusion", () => {
       excludedFromAI: false,
       trashedAt: Date.now(),
     } as never);
+    // TR-9: все три разобраны — отсекают именно скрытость и корзина.
+    for (const id of [NORMAL_ID, EXCLUDED_ID, TRASHED_ID]) await db.put("aiSummaries", { documentId: id, summary: "", processedAt: 1 } as never);
 
     vi.spyOn(AIService, "rerank").mockResolvedValue({ ok: false, error: "x" } as never);
     vi.spyOn(LocalVersionService, "getLatestContent").mockImplementation(async (id: string) => {

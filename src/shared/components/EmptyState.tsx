@@ -6,12 +6,15 @@ interface EmptyStateProps {
   title: string;
   description?: string;
   action?: { label: string; onClick: () => void };
+  /** TR-3: метка цели знакомства (`data-tour`). */
+  dataTour?: string;
 }
 
-export function EmptyState({ icon: Icon, title, description, action }: EmptyStateProps) {
+export function EmptyState({ icon: Icon, title, description, action, dataTour }: EmptyStateProps) {
   const reducedMotion = useReducedMotion();
   return (
     <motion.div
+      data-tour={dataTour}
       initial={reducedMotion ? {} : { opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       {...(reducedMotion ? { transition: { duration: 0 } } : {})}

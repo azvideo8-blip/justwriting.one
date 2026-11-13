@@ -184,6 +184,7 @@ export const WritingEditor = React.memo(function WritingEditor({
   return (
     <div
       ref={containerRef}
+      data-tour="editor"
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       className={cn(

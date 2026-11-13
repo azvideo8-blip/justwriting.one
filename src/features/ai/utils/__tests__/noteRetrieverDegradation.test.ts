@@ -8,6 +8,7 @@ import { useActivityLogStore } from '../../../../shared/activity/useActivityLogS
 import { resetAIDegradationSession } from '../aiDegradationReporter';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { LocalVersionService } from '../../../../core/services/LocalVersionService';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 describe('noteRetriever degradation reporting (AI-3)', () => {
   beforeEach(async () => {
@@ -34,6 +35,7 @@ describe('noteRetriever degradation reporting (AI-3)', () => {
       lastSessionAt: Date.now(),
       tags: [],
     });
+    await markAllAnalysed(db);
     await db.put('documents', {
       id: 'doc_2',
       guestId: 'guest',
@@ -46,6 +48,7 @@ describe('noteRetriever degradation reporting (AI-3)', () => {
       lastSessionAt: Date.now(),
       tags: [],
     });
+    await markAllAnalysed(db);
 
     vi.spyOn(LocalVersionService, 'getLatestContent').mockImplementation(async (id: string) =>
       id === 'doc_1'

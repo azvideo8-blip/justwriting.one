@@ -193,7 +193,9 @@ export function FirstRunCodeStep({ position, code, onNext }: { position: StepPos
       showToast(t('enc_recovery_code_copied'), 'success');
       setTimeout(() => setCopied(false), 3000);
     } else {
-      showToast(t('error_generic'), 'error');
+      // FT-1: буфер обмена бывает закрыт (вкладка без фокуса, запрет браузера) —
+      // общий «Что-то пошло не так» не говорил, что делать; файл рядом работает.
+      showToast(t('enc_recovery_code_copy_failed'), 'error');
     }
   };
 

@@ -8,6 +8,7 @@ import * as noteRetriever from '../../utils/noteRetriever';
 import { turnScope, type TurnScope } from '../../utils/turnScope';
 import { asksForOtherNotes, asksForSimilarNotes } from '../../utils/aiChatTransport';
 import { linkedNote } from '../../../../test/attachedTurnFixtures';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../shared/i18n', () => ({ useLanguage: () => ({ language: 'ru', t: (k: string) => k }) }));
@@ -79,7 +80,9 @@ describe('Q-7: запрос строится из приложенной зам�
     await db.put('documents', {
       id: ATTACHED_ID, title: 'Утро перед стартом', currentVersion: 1, lastSessionAt: Date.now(), ...attachedDoc,
     } as never);
+    await markAllAnalysed(db);
     await db.put('documents', { id: OTHER_ID, title: 'Тренировка', currentVersion: 1, lastSessionAt: Date.now() - 86_400_000 } as never);
+    await markAllAnalysed(db);
     if (summary) await db.put('aiSummaries', { documentId: ATTACHED_ID, processedAt: Date.now(), ...summary } as never);
 
     const notes = [ATTACHED_ID, OTHER_ID].map(id => ({

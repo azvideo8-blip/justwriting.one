@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, Suspense } from 'react';
+import React, { useContext, useEffect, useMemo, useState, Suspense } from 'react';
 import { EarlierQuestionOpenContext } from './onboardingQueue';
 import { useLocation } from 'react-router-dom';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
@@ -30,6 +30,8 @@ import { RecoveryCodeGate } from '../features/encryption/components/RecoveryCode
 import { setupGlobalErrorListeners } from '../shared/errors/reportError';
 import { ActivityLogBadge } from './ActivityLogBadge';
 import { LOCAL_DB_STALLED_EVENT } from '../core/storage/localDbStall';
+import { STORAGE_KEYS } from '../shared/constants/storageKeys';
+import { TOUR_START_EVENT } from '../shared/tourEvent';
 
 import { AppRoutes } from './AppRoutes';
 import { ConfirmDialogRenderer, useConfirmDialog } from '../shared/components/ConfirmDialog';
@@ -46,6 +48,12 @@ import { ErrorBoundary } from '../shared/components/ErrorBoundary';
 // стартовый кусок.
 const GuestMigrationGate = React.lazy(() =>
   import('../features/auth/components/GuestMigrationGate').then(m => ({ default: m.GuestMigrationGate })),
+);
+
+// TR-4: знакомство «Как всё устроено». В стартовом куске — только этот крючок;
+// шаги, условия и тексты приходят по требованию (храповик bootChunkGraph).
+const TourAutoStart = React.lazy(() =>
+  import('./TourAutoStart').then(m => ({ default: m.TourAutoStart })),
 );
 
 export function AppShell() {
@@ -123,6 +131,21 @@ export function AppShell() {
     const skewSec = getClockSkewSec(uid);
     void import('../features/auth/services/clockSkewToast').then(m => m.showClockSkewToast(showToast, t, skewSec, false));
   }, [user?.uid, showToast, t]);
+
+  // TR-4: сам — только вошедшему без отметки (хранилище молчит — не грузим);
+  // вручную — по событию из «Как всё устроено». Ключ узла: `m<номер>` или uid.
+  const tourUid = user && !isGuest ? user.uid : null;
+  const [tourRun, setTourRun] = useState(0);
+  const [tourOff, setTourOff] = useState<string | null>(null);
+  const tourAuto = useMemo(() => {
+    try { return !!tourUid && localStorage.getItem(STORAGE_KEYS.TOUR_STATE(tourUid)) === null; } catch { return false; }
+  }, [tourUid]);
+  const tourKey = tourRun ? 'm' + tourRun : tourAuto ? tourUid : null;
+  useEffect(() => {
+    const onStart = () => setTourRun(n => n + 1);
+    window.addEventListener(TOUR_START_EVENT, onStart);
+    return () => window.removeEventListener(TOUR_START_EVENT, onStart);
+  }, []);
 
   const currentPath = location.pathname;
   // SA-20 (N-1): экраны входа гостя на телефоне — без навигации и без отступов
@@ -236,6 +259,13 @@ export function AppShell() {
           <FirstEntryModals />
         </Suspense>
       </ErrorBoundary>
+      {tourKey && tourKey !== tourOff && !isResetPassword && (
+        <ErrorBoundary fallback={null}>
+          <Suspense fallback={null}>
+            <TourAutoStart key={tourKey} manual={tourRun > 0} onEnd={() => setTourOff(tourKey)} />
+          </Suspense>
+        </ErrorBoundary>
+      )}
     </AppLayout>
   );
 }

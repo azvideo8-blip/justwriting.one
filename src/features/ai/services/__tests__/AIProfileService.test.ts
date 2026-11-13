@@ -39,6 +39,8 @@ vi.mock('../../../../core/storage/localDb', () => ({
     delete: mockDelete,
     getAll: mockGetAll,
     getAllFromIndex: mockGetAllFromIndex,
+    // TR-9: «разобрана» = есть строка в aiSummaries; ключи — из тех же посеянных сводок.
+    getAllKeys: async (store: string) => ((await mockGetAll(store)) as { documentId?: string; id?: string }[]).map(r => r.documentId ?? r.id),
     transaction: () => ({ store: { index: () => ({ openCursor: async () => null }) } }),
   }),
 }));
@@ -73,6 +75,7 @@ vi.mock('../../../../shared/errors/reportError', () => ({
 
 import { AIProfileService } from '../AIProfileService';
 import { AIService } from '../AIService';
+import { LocalVersionService } from '../../../../core/services/LocalVersionService';
 import { invalidatePortrait } from '../../../../core/ai/portraitEpoch';
 import { SYSTEM_TASK_PROMPTS, portraitPromptsVersion } from '../../../../shared/ai/systemTaskPrompts';
 
@@ -266,6 +269,30 @@ describe('AIProfileService', () => {
       const res = await AIProfileService.generate();
       expect(res).toEqual({ ok: false, error: 'NOT_ENOUGH_DATA' });
       expect(AIService.chat).not.toHaveBeenCalled();
+    });
+
+    // TR-9: числа стиля письма считаются по тексту заметок и уходят в портрет.
+    // Текст неразобранной заметки для них не читается.
+    // Мутация: убрать `&& visibleKeys.has(d.id)` в AIProfileService.generate → красный.
+    it('TR-9: числа стиля — только по разобранным заметкам', async () => {
+      mockGetAll.mockImplementation(async (store: string) => {
+        if (store === 'aiSummaries') return dummySummaries;
+        if (store === 'documents') return [...dummySummaries.map(s => s.documentId), 'raw-no-summary'].map(id => ({
+          id, guestId: 'test-user-123', title: id, currentVersion: 1,
+          totalWords: 10, totalDuration: 1, sessionsCount: 1, firstSessionAt: 1, lastSessionAt: 1, tags: [],
+        }));
+        return [];
+      });
+      mockGetAllFromIndex.mockResolvedValue([]);
+      const read = vi.spyOn(LocalVersionService, 'getLatestContent').mockImplementation(async (id: string) => `Текст заметки ${id}.`);
+      vi.mocked(AIService.chat).mockResolvedValue({ ok: true, text: 'Раздел портрета' });
+
+      await AIProfileService.generate();
+
+      const readIds = read.mock.calls.map(c => c[0]);
+      read.mockRestore();
+      expect(readIds).toContain(dummySummaries[0]!.documentId);
+      expect(readIds).not.toContain('raw-no-summary');
     });
 
     it('calls AI to generate portrait if there are 3 or more summaries', async () => {

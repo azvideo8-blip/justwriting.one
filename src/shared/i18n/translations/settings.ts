@@ -542,4 +542,19 @@ export const settingsTranslations: Translations = {
     ru: 'Не продавать мои данные (CCPA — калифорнийский закон о защите данных)',
     en: 'Do Not Sell My Personal Information',
   },
+
+  // Знакомство «Как всё устроено» (TR). Заголовок шага сам называет место —
+  // экранный диктор подсветку не видит.
+  tour_open: { ru: 'Как всё устроено', en: 'How it works' },
+  tour_next: { ru: 'Дальше', en: 'Next' },
+  tour_skip: { ru: 'Пропустить', en: 'Skip' },
+  tour_step_of: { ru: '{current} из {total}', en: '{current} of {total}' },
+  tour_write_title: { ru: '«Писать» — здесь ты пишешь', en: '“Write” — this is where you write' },
+  tour_write_body: { ru: 'Просто начни — черновик сохраняется сам. Не хочется печатать — нажми на микрофон и говори.', en: 'Just start — the draft saves itself. Don’t feel like typing? Tap the microphone and speak.' },
+  tour_write_body_no_mic: { ru: 'Просто начни — черновик сохраняется сам.', en: 'Just start — the draft saves itself.' },
+  tour_notes_title: { ru: '«Заметки» — здесь будут твои записи', en: '“Notes” — your entries will live here' },
+  tour_notes_body: { ru: 'Собеседник их не читает, пока ты не решишь. Открой заметку и нажми «Разобрать» — тогда её текст уйдёт ИИ на разбор, и собеседник сможет на неё опираться.', en: 'Your companion does not read them until you decide. Open a note and tap “Analyse” — its text will then be sent to AI for analysis, and your companion will be able to draw on it.' },
+  tour_ai_title: { ru: '«ИИ» — здесь разговор с собеседником', en: '“AI” — talk with a companion here' },
+  tour_ai_body: { ru: 'Выбери собеседника — у каждого своя манера — и начни диалог. Он опирается на разобранные заметки и на те, что приложены к разговору.', en: 'Pick a companion — each has their own manner — and start a conversation. They draw on analysed notes and on notes attached to the conversation.' },
+  tour_ai_body_no_consent: { ru: 'Выбери собеседника — у каждого своя манера. Сейчас ИИ выключен — согласия на него нет. Включить можно в «Настройки → Безопасность».', en: 'Pick a companion — each has their own manner. AI is off right now — you have not given consent. You can turn it on in Settings → Security.' },
 };

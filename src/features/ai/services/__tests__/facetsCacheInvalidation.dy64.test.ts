@@ -11,6 +11,7 @@ import { AIService } from '../AIService';
 import { AIEmbeddingService } from '../AIEmbeddingService';
 import { writeFacetStore } from '../../../../core/services/facetLock';
 import * as noteRetriever from '../../utils/noteRetriever';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 // DY6-4 (приёмка 26.10, Н-3): facetsCacheRef живёт до resetSession. Заметку или
 // диалог-источник скрыли/выбросили/удалили посреди диалога — кэш должен
@@ -52,6 +53,7 @@ async function seed() {
     await db.clear(store);
   }
   await db.put('documents', doc(NOTE_A));
+  await markAllAnalysed(db);
   await db.put('aiDialogues', dialogue(DLG));
   await writeFacetStore(async store => {
     await store.put(facet('f_note', [NOTE_A], NOTE_SUMMARY));
@@ -88,6 +90,7 @@ describe('DY6-4: кэш граней протухает по скрытию/ко
 
     const db = await getLocalDb();
     await db.put('documents', doc(NOTE_A, { excludedFromAI: true }));
+    await markAllAnalysed(db);
     const getAll = vi.spyOn(AIProfileFacetService, 'getAll');
     const second = await ask(build, 'собери темы: прогулка метроном');
     expect(second).not.toContain(NOTE_SUMMARY);
@@ -116,6 +119,7 @@ describe('DY6-4: кэш граней протухает по скрытию/ко
 
     const db = await getLocalDb();
     await db.put('documents', doc(NOTE_A, { trashedAt: now }));
+    await markAllAnalysed(db);
     const getAll = vi.spyOn(AIProfileFacetService, 'getAll');
     const second = await ask(build, 'собери темы: прогулка метроном');
     expect(second).not.toContain(NOTE_SUMMARY);

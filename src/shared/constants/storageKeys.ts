@@ -58,6 +58,8 @@ export const STORAGE_KEYS = {
   LOST_SESSION_UID: 'jw_lost_session_uid',
   VAULT_AUTO_CREATED: (uid: string) => `vault_auto_created_${uid}`,
   VAULT_AUTO_UNLOCK_FAILED: (uid: string) => `vault_auto_unlock_failed_${uid}`,
+  /** TR-1: знакомство «Как всё устроено» — `done` или `skipped:<шаг>`, только на устройстве. */
+  TOUR_STATE: (uid: string) => `jw_tour_v1_${uid}`,
   // X-5: поколение векторного индекса — общее для вкладок, см. embeddingIndexCache.
   EMB_INDEX_GEN: 'jw_emb_index_gen',
 } as const;

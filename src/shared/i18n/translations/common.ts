@@ -203,6 +203,7 @@ export const commonTranslations: Translations = {
   enc_recovery_code_copy_btn: { ru: 'Скопировать код', en: 'Copy code' },
   enc_recovery_code_copied_btn: { ru: 'Скопировано', en: 'Copied' },
   enc_recovery_code_copied: { ru: 'Код скопирован в буфер обмена', en: 'Code copied to clipboard' },
+  enc_recovery_code_copy_failed: { ru: 'Не удалось скопировать — сохрани код файлом', en: 'Couldn’t copy — save the code as a file' },
   enc_recovery_code_download_btn: { ru: 'Сохранить в файл (.txt)', en: 'Save to file (.txt)' },
   enc_recovery_file_downloaded: { ru: 'Файл с кодом сохранён', en: 'Recovery code file saved' },
   enc_recovery_file_header: { ru: 'JUSTWRITING — КОД ВОССТАНОВЛЕНИЯ ШИФРОВАНИЯ\nСохрани этот файл в надёжном месте. Этот код позволяет восстановить доступ к зашифрованным заметкам в случае утери пароля.', en: 'JUSTWRITING — ENCRYPTION RECOVERY CODE\nSave this file in a safe place. This code restores access to your encrypted notes if you forget your password.' },

@@ -13,6 +13,7 @@ import { LocalVersionService } from '../../../../core/services/LocalVersionServi
 import { AIEmbeddingService } from '../../services/AIEmbeddingService';
 import { AIService } from '../../services/AIService';
 import { localDocIds } from '../../utils/canonicalDocumentId';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../shared/i18n', () => ({ useLanguage: () => ({ language: 'ru', t: (k: string) => k }) }));
@@ -50,6 +51,7 @@ describe('CX-5: ход «откуда ты это взял?» на B', () => {
       id: FOUND_B, uuid: UF, guestId: 'u1', title: 'Разговор с сестрой', currentVersion: 1, totalWords: 9,
       totalDuration: 60, sessionsCount: 1, firstSessionAt: now, lastSessionAt: now, tags: [],
     } as never);
+    await markAllAnalysed(db);
     vi.spyOn(LocalVersionService, 'getLatestContent').mockImplementation(async (id: string) => (id === FOUND_B ? FOUND_TEXT : ''));
     vi.spyOn(AIEmbeddingService, 'getAll').mockResolvedValue([] as never);
     vi.spyOn(AIService, 'embed').mockResolvedValue({ ok: true, vectors: [[1, 0]] } as never);

@@ -32,6 +32,7 @@ vi.mock('../../services/AIService', () => ({
 
 import { getMiniSearch, invalidateMiniSearchCache } from '../indexCache';
 import { searchNotes } from '../searchNotes';
+import { markAllAnalysed } from '../../../../../test/utils/markAnalysed';
 
 describe('AG-ISO-2: Search and Retrieval Scoping', () => {
   beforeEach(async () => {
@@ -54,6 +55,7 @@ describe('AG-ISO-2: Search and Retrieval Scoping', () => {
       lastSessionAt: Date.now(),
       tags: [],
     });
+    await markAllAnalysed(dbA);
     const dbB = await getLocalDb('user_b');
     await dbB.put('documents', {
       id: 'doc_b',
@@ -67,6 +69,7 @@ describe('AG-ISO-2: Search and Retrieval Scoping', () => {
       lastSessionAt: Date.now(),
       tags: [],
     });
+    await markAllAnalysed(dbB);
 
     // 1. MiniSearch for User A indexes doc_a
     const msA = await getMiniSearch('user_a');

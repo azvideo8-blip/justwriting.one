@@ -25,6 +25,7 @@ import type { RelatedNote } from '../../../shared/types/common';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { getCurrentUser } from '../../../core/auth';
+import { useAiConsentOff } from '../../../core/ai/useAiConsentOff';
 import { reportError } from '../../../shared/errors/reportError';
 import { aiErrorToText } from '../../../shared/ai/aiErrorUtils';
 import { isBlankTitle } from '../../../shared/utils/titleUtils';
@@ -101,6 +102,7 @@ export function DocumentPreview({
   const [analyzing, setAnalyzing] = useState(false);
   const [justFinished, setJustFinished] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const aiOff = useAiConsentOff();
 
   const { layoutMode } = useLayoutMode();
   const isMobile = layoutMode === 'mobile';
@@ -729,11 +731,16 @@ export function DocumentPreview({
           <div className="space-y-1.5">
             <Button
               onClick={() => void handleAnalyzeNote()}
+              aria-describedby="analyze-caption"
               className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium bg-brand-soft/10 text-brand-soft border border-brand-soft/20 hover:bg-brand-soft/20 transition-colors"
             >
               <Sparkles size={12} className="text-brand-soft" />
               <span>{t('archive_preview_analyze_btn')}</span>
             </Button>
+            {/* TR-5: что делает кнопка — по месту и всегда, а не только в туре. */}
+            <p id="analyze-caption" className="text-xs text-text-main/60 px-1 max-w-sm">
+              {t(aiOff ? 'archive_analyze_caption_no_consent' : 'archive_analyze_caption')}
+            </p>
             {analyzeError && (
               <p className="text-xs text-accent-danger px-1">{analyzeError}</p>
             )}

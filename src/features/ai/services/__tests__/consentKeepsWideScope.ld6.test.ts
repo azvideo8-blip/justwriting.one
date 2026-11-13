@@ -8,6 +8,7 @@ import { AIEmbeddingService } from '../../services/AIEmbeddingService';
 import { AIService } from '../../services/AIService';
 import * as noteRetriever from '../../utils/noteRetriever';
 import { linkedNote } from '../../../../test/attachedTurnFixtures';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../shared/i18n', () => ({ useLanguage: () => ({ language: 'ru', t: (k: string) => k }) }));
@@ -53,6 +54,7 @@ async function seed() {
       id, guestId: 'u1', title: TITLES[id], currentVersion: 1, totalWords: 20, totalDuration: 60, sessionsCount: 1,
       firstSessionAt: now - i * 86_400_000, lastSessionAt: now - i * 86_400_000, tags: [],
     } as never);
+    await markAllAnalysed(db);
   }
   await db.put('aiSummaries', { documentId: NOTE_ID, processedAt: now, summary: 'Понедельник: правки каталога и подрядчик.', themes: ['Подрядчик'] } as never);
 

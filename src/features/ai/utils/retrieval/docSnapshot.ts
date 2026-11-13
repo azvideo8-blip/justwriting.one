@@ -24,6 +24,19 @@ export async function loadSummarySnapshot(): Promise<Map<string, AIDocumentSumma
 }
 
 /**
+ * TR-9 (владелец 13.11): номера заметок, которые человек отдал ИИ разбором —
+ * у них есть сводка. Неразобранная заметка не попадает в разговор ни одним
+ * путём: ни поиском по словам, ни по смыслу (старый вектор), ни по имени.
+ * Исключение одно — заметка, приложенная к ходу вручную: её человек отдал сам,
+ * и она идёт мимо этого правила (блоки хода, `hideExcludedNotes`).
+ * Сводку удалили («Удалить разбор ИИ») — заметка снова не видна.
+ */
+export async function loadAnalysedIds(): Promise<Set<string>> {
+  const db = await getLocalDb();
+  return new Set((await db.getAllKeys('aiSummaries')).map(String));
+}
+
+/**
  * R7Q-019/R7F-010: номера заметок, доступных ИИ, — и локальный id, и постоянный
  * uuid. Производные (хронология, доказательства тем, сюжетные линии) ссылаются на
  * заметку то одним, то другим, а на второе устройство строка приезжает с чужим
@@ -34,8 +47,11 @@ export async function loadSummarySnapshot(): Promise<Map<string, AIDocumentSumma
 export async function loadVisibleNoteKeys(): Promise<Set<string>> {
   const db = await getLocalDb();
   const keys = new Set<string>();
+  // TR-9: «доступна ИИ» = не скрыта И разобрана. Отсюда читают поиск по словам,
+  // сборка граней и производные — неразобранная не видна никому из них.
+  const analysed = await loadAnalysedIds();
   for (const d of await db.getAll('documents')) {
-    if (isExcludedFromAI(d)) continue;
+    if (isExcludedFromAI(d) || !analysed.has(d.id)) continue;
     if (d.id) keys.add(d.id);
     if (d.uuid) keys.add(d.uuid);
   }

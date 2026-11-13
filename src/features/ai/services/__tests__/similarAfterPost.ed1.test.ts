@@ -10,6 +10,7 @@ import * as noteRetriever from '../../utils/noteRetriever';
 import { linkedNote } from '../../../../test/attachedTurnFixtures';
 import { setIndexingConsent } from '../../../../core/ai/indexingConsent';
 import { getCurrentUser } from '../../../../core/auth';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../shared/i18n', () => ({ useLanguage: () => ({ language: 'ru', t: (k: string) => k }) }));
@@ -77,6 +78,7 @@ async function seed(extra: Record<string, Record<string, unknown>> = {}) {
       firstSessionAt: now - i * 86_400_000, lastSessionAt: now - i * 86_400_000, tags: [],
       ...extra[id],
     } as never);
+    await markAllAnalysed(db);
   }
   await db.put('aiSummaries', {
     documentId: ATTACHED, processedAt: now,

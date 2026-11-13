@@ -11,6 +11,7 @@ import { AIService } from '../../services/AIService';
 import { getMiniSearch, invalidateMiniSearchCache, keywordSearch, refreshMiniSearchDoc } from '../retrieval/indexCache';
 import { searchNotes } from '../retrieval/searchNotes';
 import { searchNotesMulti } from '../retrieval/searchNotesMulti';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 const auth = vi.hoisted(() => ({ callback: (_event: string, _session: unknown) => {} }));
 vi.mock('../../../../core/supabase/client', () => ({
@@ -34,6 +35,7 @@ const doc = (id: string): LocalDocument => ({
 async function seed(id: string) {
   const db = await getLocalDb();
   await db.put('documents', doc(id));
+  await markAllAnalysed(db);
   await db.put('versions', { id: `v-${id}`, documentId: id, version: 1,
     content: `прогресс развитие ${id === hidden ? marker : 'AP2_RERANK_VISIBLE'}`, guestId: uid,
     savedAt: 1, sessionStartedAt: 1, wordCount: 10, wordsAdded: 10, charsAdded: 50, duration: 1, wpm: 10 });
@@ -80,6 +82,7 @@ describe('AP2-2: настоящий MiniSearch и обработчик скры�
       const cloud = vi.spyOn(DataProvider, 'deleteSummary').mockReturnValue(blocked);
       const rerank = vi.spyOn(AIService, 'rerank').mockResolvedValue({ ok: true, documentIds: [visible] });
       await db.put('documents', { ...doc(hidden), ...(type === 'note.trashed' ? { trashedAt: 1 } : { excludedFromAI: true }) });
+      await markAllAnalysed(db);
       emitDomainEvent({ type, documentId: hidden, excluded: true } as DomainEvent);
       try {
         await vi.waitFor(() => expect(cloud).toHaveBeenCalled());
@@ -123,6 +126,7 @@ describe('AP2-2: настоящий MiniSearch и обработчик скры�
     expect(built).toBe(false);
     const db = await getLocalDb();
     await db.put('documents', { ...doc(hidden), excludedFromAI: true });
+    await markAllAnalysed(db);
     emitDomainEvent({ type: 'note.excludedFromAI', documentId: hidden, excluded: true });
     await vi.waitFor(() => expect(DataProvider.deleteEmbedding).toHaveBeenCalled(), { interval: 1 });
     await building;
@@ -148,6 +152,7 @@ describe('AP2-2: настоящий MiniSearch и обработчик скры�
     const read = LocalVersionService.getLatestContent.bind(LocalVersionService);
     vi.spyOn(LocalVersionService, 'getLatestContent').mockImplementationOnce(async id => {
       await db.put('documents', { ...doc(hidden), excludedFromAI: true });
+      await markAllAnalysed(db);
       return read(id);
     });
     await refreshMiniSearchDoc(hidden, uid);

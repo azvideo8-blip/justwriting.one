@@ -244,7 +244,8 @@ export const AIProfileService = {
 
       // TICKET-054: Local writing style metrics
       // AP-4: скрытые и корзинные заметки не участвуют в средних.
-      const allDocs = docsAll.filter(d => !isExcludedFromAI(d));
+      // TR-9: и неразобранные — их текст не участвует даже числами стиля.
+      const allDocs = docsAll.filter(d => !isExcludedFromAI(d) && visibleKeys.has(d.id));
       const styleContents: string[] = [];
       for (const doc of allDocs) {
         const content = await LocalVersionService.getLatestContent(doc.id);

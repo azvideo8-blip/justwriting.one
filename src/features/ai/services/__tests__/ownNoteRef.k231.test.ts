@@ -9,6 +9,7 @@ import { AIService } from '../../services/AIService';
 import * as noteRetriever from '../../utils/noteRetriever';
 import { referencedOwnTopics } from '../../utils/aiChatTransport';
 import { linkedNote } from '../../../../test/attachedTurnFixtures';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../shared/i18n', () => ({ useLanguage: () => ({ language: 'ru', t: (k: string) => k }) }));
@@ -40,6 +41,7 @@ async function seed() {
       id, guestId: 'u1', title: id === NOTE_ID ? 'Отчёт' : 'Переезд', currentVersion: 1, totalWords: 20, totalDuration: 60,
       sessionsCount: 1, firstSessionAt: now - i * 86_400_000 * 30, lastSessionAt: now - i * 86_400_000 * 30, tags: [],
     } as never);
+    await markAllAnalysed(db);
   }
   const content: Record<string, string> = { [NOTE_ID]: NOTE_TEXT, [FOUND_ID]: FOUND_TEXT };
   vi.spyOn(LocalVersionService, 'getLatestContent').mockImplementation(async (id: string) => content[id] ?? '');

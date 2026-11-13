@@ -17,6 +17,7 @@ import { AIEmbeddingService } from '../AIEmbeddingService';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { setIndexingConsent } from '../../../../core/ai/indexingConsent';
 import { sanitizeFirstSeenDates } from '../../utils/dateGuard';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 
@@ -41,6 +42,7 @@ describe('ход чата: хроника по вопросу', () => {
     ];
     for (const r of rows) {
       await db.put('documents', { id: r.id, guestId: 'guest', title: `Заметка ${r.id}`, currentVersion: 1, totalWords: 9, totalDuration: 0, sessionsCount: 1, firstSessionAt: day(r.iso), lastSessionAt: day(r.iso), tags: [] } as never);
+      await markAllAnalysed(db);
     }
     vi.spyOn(AIEmbeddingService, 'getAll').mockResolvedValue(rows.map(r => ({ documentId: r.id, vectors: [vec(r.cos)], chunkTexts: [r.text], contentHash: r.id, processedAt: 1, model: 'm', dim: 3 })) as never);
     vi.spyOn(AIService, 'embed').mockResolvedValue({ ok: true, vectors: [[1, 0, 0]], chunks: ['q'], model: 'm', dim: 3 } as never);

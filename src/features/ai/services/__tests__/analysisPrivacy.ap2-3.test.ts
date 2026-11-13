@@ -15,6 +15,7 @@ import { writeFacetStore } from '../../../../core/services/facetLock';
 import { LocalVersionService } from '../../../../core/services/LocalVersionService';
 import { indexDocument } from '../../utils/embeddingIndexer';
 import { AICommitmentService } from '../AICommitmentService';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 const auth = vi.hoisted(() => ({ callback: (_event: string, _session: unknown) => {} }));
 vi.mock('../../../../core/supabase/client', () => ({ getSupabase: () => ({ auth: {
@@ -44,6 +45,7 @@ const facet = (id: string, noteIds: string[]): AIProfileFacet => ({
 async function seed(id: string) {
   const db = await getLocalDb();
   await db.put('documents', doc(id));
+  await markAllAnalysed(db);
   await db.put('versions', { id: `v-${id}`, documentId: id, version: 1, guestId: uid,
     content: `${id === hidden ? marker : publicMarker} синтетическая прогулка в парке для проверки анализа заметок.`,
     savedAt: now, sessionStartedAt: now, wordCount: 20, wordsAdded: 20, charsAdded: 100, duration: 1, wpm: 20 });
@@ -77,6 +79,7 @@ describe('AP2-3: анализ не восстанавливает скрытые
     const analyzing = NoteAnalysisService.analyze(hidden);
     await vi.waitFor(() => expect(summarize).toHaveBeenCalledOnce());
     await db.put('documents', doc(hidden, field === 'trashedAt' ? { trashedAt: now } : { excludedFromAI: true }));
+    await markAllAnalysed(db);
     await NoteAnalysisService.clear(hidden);
     release({ ok: true, summary: summary(hidden) });
     expect(await analyzing).toEqual({ ok: false, error: 'EXCLUDED' });
@@ -88,6 +91,9 @@ describe('AP2-3: анализ не восстанавливает скрытые
   it('сохранение сводки само отсекает скрытую заметку', async () => {
     const db = await getLocalDb();
     await db.put('documents', doc(hidden, { excludedFromAI: true }));
+    // TR-9: фикстура сеет строку «разобрана» всем заметкам; здесь проверяется,
+    // что save() сам не пишет сводку скрытой, — начинаем без неё.
+    await db.delete('aiSummaries', hidden);
     await AISummaryService.save(summary(hidden));
     expect(await db.get('aiSummaries', hidden)).toBeUndefined();
     expect(await db.get('aiTimeline', hidden)).toBeUndefined();
@@ -96,6 +102,7 @@ describe('AP2-3: анализ не восстанавливает скрытые
   it.each(['resummarizeDirty', 'summarizePending'] as const)('%s не передаёт остатки и старую затравку', async method => {
     const db = await getLocalDb();
     await db.put('documents', doc(hidden, { excludedFromAI: true }));
+    await markAllAnalysed(db);
     await writeFacetStore(store => store.put({ ...facet('mixed', [hidden, 'visible-1']), dirty: true, pendingSummary: true, _excerptSeed: [marker] }));
     const summarize = vi.spyOn(AIService, 'summarizeFacet').mockResolvedValue({ ok: true, label: 'Тема', summary: 'Синтетический результат' });
     await AIProfileFacetSummarizer[method]();
@@ -126,6 +133,7 @@ describe('AP2-3: анализ не восстанавливает скрытые
   it('строитель граней не сохраняет скрытые фрагменты в затравках', async () => {
     const db = await getLocalDb();
     await db.put('documents', doc(hidden, { excludedFromAI: true }));
+    await markAllAnalysed(db);
     expect((await AIProfileFacetBuilder.build()).ok).toBe(true);
     const facets = await db.getAll('aiProfileFacets');
     expect(facets.length).toBeGreaterThan(0);
@@ -137,6 +145,7 @@ describe('AP2-3: анализ не восстанавливает скрытые
   it('портрет фильтрует остатки сводок, тона и грани без документа', async () => {
     const db = await getLocalDb();
     await db.put('documents', doc(hidden, { excludedFromAI: true }));
+    await markAllAnalysed(db);
     for (const id of [hidden, 'missing', 'visible-1', 'visible-2', 'visible-3']) await db.put('aiSummaries', summary(id));
     await writeFacetStore(async store => {
       for (let i = 0; i < 3; i++) await store.put({ ...facet(`orphan-${i}`, ['missing']), summary: marker });

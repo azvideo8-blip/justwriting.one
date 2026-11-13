@@ -64,9 +64,12 @@ export const AIProfileFacetService = {
         reportError(e, { action: 'facetProfile_dialoguesSnapshot_failed' });
       }
     }
+    // TR-9: грань, собранная когда-то и по неразобранной заметке, пересказывает
+    // её текст — не видна, пока грани не пересобраны (сборка берёт только разобранные).
+    const analysed = new Set((await db.getAllKeys('aiSummaries')).map(String));
     const visible = all.filter(f => f.noteIds.every(id => {
       const doc = byId.get(id);
-      return !!doc && !isExcludedFromAI(doc);
+      return !!doc && !isExcludedFromAI(doc) && analysed.has(doc.id);
     }) && (f.dialogueIds ?? []).every(dialogueVisible));
     visible.sort((a, b) => b.noteCount - a.noteCount);
     return visible;

@@ -151,6 +151,7 @@ export function AIChatHeader(props: AIChatHeaderProps) {
                 персон, MR-11 поднял его до 44 px — меньше цели касания не остаётся. */}
             <button
               type="button"
+              data-tour="persona"
               onClick={() => setPersonaSheetOpen(true)}
               className="press flex items-center gap-1.5 min-[380px]:gap-2 min-h-11 max-w-full px-2 rounded-full text-[13px] tracking-tight min-[380px]:text-sm min-[380px]:tracking-normal font-semibold text-text-main truncate"
               style={{ background: `${headerVisual.color}14`, borderColor: `${headerVisual.color}55`, borderWidth: 1 }}
@@ -324,7 +325,7 @@ export function AIChatHeader(props: AIChatHeaderProps) {
 
   return (
     <div className="relative z-10 px-6 pt-5 pb-3.5 border-b border-border-subtle">
-      <div className="flex items-center gap-3.5">
+      <div data-tour="persona" className="flex items-center gap-3.5">
         <Monogram color={headerVisual.color} mono={headerVisual.mono} size={40} />
         <div className="min-w-0">
           <div className="text-[10.5px] font-mono uppercase tracking-[0.18em] text-text-main/60 mb-1">{t('ai_interlocutor')}</div>

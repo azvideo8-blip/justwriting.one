@@ -10,6 +10,7 @@ vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }
 import { searchNotesMulti, vectorScore01, type RetrievedNote } from '../noteRetriever';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { LocalVersionService } from '../../../../core/services/LocalVersionService';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 async function seedDoc(id: string, title: string, contentText: string): Promise<void> {
   contents.set(id, contentText);
@@ -19,6 +20,7 @@ async function seedDoc(id: string, title: string, contentText: string): Promise<
     totalWords: 20, totalDuration: 0, sessionsCount: 1,
     firstSessionAt: 1000, lastSessionAt: 1000, tags: [],
   } as never);
+  await markAllAnalysed(db);
 }
 
 const contents = new Map<string, string>();

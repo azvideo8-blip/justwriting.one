@@ -1,5 +1,5 @@
 import { AIEmbeddingService } from '../../services/AIEmbeddingService';
-import { loadDocumentSnapshot } from './docSnapshot';
+import { loadDocumentSnapshot, loadAnalysedIds } from './docSnapshot';
 import { LocalVersionService } from '../../../../core/services/LocalVersionService';
 import type { RetrievedNote } from './types';
 import { isExcludedFromAI } from '../isExcludedFromAI';
@@ -81,9 +81,11 @@ export async function loadNotes(
   const results: RetrievedNote[] = [];
   // X-5: один снимок заметок вместо точечного чтения на каждого кандидата.
   const docs = await loadDocumentSnapshot();
+  // TR-9: последний рубеж выдачи поиска — текст неразобранной заметки не грузится.
+  const analysed = await loadAnalysedIds();
   for (const docId of ids) {
     const doc = docs.get(docId);
-    if (!doc || isExcludedFromAI(doc)) continue;
+    if (!doc || isExcludedFromAI(doc) || !analysed.has(doc.id)) continue;
     const chunkIdx = chunkIndexMap?.get(docId);
 
     let content = '';

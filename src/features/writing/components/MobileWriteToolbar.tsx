@@ -244,6 +244,7 @@ export function MobileWriteToolbar({
           {hasSupport && (
             <div className="relative">
               <IconButton
+                data-tour="mic"
                 onClick={onMic}
                 label={dictationMicLabel(isListening, isVaultActive, aiNoticeRemaining !== null, t)}
                 className={cn(

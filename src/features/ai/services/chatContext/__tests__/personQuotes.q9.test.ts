@@ -10,6 +10,7 @@ import { getLocalDb } from '../../../../../core/storage/localDb';
 import { AIService } from '../../AIService';
 import * as noteRetriever from '../../../utils/noteRetriever';
 import { setIndexingConsent } from '../../../../../core/ai/indexingConsent';
+import { markAllAnalysed } from '../../../../../test/utils/markAnalysed';
 
 vi.mock('../../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../../shared/i18n', () => ({ useLanguage: () => ({ language: 'ru', t: (k: string) => k }) }));
@@ -136,8 +137,11 @@ describe('Q-9: блок в контексте хода', () => {
       }
     }
     await db.put('documents', { id: OPEN_DOC, title: 'Звонок', currentVersion: 1, lastSessionAt: now() } as never);
+    await markAllAnalysed(db);
     await db.put('documents', { id: HIDDEN_DOC, title: 'Скрытое', currentVersion: 1, lastSessionAt: now(), excludedFromAI: true } as never);
+    await markAllAnalysed(db);
     await db.put('documents', { id: PLAIN_DOC, title: 'План', currentVersion: 1, lastSessionAt: now() } as never);
+    await markAllAnalysed(db);
 
     // Основной поиск на этот ход не запускается (реплика не похожа на запрос),
     // поэтому заметку «мама» даёт только дополнительный поиск по форме имени.
@@ -199,6 +203,7 @@ describe('Q-9: блок в контексте хода', () => {
     const db = await getLocalDb();
     const doc = await db.get('documents', OPEN_DOC);
     await db.put('documents', { ...doc, excludedFromAI: true } as never);
+    await markAllAnalysed(db);
     const second = await turn('мама против, хотя прямо не говорит');
     expect(second.searchContext ?? '').not.toContain('Мама звонит каждый день');
     expect(second.injectedDocumentIds ?? []).not.toContain(OPEN_DOC);

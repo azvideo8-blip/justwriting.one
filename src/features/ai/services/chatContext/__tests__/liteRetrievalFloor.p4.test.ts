@@ -14,6 +14,7 @@ import 'fake-indexeddb/auto';
 import { buildLiteRetrievalBlock } from '../liteRetrieval';
 import { AIEmbeddingService } from '../../AIEmbeddingService';
 import { getLocalDb } from '../../../../../core/storage/localDb';
+import { markAllAnalysed } from '../../../../../test/utils/markAnalysed';
 
 vi.mock('../../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 
@@ -30,6 +31,7 @@ async function seed(idsWithScore: Array<[string, number]>) {
       id, guestId: 'u1', title: `Заметка ${id}`, currentVersion: 1, totalWords: 30, totalDuration: 0,
       sessionsCount: 1, firstSessionAt: 1000, lastSessionAt: 1000, tags: [],
     } as never);
+    await markAllAnalysed(db);
     await db.put('aiEmbeddings', {
       documentId: id, vectors: [vec(cos)], chunkTexts: [`Кусок заметки ${id} про проект Альфа`],
       contentHash: `h-${id}`, processedAt: 1, model: 'm', dim: 3,

@@ -30,6 +30,7 @@ import { invalidateEmbeddingIndexCache } from '../../../../core/services/embeddi
 import { setIndexingConsent } from '../../../../core/ai/indexingConsent';
 import { parseTemporalQuery } from '../../utils/temporalQueryParser';
 import { shouldRunFullSearch } from '../../utils/aiChatTransport';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../shared/i18n', () => ({
@@ -64,6 +65,7 @@ async function seed(notes: Array<[string, string, string]> = NOTES) {
       id, guestId: 'guest', title, currentVersion: 1, totalWords: 30, totalDuration: 200,
       sessionsCount: 1, firstSessionAt: base, lastSessionAt: base, tags: [],
     } as never);
+    await markAllAnalysed(db);
     await db.put('versions', {
       id: `v_${id}`, documentId: id, guestId: 'guest', version: 1, content: body,
       wordCount: 30, wordsAdded: 30, charsAdded: body.length, duration: 200, wpm: 20, createdAt: base,

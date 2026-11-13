@@ -8,6 +8,7 @@ import { invalidateEmbeddingIndexCache } from '../../../../core/services/embeddi
 import { AIService } from '../AIService';
 import { AIProfileFacetBuilder } from '../AIProfileFacetBuilder';
 import { AIProfileFacetSummarizer } from '../AIProfileFacetSummarizer';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 // DY6-3 (приёмка 26.10, Н-2): продюсер граней брал aiDialogueEvents целиком и
 // клал `event.summary` в `_excerptSeed` → `AIService.summarizeFacet`, а страж
@@ -68,14 +69,18 @@ async function seed() {
   // Корпус шире кластера: discovery-грань живёт только когда её заметки < 40 %
   // всех (иначе это «портрет одного дня», не тема).
   await db.put('documents', doc(V1));
+  await markAllAnalysed(db);
   await db.put('documents', doc(V2));
+  await markAllAnalysed(db);
   // Фон растёт отдельным облаком ([10,±1..3] косинусно близко друг к другу,
   // далеко от [1,±1]) — иначе k-means сливает всё в одну грань на 100 % корпуса.
   for (let i = 0; i < 7; i++) {
     await db.put('documents', doc(`dy63_note_other_${i}`));
+    await markAllAnalysed(db);
     await db.put('aiEmbeddings', { documentId: `dy63_note_other_${i}`, vectors: [[10, (i % 2 === 0 ? 1 : -1) * (1 + (i % 3))]], chunkTexts: [`Синтетическая заметка ${i} про ремонт кухни и счета за материалы.`], model: 'test', dim: 2, contentHash: `h-o${i}`, processedAt: now });
   }
   await db.put('documents', doc(HID, { excludedFromAI: true }));
+  await markAllAnalysed(db);
   for (const [i, id] of [V1, V2].entries()) {
       await db.put('aiEmbeddings', { documentId: id, vectors: [i === 0 ? [1, 0] : [1, 0.15]], chunkTexts: [NOTE_TEXT], model: 'test', dim: 2, contentHash: `h-${id}`, processedAt: now });
   }

@@ -1,7 +1,7 @@
 import { AIEmbeddingService } from '../../services/AIEmbeddingService';
 import { AIService } from '../../services/AIService';
 import { getLocalDb } from '../../../../core/storage/localDb';
-import { loadDocumentSnapshot, loadSummarySnapshot, loadVisibleNoteKeys } from './docSnapshot';
+import { loadAnalysedIds, loadDocumentSnapshot, loadSummarySnapshot, loadVisibleNoteKeys } from './docSnapshot';
 import { hiddenNoteIdsFromDocs } from '../hiddenNoteIds';
 import { LocalVersionService } from '../../../../core/services/LocalVersionService';
 import { topKMultiWithChunkIndex } from '../vectorSearch';
@@ -81,8 +81,11 @@ export async function searchNotes(
     const hasTimeFilter = opts?.minTime !== undefined || opts?.maxTime !== undefined;
     const allowed = new Set<string>();
     const docs = await db.getAll('documents');
+    // TR-9: вектор неразобранной заметки (старый или доехавший из облака) в
+    // поиске не участвует.
+    const analysed = await loadAnalysedIds();
     for (const doc of docs) {
-      if (isExcludedFromAI(doc)) continue;
+      if (isExcludedFromAI(doc) || !analysed.has(doc.id)) continue;
       const ts = doc.lastSessionAt;
       if (!hasTimeFilter) { allowed.add(doc.id); continue; }
       if (ts && (opts?.minTime === undefined || ts >= opts.minTime) && (opts?.maxTime === undefined || ts <= opts.maxTime)) {

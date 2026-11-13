@@ -491,6 +491,7 @@ export function MobileWriteScreen({
 
       <div
         ref={editorAreaRef}
+        data-tour="editor"
         className="flex-1 overflow-hidden relative"
         onTouchStart={handleEditorTouchStart}
         onTouchEnd={handleEditorTouchEnd}

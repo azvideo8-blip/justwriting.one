@@ -1,7 +1,7 @@
 // SA-25: точка на вкладке «Профиль» ведёт в карточку статусов; строка, где
 // что-то не так, идёт первой и объясняет словами.
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { MobileMeScreen } from '../MobileMeScreen';
 
@@ -63,5 +63,20 @@ describe('SA-25: the profile tab dot leads to a row that says what it means', ()
     expect(container.querySelectorAll('.bg-accent-danger')).toHaveLength(1);
     expect(container.querySelectorAll('.bg-accent-warning')).toHaveLength(1);
     st.entries = [];
+  });
+
+  // TR-6: строка «Как всё устроено» в группе состояния, после сейфа; тихая (без точки).
+  // Мутация: onTap: startTour → () => {} → красный.
+  it('the tour row sits after the vault row and fires jw:tour-start', () => {
+    const heard = vi.fn();
+    window.addEventListener('jw:tour-start', heard);
+    render(<MemoryRouter><MobileMeScreen user={{ uid: 'u1', email: 'a@b.c' } as never} profile={null} /></MemoryRouter>);
+    const row = screen.getByText('tour_open').closest('button')!;
+    const labels = Array.from(row.parentElement!.children).map(b => b.firstElementChild!.textContent);
+    expect(labels.indexOf('tour_open')).toBeGreaterThan(labels.indexOf('me_status_vault'));
+    expect(within(row).queryByTestId('status-row-warn')).toBeNull();
+    fireEvent.click(row);
+    window.removeEventListener('jw:tour-start', heard);
+    expect(heard).toHaveBeenCalledTimes(1);
   });
 });

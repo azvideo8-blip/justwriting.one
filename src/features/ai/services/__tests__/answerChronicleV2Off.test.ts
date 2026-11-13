@@ -38,6 +38,7 @@ import { getLocalDb } from '../../../../core/storage/localDb';
 import { setIndexingConsent } from '../../../../core/ai/indexingConsent';
 import { buildChatSystemPrompt } from '../../../../shared/ai/buildChatPrompt';
 import * as syncFlags from '../../../../core/sync/syncFlags';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 const day = (iso: string) => new Date(`${iso}T12:00:00`).getTime();
 const vec = (c: number): number[] => [c, Math.sqrt(Math.max(0, 1 - c * c)), 0];
@@ -101,6 +102,7 @@ describe('answer_chronicle_v2 выключен: ход побайтно как �
     for (const s of ['documents', 'aiEmbeddings'] as const) await db.clear(s);
     for (const r of ROWS) {
       await db.put('documents', { id: r.id, guestId: 'guest', title: `Заметка ${r.id}`, currentVersion: 1, totalWords: 9, totalDuration: 0, sessionsCount: 1, firstSessionAt: day(r.iso), lastSessionAt: day(r.iso), tags: [] } as never);
+      await markAllAnalysed(db);
     }
     vi.spyOn(AIEmbeddingService, 'getAll').mockResolvedValue(ROWS.map(r => ({
       documentId: r.id, vectors: r.chunks.map(c => vec(c[1])), chunkTexts: r.chunks.map(c => c[0]), contentHash: r.id, processedAt: 1, model: 'm', dim: 3,

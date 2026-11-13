@@ -107,6 +107,7 @@ export const AIFacetJudgeService = {
 
     const db = await getLocalDb();
     const summaries = (await db.getAll('aiSummaries')) as SummaryRow[];
+    const analysedIds = new Set(summaries.map(s => s.documentId));
     const embeddings = await AIEmbeddingService.getAll();
     const dialogueEvents = await db.getAll('aiDialogueEvents');
     const dialogueEventMap = new Map(dialogueEvents.map(e => [e.dialogueId, e]));
@@ -164,7 +165,8 @@ export const AIFacetJudgeService = {
 
       const texts: string[] = [];
       for (const e of embeddings) {
-        if (!facet.noteIds.includes(e.documentId)) continue;
+        // TR-9: фрагменты — только разобранных заметок.
+        if (!facet.noteIds.includes(e.documentId) || !analysedIds.has(e.documentId)) continue;
         for (const t of e.chunkTexts ?? []) if (t.trim()) texts.push(t);
       }
       const excerpts = texts.slice(0, MAX_EXCERPTS).map(t => ({ title: '(фрагмент)', excerpt: t.slice(0, EXCERPT_CHARS) }));

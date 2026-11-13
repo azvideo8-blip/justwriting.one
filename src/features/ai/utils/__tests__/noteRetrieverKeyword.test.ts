@@ -5,6 +5,7 @@ import { AIService } from '../../services/AIService';
 import { AIEmbeddingService } from '../../services/AIEmbeddingService';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { LocalVersionService } from '../../../../core/services/LocalVersionService';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 
@@ -29,11 +30,13 @@ describe('searchNotes — a keyword-only match survives the relevance floor', ()
       totalWords: 10, totalDuration: 0, sessionsCount: 1,
       firstSessionAt: 1000, lastSessionAt: 1000, tags: [],
     } as never);
+    await markAllAnalysed(db);
     await db.put('documents', {
       id: OTHER_ID, guestId: 'u1', title: 'Другое', currentVersion: 1,
       totalWords: 10, totalDuration: 0, sessionsCount: 1,
       firstSessionAt: 2000, lastSessionAt: 2000, tags: [],
     } as never);
+    await markAllAnalysed(db);
 
     vi.spyOn(LocalVersionService, 'getLatestContent').mockImplementation(async (id: string) =>
       id === NOTE_ID

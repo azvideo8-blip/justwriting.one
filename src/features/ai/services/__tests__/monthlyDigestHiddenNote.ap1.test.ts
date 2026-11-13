@@ -10,6 +10,7 @@ import { emitDomainEvent, _resetDomainEventHandlersForTests } from '../../../../
 import { initAiDomainEvents } from '../../subscribeDomainEvents';
 import { buildProactiveBlock } from '../chatContext/proactive';
 import { buildTemporalBlocks } from '../chatContext/temporalBlocks';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../core/auth', () => ({ getCurrentUser: vi.fn(() => null) }));
@@ -83,8 +84,11 @@ describe('AP-1: скрытая заметка не остаётся в меся�
     }
 
     await db.put('documents', doc(DOC_OK));
+    await markAllAnalysed(db);
     await db.put('documents', doc(DOC_OK_2));
+    await markAllAnalysed(db);
     await db.put('documents', doc(DOC_HIDDEN, { excludedFromAI: true }));
+    await markAllAnalysed(db);
     await db.put('aiTimeline', timelineEntry(DOC_OK, '2026-09-10'));
     await db.put('aiTimeline', timelineEntry(DOC_OK_2, '2026-09-12'));
     await db.put('aiTimeline', timelineEntry(DOC_HIDDEN, '2026-09-11'));

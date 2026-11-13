@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { buildEvidence, type SummaryRow, AIFacetJudgeService } from '../AIFacetJudgeService';
 import { AIProfileFacetService } from '../AIProfileFacetService';
+import { AIEmbeddingService } from '../AIEmbeddingService';
 
 const judgeMock = vi.fn();
 const summarizeMock = vi.fn();
@@ -112,4 +113,27 @@ describe('AIFacetJudgeService.review', () => {
     expect(judgeMock).toHaveBeenCalledTimes(1);
     expect(res.judged).toBe(0);
   });
+
+  // TR-9: при пересказе грани по замечанию судьи модели уходят фрагменты заметок.
+  // Фрагменты неразобранной заметки (вектор остался с прежних версий) не уходят.
+  // Мутация: убрать `|| !analysedIds.has(e.documentId)` → красный.
+  it('TR-9: фрагменты неразобранной заметки не уходят в пересказ грани', async () => {
+    vi.mocked(AIProfileFacetService.getAll).mockResolvedValue([
+      { id: 'f1', label: 'Доверие', summary: 'коллега Анна', noteIds: ['n1', 'nRaw'] },
+    ] as Awaited<ReturnType<typeof AIProfileFacetService.getAll>>);
+    vi.mocked(AIEmbeddingService.getAll).mockResolvedValue([
+      { documentId: 'n1', chunkTexts: ['текст заметки один'] },
+      { documentId: 'nRaw', chunkTexts: ['ФРАГМЕНТ_НЕРАЗОБРАННОЙ'] },
+    ] as Awaited<ReturnType<typeof AIEmbeddingService.getAll>>);
+    judgeMock
+      .mockResolvedValueOnce({ ok: true, verdicts: [{ facetId: 'f1', ok: false, issues: ['роль'], hint: 'Анна — терапевт' }] })
+      .mockResolvedValueOnce({ ok: true, verdicts: [{ facetId: 'f1', ok: true, issues: [], hint: '' }] });
+    summarizeMock.mockResolvedValue({ ok: true, label: 'Доверие', summary: 'терапевт Анна' });
+
+    await AIFacetJudgeService.review();
+    const sent = JSON.stringify(summarizeMock.mock.calls);
+    expect(sent).toContain('текст заметки один');
+    expect(sent).not.toContain('ФРАГМЕНТ_НЕРАЗОБРАННОЙ');
+  });
 });
+

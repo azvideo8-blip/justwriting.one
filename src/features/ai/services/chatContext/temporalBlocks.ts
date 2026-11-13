@@ -78,7 +78,8 @@ async function periodNotes(db: LocalDb, minTime: number, maxTime: number): Promi
   const [docs, summaries] = await Promise.all([db.getAll('documents'), db.getAll('aiSummaries')]);
   const summaryById = new Map(summaries.map(s => [s.documentId, s]));
   return docs
-    .filter(d => !isExcludedFromAI(d))
+    // TR-9: у неразобранной заметки в список ушло бы название — тоже её текст.
+    .filter(d => !isExcludedFromAI(d) && summaryById.has(d.id))
     .filter(d => typeof d.lastSessionAt === 'number' && d.lastSessionAt >= minTime && d.lastSessionAt <= maxTime)
     .sort((a, b) => (a.lastSessionAt ?? 0) - (b.lastSessionAt ?? 0))
     .map(d => {

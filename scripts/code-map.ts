@@ -72,6 +72,8 @@ export const DESCRIPTIONS: Record<string, string> = {
     'Страница профиля: KPI, тепловая карта, ритм по часам, настроение, достижения; статистика — `hooks/useProfileStats.ts`.',
   'src/features/settings':
     'Панель настроек `SettingsPanel.tsx` и её разделы: аккаунт, сейф, ИИ, синк, экспорт и удаление; перенос данных `services/migrationExport.ts` / `migrationImport.ts`.',
+  'src/features/tour':
+    'Знакомство «Как всё устроено»: три шага с подсветкой `TourOverlay.tsx`, шаги `steps.ts`, условия автозапуска `tourGate.ts` (чистая функция), отметка на устройстве `tourState.ts`. Сбор условий и ожидание — `app/TourAutoStart.tsx` (ленивый); в стартовом куске — только крючок в `app/AppShell.tsx`.',
   'src/features/writing':
     'Экран письма: редактор `WritingEditor.tsx`, сессия и таймер (`hooks/useSessionFlow.ts`, `store/`), автосохранение черновика `hooks/useDraftAutosave.ts`, диктовка, итог сессии, мобильный экран.',
 

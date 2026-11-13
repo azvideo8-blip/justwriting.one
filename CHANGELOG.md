@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.11.14 — 2026-11-13
+
+- **[RU]** Знакомство «Как всё устроено»: три коротких шага — где писать, где заметки и что делает «Разобрать», где разговор с ИИ. Новому человеку показывается само один раз; посмотреть снова — «Как всё устроено» в боковой панели, в «Профиле» на телефоне или в «Настройки → О приложении».
+- **[EN]** “How it works” tour: three short steps — where to write, where your notes are and what “Analyse” does, where to talk with the AI. It shows once to a new person; to see it again, open “How it works” in the sidebar, in “Profile” on the phone or in Settings → About.
+- **[RU]** Собеседник видит только заметки, которые вы разобрали, и те, что приложили к разговору: неразобранная заметка не попадает в разговор ни поиском, ни по имени, ни в портрет. Под кнопкой «Разобрать» об этом сказано прямо.
+- **[EN]** Your companion sees only notes you have analysed and notes you attach to the conversation: an unanalysed note does not reach the conversation through search, by name, or in the portrait. The caption under “Analyse” says so.
+- **[RU]** Если код восстановления не удалось скопировать, приложение подскажет сохранить его файлом.
+- **[EN]** If the recovery code cannot be copied, the app suggests saving it as a file.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.11.13 — 2026-11-13
 
 - **[RU]** Ссылки на заметки в ответах ИИ открываются и на другом устройстве — например, ответ, написанный на компьютере, на телефоне.

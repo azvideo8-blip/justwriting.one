@@ -21,6 +21,7 @@ import {
 import { ARCHIVE_TURN_MARK } from '../../../../../shared/ai/archiveAnswerRule';
 import { AIEmbeddingService } from '../../AIEmbeddingService';
 import { getLocalDb } from '../../../../../core/storage/localDb';
+import { markAllAnalysed } from '../../../../../test/utils/markAnalysed';
 
 vi.mock('../../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 
@@ -158,6 +159,7 @@ describe('buildTopicChronicleBlock (IndexedDB)', () => {
         firstSessionAt: day(r.iso), lastSessionAt: day(r.iso), tags: [],
         ...(r.hidden ? { excludedFromAI: true } : {}), ...(r.trashed ? { trashedAt: 5 } : {}),
       } as never);
+      await markAllAnalysed(db);
     }
     vi.spyOn(AIEmbeddingService, 'getAll').mockResolvedValue(rows.map(r => ({
       documentId: r.id, vectors: [vec(r.cos)], chunkTexts: [r.text], contentHash: r.id, processedAt: 1, model: 'm', dim: 3,
@@ -293,6 +295,7 @@ describe('вторая версия подачи (v2)', () => {
     const db = await getLocalDb();
     await db.clear('documents');
     await db.put('documents', { id: 'L', guestId: 'guest', title: 'Длинная', currentVersion: 1, totalWords: 9, totalDuration: 0, sessionsCount: 1, firstSessionAt: long.at, lastSessionAt: long.at, tags: [] } as never);
+    await markAllAnalysed(db);
     vi.spyOn(AIEmbeddingService, 'getAll').mockResolvedValue([{ documentId: 'L', vectors: long.vectors, chunkTexts: long.chunks, contentHash: 'L', processedAt: 1, model: 'm', dim: 3 }] as never);
     const deps = { text: base.text, turnEmb: TURN, db, minTime: undefined, maxTime: undefined, performedFullSearch: false };
     const on = await buildTopicChronicleBlock({ ...deps, injectedDocumentIds: [], v2Enabled: async () => true });

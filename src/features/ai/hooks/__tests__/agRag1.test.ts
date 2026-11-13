@@ -11,6 +11,7 @@ import { setIndexingConsent } from '../../../../core/ai/indexingConsent';
 
 import { LocalVersionService } from '../../../../core/services/LocalVersionService';
 import { AIProfileService } from '../../services/AIProfileService';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 const USER = 'u1';
 vi.mock('../../../../core/auth', () => ({
@@ -50,6 +51,7 @@ describe('AG-RAG-1: Retrieval leaks and cache window collision', () => {
       firstSessionAt: 1000, lastSessionAt: 1000, tags: [],
       excludedFromAI: true,
     } as never);
+    await markAllAnalysed(db);
 
     await db.put('documents', {
       id: NORMAL_ID, guestId: 'u1', title: 'Обычная заметка', currentVersion: 1,
@@ -57,6 +59,7 @@ describe('AG-RAG-1: Retrieval leaks and cache window collision', () => {
       firstSessionAt: 2000, lastSessionAt: 2000, tags: [],
       excludedFromAI: false,
     } as never);
+    await markAllAnalysed(db);
 
     const testVector = [0.9, 0.1, 0.0];
     await AIEmbeddingService.save({
@@ -114,6 +117,7 @@ describe('AG-RAG-1: Retrieval leaks and cache window collision', () => {
       firstSessionAt: 10000, lastSessionAt: 10000, tags: [],
       excludedFromAI: false,
     } as never);
+    await markAllAnalysed(db);
 
     await db.put('documents', {
       id: DOC_AUTUMN, guestId: 'u1', title: 'Осенняя заметка', currentVersion: 1,
@@ -121,6 +125,7 @@ describe('AG-RAG-1: Retrieval leaks and cache window collision', () => {
       firstSessionAt: 50000, lastSessionAt: 50000, tags: [],
       excludedFromAI: false,
     } as never);
+    await markAllAnalysed(db);
 
     const vecSpring = [0.95, 0.05, 0.0];
     const vecAutumn = [0.94, 0.06, 0.0];
@@ -172,6 +177,7 @@ describe('AG-RAG-1: Retrieval leaks and cache window collision', () => {
       firstSessionAt: 10000, lastSessionAt: 10000, tags: [],
       excludedFromAI: false,
     } as never);
+    await markAllAnalysed(db);
 
     const vec = [0.9, 0.1, 0.0];
     await AIEmbeddingService.save({

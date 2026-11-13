@@ -5,6 +5,7 @@ import { useAIChatContext } from '../aiChatContext';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { AIService } from '../AIService';
 import * as noteRetriever from '../../utils/noteRetriever';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../shared/i18n', () => ({
@@ -49,6 +50,7 @@ describe('B-1.4 (F-013) Note selection within budget and best-last placement', (
         currentVersion: 1,
         lastSessionAt: isTop ? now : now - (i * 10 * 86_400_000),
       } as never);
+      await markAllAnalysed(db);
 
       notes.push({
         documentId: docId,

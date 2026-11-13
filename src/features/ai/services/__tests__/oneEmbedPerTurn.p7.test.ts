@@ -19,6 +19,7 @@ import { AIProfileFacetService } from '../../services/AIProfileFacetService';
 import { LocalVersionService } from '../../../../core/services/LocalVersionService';
 import { setIndexingConsent } from '../../../../core/ai/indexingConsent';
 import { useAiLimitStore } from '../../store/useAiLimitStore';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../utils/aiDegradationReporter', async (importOriginal) => {
@@ -46,6 +47,7 @@ describe('П-7: вектор реплики переиспользуется в 
       id: DOC, guestId: 'u1', title: 'Про Альфа', currentVersion: 1, totalWords: 40, totalDuration: 0,
       sessionsCount: 1, firstSessionAt: 1000, lastSessionAt: 1000, tags: [],
     } as never);
+    await markAllAnalysed(db);
     vi.spyOn(LocalVersionService, 'getLatestContent').mockResolvedValue('Собрали релиз Альфа, обсуждали сроки.');
     vi.spyOn(AIEmbeddingService, 'getAll').mockResolvedValue([{
       documentId: DOC, vectors: [VEC], chunkTexts: ['Собрали релиз Альфа'], contentHash: 'h', processedAt: 1, model: 'm', dim: 3,

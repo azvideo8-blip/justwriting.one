@@ -24,6 +24,7 @@ import { MobileRenameSheet } from './MobileRenameSheet';
 import { splitNoteTitle } from './noteTitle';
 import { getDateLocale, toDate } from '../../../core/utils/dateUtils';
 import { getCurrentUser } from '../../../core/auth';
+import { useAiConsentOff } from '../../../core/ai/useAiConsentOff';
 import { toggleAIExclusion } from '../services/archiveCrud';
 import { reportError } from '../../../shared/errors/reportError';
 import type { AIDocumentSummary } from '../../../core/storage/localDb';
@@ -72,6 +73,7 @@ export function MobileNoteReader({
   }, []);
   const { showToast } = useToast();
   const user = getCurrentUser();
+  const aiOff = useAiConsentOff();
   // Лист действий меряется на того, кто открыл заметку: гостю облачные пути не
   // показываются, а заметки гостя лежат под `session.userId`.
   const actorId = user?.uid ?? session.userId;
@@ -404,12 +406,17 @@ export function MobileNoteReader({
                   <div className="mt-2 space-y-2">
                     <Button
                       onClick={() => onAnalyze?.()}
+                      aria-describedby="analyze-caption-m"
                       className="min-h-11 gap-2 rounded-xl border border-brand-soft/20 bg-brand-soft/10 px-3 text-[15px] text-brand-soft"
                     >
                       {/* U-25: значок разбора как на десктопе (`DocumentPreview.tsx:722`). */}
                       <Sparkles size={14} className="text-brand-soft" aria-hidden="true" />
                       {t('archive_preview_analyze_btn')}
                     </Button>
+                    {/* TR-5: что делает кнопка — по месту и всегда. */}
+                    <p id="analyze-caption-m" className="text-[14px] text-text-main/60">
+                      {t(aiOff ? 'archive_analyze_caption_no_consent' : 'archive_analyze_caption')}
+                    </p>
                     {analyzeError && <p className="text-[14px] text-accent-danger">{analyzeError}</p>}
                   </div>
                 )}

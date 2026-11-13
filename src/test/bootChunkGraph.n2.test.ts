@@ -44,6 +44,17 @@ const HOME_STRIP_MUST_BE_LAZY = [
   'core/sync/useEmptyDeviceDetection.ts',
 ];
 
+// TR-4: знакомство — в старте только крючок в AppShell (`React.lazy` + событие).
+// Мутация: статический `import { TourOverlay } from '../features/tour/TourOverlay'`
+// в AppShell.tsx → красный с цепочкой.
+const TOUR_MUST_BE_LAZY = [
+  'features/tour/TourOverlay.tsx',
+  'features/tour/steps.ts',
+  'features/tour/tourGate.ts',
+  'features/tour/tourState.ts',
+  'app/TourAutoStart.tsx',
+];
+
 function asPosix(p: string) { return p.split(sep).join('/'); }
 /** Ключи графа — всегда относительные «src/…»: с абсолютными путями проверка
  *  «модуля нет в множестве» зелёная всегда, и тест ничего не сверяет. */
@@ -129,6 +140,13 @@ describe('BS (N-2): движок синхронизации не в старто
   // краснеет, если кто-то вернёт в AppShell или рейку статический импорт.
   for (const mod of HOME_STRIP_MUST_BE_LAZY) {
     it(`src/${mod} (BR-3) недостижим статически из main.tsx`, () => {
+      expect(boot.has(`src/${mod}`), `статическая цепочка: ${chain(`src/${mod}`, parent)}`).toBe(false);
+    });
+  }
+
+  for (const mod of TOUR_MUST_BE_LAZY) {
+    it(`src/${mod} (TR-4) недостижим статически из main.tsx`, () => {
+      expect(existsSync(join(SRC, mod)), 'файл переименован — список устарел').toBe(true);
       expect(boot.has(`src/${mod}`), `статическая цепочка: ${chain(`src/${mod}`, parent)}`).toBe(false);
     });
   }

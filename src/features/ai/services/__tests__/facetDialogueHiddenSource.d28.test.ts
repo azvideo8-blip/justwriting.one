@@ -5,6 +5,7 @@ import { AIProfileFacetService } from '../AIProfileFacetService';
 import { AIProfileService } from '../AIProfileService';
 import { AIService } from '../AIService';
 import { writeFacetStore } from '../../../../core/services/facetLock';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 // DY6-2 (дейлик 2026-10-26, Н-2): страж грани решает видимость только по noteIds,
 // а `dialogueIds` при включённом ff_dialogues_in_facets не проверяет никто —
@@ -73,8 +74,11 @@ const CITATION_CLEAN = `Про [#${DOC_V1} · 2026-10-02] ты писал: «В�
 async function seed(): Promise<void> {
   const db = await getLocalDb();
   await db.put('documents', doc(DOC_V1));
+  await markAllAnalysed(db);
   await db.put('documents', doc(DOC_V2));
+  await markAllAnalysed(db);
   await db.put('documents', doc(DOC_HIDDEN, { excludedFromAI: true }));
+  await markAllAnalysed(db);
 
   await db.put('aiDialogues', dialogue(DLG_HIDDEN, CITATION_HIDDEN));
   await db.put('aiDialogues', dialogue(DLG_CLEAN, CITATION_CLEAN));
@@ -211,7 +215,9 @@ describe('DY6-2: страж граней проверяет dialogueIds, а не
   it('ни одна грань не ссылается на диалоги — aiDialogues не читаем', async () => {
     const db = await getLocalDb();
     await db.put('documents', doc(DOC_V1));
+    await markAllAnalysed(db);
     await db.put('documents', doc(DOC_V2));
+    await markAllAnalysed(db);
     await writeFacetStore(async store => {
       await store.put(facet('facet_d28_notes_only_a', [DOC_V1, DOC_V2], 'по заметкам'));
       await store.put(facet('facet_d28_notes_only_b', [DOC_V1], 'по одной заметке'));

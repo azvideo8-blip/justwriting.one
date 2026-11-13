@@ -1,4 +1,5 @@
 import { useState, useEffect, lazy, Suspense, type ReactNode } from 'react';
+import { startTour } from '../../../shared/tourEvent';
 import { PenLine, History, User as UserIcon, LogIn, Settings, Sparkles, Bug, CloudOff, AlertCircle, AlertTriangle, CheckCircle2, Activity } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'motion/react';
 import { useLanguage } from '../../../shared/i18n';
@@ -396,6 +397,14 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
             className="text-text-main/60 hover:text-text-main transition-colors underline underline-offset-2 decoration-dotted min-h-[44px] flex items-center clickable-target-expansion"
           >
             {t('nav_about')}
+          </button>
+          {/* TR-6: знакомство ещё раз — рядом с «О приложении». */}
+          <button
+            type="button"
+            onClick={startTour}
+            className="text-text-main/60 hover:text-text-main transition-colors underline underline-offset-2 decoration-dotted min-h-[44px] flex items-center clickable-target-expansion"
+          >
+            {t('tour_open')}
           </button>
           <button
             type="button"

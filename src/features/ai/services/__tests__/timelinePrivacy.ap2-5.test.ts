@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { getLocalDb, type AITimelineEntry, type LocalDocument } from '../../../../core/storage/localDb';
 import { AITimelineService } from '../AITimelineService';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 const hidden = 'ap2-hidden';
 const visible = 'ap2-visible';
@@ -20,7 +21,9 @@ beforeEach(async () => {
   const db = await getLocalDb();
   for (const store of ['documents', 'aiTimeline'] as const) await db.clear(store);
   await db.put('documents', doc(visible));
+  await markAllAnalysed(db);
   await db.put('documents', doc(hidden, { excludedFromAI: true }));
+  await markAllAnalysed(db);
   await db.put('aiTimeline', entry(visible, '2026-08', 'спокойный', 0.5));
   await db.put('aiTimeline', entry(hidden, '2026-09', marker, -0.9));
 });

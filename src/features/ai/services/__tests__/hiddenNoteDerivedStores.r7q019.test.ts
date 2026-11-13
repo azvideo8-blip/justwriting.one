@@ -14,6 +14,7 @@ import { LocalStoreSyncService } from '../../../../core/services/LocalStoreSyncS
 import { writeFacetStore } from '../../../../core/services/facetLock';
 import { emitDomainEvent, _resetDomainEventHandlersForTests } from '../../../../core/events/domainEvents';
 import { initAiDomainEvents } from '../../subscribeDomainEvents';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../core/auth', () => ({ getCurrentUser: vi.fn(() => null) }));
@@ -98,8 +99,11 @@ describe('R7Q-019/R7F-010: производные скрытой или корз
     }
 
     await db.put('documents', doc(DOC_OK));
+    await markAllAnalysed(db);
     await db.put('documents', doc(DOC_HIDDEN, { excludedFromAI: true }));
+    await markAllAnalysed(db);
     await db.put('documents', doc(DOC_TRASHED, { trashedAt: Date.UTC(2026, 8, 11) }));
+    await markAllAnalysed(db);
 
     await db.put('aiTimeline', timelineEntry(DOC_OK, FACT_OK, '2026-09-10'));
     await db.put('aiTimeline', timelineEntry(DOC_HIDDEN, FACT_HIDDEN, '2026-09-11'));
@@ -217,7 +221,9 @@ describe('AP-3: скрытие чистит грани профиля и пор�
     }
 
     await db.put('documents', doc(DOC_KEEP));
+    await markAllAnalysed(db);
     await db.put('documents', doc(DOC_TO_HIDE, { excludedFromAI: true }));
+    await markAllAnalysed(db);
     await db.put('aiTimeline', timelineEntry(DOC_TO_HIDE, 'факт скрытой', '2026-09-20'));
     await db.put('aiMonthlyDigest', {
       month: '2026-09',
@@ -257,6 +263,7 @@ describe('AP-3: скрытие чистит грани профиля и пор�
     const { AIMonthlyDigestService } = await import('../AIMonthlyDigestService');
     const db = await getLocalDb();
     await db.put('documents', doc('doc_ap3_new'));
+    await markAllAnalysed(db);
     await db.put('aiTimeline', timelineEntry(DOC_KEEP, 'факт видимой', '2026-09-21'));
     await db.put('aiTimeline', timelineEntry('doc_ap3_new', 'факт новой', '2026-09-22'));
     // Собран по скрытой и видимой; сейчас живы видимая и новая — 2 = 2, но не те.

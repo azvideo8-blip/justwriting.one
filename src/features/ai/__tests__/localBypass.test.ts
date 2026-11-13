@@ -3,6 +3,7 @@ import { getLocalDb } from '../../../core/storage/localDb';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { searchNotesMulti } from '../utils/noteRetriever';
 import { setIndexingConsent } from '../../../core/ai/indexingConsent';
+import { markAllAnalysed } from '../../../test/utils/markAnalysed';
 
 vi.mock('../services/AIService', () => ({
   AIService: {
@@ -35,6 +36,7 @@ describe('local bypass pre-pass (T-3)', () => {
       lastSessionAt: Date.now(),
       version: 1,
     } as any);
+    await markAllAnalysed(db);
 
     // Mock version store
     vi.spyOn(LocalVersionService, 'getLatestContent').mockImplementation(async (id) => {
@@ -73,6 +75,7 @@ describe('local bypass pre-pass (T-3)', () => {
       lastSessionAt: Date.now(),
       version: 1,
     } as any);
+    await markAllAnalysed(db);
     // Второй кандидат с тем же именем: гейт обхода по локальному совпадению в
     // `searchNotes` (literalBypass) требует ДВА попадания либо одно + дословную
     // цитату в запросе. Одно попадание сознательно считается дешёвым.
@@ -82,6 +85,7 @@ describe('local bypass pre-pass (T-3)', () => {
       lastSessionAt: Date.now(),
       version: 1,
     } as any);
+    await markAllAnalysed(db);
 
     // Mock version store
     vi.spyOn(LocalVersionService, 'getLatestContent').mockImplementation(async (id) => {

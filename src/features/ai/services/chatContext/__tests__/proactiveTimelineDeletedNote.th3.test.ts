@@ -3,6 +3,7 @@ import 'fake-indexeddb/auto';
 import { getLocalDb } from '../../../../../core/storage/localDb';
 import { localDayKey } from '../../../../../core/utils/dateUtils';
 import { buildProactiveBlock } from '../proactive';
+import { markAllAnalysed } from '../../../../../test/utils/markAnalysed';
 
 vi.mock('../../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../../core/auth', () => ({ getCurrentUser: vi.fn(() => null) }));
@@ -51,6 +52,7 @@ describe('TH-3: тема удалённой заметки не попадает
       lastSessionAt: Date.now(),
       tags: [],
     } as never);
+    await markAllAnalysed(db);
 
     // Базовая линия — заметка, которой в `documents` нет вовсе: удалена и не
     // вернулась, а строка хронологии осталась.

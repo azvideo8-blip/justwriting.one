@@ -75,4 +75,15 @@ describe('AboutSettingsSection (UI-12 & D-16)', () => {
     expect(sessionStorage.getItem('diagnostics_unlocked')).toBe('true');
     expect(screen.getByRole('button', { name: /диагностик/i })).toBeInTheDocument();
   });
+
+  // TR-6: знакомство ещё раз — из «Настройки → О программе».
+  // Мутация: убрать onClick={startTour} → красный.
+  it('«Как всё устроено» отправляет jw:tour-start', () => {
+    const heard = vi.fn();
+    window.addEventListener('jw:tour-start', heard);
+    renderWithProviders(<AboutSettingsSection />);
+    fireEvent.click(screen.getByRole('button', { name: 'Как всё устроено' }));
+    window.removeEventListener('jw:tour-start', heard);
+    expect(heard).toHaveBeenCalledTimes(1);
+  });
 });

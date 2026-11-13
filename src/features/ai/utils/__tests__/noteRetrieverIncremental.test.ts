@@ -8,6 +8,7 @@ import 'fake-indexeddb/auto';
 import { searchNotes } from '../noteRetriever';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { LocalVersionService } from '../../../../core/services/LocalVersionService';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 
@@ -24,6 +25,7 @@ async function seed(contentText: string) {
     totalWords: 10, totalDuration: 0, sessionsCount: 1,
     firstSessionAt: 1000, lastSessionAt: 1000, tags: [],
   } as never);
+  await markAllAnalysed(db);
   vi.spyOn(LocalVersionService, 'getLatestContent').mockResolvedValue(contentText);
 }
 

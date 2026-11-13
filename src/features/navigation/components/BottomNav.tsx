@@ -132,6 +132,7 @@ export function BottomNav() {
             onClick={() => handleTabPress(tab)}
             aria-label={tab.label}
             aria-current={active ? 'page' : undefined}
+            data-tour={tab.id === 'archive' ? 'tab-archive' : undefined}
             className={cn(
               // U-35 (решение владельца 2026-10-18, Q-6): активная вкладка — плашка-инверсия,
               // как активный пункт `Sidebar`, а не только жирная подпись.

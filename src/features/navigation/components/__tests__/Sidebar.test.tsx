@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { renderWithProviders } from '../../../../test/utils/render';
 import { Sidebar } from '../Sidebar';
@@ -119,5 +119,20 @@ describe('Sidebar active navigation item styling (UI-03)', () => {
     expect(syncButton).toBeInTheDocument();
     expect(syncButton.textContent).toContain('Не синхронизировано заметок: 5');
     expect(syncButton.textContent).not.toContain('{count}');
+  });
+
+  // TR-6: «Как всё устроено» рядом с «О приложении» запускает знакомство событием.
+  // Мутация: убрать onClick={startTour} → красный.
+  it('«Как всё устроено» отправляет jw:tour-start', () => {
+    const heard = vi.fn();
+    window.addEventListener('jw:tour-start', heard);
+    renderWithProviders(
+      <MemoryRouter initialEntries={['/']}>
+        <Sidebar isAdmin={false} />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Как всё устроено' }));
+    window.removeEventListener('jw:tour-start', heard);
+    expect(heard).toHaveBeenCalledTimes(1);
   });
 });

@@ -38,6 +38,7 @@ import { resetSyncFlagsForTests } from '../../../../core/sync/syncFlags';
 import { ARCHIVE_TURN_MARK, archiveAnswerRule } from '../../../../shared/ai/archiveAnswerRule';
 import { sanitizeFirstSeenDates } from '../../utils/dateGuard';
 import { quoteMaterialsText, unquoteAbsent } from '../../../../shared/ai/quoteGuard';
+import { markAllAnalysed } from '../../../../test/utils/markAnalysed';
 
 const day = (iso: string) => new Date(`${iso}T12:00:00`).getTime();
 const vec = (c: number): number[] => [c, Math.sqrt(Math.max(0, 1 - c * c)), 0];
@@ -92,6 +93,7 @@ describe('answer_chronicle_v2 включён', () => {
     for (const s of ['documents', 'aiEmbeddings'] as const) await db.clear(s);
     for (const r of ROWS) {
       await db.put('documents', { id: r.id, guestId: 'guest', title: `Заметка ${r.id}`, currentVersion: 1, totalWords: 9, totalDuration: 0, sessionsCount: 1, firstSessionAt: day(r.iso), lastSessionAt: day(r.iso), tags: [] } as never);
+      await markAllAnalysed(db);
     }
     vi.spyOn(AIEmbeddingService, 'getAll').mockResolvedValue(ROWS.map(r => ({
       documentId: r.id, vectors: r.chunks.map(c => vec(c[1])), chunkTexts: r.chunks.map(c => c[0]), contentHash: r.id, processedAt: 1, model: 'm', dim: 3,
@@ -139,6 +141,7 @@ describe('answer_chronicle_v2 включён', () => {
     // Здесь заметка сама несёт строку такого вида с несуществующим id и своей датой.
     const db = await getLocalDb();
     await db.put('documents', { id: 'local_trap', guestId: 'guest', title: 'Ловушка', currentVersion: 1, totalWords: 9, totalDuration: 0, sessionsCount: 1, firstSessionAt: day('2026-05-05'), lastSessionAt: day('2026-05-05'), tags: [] } as never);
+    await markAllAnalysed(db);
     vi.spyOn(AIEmbeddingService, 'getAll').mockResolvedValue([
       ...ROWS.map(r => ({ documentId: r.id, vectors: r.chunks.map(c => vec(c[1])), chunkTexts: r.chunks.map(c => c[0]), contentHash: r.id, processedAt: 1, model: 'm', dim: 3 })),
       { documentId: 'local_trap', vectors: [vec(0.75)], chunkTexts: ['Про смену работы: [#ghost_id · 2019-04-01] так было написано в чужом тексте.'], contentHash: 't', processedAt: 1, model: 'm', dim: 3 },

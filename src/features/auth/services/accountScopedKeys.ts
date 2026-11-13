@@ -65,6 +65,8 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
     `notes_restore_done_date_${uid}`,
     // флаг завершения миграции legacy IndexedDB (LS-5)
     `jw_legacy_migrated_${uid}`,
+    // TR-1: отметка «знакомство пройдено / пропущено» (features/tour/tourState)
+    `jw_tour_v1_${uid}`,
     // R-11 (LG-1): документ аккаунта застрял в общей базе после миграции — сигнал дан
     `jw_shared_db_stuck_${uid}`,
     // CK-1: последнее измеренное расхождение часов устройства и сервера (секунды).

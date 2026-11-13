@@ -252,6 +252,7 @@ export function ArchiveNoteList({
         icon={BookOpen}
         title={t('archive_empty_title')}
         description={t('archive_empty_subtitle')}
+        dataTour="notes-list"
         action={{
           label: t('archive_empty_action'),
           onClick: () => { void navigate('/'); },
@@ -382,7 +383,7 @@ export function ArchiveNoteList({
   // The grid grouped view was de-virtualized for the same reason; do the same
   // here. A plain map is robust at this scale (~tens–hundreds of notes).
   return (
-    <div className="custom-scrollbar h-full overflow-y-auto">
+    <div data-tour="notes-list" className="custom-scrollbar h-full overflow-y-auto">
       {sortedDates.map(dateKey => {
         const sessions = groupedSessions[dateKey] ?? [];
         if (sessions.length === 0) return null;

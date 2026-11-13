@@ -281,6 +281,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact, saveStatus = 'id
         <SaveStatus saveStatus={saveStatus} saveErrorKind={saveErrorKind} />
         {hasSupport && (
           <IconButton
+            data-tour="mic"
             onClick={toggle}
             aria-label={dictationMicLabel(isListening, isVaultActive, aiNoticeRemaining !== null, t)}
             className={cn(
