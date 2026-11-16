@@ -29,7 +29,7 @@ import {
   CLOUD_BASE_HASH_FIELD,
 } from '../../../core/services/LocalStoreSyncService';
 
-import { reportError } from '../../../shared/errors/reportError';
+import { reportError, isVaultLockedFailure } from '../../../shared/errors/reportError';
 import { logger } from '../../../shared/errors/logger';
 import { decodeCloudSummary } from './AISummaryService';
 import { decodeCloudEmbedding } from './AIEmbeddingService';
@@ -451,8 +451,9 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
             await db.put('aiSummaries', decoded); // заметка ещё не приехала — привяжет reattachOrphanedAnalysis
           }
           result.summaries++;
-        } catch {
-          result.failed++;
+        } catch (err) {
+          if (isVaultLockedFailure(err)) result.skippedLocked = true;
+          else result.failed++;
         }
       }
     }
@@ -817,6 +818,8 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
         if (carriesSyncedVector(store, parsedData)) LocalStoreSyncService.scheduleStoreSync(store as SupportedLocalStoreName, baseKey);
       } catch (err) {
         markRefused(rows, baseKey);
+        // Сейф закрылся посреди прохода — не ошибка: запись ждёт открытия сейфа.
+        if (isVaultLockedFailure(err)) { result.skippedLocked = true; continue; }
         result.failed++;
         reportError(err, { action: 'restoreAIData_local_store_record', store, key: baseKey });
       }
@@ -885,8 +888,9 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
         await db.put('aiEmbeddings', { ...target, cloudSyncedAt: Date.now() });
         result.embeddings++;
         changed = true;
-      } catch {
-        result.failed++;
+      } catch (err) {
+        if (isVaultLockedFailure(err)) result.skippedLocked = true;
+        else result.failed++;
       }
     }
     if (changed) invalidateEmbeddingIndexCache();

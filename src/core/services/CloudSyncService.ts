@@ -18,7 +18,7 @@ import { Document } from '../../types';
 import { toDate } from '../utils/dateUtils';
 import { maybeEncrypt, maybeDecrypt, DecryptionError, type VersionEncryptPayload, getEncryptionEnabled } from '../crypto/cryptoHelpers';
 import { getSessionKey } from '../crypto/encrypt';
-import { reportError } from '../../shared/errors/reportError';
+import { reportError, isVaultLockedFailure } from '../../shared/errors/reportError';
 import { withTimeout as withTimeoutBase, TimeoutError } from '../../shared/utils/withTimeout';
 
 import { DataProvider } from '../data';
@@ -547,6 +547,10 @@ async function reconcileOneLinked(
       // S1-11: занятый замок — не «пропущено как неновое», а «не применено».
       return { outcome: 'busy', corrupted: 0 };
     }
+    // Сейф закрылся посреди забора (простой закрывает его тем же возвратом на
+    // вкладку, что запускает забор) — тоже «не применено», а не ошибка:
+    // забор встанет перед строкой и продолжит после открытия сейфа.
+    if (isVaultLockedFailure(err)) return { outcome: 'busy', corrupted: 0 };
     reportError(err, { action: 'reconcileLinkedDocuments_doc', docId: localDoc.id });
     return { outcome: 'failed', corrupted: 0 };
   }
@@ -913,7 +917,8 @@ export const CloudSyncService = {
                     const reason = deterministicPullFailure(err);
                     // R11-2: заметку скачивает другая вкладка — пауза перед строкой,
                     // как у связанной (reconcile `busy`), а не ошибка всего забора.
-                    if (reason === null && String((err as { message?: unknown })?.message ?? err).startsWith('LOCK_HELD')) {
+                    // То же для сейфа, закрывшегося посреди забора.
+                    if (reason === null && (String((err as { message?: unknown })?.message ?? err).startsWith('LOCK_HELD') || isVaultLockedFailure(err))) {
                       throw new PullPaused(item.uuid);
                     }
                     if (reason === null) throw err;

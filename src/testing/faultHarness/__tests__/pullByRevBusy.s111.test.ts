@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { LifecycleRunner } from '../lifecycleRunner';
 import type { InMemoryPostgres } from '../inMemoryPostgres';
@@ -7,6 +7,8 @@ import { SyncService } from '../../../core/services/SyncService';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { getSyncRevCursor } from '../../../core/sync/revCursor';
 import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
+import { VersionService } from '../../../core/services/VersionService';
+import { registerVaultLockedChecker } from '../../../shared/errors/reportError';
 
 /**
  * S1-11: занятый замок заметки (LOCK_HELD — выгрузка идёт в другой вкладке)
@@ -48,6 +50,8 @@ async function latestLocalText(uid: string, uuid: string): Promise<string> {
 describe('S1-11: LOCK_HELD stops the pull on the previous row', () => {
   const runner = new LifecycleRunner();
   afterEach(() => {
+    vi.restoreAllMocks();
+    registerVaultLockedChecker(null);
     setEncryptionEnabled(runner.userId, false);
     runner.teardown();
     forgetDevice();
@@ -118,5 +122,40 @@ describe('S1-11: LOCK_HELD stops the pull on the previous row', () => {
     await SyncService.pullNotes(uid);
     expect(await latestLocalText(uid, 'busy-z')).toBe('z');
     expect((await getSyncRevCursor(uid)).documents).toBe(revZ);
+  });
+
+  // Журнал владельца 16.11: возврат на вкладку после простоя и запускает забор,
+  // и закрывает сейф по простою. Сейф закрылся посреди забора — сверка заметки
+  // бросила LOCKED, забор упал красной «Техническая ошибка» (PULL_APPLY_FAILED).
+  // Теперь это пауза, как занятый замок: курсор перед строкой, после открытия — приезжает.
+  // Мутация: убрать `if (isVaultLockedFailure(err)) return busy` в reconcileOneLinked →
+  // pullNotes бросает PULL_APPLY_FAILED, красный.
+  it('сейф закрылся посреди забора — пауза перед строкой, а не ошибка; после открытия приезжает', async () => {
+    activateDevice(new Device('B'));
+    runner.userId = 'user_pull_vault_locked';
+    await runner.setup();
+    const uid = runner.userId;
+    const pg = runner.interceptor.postgres;
+    seedCloudNote(pg, uid, 'lock-x', 'old x');
+    await SyncService.pullNotes(uid);
+    expect(await latestLocalText(uid, 'lock-x')).toBe('old x');
+
+    const revX = cloudEdit(pg, uid, 'lock-x', 2, 'new x');
+    let vaultOpen = false;
+    registerVaultLockedChecker(() => !vaultOpen);
+    const real = VersionService.getVersions.bind(VersionService);
+    vi.spyOn(VersionService, 'getVersions').mockImplementation(async (...args: Parameters<typeof real>) => {
+      if (!vaultOpen) throw new Error('LOCKED: session key not available');
+      return real(...args);
+    });
+
+    await expect(SyncService.pullNotes(uid)).resolves.toBeTruthy();
+    expect(await latestLocalText(uid, 'lock-x')).toBe('old x');
+    expect((await getSyncRevCursor(uid)).documents).toBeLessThan(revX);
+
+    vaultOpen = true;
+    await SyncService.pullNotes(uid);
+    expect(await latestLocalText(uid, 'lock-x')).toBe('new x');
+    expect((await getSyncRevCursor(uid)).documents).toBe(revX);
   });
 });

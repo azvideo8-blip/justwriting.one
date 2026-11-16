@@ -114,7 +114,10 @@ vi.mock('../../../../core/crypto/cryptoHelpers', () => ({
   maybeDecrypt: (doc: Record<string, unknown>, strFields?: string[], arrFields?: string[]) => maybeDecrypt(doc, strFields, arrFields),
 }));
 
-vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
+vi.mock('../../../../shared/errors/reportError', async (orig) => ({
+  ...(await orig<typeof import('../../../../shared/errors/reportError')>()),
+  reportError: vi.fn(),
+}));
 vi.mock('../../../../shared/errors/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn() } }));
 vi.mock('../../../../core/auth', () => ({ getCurrentUser: () => ({ uid: 'u_reattach' }) }));
 
@@ -130,7 +133,7 @@ vi.mock('../AIEmbeddingService', () => ({
 
 import { restoreAIDataFromCloud, reattachOrphanedAnalysis, requestEmbeddingRestore } from '../AIRestoreService';
 import { nextPullCursor, pullSince } from '../pullCursor';
-import { reportError } from '../../../../shared/errors/reportError';
+import { reportError, registerVaultLockedChecker } from '../../../../shared/errors/reportError';
 import { logger } from '../../../../shared/errors/logger';
 import { MAX_RESTORE_RECORD_BYTES } from '../../../../core/services/LocalStoreSyncService';
 
@@ -246,6 +249,44 @@ describe('restoreAIDataFromCloud', () => {
     expect(res.localStoreRecords).toBe(2);
     expect(localStore.aiPortrait.get('singleton')).toMatchObject({ portrait: 'Cloud Portrait' });
     expect(localStore.lifeStory.get('2026-08-19')).toMatchObject({ text: 'Story entry' });
+  });
+
+  // Журнал владельца 16.11: сейф закрылся по простою посреди забора — запись
+  // ИИ не расшифровалась (LOCKED) и считалась ошибкой: «ошибок: 1» жёлтой строкой,
+  // курсор фонового забора уходил дальше. Теперь это «сейф закрыт»: не ошибка,
+  // курсор стоит (`skippedLocked`), запись приедет после открытия.
+  // Мутация: убрать `if (isVaultLockedFailure(err)) { … skippedLocked … }` → failed 1, красный.
+  it('сейф закрылся посреди забора — запись ИИ не ошибка, а «сейф закрыт»', async () => {
+    localStoreRecordsDocs.push({
+      store: 'aiPortrait',
+      key: 'singleton',
+      payload: { data: JSON.stringify({ id: 'singleton', portrait: 'Cloud Portrait', updatedAt: 2000 }) },
+    });
+    registerVaultLockedChecker(() => true);
+    maybeDecrypt.mockRejectedValueOnce(new Error('LOCKED: session key not available'));
+    try {
+      const res = await restoreAIDataFromCloud('user_1');
+      expect(res.failed).toBe(0);
+      expect(res.skippedLocked).toBe(true);
+      expect(localStore.aiPortrait.has('singleton')).toBe(false);
+      expect(vi.mocked(reportError).mock.calls.some(c => (c[1] as { action?: string })?.action === 'restoreAIData_local_store_record')).toBe(false);
+    } finally {
+      registerVaultLockedChecker(null);
+    }
+  });
+
+  // То же для разбора заметки. Мутация: в catch разбора снова `result.failed++` → красный.
+  it('сейф закрылся посреди забора — разбор заметки не ошибка, курсор стоит', async () => {
+    summaryDocs.push({ id: 'uuid-l', data: () => ({ tone: 'x', processedAt: 300 }) });
+    registerVaultLockedChecker(() => true);
+    decodeCloudSummary.mockRejectedValueOnce(new Error('LOCKED: session key not available'));
+    try {
+      const res = await restoreAIDataFromCloud('user_1', { sinceMs: 0 });
+      expect(res.failed).toBe(0);
+      expect(res.skippedLocked).toBe(true);
+    } finally {
+      registerVaultLockedChecker(null);
+    }
   });
 
   it('preserves local record when local timestamp is newer or equal to cloud', async () => {

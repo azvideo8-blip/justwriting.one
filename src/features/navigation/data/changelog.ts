@@ -17,6 +17,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.15',
+    date: '2026-11-16',
+    announce: false,
+    items: [
+      { category: 'fix', ru: 'Если сейф закрылся сам после простоя, пока шла синхронизация, журнал больше не показывает «Техническую ошибку»: синхронизация ждёт открытия сейфа и продолжается сама.', en: 'If the vault locked itself after inactivity during a sync, the log no longer shows a “Technical error”: sync waits for the vault to be unlocked and then continues.' },
+    ],
+  },
+  {
     version: '0.11.14',
     date: '2026-11-13',
     announce: false,
