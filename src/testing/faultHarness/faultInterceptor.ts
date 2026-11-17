@@ -32,7 +32,8 @@ export class FaultInterceptor {
   public onStep?: ((step: StepName) => void | Promise<void>) | undefined;
   // Вызывается после каждого запроса к базе, до того как ответ вернулся в код:
   // запрос выполнен с сессией прежнего человека, а ответ приходит уже к новому.
-  public onRequest?: ((table: TableName) => void | Promise<void>) | undefined;
+  public onRequest?: ((table: TableName, operation?: string) => void | Promise<void>) | undefined;
+  public onBeforeRequest?: ((table: TableName, operation: string) => void) | undefined;
   // Как RLS на проде: запрос видит и пишет только строки того, чья сейчас сессия.
   // R4-030: включён по умолчанию — ячейки матрицы ходят в базу через клиента,
   // как прод, и не видят чужие строки. Явно выключить может только тест,
@@ -474,6 +475,7 @@ export class FaultInterceptor {
     this.aiCallsIntercepted = [];
     this.capturedPayloads = [];
     this.onStep = undefined;
+    this.onBeforeRequest = undefined;
   }
 
   private shouldTriggerFault(table?: TableName): FaultType | null {
@@ -547,6 +549,7 @@ export class FaultInterceptor {
   private async syncPushRpc(args: unknown) {
     const items = ((args as { items?: unknown } | null)?.items ?? []) as SyncPushItem[];
     const first = items[0]?.table;
+    if (first) this.onBeforeRequest?.(first as TableName, 'sync_push');
     const fault = this.shouldTriggerFault(first === 'documents' || first === 'local_store_records' ? first : undefined);
     if (fault === 'network_pre') {
       this.fireFault();
@@ -556,8 +559,12 @@ export class FaultInterceptor {
       this.fireFault();
       return { data: null, error: { message: 'RPC sync_push failed', code: '500' } };
     }
-    const result = this.postgres.executeSyncPush(authModule.getCurrentUser()?.uid ?? null, items);
-    if (this.onRequest && first) await this.onRequest(first as TableName);
+    if (fault === 'postgres_409' || fault === 'postgres_429') {
+      this.fireFault();
+      return { data: null, error: { message: fault === 'postgres_409' ? 'Conflict' : 'Too many requests', code: fault === 'postgres_409' ? '23505' : '429' } };
+    }
+    const result = structuredClone(this.postgres.executeSyncPush(authModule.getCurrentUser()?.uid ?? null, items));
+    if (this.onRequest && first) await this.onRequest(first as TableName, 'sync_push');
     if (fault === 'network_post') {
       this.fireFault();
       throw new TypeError('Failed to fetch (write committed, ACK dropped by network)');
@@ -580,6 +587,7 @@ export class FaultInterceptor {
     type BuilderOp = 'select' | 'insert' | 'upsert' | 'update' | 'delete';
     let op: BuilderOp = 'select';
     let opPayload: unknown;
+    let upsertConflict: string | undefined;
 
     // N-44: как PostgREST, отдаём только запрошенные колонки. Иначе проверка,
     // опирающаяся на колонку, которую запрос не выбирает (владелец, метка),
@@ -598,9 +606,10 @@ export class FaultInterceptor {
         this.capturedPayloads.push({ table, op: 'insert', payload });
         return builder;
       },
-      upsert: (payload: unknown) => {
+      upsert: (payload: unknown, options?: { onConflict?: string }) => {
         op = 'upsert';
         opPayload = payload;
+        upsertConflict = options?.onConflict;
         this.capturedPayloads.push({ table, op: 'upsert', payload });
         return builder;
       },
@@ -672,6 +681,7 @@ export class FaultInterceptor {
       },
       then: (resolve: (val: unknown) => unknown, reject?: (err: unknown) => unknown) => {
         const execute = async () => {
+          this.onBeforeRequest?.(table, op);
           const fault = this.shouldTriggerFault(table);
 
           // 1. Fault before execution — сбой изменил исход: считать пожар.
@@ -743,7 +753,7 @@ export class FaultInterceptor {
               result = this.postgres.executeInsert(table, opPayload as Record<string, unknown>);
               break;
             case 'upsert':
-              result = this.postgres.executeUpsert(table, opPayload as Record<string, unknown>);
+              result = this.postgres.executeUpsert(table, opPayload as Record<string, unknown>, upsertConflict);
               break;
             case 'update':
               result = this.postgres.executeUpdate(table, opPayload as Record<string, unknown>, filters);
@@ -764,7 +774,9 @@ export class FaultInterceptor {
             }
           }
 
-          if (this.onRequest) await this.onRequest(table);
+          // A response belongs to this transaction, not to a later writer while its delivery is paused.
+          result = structuredClone(result);
+          if (this.onRequest) await this.onRequest(table, op);
 
           // SF2-4: запись с `.select()` (return=representation) обязана отдавать то
           // же, что PostgREST: запрошенные колонки, а при `maybeSingle`/`single` —

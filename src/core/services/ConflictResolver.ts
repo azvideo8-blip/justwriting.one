@@ -257,11 +257,16 @@ export const ConflictResolver = {
           // заметка, удалённая в корзину на другом устройстве, здесь оставалась
           // живой: сверка после этого уже не видит облако «новее».
           const cloudTrashedMs = toDate(cloudDoc.trashedAt)?.getTime();
-          await tx.store.put({
-            ...fresh,
-            lastSyncedCloudVersion: maxCloudVersion,
-            ...(cloudTrashedMs ? { trashedAt: cloudTrashedMs } : {}),
-          });
+          // Корзина, изменённая здесь и ещё не досланная (metadataDirty), —
+          // намерение человека, облако его не видело: не перетирать ни в ту,
+          // ни в другую сторону (сиды хаоса 109/187/272).
+          const trashPending = Boolean(fresh.metadataDirty)
+            && (!fresh.metadataDirtyFields || fresh.metadataDirtyFields.includes('trashedAt'));
+          const reconciled = { ...fresh, lastSyncedCloudVersion: maxCloudVersion };
+          if (trashPending) { /* остаётся локальное */ }
+          else if (cloudTrashedMs === undefined) delete reconciled.trashedAt;
+          else reconciled.trashedAt = cloudTrashedMs;
+          await tx.store.put(reconciled);
         }
         await tx.done;
       } catch { /* ignore */ }

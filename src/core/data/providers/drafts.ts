@@ -77,7 +77,10 @@ export async function executeMigrationBatch(ops: {
     if (op.type === 'version' && op.documentId && op.versionId) {
       const payload = toDb(VERSION_FIELDS, { ...op.data, documentId: op.documentId, userId: op.userId });
       delete payload.id;
-      const { error } = await getSupabase().from('versions').upsert(payload);
+      // Первичный ключ versions — суррогатный identity id, которого в payload нет.
+      // Без onConflict PostgREST целится в первичный ключ: вставка получает новый id
+      // и падает на уникальном (document_uuid, version) — 23505, перешифровка не проходит.
+      const { error } = await getSupabase().from('versions').upsert(payload, { onConflict: 'document_uuid,version' });
       if (error != null) throw error;
     } else if (op.type === 'draft' && op.draftId) {
       const payload = toDb(DRAFT_FIELDS, { ...op.data, userId: op.userId });

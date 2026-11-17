@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.16 — 2026-11-17
+
+- **[RU]** Синхронизация между устройствами стала надёжнее: правка после прерванной синхронизации больше не открывается старым текстом, заметка, удалённая навсегда, не возвращается, если в этот момент закрылся сейф, а корзина, сделанная без сети, не сбрасывается при конфликте версий. Включение шифрования теперь зашифровывает и уже сохранённые в облаке старые версии.
+- **[EN]** Sync between devices is more reliable: an edit after an interrupted sync no longer reopens with old text, a permanently deleted note no longer comes back if the vault locked at that moment, and moving a note to the trash offline is no longer undone by a version conflict. Turning on encryption now also encrypts older versions already stored in the cloud.
+
 ## 0.11.15 — 2026-11-16
 
 - **[RU]** Если сейф закрылся сам после простоя, пока шла синхронизация, журнал больше не показывает «Техническую ошибку»: синхронизация ждёт открытия сейфа и продолжается сама.

@@ -107,7 +107,10 @@ export const LocalStorageService = {
       await tx.done;
       throw new Error('Document not found');
     }
-    const newVersion = existing.currentVersion + 1;
+    // Pull-before-push can persist history and fail before updating the document counter.
+    const range = IDBKeyRange.bound([documentId, 0], [documentId, Number.MAX_SAFE_INTEGER]);
+    const latest = await verStore.index('by-doc-version').openCursor(range, 'prev');
+    const newVersion = Math.max(existing.currentVersion, latest?.value.version ?? 0) + 1;
     const prevVer = await verStore.index('by-doc-version').get([documentId, existing.currentVersion]);
     const prevContent = prevVer?.content ?? '';
 

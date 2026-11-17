@@ -182,17 +182,22 @@ export const LocalDocumentService = {
     const allQueue = await queueStore.getAll();
     const docUuid = doc?.uuid;
     const linkedCloudId = doc?.linkedCloudId;
+    const targetCloudId = cloud?.remove ? (cloud.cloudId ?? doc?.linkedCloudId) : undefined;
+    const targetOwner = ownerId ?? doc?.guestId;
     // Строку живого замка не трогаем: её снимает владелец. Удалённая, она
     // гасила heartbeat чужой выгрузки и отдавала документ второму писателю (R3-008).
+    // CHAOS-H3: задача 'delete' — намерение снести облачный ряд, а не выгрузка
+    // этой заметки. Удаление локальной копии (откат неудачного addLocalCopy,
+    // CloudSyncService.ts:1357) не вправе отменять ожидающее удаление того же
+    // ряда: иначе удалённая заметка навсегда воскресает в облаке. Снимаем
+    // такую задачу, только когда новое удаление того же ряда её замещает.
     const matchingTasks = allQueue.filter(
-      t => !t.id.startsWith('lock_cloud_') && (
+      t => !t.id.startsWith('lock_cloud_') &&
+           !(t.type === 'delete' && t.documentId !== targetCloudId) && (
            t.documentId === id ||
            (Boolean(docUuid) && t.documentId === docUuid) ||
            (Boolean(linkedCloudId) && t.documentId === linkedCloudId))
     );
-
-    const targetCloudId = cloud?.remove ? (cloud.cloudId ?? doc?.linkedCloudId) : undefined;
-    const targetOwner = ownerId ?? doc?.guestId;
 
     await Promise.all([
       ...versions.map(v => verStore.delete(v.id)),

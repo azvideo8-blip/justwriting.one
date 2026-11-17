@@ -237,8 +237,9 @@ export class InMemoryPostgres {
   // device's edit never looked newer to the first — the harness hid real sync.
   // Monotonic so two writes in one millisecond still order.
   private lastStamp = 0;
+  public serverNow: () => number = () => Date.now();
   private stamp(): string {
-    this.lastStamp = Math.max(Date.now(), this.lastStamp + 1);
+    this.lastStamp = Math.max(this.serverNow(), this.lastStamp + 1);
     return new Date(this.lastStamp).toISOString();
   }
 
@@ -294,7 +295,8 @@ export class InMemoryPostgres {
 
   public executeUpsert(
     table: TableName,
-    payload: PostgresRow | PostgresRow[]
+    payload: PostgresRow | PostgresRow[],
+    onConflict?: string
   ): { data: PostgresRow[] | null; error: { message: string; code: string } | null } {
     this.countRequest(table, 'upsert');
     const items = Array.isArray(payload) ? payload : [payload];
@@ -306,15 +308,23 @@ export class InMemoryPostgres {
 
     for (const item of items) {
       const row = { ...item };
+      const payloadHadId = Boolean(row.id);
+      const payloadHadCreatedAt = Boolean(row.created_at);
       if (!row.id) row.id = this.nextId(table);
       if (!row.created_at) row.created_at = new Date().toISOString();
 
-      // Сопоставление по тому же уникальному кортежу, что стережёт insert (R4-029).
+      // Without onConflict, PostgREST targets the primary key, not another unique index (0001_schema.sql:37,60,82).
+      // С явным onConflict PostgREST целится в указанные колонки (ON CONFLICT (cols) DO UPDATE).
       const tupleFn = UNIQUE_TUPLES[table];
-      let matchIndex = -1;
-      if (tupleFn) {
-        const tuple = tupleFn(row);
-        matchIndex = current.findIndex(r => tupleFn(r) === tuple);
+      const identityPrimaryKey = table === 'documents' || table === 'versions';
+      const conflictCols = onConflict?.split(',').map(c => c.trim()).filter(Boolean);
+      const matchIndex = conflictCols && conflictCols.length > 0
+        ? current.findIndex(r => conflictCols.every(c => r[c] === row[c]))
+        : identityPrimaryKey
+          ? current.findIndex(r => r.id === row.id)
+          : tupleFn ? current.findIndex(r => tupleFn(r) === tupleFn(row)) : -1;
+      if (tupleFn && current.some((r, index) => index !== matchIndex && tupleFn(r) === tupleFn(row))) {
+        return duplicateError(table);
       }
 
       if (matchIndex >= 0 && isTombstone(table, current[matchIndex]!)) {
@@ -323,6 +333,10 @@ export class InMemoryPostgres {
       }
       if (matchIndex >= 0) {
         const merged: PostgresRow = { ...current[matchIndex], ...row, ...(table === 'documents' ? { updated_at: this.stamp() } : {}) };
+        // PostgREST обновляет только колонки payload: сгенерированные id/created_at
+        // не вправе затирать существующие, если вызывающий их не прислал.
+        if (!payloadHadId) merged.id = current[matchIndex]!.id;
+        if (!payloadHadCreatedAt) merged.created_at = current[matchIndex]!.created_at;
         if (this.withRev) merged.rev = this.nextRev();
         this.applyServerStamp(table, merged);
         current[matchIndex] = merged;

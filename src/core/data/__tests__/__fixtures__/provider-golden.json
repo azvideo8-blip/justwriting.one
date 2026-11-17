@@ -991,7 +991,7 @@
       {
         "table": "versions",
         "chain": [
-          "upsert([{\"version\":3,\"content\":\"x\",\"document_uuid\":\"doc_1\",\"user_id\":\"u1\"}])"
+          "upsert([{\"version\":3,\"content\":\"x\",\"document_uuid\":\"doc_1\",\"user_id\":\"u1\"},{\"onConflict\":\"document_uuid,version\"}])"
         ],
         "payload": {
           "version": 3,
@@ -1003,7 +1003,7 @@
       {
         "table": "versions",
         "chain": [
-          "upsert([{\"version\":3,\"content\":\"x\",\"document_uuid\":\"doc_1\",\"user_id\":\"u1\"}])",
+          "upsert([{\"version\":3,\"content\":\"x\",\"document_uuid\":\"doc_1\",\"user_id\":\"u1\"},{\"onConflict\":\"document_uuid,version\"}])",
           "<await>"
         ]
       },

@@ -24,6 +24,16 @@ describe('InMemoryPostgres unique tuples (R4-029)', () => {
     expect(rows[0]?.payload).toBe('{"v":2}');
   });
 
+  it.each(['documents', 'versions'] as const)('upsert on %s does not target a secondary unique key', table => {
+    const pg = new InMemoryPostgres();
+    const row = table === 'documents' ? { uuid: 'd1', user_id: 'u1' } : { document_uuid: 'd1', version: 1, user_id: 'u1' };
+    const inserted = pg.executeUpsert(table, { ...row, content: 'original' }).data![0]!;
+    expect(pg.executeUpsert(table, { ...row, content: 'replacement' }).error?.code).toBe('23505');
+    expect(pg.getRows(table)[0]!.content).toBe('original');
+    expect(pg.executeUpsert(table, { ...row, id: inserted.id, content: 'explicit primary key' }).error).toBeNull();
+    expect(pg.getRows(table)[0]!.content).toBe('explicit primary key');
+  });
+
   it('documents and drafts keep their schema uniques on insert', () => {
     const pg = new InMemoryPostgres();
     expect(pg.executeInsert('documents', { uuid: 'doc-1', user_id: 'u1' }).error).toBeNull();
@@ -46,7 +56,7 @@ describe('InMemoryPostgres rev / withRev / maxRows / request counts (S1-3)', () 
     const updated = pg.executeUpdate('documents', { rev: 1, title: 'x' }, [{ type: 'eq', column: 'uuid', value: 'd1' }]).data![0]!;
     expect(updated.rev).toBe(3);
 
-    const upserted = pg.executeUpsert('versions', { document_uuid: 'd1', user_id: 'u1', version: 1, rev: 7, content: 'x' }).data![0]!;
+    const upserted = pg.executeUpsert('versions', { id: ver.id, document_uuid: 'd1', user_id: 'u1', version: 1, rev: 7, content: 'x' }).data![0]!;
     expect(upserted.rev).toBe(4);
     expect(pg.getRows('documents')[0]?.rev).toBe(3);
   });
