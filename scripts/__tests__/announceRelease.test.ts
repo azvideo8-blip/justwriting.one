@@ -30,9 +30,24 @@ describe('formatAnnouncement', () => {
     })).toBeNull();
   });
 
+  // 0.11.17: тихие выпуски с прошлого объявления идут в него же одним списком.
+  // Мутация: earlier не читается (quiet = []) → красный.
+  it('folds the quiet releases since the last announced one into one list', () => {
+    const minor = { category: 'fix' as const, ru: 'Исправлены мелкие недоработки.', en: '' };
+    const text = formatAnnouncement(
+      { version: '3', date: '', items: [{ category: 'fix', ru: 'Третье', en: '' }] },
+      [
+        { version: '2', date: '', announce: false, items: [minor, { category: 'new', ru: 'Второе', en: '' }] },
+        { version: '1.9', date: '', announce: false, items: [minor] },
+        { version: '1', date: '', items: [{ category: 'new', ru: 'Уже объявлено', en: '' }] },
+      ],
+    );
+    expect(text).toBe('<b>Версия 3 обновлена</b>\nЧто сделано с версии 1:\n\n<b>Новое</b>\n• Второе\n\n<b>Исправлено</b>\n• Третье\n• Исправлены мелкие недоработки.');
+  });
+
   it('fits the Telegram limit by dropping whole items, never cutting HTML', () => {
-    const item = { category: 'fix' as const, ru: '<&>'.repeat(300), en: '' };
-    const text = formatAnnouncement({ version: '1', date: '', items: [item, item, item, item] })!;
+    const item = (n: number) => ({ category: 'fix' as const, ru: '<&>'.repeat(300) + n, en: '' });
+    const text = formatAnnouncement({ version: '1', date: '', items: [item(1), item(2), item(3), item(4)] })!;
     expect(text.length).toBeLessThanOrEqual(4096);
     expect(text).toMatch(/…и ещё 3 — список изменений в приложении\.$/);
     expect(text.replace(/&(amp|lt|gt);/g, '').includes('&')).toBe(false);

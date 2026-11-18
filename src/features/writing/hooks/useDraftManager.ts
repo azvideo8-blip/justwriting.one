@@ -8,6 +8,7 @@ import { useDraftCore, useVisibilitySave, useSyncUnloadSave, type DraftSaveStatu
 import { resetAndClear, resetAllSessionMetadata } from '../store/storeActions';
 import { WritingDraftService } from '../services/WritingDraftService';
 import { getEditorTextOwner, type ApplyWriteOutcome } from '../services/draftWriter';
+import { isPristineContinuedSession } from './useDraftAutosave';
 
 export interface DraftData {
   content: string;
@@ -109,9 +110,12 @@ export function useDraftManager(
   const hasContent = Boolean(content.trim() || title.trim());
 
   // Приёмка VIS: текст стёрт — «только на экране» больше не правда, а записи пустого не бывает.
+  // Н-5 (дейлик 17.11): правки отменены до сохранённой заметки — тоже: текст уже
+  // в заметке, а doAutosave такую запись пропускает и баннер не снимет.
+  const pristine = isPristineContinuedSession(content, title);
   useEffect(() => {
-    if (!hasContent) clearLocalWriteStuck();
-  }, [hasContent, clearLocalWriteStuck]);
+    if (!hasContent || pristine) clearLocalWriteStuck();
+  }, [hasContent, pristine, clearLocalWriteStuck]);
 
   useEffect(() => {
     const isTimerActive = timerStatus === 'writing' || timerStatus === 'paused';

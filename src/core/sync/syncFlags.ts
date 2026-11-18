@@ -50,6 +50,16 @@ export async function answerChronicleV2Enabled(uid: string | undefined): Promise
   return flagEnabled('answer_chronicle_v2', uid, false, 'featureFlag_answerChronicleV2');
 }
 
+/**
+ * Осторожная гипотеза в разговоре (стенд ai-hypotheses-fable-2026-11): записи
+ * разных дней в ходе и правило гипотезы вне ограды данных. Выключено, нет строки
+ * в `feature_flags`, гость или сбой чтения — ход идёт как в 0.11.16.
+ */
+export async function chatHypothesesEnabled(uid: string | undefined): Promise<boolean> {
+  if (!uid) return false;
+  return flagEnabled('chat_hypotheses', uid, false, 'featureFlag_chatHypotheses');
+}
+
 /** Только для тестов: сбросить кэш флага между сценариями. */
 export function resetSyncFlagsForTests(): void {
   cached.clear();

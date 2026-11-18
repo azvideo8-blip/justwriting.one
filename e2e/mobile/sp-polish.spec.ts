@@ -58,22 +58,34 @@ for (const { w, h } of [{ w: 360, h: 640 }, { w: 390, h: 844 }]) {
             const r = s.getBoundingClientRect();
             w.__samples.push({ t: performance.now() - t0, top: r.top, left: r.left, w: r.width, h: r.height, step: st?.dataset['stepperStep'] ?? null, op: st ? Number(getComputedStyle(st).opacity) : -1 });
           }
-          if (performance.now() - t0 < 1500) requestAnimationFrame(tick);
+          // Пишем, пока новый шаг не проявился полностью (+300 мс хвоста), но не дольше 6 с:
+          // до смены шага клик ждёт сохранения согласия на сервере, и под нагрузкой это долго.
+          const done = w.__samples.find(x => x.step !== null && x.step !== 'policy' && x.op >= 0.99);
+          if (performance.now() - t0 < 6000 && (!done || performance.now() - t0 < done.t + 300)) requestAnimationFrame(tick);
+          else (window as unknown as { __samplesDone?: boolean }).__samplesDone = true;
         };
         requestAnimationFrame(tick);
       });
       await next.click();
-      await page.waitForFunction(() => (window as unknown as { __samples: unknown[] }).__samples?.length > 0 && performance.now() > 0, null, { timeout: 5_000 });
-      await page.waitForTimeout(1700);
+      await page.waitForFunction(() => (window as unknown as { __samplesDone?: boolean }).__samplesDone === true, null, { timeout: 10_000 });
       const samples = await page.evaluate(() => (window as unknown as { __samples: { t: number; top: number; left: number; w: number; h: number; step: string | null; op: number }[] }).__samples);
       const firstNew = samples.find(s => s.step !== null && s.step !== 'policy' && s.op >= 0.99);
       const rects = new Set(samples.map(s => `${s.top}|${s.left}|${s.w}|${s.h}`));
       const swap = samples.filter(s => s.step !== 'policy' && s.step !== null)[0];
-      console.warn(`[sp ${w}] кадров ${samples.length}, рамок разных ${rects.size}, новый шаг «${swap?.step}» виден на ${Math.round(firstNew?.t ?? -1)} мс`);
-      dump(`sp-step-transition-${w}.json`, { samples, distinctFrameRects: rects.size, newStepFullyVisibleAtMs: firstNew?.t ?? null });
+      // SA-23 охраняет саму смену (уход 150 мс + вход 220 мс), а не путь до неё: клик
+      // сначала ждёт сохранения согласия на сервере (FirstRunStepper, savePrivacyConsent),
+      // и время раннера под нагрузкой (915 мс в CI 43845851904) — сеть, а не анимация.
+      // Отсчёт — с первого кадра, где старый шаг начал уходить; при reduced motion
+      // ухода нет — с первого кадра нового шага.
+      const exitStart = samples.find(s => s.step === 'policy' && s.op < 0.99) ?? swap;
+      const transitionMs = firstNew && exitStart ? firstNew.t - exitStart.t : null;
+      console.warn(`[sp ${w}] кадров ${samples.length}, рамок разных ${rects.size}, новый шаг «${swap?.step}» виден на ${Math.round(firstNew?.t ?? -1)} мс, смена ${Math.round(transitionMs ?? -1)} мс`);
+      dump(`sp-step-transition-${w}.json`, { samples, distinctFrameRects: rects.size, newStepFullyVisibleAtMs: firstNew?.t ?? null, transitionMs });
       expect(rects.size, 'рамка степпера прыгала при смене шага').toBe(1);
       expect(firstNew, 'новый шаг не доехал до opacity 1').toBeTruthy();
-      expect(firstNew!.t, 'смена шага дольше 800 мс').toBeLessThan(800);
+      // Норма ~300 мс; при всех ядрах под нагрузкой браузер теряет кадры — до 630 мс
+      // (17.11, 40 прогонов). Вход, растянутый до 1,5 с, даёт > 800 и ловится.
+      expect(transitionMs!, 'смена шага дольше 800 мс').toBeLessThan(800);
       await shot(page, `sp-step2-${w}`);
     });
   });

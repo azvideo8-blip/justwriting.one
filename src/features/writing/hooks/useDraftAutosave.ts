@@ -13,7 +13,8 @@ import { onBeforeAccountReload } from '../../../core/auth/accountReload';
 const SKIPPED: DraftSaveOutcome = { localSkipped: true };
 const FOREIGN_TEXT: DraftSaveOutcome = { localSkipped: true, localSkipOutcome: 'owner-mismatch' };
 
-function isPristineContinuedSession(content: string, title: string): boolean {
+/** Текст равен сохранённой заметке, которую продолжают (D-24): писать нечего. */
+export function isPristineContinuedSession(content: string, title: string): boolean {
   const meta = useSessionMetaStore.getState();
   if (!meta.savedDocumentId || meta.loadedContent === null) return false;
   return content === meta.loadedContent && (meta.loadedTitle ?? '') === title;

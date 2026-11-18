@@ -10,6 +10,8 @@ import { isTombstoned, stampMessage, tombstoneDialogue, withMessageIds } from '.
 import { toApiContent, legacyNoteHidden, citesAnyId, HIDDEN_ANSWER_PLACEHOLDER } from '../utils/aiChatTransport';
 import { hiddenNoteIdsFromDocs } from '../utils/hiddenNoteIds';
 import { isExcludedFromAI, isPastedAttachmentId } from '../utils/isExcludedFromAI';
+import { AI_WRITTEN_LINE } from '../utils/attachedNoteFormat';
+import { ATTACHED_QUESTION_SEP } from '../../../shared/ai/languageNudge';
 
 import { writeFacetStore } from '../../../core/services/facetLock';
 import { truncateText } from '../../../shared/utils/textLimits';
@@ -94,11 +96,32 @@ async function citeRefsOf(
 }
 
 /** Цитата под маркером заметки: её текущий текст либо заглушка, если её нет в открытом доступе ИИ. */
+/** К24-6: три состояния — три подписи (раньше всё звалось «скрыта от ИИ»). */
+interface HiddenNoteLabels { hidden: string; trashed: string; missing: string }
+
+/**
+ * К24-6: тело заметки уже стоит в реплике — блок под её шапкой `[#id · дата]`
+ * непуст. Сверка с фактом, а не с последней версией: заметку могли поправить
+ * после хода, и тогда плашка «не выгружен» стояла под выгруженным телом.
+ */
+function bodyInTurn(content: string, id: string): boolean {
+  const q = content.indexOf(ATTACHED_QUESTION_SEP);
+  const turn = q === -1 ? content : content.slice(0, q);
+  const start = turn.indexOf(`[#${id} · `);
+  if (start === -1) return false;
+  const markerEnd = turn.indexOf('"]', turn.indexOf(ATTACHED_MARKER, start));
+  if (markerEnd === -1) return false;
+  const rest = turn.slice(markerEnd + 2);
+  const next = rest.search(/\n\[#[^\]\s·]+ · /);
+  const body = (next === -1 ? rest : rest.slice(0, next)).replace(/\n---\n?$/, '').replace(AI_WRITTEN_LINE, '');
+  return body.trim().length > 0;
+}
+
 async function attachedNoteAppendix(
   content: string,
   documentId: string | undefined,
   db: LocalDb,
-  hiddenLabel: string,
+  labels: HiddenNoteLabels,
 ): Promise<string> {
   if (!content.includes(ATTACHED_MARKER)) return '';
   const usable = (id: string) => !isPastedAttachmentId(id);
@@ -118,8 +141,9 @@ async function attachedNoteAppendix(
       // экспорт: читатель видит и тело, и отрицание. Вырезать текст из
       // человеческой реплики — портить дневник, поэтому правдивой делает
       // именно плашку: без неё тело остаётся там, где его написал автор.
-      if (inTurn) continue;
-      blocks.push(`> ${hiddenLabel}`);
+      if (inTurn || bodyInTurn(content, id)) continue;
+      const label = !doc ? labels.missing : doc.trashedAt ? labels.trashed : labels.hidden;
+      blocks.push(`> ${label}`);
       continue;
     }
     if (!text || inTurn) continue;
@@ -686,16 +710,24 @@ export const AIDialogueService = {
       ? `# Диалог с ${dialogue.personaName} ${dialogue.personaEmoji}\nДата: ${dateStr}${docLine}\n\n---\n\n`
       : `# Dialogue with ${dialogue.personaName} ${dialogue.personaEmoji}\nDate: ${dateStr}${docLine}\n\n---\n\n`;
     const userLabel = lang === 'ru' ? 'Пользователь' : 'User';
-    const hiddenLabel = lang === 'ru'
-      ? '[текст заметки не выгружен: скрыта от ИИ]'
-      : '[note text not exported: hidden from AI]';
+    const hiddenLabels: HiddenNoteLabels = lang === 'ru'
+      ? {
+        hidden: '[текст заметки не выгружен: скрыта от ИИ]',
+        trashed: '[текст заметки не выгружен: заметка в корзине]',
+        missing: '[текст заметки не выгружен: заметки нет на этом устройстве]',
+      }
+      : {
+        hidden: '[note text not exported: hidden from AI]',
+        trashed: '[note text not exported: note is in the trash]',
+        missing: '[note text not exported: note is not on this device]',
+      };
     const reasoningLabel = lang === 'ru' ? 'Ход мыслей' : 'Reasoning';
 
     const parts: string[] = [];
     for (const m of dialogue.messages) {
       if (m.type === 'system') continue;
       if (m.role === 'user') {
-        parts.push(`**${userLabel}:** ${m.content}${await attachedNoteAppendix(m.content, dialogue.documentId, db, hiddenLabel)}`);
+        parts.push(`**${userLabel}:** ${m.content}${await attachedNoteAppendix(m.content, dialogue.documentId, db, hiddenLabels)}`);
         continue;
       }
       // DR-7: свёрнутый блок ПЕРЕД репликой ответа — там чаще всего и начинается

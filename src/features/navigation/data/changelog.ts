@@ -17,6 +17,20 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.17',
+    date: '2026-11-18',
+    items: [
+      { category: 'improvement', ru: 'Если попросить ИИ «посмотри в той заметке», он берёт запись, на которую сам сослался в прошлом ответе, а не ищет заново.', en: 'If you ask the AI to “look at that note”, it takes the entry it referred to in its previous answer instead of searching again.' },
+      { category: 'fix', ru: 'Если ИИ раньше ответил «ничего не нашлось», а теперь записи нашлись, он больше не повторяет прежний ответ.', en: 'If the AI earlier said “nothing was found” and entries are found now, it no longer repeats its old answer.' },
+      { category: 'fix', ru: 'Кризисная панель замечает больше формулировок, например «думаю наглотаться таблеток», «не хочу больше просыпаться» и «всем без меня будет лучше».', en: 'The crisis panel catches more phrasings, such as thinking about swallowing pills, not wanting to wake up anymore, and everyone being better off without me.' },
+      { category: 'fix', ru: 'В выгрузке разговора заметка, которую скрыли, удалили в корзину или которой больше нет, подписана по-разному, без лишней плашки.', en: 'In a conversation export, a note that was hidden, moved to the trash or no longer exists gets its own label, without an extra banner.' },
+      { category: 'fix', ru: 'Если удалить разбор заметки посреди разговора, ИИ больше не получает её текст и в этом же разговоре.', en: 'If you delete a note’s analysis in the middle of a conversation, the AI no longer receives its text in that same conversation either.' },
+      { category: 'fix', ru: '«Обновить профиль» честно говорит, если портрет не пересчитался, вместо «Профиль обновлён».', en: '“Refresh profile” now tells you honestly when the portrait was not recalculated, instead of saying “Profile updated”.' },
+      { category: 'fix', ru: 'После «Выйти и удалить данные» другая открытая вкладка больше не записывает черновик обратно на этот компьютер.', en: 'After “Sign out and delete data”, another open tab no longer writes the draft back to this computer.' },
+      { category: 'fix', ru: 'Предупреждение «текст только на экране» исчезает и без входа в аккаунт, если правки отменены до сохранённой заметки.', en: 'The “text is only on screen” warning now also disappears without an account when edits are undone back to the saved note.' },
+    ],
+  },
+  {
     version: '0.11.16',
     date: '2026-11-17',
     announce: false,

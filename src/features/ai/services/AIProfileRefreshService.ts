@@ -156,7 +156,12 @@ export const AIProfileRefreshService = {
           }
         });
         // Портрет последним: он читает уже пересчитанные и проверенные грани.
-        await step('portrait', () => AIProfileService.generate(chargeOpt));
+        // Н-3 (дейлик 17.11): generate отказывает возвратом { ok:false }, а не
+        // броском — иначе кнопка скажет «Профиль обновлён», хотя портрет прежний.
+        await step('portrait', async () => {
+          const res = await AIProfileService.generate(chargeOpt);
+          if (!res.ok) throw new Error(`portrait refresh refused: ${res.error}`);
+        });
       });
     } finally {
       setRunningStep(null);

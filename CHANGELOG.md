@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.11.17 — 2026-11-18
+
+- **[RU]** Если попросить ИИ «посмотри в той заметке», он берёт запись, на которую сам сослался в прошлом ответе, а не ищет заново.
+- **[EN]** If you ask the AI to “look at that note”, it takes the entry it referred to in its previous answer instead of searching again.
+- **[RU]** Если ИИ раньше ответил «ничего не нашлось», а теперь записи нашлись, он больше не повторяет прежний ответ.
+- **[EN]** If the AI earlier said “nothing was found” and entries are found now, it no longer repeats its old answer.
+- **[RU]** Кризисная панель замечает больше формулировок, например «думаю наглотаться таблеток», «не хочу больше просыпаться» и «всем без меня будет лучше».
+- **[EN]** The crisis panel catches more phrasings, such as thinking about swallowing pills, not wanting to wake up anymore, and everyone being better off without me.
+- **[RU]** В выгрузке разговора заметка, которую скрыли, удалили в корзину или которой больше нет, подписана по-разному, без лишней плашки.
+- **[EN]** In a conversation export, a note that was hidden, moved to the trash or no longer exists gets its own label, without an extra banner.
+- **[RU]** Если удалить разбор заметки посреди разговора, ИИ больше не получает её текст и в этом же разговоре.
+- **[EN]** If you delete a note’s analysis in the middle of a conversation, the AI no longer receives its text in that same conversation either.
+- **[RU]** «Обновить профиль» честно говорит, если портрет не пересчитался, вместо «Профиль обновлён».
+- **[EN]** “Refresh profile” now tells you honestly when the portrait was not recalculated, instead of saying “Profile updated”.
+- **[RU]** После «Выйти и удалить данные» другая открытая вкладка больше не записывает черновик обратно на этот компьютер.
+- **[EN]** After “Sign out and delete data”, another open tab no longer writes the draft back to this computer.
+- **[RU]** Предупреждение «текст только на экране» исчезает и без входа в аккаунт, если правки отменены до сохранённой заметки.
+- **[EN]** The “text is only on screen” warning now also disappears without an account when edits are undone back to the saved note.
+
 ## 0.11.16 — 2026-11-17
 
 - **[RU]** Синхронизация между устройствами стала надёжнее: правка после прерванной синхронизации больше не открывается старым текстом, заметка, удалённая навсегда, не возвращается, если в этот момент закрылся сейф, а корзина, сделанная без сети, не сбрасывается при конфликте версий. Включение шифрования теперь зашифровывает и уже сохранённые в облаке старые версии.

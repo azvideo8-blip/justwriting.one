@@ -7814,5 +7814,122 @@
   ],
   "note": "typo; owner 2026-10-05: backlog",
   "knownGap": true
+ },
+ {
+  "text": "Не хочу больше просыпаться, всем без меня будет проще",
+  "expect": "risk",
+  "category": "indirect",
+  "sources": [
+   "hy1-fable-2026-11-17"
+  ],
+  "note": "HY-1: стенд гипотез Fable 17.11 — детектор 0.11.16 пропускал"
+ },
+ {
+  "text": "думаю наглотаться таблеток",
+  "expect": "risk",
+  "category": "means",
+  "sources": [
+   "hy1-fable-2026-11-17"
+  ],
+  "note": "HY-1: стенд гипотез Fable 17.11 — детектор 0.11.16 пропускал"
+ },
+ {
+  "text": "подумываю повеситься",
+  "expect": "risk",
+  "category": "means",
+  "sources": [
+   "hy1-fable-2026-11-17"
+  ],
+  "note": "HY-1: стенд гипотез Fable 17.11 — детектор 0.11.16 пропускал"
+ },
+ {
+  "text": "думаю о том, чтобы выпить все таблетки",
+  "expect": "risk",
+  "category": "means",
+  "sources": [
+   "hy1-fable-2026-11-17"
+  ],
+  "note": "HY-1: стенд гипотез Fable 17.11 — детектор 0.11.16 пропускал"
+ },
+ {
+  "text": "не хочу больше просыпаться",
+  "expect": "risk",
+  "category": "indirect",
+  "sources": [
+   "hy1-fable-2026-11-17"
+  ],
+  "note": "HY-1: стенд гипотез Fable 17.11 — детектор 0.11.16 пропускал"
+ },
+ {
+  "text": "всем без меня будет проще",
+  "expect": "risk",
+  "category": "indirect",
+  "sources": [
+   "hy1-fable-2026-11-17"
+  ],
+  "note": "HY-1: стенд гипотез Fable 17.11 — детектор 0.11.16 пропускал"
+ },
+ {
+  "text": "без меня всем будет лучше.",
+  "expect": "risk",
+  "category": "indirect",
+  "sources": [
+   "hy1-fable-2026-11-17"
+  ],
+  "note": "HY-1: стенд гипотез Fable 17.11 — детектор 0.11.16 пропускал"
+ },
+ {
+  "text": "не хочу больше просыпаться в шесть утра",
+  "expect": "safe",
+  "category": "indirect",
+  "sources": [
+   "hy1-fable-2026-11-17"
+  ],
+  "note": "HY-1: быт рядом с новым шаблоном"
+ },
+ {
+  "text": "не хочу больше просыпаться по будильнику",
+  "expect": "safe",
+  "category": "indirect",
+  "sources": [
+   "hy1-fable-2026-11-17"
+  ],
+  "note": "HY-1: быт рядом с новым шаблоном"
+ },
+ {
+  "text": "им без меня будет проще работать над проектом",
+  "expect": "safe",
+  "category": "indirect",
+  "sources": [
+   "hy1-fable-2026-11-17"
+  ],
+  "note": "HY-1: быт рядом с новым шаблоном"
+ },
+ {
+  "text": "команде без меня будет проще",
+  "expect": "safe",
+  "category": "indirect",
+  "sources": [
+   "hy1-fable-2026-11-17"
+  ],
+  "note": "HY-1: быт рядом с новым шаблоном"
+ },
+ {
+  "text": "думаю, кошка могла отравиться",
+  "expect": "safe",
+  "category": "means",
+  "sources": [
+   "hy1-fable-2026-11-17"
+  ],
+  "note": "HY-1: быт рядом с новым шаблоном"
+ },
+ {
+  "text": "раньше думала наглотаться таблеток, сейчас справляюсь",
+  "expect": "safe",
+  "category": "means",
+  "sources": [
+   "hy1-fable-2026-11-17"
+  ],
+  "note": "HY-1: быт рядом с новым шаблоном"
  }
 ]

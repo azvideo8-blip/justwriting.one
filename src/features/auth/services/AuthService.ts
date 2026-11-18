@@ -98,6 +98,10 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean; isAcc
       const unsynced = await countUnsyncedLocalData(currentUid);
       if (unsynced.total > 0) throw new UnsyncedLocalDataError(unsynced);
     }
+    // Н-4: метка «идёт выход со стиранием» — ДО стирания: соседние вкладки
+    // узнают о выходе только после ответа сервера ниже, а их таймеры черновика
+    // успели бы записать его в уже стёртую базу.
+    skipFlushOnAccountReload();
 
     try {
       const { clearAllLocalStores, deleteLocalDatabase, wipeGuestAndAccountFromSharedDb } = await import('../../../core/storage/localDb');

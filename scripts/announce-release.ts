@@ -17,25 +17,39 @@ const SECTIONS: [ChangelogCategory, string][] = [
   ['fix', 'Исправлено'],
 ];
 const TG_LIMIT = 4096;
+const MINOR = 'Исправлены мелкие недоработки';
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-/** null — объявлять нечего: выпуск только служебный. */
-export function formatAnnouncement(release: ChangelogRelease): string | null {
+/**
+ * null — объявлять нечего: выпуск только служебный. `earlier` — записи под
+ * верхней: идущие подряд тихие (announce: false) выпуски попадают в это же
+ * объявление одним списком — «что сделано с прошлого объявления».
+ */
+export function formatAnnouncement(release: ChangelogRelease, earlier: readonly ChangelogRelease[] = []): string | null {
   if (release.announce === false) return null;
-  const items = release.items.filter(i => !i.ru.startsWith('Служебный выпуск'));
+  const quietCount = earlier.findIndex(r => r.announce !== false);
+  const quiet = quietCount === -1 ? earlier : earlier.slice(0, quietCount);
+  const since = quietCount > 0 ? earlier[quietCount]?.version : undefined;
+  const seen = new Set<string>();
+  const items = [release, ...quiet].flatMap(r => r.items)
+    .filter(i => !i.ru.startsWith('Служебный выпуск'))
+    // «Исправлены мелкие недоработки» из каждого тихого выпуска — один раз.
+    .filter(i => !seen.has(i.ru) && Boolean(seen.add(i.ru)))
+    .sort((a, b) => Number(a.ru.startsWith(MINOR)) - Number(b.ru.startsWith(MINOR)));
   if (items.length === 0) return null;
   // Не влезло в лимит Telegram — отбрасываем пункты с конца целиком: обрезка
   // по символам рвёт HTML-сущность или тег, и Telegram отвечает 400.
   for (let n = items.length; n > 0; n--) {
-    const text = build(release.version, items.slice(0, n), items.length - n);
+    const text = build(release.version, since, items.slice(0, n), items.length - n);
     if (text.length <= TG_LIMIT) return text;
   }
-  return build(release.version, [], items.length);
+  return build(release.version, since, [], items.length);
 }
 
-function build(version: string, items: ChangelogRelease['items'], dropped: number): string {
+function build(version: string, since: string | undefined, items: ChangelogRelease['items'], dropped: number): string {
   let text = `<b>Версия ${esc(version)} обновлена</b>`;
+  if (since) text += `\nЧто сделано с версии ${esc(since)}:`;
   for (const [cat, title] of SECTIONS) {
     const lines = items.filter(i => i.category === cat).map(i => `• ${esc(i.ru)}`);
     if (lines.length) text += `\n\n<b>${title}</b>\n${lines.join('\n')}`;
@@ -90,7 +104,7 @@ async function main(): Promise<void> {
     console.log(`Версия ${release.version} уже объявлена.`);
     return;
   }
-  const text = formatAnnouncement(release);
+  const text = formatAnnouncement(release, CHANGELOG.slice(1));
   if (!text) {
     console.log(`Версия ${release.version} служебная — не объявляем.`);
   } else {

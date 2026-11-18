@@ -129,6 +129,7 @@ export function takeClockSkewWarning(uid: string | null): boolean {
 
 import { reportError } from '../../shared/errors/reportError';
 import { reloadForAccountChange, isAccountReloadPending, setAccountChangeNotice, _resetAccountReloadForTesting } from './accountReload';
+import { clearSignOutWipeMark } from './signOutWipeMark';
 
 // Subscribed on first use, never at import time. A top-level call here builds
 // the Supabase client as a side effect of importing this file, which throws
@@ -179,6 +180,9 @@ function ensureSubscribed(): void {
     if (event === 'TOKEN_REFRESHED') noteClockSkew(nextUid, session?.access_token, true);
     else if (event === 'SIGNED_IN') noteClockSkew(nextUid, session?.access_token, !restoring && !sessionSeenThisTab);
     if (session) sessionSeenThisTab = true;
+    // Н-4: новый вход снимает метку прошлого выхода со стиранием — иначе её
+    // минута съела бы черновик того, кто вошёл сразу после.
+    if (event === 'SIGNED_IN' && currentUser === null && nextUid) clearSignOutWipeMark();
     storedUidAtSubscribe = null;
     // Аккаунт вкладки сменился (выход, вход другим, ссылка из письма, то же в
     // соседней вкладке) — перезагрузка: память вкладки принадлежит прежнему

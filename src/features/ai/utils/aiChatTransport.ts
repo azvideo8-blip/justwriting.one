@@ -3,6 +3,8 @@ import type { AIMessage } from '../services/AIService';
 import type { NoteScope } from '../../../shared/ai/buildChatPrompt';
 import { ATTACHED_NOTE_TITLE_MAX } from '../../../shared/ai/aiPolicy';
 import { ATTACHED_QUESTION_SEP } from '../../../shared/ai/languageNudge';
+import { claimsEmptySearch } from '../../../shared/ai/answerAudit';
+import { ANSWER_REF_RE, RESULTS_FOUND_RE, RESULTS_HEAD_RE } from '../../../shared/ai/notesRefRule';
 import { AIService } from '../services/AIService';
 import { useAiLimitStore } from '../store/useAiLimitStore';
 import { isExcludedFromAI, isPastedAttachmentId } from './isExcludedFromAI';
@@ -379,6 +381,23 @@ function markerHeads(content: string, opts?: AttachedParseOptions): Array<{ id: 
   const q = content.lastIndexOf(QUESTION_SEP);
   const head = q === -1 ? content : content.slice(0, q);
   return [...head.matchAll(ATTACHED_MARKER)].map(m => headAbove(head, m.index!));
+}
+
+/**
+ * К24-3 (случай #24): в ходе с выдачей модель повторяла свой прошлый ответ
+ * «ничего не нашлось» из истории — хотя под ответом стоял список найденного.
+ * Прошлый ответ, который целиком был отказом (признак — тот же, что у сигнала
+ * `empty_claim_with_results`, и без единой ссылки), в таком ходе заменяется
+ * служебной пометкой. В ходе без выдачи история цела: там отказ — правда.
+ */
+export const STALE_EMPTY_CLAIM_NOTE = '[Служебно: в том ходе поиск по записям ничего не дал.]';
+
+export function withoutStaleEmptyClaims(messages: AIMessage[], documentContent: string | null | undefined): AIMessage[] {
+  const doc = documentContent ?? '';
+  if (!RESULTS_HEAD_RE.test(doc) || !RESULTS_FOUND_RE.test(doc)) return messages;
+  return messages.map(m => (m.role === 'assistant' && claimsEmptySearch(m.content) && [...m.content.matchAll(ANSWER_REF_RE)].length === 0
+    ? { ...m, content: STALE_EMPTY_CLAIM_NOTE }
+    : m));
 }
 
 export function prepareApiMessages(messages: AIMessage[], opts?: AttachedParseOptions): AIMessage[] {

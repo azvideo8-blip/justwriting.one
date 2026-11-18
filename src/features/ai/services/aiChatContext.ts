@@ -32,8 +32,9 @@ import { buildProactiveBlock } from './chatContext/proactive';
 import { buildTemporalBlocks } from './chatContext/temporalBlocks';
 import { buildLiteRetrievalBlock } from './chatContext/liteRetrieval';
 import { buildTopicChronicleBlock } from './chatContext/topicChronicle';
-import { answerChronicleV2Enabled } from '../../../core/sync/syncFlags';
+import { answerChronicleV2Enabled, chatHypothesesEnabled } from '../../../core/sync/syncFlags';
 import { ARCHIVE_TURN_MARK } from '../../../shared/ai/archiveAnswerRule';
+import { buildHypothesisBlock, hypothesisAskOf } from './chatContext/hypothesisTurn';
 import { buildRelatedDaysBlock } from './chatContext/relatedDays';
 import { AI_WRITTEN_LINE, ATTACHED_BLOCK_SEP, formatRefTag, type AttachedNoteBlock } from '../utils/attachedNoteFormat';
 import { markAiWritten } from '../utils/aiAuthorship';
@@ -194,6 +195,33 @@ export function isProvenanceTurn(text: string): boolean {
 }
 
 /**
+ * К24-1 (случай #24): реплика-указатель на запись из прошлого ответа — «посмотри
+ * в той заметке», «а что в той записи», «в этой записи от 12-го». Указательное
+ * слово стоит рядом со словом о заметке или записи; «эту заметку» без даты — это
+ * приложенная, её ловит POINTS_AT_THIS_NOTE (turnScope) и ход остаётся строгим.
+ */
+const POINTER_MAX_WORDS = 12;
+const POINTER_RES: readonly RegExp[] = [
+  /(?:^|\s)(?:той|ту|том|тех|те|тот)\s+(?:\S+\s+)?(?:заметк|запис)/,
+  /(?:^|\s)эт(?:ой|у|а|их)\s+(?:заметк|запис)\S*\s+от\s/,
+];
+
+export function isPointerTurn(text: string): boolean {
+  const folded = text.toLowerCase().replace(/ё/g, 'е').replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
+  const words = folded.split(' ').filter(Boolean);
+  if (words.length === 0 || words.length > POINTER_MAX_WORDS) return false;
+  return POINTER_RES.some(re => re.test(` ${folded} `));
+}
+
+/** Ссылки прошлого ответа, которые модель тогда видела (К21-3), без заметок этого хода; до трёх. */
+export function pointedNoteIds(prevReply: string, prevTurnDocIds: readonly string[] | undefined, attachedIds: ReadonlySet<string>): string[] {
+  const seen = new Set(prevTurnDocIds ?? []);
+  return [...new Set(extractCitationIds(prevReply))]
+    .filter(id => seen.has(id) && !attachedIds.has(id) && !isPastedAttachmentId(id))
+    .slice(0, 3);
+}
+
+/**
  * К21-1: окно на заметку и потолок блока в ходе о происхождении — те же числа,
  * что у выдачи поиска (PER_NOTE_CHARS / BUDGET_CHARS в buildContext): материалы
  * прошлого ответа не должны быть ни короче, ни длиннее тех, что модель видела.
@@ -257,6 +285,8 @@ export function useAIChatContext(personaId: string): {
   const messageCountRef = useRef(0);
   const attachedNoteRef = useRef<AttachedNoteRef | null>(null);
   const stickyTurnsRef = useRef(0);
+  // chat_hypotheses: прошлый ход нёс материал для гипотезы — следующий без «почему» его не получает.
+  const lastTurnHypothesisRef = useRef(false);
   const lastSearchQueryRef = useRef('');
   const lastSearchNamesRef = useRef<string[]>([]);
   // PR-3: окно прошлого хода-перечня — по нему продолжение («перечитай по одной»)
@@ -280,6 +310,7 @@ export function useAIChatContext(personaId: string): {
     messageCountRef.current = 0;
     recentContextInjectedRef.current = false;
     personQuotesCacheRef.current = null;
+    lastTurnHypothesisRef.current = false;
     // Заметка-тема принадлежит диалогу: без сброса она ехала в «Новый диалог»
     // и делала его ходы строгими по чужой заметке (R3-005). Связанную заметку
     // диалог поднимает сам (useAIChat, d.documentId).
@@ -355,6 +386,41 @@ export function useAIChatContext(personaId: string): {
     // ход переживает перезагрузку вкладки. Заметки ЭТОГО хода триггер не дают:
     // после строгого разбора без выдачи (материалы — сама заметка) ход остаётся
     // строгим.
+    // К21-1 / К24-1: записи прошлого ответа по id — шапки те же, что у выдачи
+    // поиска, скрытые, удалённые и неразобранные (TR-9) не идут.
+    const priorMaterials = async (materials: readonly string[]): Promise<{ parts: string[]; ids: string[] }> => {
+      const docsAll = await (docsSnap ??= loadDocumentSnapshot());
+      // Реплика могла приехать с другого устройства: там у той же заметки свой id,
+      // а общий — uuid или linkedCloudId (тот же трёхключевой поиск, что у граней).
+      const byOtherKey = new Map<string, LocalDocument>();
+      for (const d of docsAll.values()) {
+        if (d.uuid) byOtherKey.set(d.uuid, d);
+        if (d.linkedCloudId) byOtherKey.set(d.linkedCloudId, d);
+      }
+      const parts: string[] = [];
+      const ids: string[] = [];
+      let chars = 0;
+      for (const raw of materials) {
+        if (chars >= PROVENANCE_BUDGET_CHARS) break;
+        const doc = docsAll.get(raw) ?? byOtherKey.get(raw);
+        if (!doc || isExcludedFromAI(doc) || doc.trashedAt) continue;
+        // TR-9: старый ответ мог сослаться на неразобранную заметку — её текст
+        // повторно не уходит (приложенная к ходу идёт своим блоком, не отсюда).
+        const summary = await summaryAt(doc.id);
+        if (!summary) continue;
+        const content = await LocalVersionService.getLatestContent(doc.id);
+        if (!content) continue;
+        const summaryPrefix = summary?.summary ? `[Суть: ${summary.summary}]\n` : '';
+        const snippet = content.length > PROVENANCE_PER_NOTE_CHARS
+          ? `${content.slice(0, PROVENANCE_PER_NOTE_CHARS)}…`
+          : content;
+        parts.push(`[#${doc.id} · ${formatDateYYYYMMDD(doc.lastSessionAt)}]\nЗаметка ${parts.length + 1}: "${doc.title || 'Без названия'}"\n${summaryPrefix}${snippet}`);
+        ids.push(doc.id);
+        chars += snippet.length + summaryPrefix.length;
+      }
+      return { parts, ids };
+    };
+
     const attachedTurnIds = new Set((attached?.blocks ?? []).map(b => b.documentId));
     const provenanceTurn = isProvenanceTurn(text);
     const provenanceMaterials = provenanceTurn
@@ -367,14 +433,25 @@ export function useAIChatContext(personaId: string): {
       && stickyTurnsRef.current > 0
       && lastSearchQueryRef.current.length > 0;
     const provenanceContinuation = provenanceByIds || provenanceByQuery;
+    // К24-1 (случай #24): «посмотри в той заметке» или короткое согласие на
+    // предложение прошлого ответа со ссылкой — человек показывает на запись из
+    // того ответа. Поиск по служебным словам реплики пуст, фон в широкий ход не
+    // кладётся, и запись не попадала в материалы ниоткуда. Не нашлась на этом
+    // устройстве (скрыта, удалена, не разобрана) — ход идёт как раньше.
+    const pointerIds = !provenanceTurn && !consentContinuation && lastAssistantReply
+      && (isPointerTurn(text) || (isConsentTurn(text) && endsWithProposal(lastAssistantReply.content)))
+      ? pointedNoteIds(lastAssistantReply.content, params.prevTurnDocIds, attachedTurnIds)
+      : [];
+    const pointer = pointerIds.length > 0 ? await priorMaterials(pointerIds) : null;
+    const pointerTurn = (pointer?.parts.length ?? 0) > 0;
     // К23-1 (случай #23): «как я писал про X» при приложенной заметке — человек
     // отсылает к другой своей записи. Строгий ход её не искал и честно отвечал
     // «в материалах нет»; теперь ход ищет по X, заметка остаётся на месте.
     const ownTopics = attached && params.scope === 'note' ? referencedOwnTopics(text) : [];
-    const strictNoteTurn = params.scope === 'note' && !!attached && !consentContinuation && !provenanceContinuation && ownTopics.length === 0;
+    const strictNoteTurn = params.scope === 'note' && !!attached && !consentContinuation && !provenanceContinuation && !pointerTurn && ownTopics.length === 0;
     // Кризис ищем и в приложенной заметке: текст хода теперь — только вопрос.
     const crisis = detectRisk(attached ? [text, ...attached.blocks.map(b => b.content ?? '')].join('\n') : text).isRisk;
-    if (!strictNoteTurn && !provenanceContinuation && !smallTalk && text.trim().length > 0 && hasIndexingConsent(uid)) {
+    if (!strictNoteTurn && !provenanceContinuation && !pointerTurn && !smallTalk && text.trim().length > 0 && hasIndexingConsent(uid)) {
       try {
         setAIStage('query');
         const res = await AIService.embed({ content: text });
@@ -442,35 +519,7 @@ export function useAIChatContext(personaId: string): {
     // работают правило цитирования, NOTES_SEARCH_GUARD и answerAudit. Нового
     // поиска нет — вопрос «откуда ты это взял» сам по себе ничего не ищет.
     if (provenanceByIds) {
-      const docsAll = await (docsSnap ??= loadDocumentSnapshot());
-      // Реплика могла приехать с другого устройства: там у той же заметки свой id,
-      // а общий — uuid или linkedCloudId (тот же трёхключевой поиск, что у граней).
-      const byOtherKey = new Map<string, LocalDocument>();
-      for (const d of docsAll.values()) {
-        if (d.uuid) byOtherKey.set(d.uuid, d);
-        if (d.linkedCloudId) byOtherKey.set(d.linkedCloudId, d);
-      }
-      const parts: string[] = [];
-      const ids: string[] = [];
-      let chars = 0;
-      for (const raw of provenanceMaterials) {
-        if (chars >= PROVENANCE_BUDGET_CHARS) break;
-        const doc = docsAll.get(raw) ?? byOtherKey.get(raw);
-        if (!doc || isExcludedFromAI(doc) || doc.trashedAt) continue;
-        // TR-9: старый ответ мог сослаться на неразобранную заметку — её текст
-        // повторно не уходит (приложенная к ходу идёт своим блоком, не отсюда).
-        const summary = await summaryAt(doc.id);
-        if (!summary) continue;
-        const content = await LocalVersionService.getLatestContent(doc.id);
-        if (!content) continue;
-        const summaryPrefix = summary?.summary ? `[Суть: ${summary.summary}]\n` : '';
-        const snippet = content.length > PROVENANCE_PER_NOTE_CHARS
-          ? `${content.slice(0, PROVENANCE_PER_NOTE_CHARS)}…`
-          : content;
-        parts.push(`[#${doc.id} · ${formatDateYYYYMMDD(doc.lastSessionAt)}]\nЗаметка ${parts.length + 1}: "${doc.title || 'Без названия'}"\n${summaryPrefix}${snippet}`);
-        ids.push(doc.id);
-        chars += snippet.length + summaryPrefix.length;
-      }
+      const { parts, ids } = await priorMaterials(provenanceMaterials);
       if (parts.length > 0) {
         const block = `\n\nРезультаты поиска по архиву заметок (те же записи, что были в материалах прошлого ответа). `
           + `Найдено заметок: ${parts.length}. `
@@ -550,6 +599,28 @@ export function useAIChatContext(personaId: string): {
         );
         injectedDocumentIds.push(...citedIds);
       }
+    }
+
+    // К24-1: записи, на которые указал человек, — в материалы теми же блоками,
+    // что у К21-1; приложенная заметка остаётся рядом. Поиска нет.
+    if (pointer && pointerTurn) {
+      const block = `\n\nРезультаты поиска по архиву заметок (записи, на которые ты ссылался в прошлом ответе). `
+        + `Найдено заметок: ${pointer.parts.length}. `
+        + `Человек просит посмотреть запись, на которую ты ссылался в прошлый раз.\n\n${pointer.parts.join('\n\n')}`;
+      const pointerContext = attachedBlock ? `${block}\n\n${attachedBlock}` : block;
+      return {
+        userPortrait,
+        customPersona: customSystemPrompt,
+        searchContext: pointerContext,
+        documentMood: mood,
+        memoryContext: null,
+        injectedDocumentIds: [...new Set([...injectedDocumentIds, ...pointer.ids])],
+        injectedTitles: extractContextTitles(pointerContext),
+        allowedFirstSeenDates: extractFirstSeenDates(block),
+        degradedReason: degradedDueToDailyLimit ? 'daily_limit' : undefined,
+        crisis,
+        effectiveScope: 'wide',
+      };
     }
 
     // DLG-Q7 (Fable T-11): «поищи похожее», «другие заметки ещё посмотри» при
@@ -1130,7 +1201,23 @@ export function useAIChatContext(personaId: string): {
       // вектор реплики и векторы заметок. В кризис архив не поднимаем.
       let chronicleDates: string[] = [];
       let chronicleBuilt = false;
-      if (!attached && !noteIntentNoText && !smallTalk && !crisis) {
+      // Осторожная гипотеза (флаг chat_hypotheses): реплика о том, что стоит или
+      // повторяется, либо «почему» о себе получает вместо трёх кусков лёгкого
+      // поиска опоры — сверенные дословные отрывки записей разных дней, которые
+      // выбрал служебный вызов. Хроника на таком ходе не строится (вопрос о
+      // записях — «когда впервые…?», «что я писала про…?» — сюда не попадает);
+      // выдача полного поиска, если он был, остаётся. Без «почему» — не два хода подряд.
+      const hypothesisAsk = !attached && !noteIntentNoText && !crisis ? hypothesisAskOf(text, effectivePersonaId) : null;
+      const hypothesisWanted = hypothesisAsk !== null && (hypothesisAsk === 'why' || !lastTurnHypothesisRef.current);
+      const hypothesis = hypothesisWanted
+        ? await buildHypothesisBlock({ text, turnEmb, db, minTime, maxTime, injectedDocumentIds, allEmbeddings, enabled: () => chatHypothesesEnabled(uid), pick: AIService.pickAnchors })
+        : null;
+      lastTurnHypothesisRef.current = hypothesis !== null;
+      if (hypothesis) {
+        chronicleDates = hypothesis.dates;
+        searchContext = searchContext ? `${searchContext}\n\n${hypothesis.block}` : hypothesis.block;
+      }
+      if (!hypothesis && !attached && !noteIntentNoText && !smallTalk && !crisis) {
         const chronicle = await buildTopicChronicleBlock({
           text,
           turnEmb,
@@ -1151,7 +1238,7 @@ export function useAIChatContext(personaId: string): {
         }
       }
       chronicleDatesOut = chronicleDates;
-      if (!attached && !performedFullSearch && !noteIntentNoText && !smallTalk && !chronicleBuilt) {
+      if (!hypothesis && !attached && !performedFullSearch && !noteIntentNoText && !smallTalk && !chronicleBuilt) {
         const liteBlock = await buildLiteRetrievalBlock({
           turnEmb,
           db,
@@ -1179,12 +1266,14 @@ export function useAIChatContext(personaId: string): {
           // Права проверяются на каждом ходе: заметку из блока могли скрыть от ИИ
           // или удалить в другой вкладке или на другом устройстве, а ключ кэша
           // её не видит (заметки дополнительного поиска в него не входят).
+          // Н-2 (дейлик 17.11): и разбор могли удалить — тогда сырой текст
+          // заметки из кэша не идёт (TR-9), как и из поиска.
           const cached = personQuotesCacheRef.current;
           let cacheValid = cached?.key === cacheKey;
           if (cached && cacheValid) {
             for (const id of cached.ids) {
               const doc = await docAt(id);
-              if (!doc || isExcludedFromAI(doc) || doc.trashedAt) { cacheValid = false; break; }
+              if (!doc || isExcludedFromAI(doc) || doc.trashedAt || !(await summaryAt(id))) { cacheValid = false; break; }
             }
           }
           if (cacheValid && cached) {

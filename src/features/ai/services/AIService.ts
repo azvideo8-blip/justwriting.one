@@ -2,6 +2,7 @@ import { getCurrentUser, getIdToken } from '../../../core/auth';
 import type { NoteScope } from '../../../shared/ai/buildChatPrompt';
 import { reportError } from '../../../shared/errors/reportError';
 import { withTimeout } from '../../../shared/utils/withTimeout';
+import type { AnchorCandidate, PickedAnchor } from '../../../shared/ai/anchorPickPrompt';
 import { callAi, type CallAiOptions } from '../../../core/ai/callAi';
 import type { AIErrorCode } from '../types/aiErrors';
 
@@ -237,6 +238,21 @@ export const AIService = {
       // S-56: нет согласия — состояние, а не сбой; в журнал не пишется.
       if (error !== 'AI_CONSENT_REQUIRED' && error !== 'INDEXING_CONSENT_REQUIRED') reportError(e, { action: 'rerank' }, 'warning');
       return { ok: false, error };
+    }
+  },
+
+  /**
+   * Шаг «найди опоры» хода с гипотезой (флаг chat_hypotheses). Служебный вызов:
+   * квоту чата не тратит. Любой сбой — пустой список: ход идёт прежним путём.
+   */
+  async pickAnchors(message: string, candidates: AnchorCandidate[]): Promise<PickedAnchor[]> {
+    try {
+      const data = await withTimeout(callAi<{ anchors: PickedAnchor[] }>('pickAnchors', { message: message.slice(0, 2_000), candidates }), 30_000);
+      return Array.isArray(data.anchors) ? data.anchors : [];
+    } catch (e: unknown) {
+      const error = mapAIError(e);
+      if (error !== 'AI_CONSENT_REQUIRED' && error !== 'INDEXING_CONSENT_REQUIRED') reportError(e, { action: 'pickAnchors' }, 'warning');
+      return [];
     }
   },
 

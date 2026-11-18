@@ -11,6 +11,7 @@
  * сохраняется прежнему владельцу), но не дольше FLUSH_LIMIT_MS.
  */
 import { reportError } from '../../shared/errors/reportError';
+import { clearSignOutWipeMark, setSignOutWipeMark, signOutWipeMarkFresh } from './signOutWipeMark';
 
 const FLUSH_LIMIT_MS = 1500;
 const NOTICE_KEY = 'jw_account_change_notice';
@@ -25,18 +26,8 @@ let skipFlush = false;
 let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
 
 // `skipFlush` живёт в памяти одной вкладки, а `SIGNED_OUT` приходит во все: соседняя
-// вкладка записала бы свой черновик обратно в стёртую базу. Срок — чтобы метка
-// от прерванного выхода не отменила сохранение при следующей смене аккаунта.
-const WIPE_MARK_KEY = 'jw_signout_wipe_at';
-const WIPE_MARK_TTL_MS = 60_000;
-
-function wipeMarkFresh(): boolean {
-  try {
-    return Date.now() - Number(localStorage.getItem(WIPE_MARK_KEY) ?? 0) < WIPE_MARK_TTL_MS;
-  } catch {
-    return false;
-  }
-}
+// вкладка записала бы свой черновик обратно в стёртую базу — поэтому ещё метка
+// в localStorage (signOutWipeMark.ts).
 
 export function onBeforeAccountReload(fn: () => Promise<unknown>): () => void {
   flushers.add(fn);
@@ -56,10 +47,8 @@ export function setAccountReloadTarget(path: string | null): void {
  *  только что очищенную базу. */
 export function skipFlushOnAccountReload(skip = true): void {
   skipFlush = skip;
-  try {
-    if (skip) localStorage.setItem(WIPE_MARK_KEY, String(Date.now()));
-    else localStorage.removeItem(WIPE_MARK_KEY);
-  } catch { /* намеренно: без метки выход всё равно состоится, эта вкладка держит флаг в памяти */ }
+  if (skip) setSignOutWipeMark();
+  else clearSignOutWipeMark();
 }
 
 export type AccountChangeNotice = 'signed_out' | 'signed_out_wiped' | 'wipe_failed' | 'account_deleted' | 'account_deleted_wipe_failed' | 'lost_session' | 'clock_skew';
@@ -91,7 +80,7 @@ export function takeAccountChangeNotice(): AccountChangeNotice | null {
 export async function reloadForAccountChange(): Promise<void> {
   if (pending) return;
   pending = true;
-  if (!skipFlush && !wipeMarkFresh()) {
+  if (!skipFlush && !signOutWipeMarkFresh()) {
     await Promise.race([
       Promise.allSettled([...flushers].map(f => f())),
       new Promise(r => setTimeout(r, FLUSH_LIMIT_MS)),

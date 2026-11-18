@@ -63,12 +63,43 @@ describe('DR-7: экспорт диалога с заметкой и ходом 
   });
 
   it('(b) скрытая от ИИ и выброшенная заметка: заглушка вместо текста', async () => {
-    for (const doc of [{ excludedFromAI: true }, { trashedAt: new Date().toISOString() }]) {
+    // К24-6: у корзины своя подпись.
+    for (const [doc, label] of [
+      [{ excludedFromAI: true }, '[текст заметки не выгружен: скрыта от ИИ]'],
+      [{ trashedAt: new Date().toISOString() }, '[текст заметки не выгружен: заметка в корзине]'],
+    ] as const) {
       await seedNote(doc);
       const d = await seedDialogue(turn('Заметка для экспорта', 'разбери'));
       const md = await AIDialogueService.exportAsMarkdown(d.id);
-      expect(md).toContain('[текст заметки не выгружен: скрыта от ИИ]');
+      expect(md).toContain(label);
       expect(md).not.toContain(NOTE_TEXT);
+    }
+  });
+
+  // К24-6 (случай #24): под телом заметки в реплике стояло «не выгружен: скрыта
+  // от ИИ», хотя тело — строкой выше, а модель заметку разбирала. Три состояния —
+  // три подписи; тело в реплике есть — подписи нет, даже если заметку правили
+  // после хода (сверка с фактом, а не с последней версией).
+  describe('К24-6: три состояния × тело в реплике', () => {
+    const states = [
+      { name: 'скрыта от ИИ', doc: { excludedFromAI: true } as Record<string, unknown> | null, label: 'скрыта от ИИ]' },
+      { name: 'в корзине', doc: { trashedAt: new Date().toISOString() }, label: 'заметка в корзине]' },
+      { name: 'нет на устройстве', doc: null, label: 'заметки нет на этом устройстве]' },
+    ];
+    for (const st of states) {
+      it(`${st.name}: тела в реплике нет — своя подпись`, async () => {
+        if (st.doc) await seedNote(st.doc);
+        const d = await seedDialogue(turn('Заметка для экспорта', 'разбери'));
+        const md = await AIDialogueService.exportAsMarkdown(d.id);
+        expect(md).toContain(`[текст заметки не выгружен: ${st.label}`);
+      });
+      it(`${st.name}: тело в реплике есть, заметку правили после хода — подписи нет`, async () => {
+        if (st.doc) await seedNote(st.doc, `${NOTE_TEXT} Дописано после хода.`);
+        const d = await seedDialogue(turn('Заметка для экспорта', 'разбери', NOTE_TEXT));
+        const md = await AIDialogueService.exportAsMarkdown(d.id);
+        expect(md).toContain(NOTE_TEXT);
+        expect(md).not.toContain('текст заметки не выгружен');
+      });
     }
   });
 

@@ -25,6 +25,7 @@ import { DataProvider } from '../../../core/data';
 import { contentHash } from '../../../core/utils/contentHash';
 import { readSentHashes } from '../../../core/sync/sentHashes';
 import { reportError } from '../../../shared/errors/reportError';
+import { signOutWipeMarkFresh } from '../../../core/auth/signOutWipeMark';
 import { GUEST_DRAFT_TTL_MS, STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
 import { withRateLimitRetry } from '../../../core/services/rateGate';
@@ -314,6 +315,10 @@ export async function applyWrite(
   if (isEpochStale(uid, epoch)) {
     return 'stale-epoch';
   }
+  // Н-4: выход со стиранием уже стёр базу (или вот-вот сотрёт) — запись любой
+  // вкладки вернула бы черновик на «очищенный» компьютер. Для писателя это тот
+  // же штатный отказ, что и устаревшая эпоха: текст закрыт, молчим.
+  if (signOutWipeMarkFresh()) return 'stale-epoch';
 
   if (opts.target === 'copy') {
     const key = uid.startsWith('guest') ? STORAGE_KEYS.GUEST_DRAFT : STORAGE_KEYS.DRAFT(uid);

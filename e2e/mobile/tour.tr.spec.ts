@@ -38,6 +38,12 @@ async function installProbe(page: Page): Promise<void> {
   }, FOREIGN);
 }
 const probe = (page: Page) => page.evaluate(() => (window as unknown as { __tourProbe: Probe }).__tourProbe);
+/** Пробник опрашивает экран раз в 50 мс: карточка может стать видимой раньше его
+ *  тика, и тогда firstTour ещё 0 (CI 18.11: «−1794970218980 ≥ 1000»). Ждём тика. */
+async function probeAfterTour(page: Page): Promise<Probe> {
+  await expect.poll(async () => (await probe(page)).firstTour, { timeout: 2_000 }).toBeGreaterThan(0);
+  return probe(page);
+}
 
 /** Вход без глушения тура и без автообработчиков: они нажали бы «Готово» в карточке. */
 async function enter(page: Page, account: StandAccount): Promise<void> {
@@ -90,7 +96,7 @@ for (const [w, h] of [[360, 640], [390, 844]] as const) {
       const card = page.locator(CARD);
       await expect(card).toBeVisible({ timeout: 45_000 });
       expect(new URL(page.url()).pathname).toBe('/');
-      const p = await probe(page);
+      const p = await probeAfterTour(page);
       expect(p.overlap, 'тур был на экране вместе с окном первого входа').toBe(0);
       expect(p.lastForeign, 'степпер первого входа не показывался — тест ничего не проверил').toBeGreaterThan(0);
       expect(p.firstTour - p.lastForeign, 'тур появился раньше, чем через секунду после последнего окна').toBeGreaterThanOrEqual(1000);
@@ -212,7 +218,7 @@ test.describe('TR-7: знакомство на компьютере 1280×800', 
     await enter(page, account);
     const card = page.locator(CARD);
     await expect(card).toBeVisible({ timeout: 45_000 });
-    const p = await probe(page);
+    const p = await probeAfterTour(page);
     expect(p.overlap, 'тур был на экране вместе с окном первого входа').toBe(0);
     expect(p.lastForeign, 'окна первого входа не показывались').toBeGreaterThan(0);
     expect(p.firstTour - p.lastForeign).toBeGreaterThanOrEqual(1000);

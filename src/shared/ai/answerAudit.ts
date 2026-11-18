@@ -40,6 +40,11 @@ const EMPTY_CLAIM_RE = new RegExp(
   + '|не нашёл(?:ось)? (?:ни одной|подходящ|записей))',
 );
 
+/** Ответ утверждает, что поиск ничего не нашёл (К24-3: тот же признак и для истории хода). */
+export function claimsEmptySearch(answer: string): boolean {
+  return EMPTY_CLAIM_RE.test(fold(answer));
+}
+
 // Три формы приложенной заметки в `documentContent`: метка строгого хода,
 // «заметка диалога» (sticky) и маркер хранящегося хода `Прикреплена заметка: "…"`.
 const ATTACHED_NOTE_RE = /\[(?:Прикреплен(?:ная|а) заметка|Заметка, к которой привязан этот диалог)/;
@@ -167,7 +172,7 @@ export function auditAnswer(
   }
   return {
     note_text_denied: ATTACHED_NOTE_RE.test(doc) && NO_TEXT_RE.test(low),
-    empty_claim_with_results: RESULTS_HEAD_RE.test(doc) && RESULTS_FOUND_RE.test(doc) && EMPTY_CLAIM_RE.test(low),
+    empty_claim_with_results: RESULTS_HEAD_RE.test(doc) && RESULTS_FOUND_RE.test(doc) && claimsEmptySearch(answer),
     foreign_ids: refs.size,
     quote_unquoted: countAbsentQuotes(answer, quoteMaterials ?? doc),
     notes_claim_no_ref: notesClaimWithoutRef(answer, doc) ? 1 : 0,

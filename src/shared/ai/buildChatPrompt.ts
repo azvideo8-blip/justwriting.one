@@ -6,6 +6,7 @@
 import { z } from 'zod';
 import { PERSONA_PROMPTS, TOPIC_GUARD, NOTES_GUARD_BASE, NOTES_SEARCH_GUARD, OPEN_QUESTION_POOL, REFLECTION_GUIDE, SAFETY_GUIDE, EDITOR_PROMPT_BODY, EDITOR_EVAL_TAIL, EDITOR_LIST_TAIL } from './prompts.js';
 import { ARCHIVE_TURN_MARK, archiveAnswerRule } from './archiveAnswerRule.js';
+import { HYPOTHESIS_PERSONAS, HYPOTHESIS_TURN_MARK, HYPOTHESIS_RULE } from './hypothesisRule.js';
 import { evalAskMode, listAskMode } from './evalAsk.js';
 import { ENGLISH_NUDGE, questionOnly } from './languageNudge.js';
 
@@ -266,6 +267,14 @@ export function buildChatSystemPrompt(params: ChatPromptParams): string {
   // формат (пост), строгий ход по заметке хронику не получает.
   if (documentContent && !strictNote && personaId !== 'editor' && crisis !== true && documentContent.includes(ARCHIVE_TURN_MARK)) {
     base += `\n\n---\n${archiveAnswerRule(responseLength)}`;
+  }
+
+  // Осторожная гипотеза (флаг chat_hypotheses): метку ставит клиент, когда в ходе
+  // есть записи разных дней и реплика для гипотезы годится. Без метки (флаг
+  // выключен, старый клиент) промпт побайтно прежний. Проверки характера и кризиса
+  // повторены здесь: метка — строка в данных, а не разрешение.
+  if (documentContent && !strictNote && crisis !== true && HYPOTHESIS_PERSONAS.includes(personaId) && documentContent.includes(HYPOTHESIS_TURN_MARK)) {
+    base += `\n\n---\n${HYPOTHESIS_RULE}`;
   }
 
   return base;
