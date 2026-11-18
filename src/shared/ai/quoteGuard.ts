@@ -252,6 +252,11 @@ function bestInOrder(q: string[], hay: string[], span: number): number {
   return best;
 }
 
+// Разбор 18.11: после предлога, союза или «не» двоеточие и «, по смыслу:» ломают
+// фразу («между X и: Y», «рядом с: Y», «сказал не, по смыслу: Y») — там кавычки
+// просто снимаются.
+const FUNCTION_WORD_BEFORE_RE = /(?:^|[^а-яё])(?:и|а|но|или|не|ни|с|со|в|во|на|о|об|про|к|ко|от|до|из|за|по|у|для|без|между|чем|как)\s*$/i;
+
 export function unquoteAbsent(
   text: string,
   materials: string | null | undefined,
@@ -292,7 +297,8 @@ export function unquoteAbsent(
     // читается пересказом слов человека.
     const personal = opts?.markPersonal !== false && PERSONAL_RE.test(inner.toLowerCase())
       && cached(mm, `p${nq}`, () => bestInPhrases(qWords, mm.phrases, Math.ceil(n * 1.5) + 2)) * 5 > n * 3;
-    if (SPEECH_ANY_RE.test(window) || SPEECH_AFTER_RE.test(text.slice(at + m[0].length, at + m[0].length + 40).toLowerCase()) || personal) {
+    const afterFunctionWord = FUNCTION_WORD_BEFORE_RE.test(before);
+    if (!afterFunctionWord && (SPEECH_ANY_RE.test(window) || SPEECH_AFTER_RE.test(text.slice(at + m[0].length, at + m[0].length + 40).toLowerCase()) || personal)) {
       // «она сказала: «…»» → «она сказала, по смыслу: …»; в начале фразы — «По смыслу: …».
       // DE-5: перевод строки не снимаем — иначе абзац склеивался с предыдущим.
       before = before.replace(/[ \t:,]*$/, '');
@@ -304,7 +310,7 @@ export function unquoteAbsent(
         : sentenceStart
           ? `${before && !before.endsWith('\n') ? ' ' : ''}По смыслу: ${inner}`
           : `, по смыслу: ${inner}`;
-    } else if (!/(?:^|[.!?\n])\s*$/.test(out + before) && !/[:—–\-,(]\s*$/.test(before)) {
+    } else if (!/(?:^|[.!?\n])\s*$/.test(out + before) && !/[:—–\-,(]\s*$/.test(before) && !afterFunctionWord) {
       // К26-2 (случай #26): снятая цитата посреди фразы без знака перед ней —
       // «спроси себя «что будет, если…» и…» превращалось в сломанную фразу.
       // Двоеточие держит границу; слова не меняются.
@@ -313,6 +319,8 @@ export function unquoteAbsent(
     }
     out += before + body;
     last = at + m[0].length;
+    // «…никто не видел?».» без кавычек давало «видел?.».
+    if (/[?!…]$/.test(inner) && text[last] === '.') last++;
   }
   return { text: out + text.slice(last), stripped };
 }

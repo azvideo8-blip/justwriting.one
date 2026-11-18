@@ -16,7 +16,7 @@
 export const HYPOTHESIS_TURN_MARK = '[Записи разных дней, близкие к сказанному, — материал для размышления]';
 
 /** Характеры, которым гипотеза разрешена. Редактор пишет пост, у своего характера свой голос. */
-export const HYPOTHESIS_PERSONAS: readonly string[] = ['coach', 'parts', 'cbt', 'group_psychology'];
+export const HYPOTHESIS_PERSONAS: readonly string[] = ['coach', 'parts', 'cbt', 'group_psychology', 'ta'];
 
 // Образцов дат и готовых формулировок здесь нет намеренно: deepseek переносит
 // пример из промпта в ответ дословно (замер 2026-10-07). Названы свойства ответа.

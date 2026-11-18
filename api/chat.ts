@@ -581,6 +581,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     documentContent: parsed.data.documentContent,
     userPortrait: parsed.data.userPortrait,
     memoryContext: parsed.data.memoryContext,
+    hypoStats: parsed.data.hypoStats,
     system: providerRequest.system,
   });
 

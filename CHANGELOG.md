@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.19 — 2026-11-18
+
+- **[RU]** Подсказки следующей реплики больше не запрашиваются заново при каждом открытии старого разговора — дневной лимит служебных запросов не кончается раньше времени.
+- **[EN]** Reply suggestions are no longer requested again each time an old conversation is opened, so the daily limit for background requests no longer runs out early.
+- **[RU]** Когда собеседник снимает кавычки с неточной цитаты, фраза больше не ломается лишним двоеточием или «по смыслу» посреди предложения.
+- **[EN]** When the companion removes quotation marks from an inexact quote, the sentence no longer breaks with a stray colon or “in essence” mid-sentence.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.11.18 — 2026-11-18
 
 - **[RU]** Собеседник держит одну форму обращения — «ты» или «вы» — на весь разговор, как пишешь ты сам.

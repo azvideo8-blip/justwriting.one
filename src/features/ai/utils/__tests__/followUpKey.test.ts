@@ -24,3 +24,16 @@ describe('followUpKey — подсказки один раз на ответ', (
     expect(followUpKey([q, { role: 'assistant', content: 'итог', type: 'system' }]).lastAssistant).toBeNull();
   });
 });
+
+describe('followUpKey — подсказки только к свежему ответу (разбор 18.11)', () => {
+  // Открытие старого диалога спрашивало модель заново: 47 из 60 служебных
+  // вызовов за день, 18 — за полторы минуты листания диалогов.
+  const now = 1_000_000_000;
+  it('ответ только что — свежий', () => {
+    expect(followUpKey([q, { ...a, createdAt: now - 5_000 }], now).fresh).toBe(true);
+  });
+  it('ответ из истории или без времени — не свежий', () => {
+    expect(followUpKey([q, { ...a, createdAt: now - 10 * 60_000 }], now).fresh).toBe(false);
+    expect(followUpKey([q, a], now).fresh).toBe(false);
+  });
+});

@@ -555,10 +555,11 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   useChatFollow(messagesEndRef, displayMessages.length, displayMessages[displayMessages.length - 1]?.role, streamingMessage, activeDialogueId);
 
   useEffect(() => {
-    const { key, lastAssistant } = followUpKey(displayMessages);
+    const { key, lastAssistant, fresh } = followUpKey(displayMessages);
     if (key === lastFollowUpKeyRef.current) return;
     lastFollowUpKeyRef.current = key;
     if (!lastAssistant) return;
+    if (!fresh) { void Promise.resolve().then(() => setFollowUps(CHAT_FOLLOW_UPS)); return; }
     // EA-18: служебный запрос подсказок — только если человек их не выключил.
     if (!getChatExtrasEnabled(getCurrentUser()?.uid)) return;
     // Приёмка ai-privacy (security-review, Vuln 3): подсказки шлют модели начало

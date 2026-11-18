@@ -7,12 +7,17 @@ import type { DialogueMessage } from '../../../core/storage/localDb';
  * (аудит диалогов, раунд 2: 1,3–2 служебных вызова подсказок на ход).
  * Ключ — сама реплика: её id, вариант и начало текста (перегенерация меняет их).
  */
-export function followUpKey(messages: readonly DialogueMessage[]): { key: string; lastAssistant: string | null } {
+// Разбор 18.11: подсказки — только к свежему ответу. Открытие старого диалога
+// спрашивало модель заново и съедало служебный лимит (47 из 60 вызовов за день).
+const FOLLOW_UP_FRESH_MS = 2 * 60_000;
+
+export function followUpKey(messages: readonly DialogueMessage[], now = Date.now()): { key: string; lastAssistant: string | null; fresh: boolean } {
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i];
     if (m && m.role === 'assistant' && m.type !== 'system') {
-      return { key: `${m.id ?? ''}:${m.variantIndex ?? 0}:${m.content.slice(0, 100)}`, lastAssistant: m.content };
+      const fresh = m.createdAt !== undefined && now - m.createdAt < FOLLOW_UP_FRESH_MS;
+      return { key: `${m.id ?? ''}:${m.variantIndex ?? 0}:${m.content.slice(0, 100)}`, lastAssistant: m.content, fresh };
     }
   }
-  return { key: 'none', lastAssistant: null };
+  return { key: 'none', lastAssistant: null, fresh: false };
 }

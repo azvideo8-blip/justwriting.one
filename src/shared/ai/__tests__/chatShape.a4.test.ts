@@ -93,3 +93,26 @@ describe('A-4: форма запроса в журнал — только раз
     expect(callable.indexOf('logChatShape({')).toBeGreaterThan(callable.indexOf('const request ='));
   });
 });
+
+describe('разбор 18.11: счётчики опор гипотезы', () => {
+  it('есть — едут в строку числами; нет — поля нет', () => {
+    const hypoStats = { cands: 12, picked: 3, quoted: 3, diverse: 1, shown: 0 };
+    expect(chatShape({ ...input, hypoStats }).hypo).toEqual(hypoStats);
+    expect('hypo' in chatShape(input)).toBe(false);
+  });
+});
+
+
+describe('разбор 18.11: схема запроса — счётчики опор только числами', () => {
+  it('числа проходят; лишнее поле или строка — счётчики отброшены, ход не падает', async () => {
+    const { chatInputSchema } = await import('../buildChatPrompt.js');
+    const base = { personaId: 'coach', messages: [{ role: 'user', content: 'x' }] };
+    const ok = chatInputSchema.safeParse({ ...base, hypoStats: { cands: 1, picked: 1, quoted: 1, diverse: 1, shown: 0 } });
+    expect(ok.success && ok.data.hypoStats).toEqual({ cands: 1, picked: 1, quoted: 1, diverse: 1, shown: 0 });
+    for (const bad of [{ cands: 1, picked: 1, quoted: 1, diverse: 1, shown: 0, note: 'текст' }, { cands: 'много', picked: 1, quoted: 1, diverse: 1, shown: 0 }, { cands: 5000, picked: 1, quoted: 1, diverse: 1, shown: 0 }]) {
+      const r = chatInputSchema.safeParse({ ...base, hypoStats: bad });
+      expect(r.success).toBe(true);
+      expect(r.success && r.data.hypoStats).toBeUndefined();
+    }
+  });
+});

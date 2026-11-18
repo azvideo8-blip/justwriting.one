@@ -2,6 +2,7 @@ import { getLocalDb } from '../../../../core/storage/localDb';
 import { AIEmbeddingService } from '../AIEmbeddingService';
 import { cosineSimilarity } from '../../../../shared/utils/vectorMath';
 import { reportError } from '../../../../shared/errors/reportError';
+import type { HypoStats } from '../../../../shared/ai/chatShape';
 import { formatDateYYYYMMDD } from './corpusStats';
 import { loadAnalysedIds } from '../../utils/retrieval/docSnapshot';
 import { isExcludedFromAI } from '../../utils/isExcludedFromAI';
@@ -182,6 +183,8 @@ export async function buildHypothesisBlock(deps: {
   /** Флаг `chat_hypotheses`. Спрашивается, только когда ход годится; сбой чтения — false. */
   enabled: () => Promise<boolean>;
   pick: AnchorPicker;
+  /** Разбор 18.11: заполняется по шагам — в журнал сервера, только числа. */
+  stats?: HypoStats | undefined;
 }): Promise<HypothesisBlock | null> {
   const { text, turnEmb, db, minTime, maxTime, injectedDocumentIds, allEmbeddings, enabled, pick, direct, excludeIds } = deps;
   const excluded = new Set(excludeIds ?? []);
@@ -206,14 +209,18 @@ export async function buildHypothesisBlock(deps: {
       notes.push({ id: d.id, at: ts, title: d.title, chunks: e.chunkTexts, vectors: e.vectors });
     }
     const candidates = hypothesisCandidates(turnEmb, notes, gists);
+    if (deps.stats) deps.stats.cands = candidates.length;
     if (candidates.length < HYPOTHESIS_MATERIAL.minCandidates) return null;
     const noteById = new Map(notes.map(n => [n.id, n]));
-    const picked: PickedAnchor[] = (await pick(text, candidates)).flatMap(p => {
+    const pickedIds = await pick(text, candidates);
+    const picked: PickedAnchor[] = pickedIds.flatMap(p => {
       const n = noteById.get(p.documentId);
       const quote = n ? quoteOf(n, turnEmb) : '';
       return n && quote ? [{ documentId: p.documentId, quote }] : [];
     });
-    const result = buildAnchorBlock(candidates, diverseAnchors(picked, notes), notes, direct === true);
+    const diverse = diverseAnchors(picked, notes);
+    const result = buildAnchorBlock(candidates, diverse, notes, direct === true);
+    if (deps.stats) Object.assign(deps.stats, { picked: pickedIds.length, quoted: picked.length, diverse: diverse.length, shown: result?.ids.length ?? 0 });
     if (result) injectedDocumentIds.push(...result.ids);
     return result;
   } catch (e) {

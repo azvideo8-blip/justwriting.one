@@ -1,5 +1,6 @@
 import type { AIMessage } from '../AIService';
 import type { AttachedNoteBlock } from '../../utils/attachedNoteFormat';
+import type { HypoStats } from '../../../../shared/ai/chatShape';
 
 // AUDIT-part3 6: был мёртвым экспортом — внешних потребителей нет,
 // интерфейс нужен только внутри модуля.
@@ -20,6 +21,8 @@ export interface ChatContextResult {
    *  По нему строится правило заметки на сервере — иначе модель получала бы
    *  «анализируй только заметку» рядом с результатами поиска. */
   effectiveScope?: 'note' | 'wide' | undefined;
+  /** Разбор 18.11: шаги подбора опор, если ход их подбирал (только числа, в журнал сервера). */
+  hypoStats?: HypoStats | undefined;
 }
 
 export interface BuildContextParams {

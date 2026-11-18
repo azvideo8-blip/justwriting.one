@@ -1,6 +1,7 @@
 import { getCurrentUser, getIdToken } from '../../../core/auth';
 import type { AIMessage } from '../services/AIService';
 import type { NoteScope } from '../../../shared/ai/buildChatPrompt';
+import type { HypoStats } from '../../../shared/ai/chatShape';
 import { ATTACHED_NOTE_TITLE_MAX } from '../../../shared/ai/aiPolicy';
 import { ATTACHED_QUESTION_SEP } from '../../../shared/ai/languageNudge';
 import { claimsEmptySearch } from '../../../shared/ai/answerAudit';
@@ -471,6 +472,8 @@ export async function streamChat(params: {
   reasoning?: boolean | undefined;
   /** DLG-Q3: кризисный ход — сигнал уезжает отдельным полем, не текстом в контексте. */
   crisis?: boolean | undefined;
+  /** Разбор 18.11: счётчики подбора опор — только в журнал сервера. */
+  hypoStats?: HypoStats | undefined;
   signal?: AbortSignal | undefined;
   onChunk: (partial: string, reasoning: string | null) => void;
 }): Promise<string> {
@@ -507,6 +510,7 @@ export async function streamChat(params: {
       responseLength: params.responseLength,
       reasoning: params.reasoning,
       crisis: params.crisis,
+      ...(params.hypoStats ? { hypoStats: params.hypoStats } : {}),
     }),
     signal: params.signal ?? null,
   });
@@ -662,6 +666,8 @@ export async function callableChat(params: {
   callType?: 'auto_name' | 'follow_up' | 'query_expand' | undefined;
   /** DLG-Q3: кризисный ход — сигнал уезжает отдельным полем, не текстом в контексте. */
   crisis?: boolean | undefined;
+  /** Разбор 18.11: счётчики подбора опор — только в журнал сервера. */
+  hypoStats?: HypoStats | undefined;
   /** SB-4: уход со страницы должен обрывать и этот путь, не только стрим. */
   signal?: AbortSignal | undefined;
 }): Promise<string> {
@@ -678,6 +684,7 @@ export async function callableChat(params: {
     reasoning: params.reasoning,
     callType: params.callType,
     crisis: params.crisis,
+    ...(params.hypoStats ? { hypoStats: params.hypoStats } : {}),
   }, params.signal ? { signal: params.signal } : undefined);
 
 

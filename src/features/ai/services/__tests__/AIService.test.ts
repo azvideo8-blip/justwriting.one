@@ -9,6 +9,7 @@ vi.mock('../../../../shared/errors/reportError', () => ({
 }));
 
 import { AIService } from '../AIService';
+import { reportError } from '../../../../shared/errors/reportError';
 
 describe('AIService', () => {
   describe('parseTags', () => {
@@ -117,6 +118,26 @@ describe('AIService', () => {
       const res = await AIService.summarize({ content: 'text' });
       expect(res.ok).toBe(false);
       if (!res.ok) expect(res.error).toBe('TOO_LONG');
+    });
+  });
+
+  // Разбор 18.11: подсказки упёрлись в служебный лимит — в журнале владельца
+  // «Техническая ошибка … DAILY_LIMIT», хотя чат работал. Лимит фонового вызова —
+  // состояние, вызывающий сам откатывается на запасной вариант.
+  describe('chat: лимит служебного вызова — не техническая ошибка', () => {
+    beforeEach(() => { mockCallAi.mockReset(); vi.mocked(reportError).mockClear(); });
+    const limit = () => Object.assign(new Error('Daily limit reached.'), { code: 'functions/resource-exhausted', details: { errorType: 'DAILY_LIMIT' } });
+
+    it('follow_up с DAILY_LIMIT — без записи в журнал ошибок', async () => {
+      mockCallAi.mockRejectedValueOnce(limit());
+      const res = await AIService.chat({ personaId: 'coach', callType: 'follow_up', messages: [{ role: 'user', content: 'x' }] });
+      expect(res).toEqual({ ok: false, error: 'DAILY_LIMIT' });
+      expect(reportError).not.toHaveBeenCalled();
+    });
+    it('обычный ход с DAILY_LIMIT — в журнале, как раньше', async () => {
+      mockCallAi.mockRejectedValueOnce(limit());
+      await AIService.chat({ personaId: 'coach', messages: [{ role: 'user', content: 'x' }] });
+      expect(reportError).toHaveBeenCalledTimes(1);
     });
   });
 });

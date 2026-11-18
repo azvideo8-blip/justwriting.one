@@ -17,6 +17,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.19',
+    date: '2026-11-18',
+    announce: false,
+    items: [
+      { category: 'fix', ru: 'Подсказки следующей реплики больше не запрашиваются заново при каждом открытии старого разговора — дневной лимит служебных запросов не кончается раньше времени.', en: 'Reply suggestions are no longer requested again each time an old conversation is opened, so the daily limit for background requests no longer runs out early.' },
+      { category: 'fix', ru: 'Когда собеседник снимает кавычки с неточной цитаты, фраза больше не ломается лишним двоеточием или «по смыслу» посреди предложения.', en: 'When the companion removes quotation marks from an inexact quote, the sentence no longer breaks with a stray colon or “in essence” mid-sentence.' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.11.18',
     date: '2026-11-18',
     announce: false,

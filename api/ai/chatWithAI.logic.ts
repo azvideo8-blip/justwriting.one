@@ -89,6 +89,7 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
     documentContent: parsed.data.documentContent,
     userPortrait: parsed.data.userPortrait,
     memoryContext: parsed.data.memoryContext,
+    hypoStats: parsed.data.hypoStats,
     system: request.system,
   });
 

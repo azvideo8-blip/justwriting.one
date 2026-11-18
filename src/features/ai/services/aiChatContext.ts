@@ -35,6 +35,7 @@ import { buildTopicChronicleBlock } from './chatContext/topicChronicle';
 import { answerChronicleV2Enabled, chatHypothesesEnabled } from '../../../core/sync/syncFlags';
 import { ARCHIVE_TURN_MARK } from '../../../shared/ai/archiveAnswerRule';
 import { buildHypothesisBlock, directHypothesisAsk, hypothesisAskOf } from './chatContext/hypothesisTurn';
+import type { HypoStats } from '../../../shared/ai/chatShape';
 import { buildRelatedDaysBlock } from './chatContext/relatedDays';
 import { AI_WRITTEN_LINE, ATTACHED_BLOCK_SEP, formatRefTag, type AttachedNoteBlock } from '../utils/attachedNoteFormat';
 import { markAiWritten } from '../utils/aiAuthorship';
@@ -354,6 +355,7 @@ export function useAIChatContext(personaId: string): {
 
     let turnEmb: number[] | undefined;
     let chronicleDatesOut: string[] = [];
+    let hypoStatsOut: HypoStats | undefined;
     const uid = getCurrentUser()?.uid;
     // X-1: светский ход («привет», «спасибо», «как дела») не тянет за собой
     // архив — ни векторизации реплики, ни лайт-поиска, ни проактивного блока.
@@ -727,14 +729,16 @@ export function useAIChatContext(personaId: string): {
       // опоры ищутся по вектору самой заметки, а сама она (и другие приложенные)
       // опорой не бывает — опоры только из других дней.
       let directHyp: Awaited<ReturnType<typeof buildHypothesisBlock>> = null;
+      let directStats: HypoStats | undefined;
       if (!crisis && subjectId && !isAttachedExcluded && attachedBlock && directHypothesisAsk(text, effectivePersonaId)) {
         const all = await AIEmbeddingService.getAll();
         const own = all.find(e => e.documentId === subjectId)?.vectors ?? [];
         const noteEmb = own.length > 0 ? own[0]!.map((_, i) => own.reduce((sum, v) => sum + (v[i] ?? 0), 0) / own.length) : undefined;
+        directStats = { cands: 0, picked: 0, quoted: 0, diverse: 0, shown: 0 };
         directHyp = await buildHypothesisBlock({
           text: `${attachedContent.slice(0, 1500)}\n\n${text}`.slice(0, 2000),
           turnEmb: noteEmb, db, minTime: undefined, maxTime: undefined, injectedDocumentIds, allEmbeddings: all,
-          enabled: () => chatHypothesesEnabled(uid), pick: AIService.pickAnchors, direct: true, excludeIds: attachedIds,
+          enabled: () => chatHypothesesEnabled(uid), pick: AIService.pickAnchors, direct: true, excludeIds: attachedIds, stats: directStats,
         });
       }
       const strictContext = related ? `${related.block}\n\n${noteBlock}` : noteBlock;
@@ -749,6 +753,7 @@ export function useAIChatContext(personaId: string): {
         allowedFirstSeenDates: [],
         degradedReason: degradedDueToDailyLimit ? 'daily_limit' : undefined,
         crisis,
+        ...(directStats ? { hypoStats: directStats } : {}),
       };
     }
 
@@ -1226,8 +1231,9 @@ export function useAIChatContext(personaId: string): {
       // К26-1: прямая просьба о гипотезах — повод и при приложенной заметке, и подряд.
       const hypothesisAsk = (!attached || directHypothesisAsk(text, effectivePersonaId)) && !noteIntentNoText && !crisis ? hypothesisAskOf(text, effectivePersonaId) : null;
       const hypothesisWanted = hypothesisAsk !== null && (hypothesisAsk === 'why' || hypothesisAsk === 'direct' || !lastTurnHypothesisRef.current);
+      if (hypothesisWanted) hypoStatsOut = { cands: 0, picked: 0, quoted: 0, diverse: 0, shown: 0 };
       const hypothesis = hypothesisWanted
-        ? await buildHypothesisBlock({ text, turnEmb, db, minTime, maxTime, injectedDocumentIds, allEmbeddings, enabled: () => chatHypothesesEnabled(uid), pick: AIService.pickAnchors, direct: hypothesisAsk === 'direct', excludeIds: attachedIds })
+        ? await buildHypothesisBlock({ text, turnEmb, db, minTime, maxTime, injectedDocumentIds, allEmbeddings, enabled: () => chatHypothesesEnabled(uid), pick: AIService.pickAnchors, direct: hypothesisAsk === 'direct', excludeIds: attachedIds, stats: hypoStatsOut })
         : null;
       lastTurnHypothesisRef.current = hypothesis !== null;
       if (hypothesis) {
@@ -1517,6 +1523,7 @@ export function useAIChatContext(personaId: string): {
       allowedFirstSeenDates: [...new Set(allowedFirstSeenDates)],
       degradedReason: degradedDueToDailyLimit ? 'daily_limit' : undefined,
       crisis,
+      ...(hypoStatsOut ? { hypoStats: hypoStatsOut } : {}),
       // К23-1: нашлась запись по отсылке — ход для сервера широкий (иначе правило
       // «только эта заметка» спорит с выдачей); не нашлась — остаётся строгим.
       ...(consentContinuation || provenanceContinuation

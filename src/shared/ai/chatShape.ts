@@ -10,6 +10,13 @@ import type { AnswerAudit } from './answerAudit.js';
 
 const PERSONA_IDS = ['group_psychology', 'cbt', 'coach', 'editor', 'parts', 'ta', 'custom'] as const;
 
+/**
+ * Разбор 18.11: шаги подбора опор гипотезы — сколько кандидатов, сколько выбрал
+ * служебный вызов, у скольких нашёлся отрывок, сколько осталось после фильтра
+ * «опоры о разном», сколько показано. Только числа.
+ */
+export interface HypoStats { cands: number; picked: number; quoted: number; diverse: number; shown: number }
+
 export interface ChatShapeLog {
   persona: string;
   scope: 'note' | 'wide' | null;
@@ -21,6 +28,7 @@ export interface ChatShapeLog {
   portraitChars: number;
   memoryChars: number;
   systemChars: number;
+  hypo?: HypoStats;
 }
 
 export interface ChatShapeInput {
@@ -33,6 +41,7 @@ export interface ChatShapeInput {
   userPortrait?: string | null | undefined;
   memoryContext?: string | null | undefined;
   system: string;
+  hypoStats?: HypoStats | null | undefined;
 }
 
 /**
@@ -53,6 +62,7 @@ export function chatShape(input: ChatShapeInput): ChatShapeLog {
     portraitChars: input.userPortrait?.length ?? 0,
     memoryChars: input.memoryContext?.length ?? 0,
     systemChars: input.system.length,
+    ...(input.hypoStats ? { hypo: { cands: input.hypoStats.cands, picked: input.hypoStats.picked, quoted: input.hypoStats.quoted, diverse: input.hypoStats.diverse, shown: input.hypoStats.shown } } : {}),
   };
 }
 

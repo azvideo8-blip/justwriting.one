@@ -19,6 +19,10 @@ describe('К26-1: прямая просьба о гипотезах', () => {
     expect(hypothesisAskOf(text, 'group_psychology')).toBe('direct');
   });
 
+  it('«Транзактный аналитик» — тоже повод (разбор 18.11: гипотез не было)', () => {
+    expect(hypothesisAskOf('предложи гипотезы пожалуйста, что мне нужно сделать?', 'ta')).toBe('direct');
+  });
+
   it('Редактор и серая зона — не повод', () => {
     expect(hypothesisAskOf('предложи гипотезы', 'editor')).toBeNull();
     expect(hypothesisAskOf('какие гипотезы, почему я не хочу больше просыпаться', 'cbt')).toBeNull();

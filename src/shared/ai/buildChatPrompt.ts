@@ -465,6 +465,16 @@ export const chatInputSchema = z.object({
   responseLength: z.enum(['short', 'standard', 'detailed']).nullish(),
   reasoning: z.boolean().nullish(),
   crisis: z.boolean().nullish(),
+  // Разбор 18.11: счётчики подбора опор — только в журнал ([chat-shape]).
+  // Неверные счётчики отбрасываются (.catch), а не валят ход: диагностика не
+  // должна ломать разговор.
+  hypoStats: z.object({
+    cands: z.number().int().min(0).max(999),
+    picked: z.number().int().min(0).max(999),
+    quoted: z.number().int().min(0).max(999),
+    diverse: z.number().int().min(0).max(999),
+    shown: z.number().int().min(0).max(999),
+  }).strict().nullish().catch(undefined),
   callType: z.enum(['auto_name', 'follow_up', 'query_expand', 'system_task']).nullish(),
   noteScope: z.object({
     mode: z.enum(['note', 'wide']),

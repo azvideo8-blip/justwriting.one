@@ -616,6 +616,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         degradedReason,
         crisis,
         effectiveScope,
+        hypoStats,
       } = await context.buildContext({
         text: question,
         scope,
@@ -724,7 +725,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       let fullText: string;
 
       if (Date.now() < _streamUnavailableUntil) {
-        fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: turnMessages, documentContent: searchContext, userPortrait: safePortrait, memoryContext, noteScope, authorGender, responseLength: effectiveResponseLength, reasoning: effectiveReasoning, crisis, signal: controller.signal });
+        fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: turnMessages, documentContent: searchContext, userPortrait: safePortrait, memoryContext, noteScope, authorGender, responseLength: effectiveResponseLength, reasoning: effectiveReasoning, crisis, hypoStats, signal: controller.signal });
       } else {
         try {
           fullText = await streamChat({
@@ -740,6 +741,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             responseLength: effectiveResponseLength,
             reasoning: effectiveReasoning,
             crisis,
+            hypoStats,
             signal: controller.signal,
             onChunk: (partial, reasoning) => {
               const cleanPartial = guardDates(
@@ -784,7 +786,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
               fullText = lastPartial;
             } else {
               // DY10-6: кризисный флаг — и в запасном пути, как в стриме и прямом callable.
-              fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: turnMessages, documentContent: searchContext, userPortrait: safePortrait, memoryContext, noteScope, authorGender, responseLength: effectiveResponseLength, reasoning: effectiveReasoning, crisis, signal: controller.signal });
+              fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: turnMessages, documentContent: searchContext, userPortrait: safePortrait, memoryContext, noteScope, authorGender, responseLength: effectiveResponseLength, reasoning: effectiveReasoning, crisis, hypoStats, signal: controller.signal });
             }
             // RSN-4: Parse reasoning and answer unconditionally from callable fallback
             const cleanReasoning = extractReasoning(fullText);

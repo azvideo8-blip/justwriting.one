@@ -1,3 +1,4 @@
+import type { HypoStats } from '../../../shared/ai/chatShape';
 import { getCurrentUser, getIdToken } from '../../../core/auth';
 import type { NoteScope } from '../../../shared/ai/buildChatPrompt';
 import { reportError } from '../../../shared/errors/reportError';
@@ -148,6 +149,8 @@ export const AIService = {
     callType?: 'auto_name' | 'follow_up' | 'query_expand' | 'system_task' | undefined;
     /** DLG-Q3: кризисный ход — провайдеру сигнал ставит сервер, не текст заметки. */
     crisis?: boolean | undefined;
+    /** Разбор 18.11: счётчики подбора опор — только в журнал сервера. */
+    hypoStats?: HypoStats | undefined;
   }, opts?: CallAiOptions): Promise<AIResult> {
 
     try {
@@ -163,7 +166,10 @@ export const AIService = {
       }
       // S-31: отсутствие согласия — состояние, а не сбой: в журнале активности
       // оно выглядело бы как техническая ошибка.
-      if (code !== 'AI_CONSENT_REQUIRED' && code !== 'INDEXING_CONSENT_REQUIRED') {
+      // Разбор 18.11: лимит служебного вызова (подсказки, название) — тоже
+      // состояние: вызывающий откатывается на запасной вариант, чат работает.
+      const backgroundLimit = params.callType !== undefined && (code === 'DAILY_LIMIT' || code === 'RATE_LIMIT');
+      if (code !== 'AI_CONSENT_REQUIRED' && code !== 'INDEXING_CONSENT_REQUIRED' && !backgroundLimit) {
         reportError(e, { action: 'chat', personaId: params.personaId, aiError: code }, 'warning');
       }
       return { ok: false, error: code };
