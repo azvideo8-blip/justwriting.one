@@ -238,6 +238,7 @@ export const writingTranslations: Translations = {
   ai_persona_desc_group_psychology: { ru: 'Панель консультантов разных школ — Роджерс, Бек, Франкл, Ялом — обсуждает твой текст с разных точек зрения и предлагает многогранный взгляд.', en: 'A panel of psychologists from different schools — Rogers, Beck, Frankl, Yalom — discusses your text from multiple perspectives.' },
   ai_persona_desc_cbt: { ru: 'КПТ-консультант помогает найти автоматические мысли и когнитивные искажения. Мысли — не факты, а гипотезы, которые можно проверить.', en: 'A CBT psychologist helps identify automatic thoughts and cognitive distortions. Thoughts are hypotheses, not facts.' },
   ai_persona_desc_editor: { ru: 'Опытный редактор улучшает ясность, структуру и поток текста, сохраняя твой авторский голос.', en: 'An experienced editor improves clarity, structure, and flow while preserving your voice.' },
+  ai_persona_desc_ta: { ru: 'Транзактный аналитик помогает услышать, кто в тебе говорит: Родитель с его «должен», Ребёнок с его чувствами и желаниями, — и дать Взрослому решить, как учесть обоих.', en: 'A transactional analyst helps you hear who is speaking inside: the Parent with its “must”, the Child with its feelings and wishes — and lets the Adult decide how to take both into account.' },
   ai_persona_desc_coach: { ru: 'Коуч помогает найти скрытую цель, переосмыслить ограничивающие убеждения и сформулировать конкретный следующий шаг.', en: 'A coach helps uncover hidden goals, reframe limiting beliefs, and define a concrete next step.' },
 
   sync_version_saved_as_copy: {

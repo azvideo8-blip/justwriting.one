@@ -40,7 +40,9 @@ const ctx = {
   recordUsage: vi.fn(async () => {}),
 } as unknown as AiContext;
 
-const DATA = { messages: [{ role: 'user' as const, content: 'Я переехала в Казань и записалась на скалодром.' }] };
+// Реплика человека содержит всё, что выкачка сохраняет: с К25-5 единица без
+// опоры в словах человека отбрасывается, а здесь проверяется только сборка обрезанного массива.
+const DATA = { messages: [{ role: 'user' as const, content: 'Я переехала в Казань и записалась на скалодром. Хочу ходить на скалодром дважды в неделю. Прошу отвечать короче.' }] };
 
 function result(text: string) {
   return { text, tokensIn: 900, tokensOut: 2000, model: 'deepseek/deepseek-v4-flash' };

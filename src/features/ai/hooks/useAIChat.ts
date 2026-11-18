@@ -44,6 +44,7 @@ import { detectAuthorGender } from '../../../shared/ai/authorGender';
 import type { AttachedNoteBlock } from '../utils/attachedNoteFormat';
 import { extractCitationIds } from '../services/chatContext/citations';
 import { sanitizeFirstSeenDates } from '../utils/dateGuard';
+import { fixCitedDates, hypothesisCitedDates } from '../utils/citedDateGuard';
 import { normalizeQuoteText, quoteMaterialsText, unquoteAbsent, dropFabricatedSentences } from '../../../shared/ai/quoteGuard';
 import { ARCHIVE_TURN_MARK } from '../../../shared/ai/archiveAnswerRule';
 import { notesClaimWithoutRef } from '../../../shared/ai/notesRefRule';
@@ -691,6 +692,12 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       }
       // К24-3: в ходе с выдачей прошлый ответ-отказ не уходит модели образцом.
       const turnMessages = withoutStaleEmptyClaims(apiMessages, searchContext);
+      // HY-2: на ходе с гипотезой дата у ссылки = дата записи.
+      const citedDates = hypothesisCitedDates(searchContext);
+      const guardDates = (s: string) => {
+        const d = sanitizeFirstSeenDates(s, allowedFirstSeenDates || []);
+        return citedDates ? fixCitedDates(d, citedDates) : d;
+      };
       // П-4: по графемам — slice мог разрезать эмодзи пополам.
       const safePortrait = userPortrait && userPortrait.length > 4_000 ? truncateText(userPortrait, 4_000, { maxCodeUnits: 4_000 }) : userPortrait;
 
@@ -735,14 +742,12 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             crisis,
             signal: controller.signal,
             onChunk: (partial, reasoning) => {
-              const cleanPartial = sanitizeFirstSeenDates(
-                sanitizeCitations(partial, citeIds, injectedTitles, materialsText, { personaId: effectivePersonaId, quoteMaterialsText: quoteMaterials, dropFabricatedSentences: archiveTurn }),
-                allowedFirstSeenDates || []
+              const cleanPartial = guardDates(
+                sanitizeCitations(partial, citeIds, injectedTitles, materialsText, { personaId: effectivePersonaId, quoteMaterialsText: quoteMaterials, dropFabricatedSentences: archiveTurn })
               );
               const cleanReasoning = reasoning
-                ? sanitizeFirstSeenDates(
-                    sanitizeCitations(reasoning, citeIds, injectedTitles, materialsText, { reasoning: true }),
-                    allowedFirstSeenDates || []
+                ? guardDates(
+                    sanitizeCitations(reasoning, citeIds, injectedTitles, materialsText, { reasoning: true })
                   )
                 : null;
               setStreamingMessage(cleanPartial);
@@ -787,17 +792,15 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
             if (cleanReasoning) {
               setStreamingReasoning(
-                sanitizeFirstSeenDates(
-                  sanitizeCitations(cleanReasoning, citeIds, injectedTitles, materialsText, { reasoning: true }),
-                  allowedFirstSeenDates || []
+                guardDates(
+                  sanitizeCitations(cleanReasoning, citeIds, injectedTitles, materialsText, { reasoning: true })
                 )
               );
             }
             if (cleanAnswer) {
               setStreamingMessage(
-                sanitizeFirstSeenDates(
-                  sanitizeCitations(cleanAnswer, citeIds, injectedTitles, materialsText, { personaId: effectivePersonaId, quoteMaterialsText: quoteMaterials, dropFabricatedSentences: archiveTurn }),
-                  allowedFirstSeenDates || []
+                guardDates(
+                  sanitizeCitations(cleanAnswer, citeIds, injectedTitles, materialsText, { personaId: effectivePersonaId, quoteMaterialsText: quoteMaterials, dropFabricatedSentences: archiveTurn })
                 )
               );
             }
@@ -833,9 +836,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // ED-1b: ответ и ход мыслей чистятся порознь, как в стриме. Чистка всего
       // текста до разбора возвращала в сохранённый ход мыслей «по смыслу», которых
       // во время стрима не было.
-      const clean = (s: string, reasoningPart: boolean) => sanitizeFirstSeenDates(
-        sanitizeCitations(s, citeIds, injectedTitles, materialsText, reasoningPart ? { reasoning: true } : { personaId: effectivePersonaId, quoteMaterialsText: quoteMaterials, dropFabricatedSentences: archiveTurn }),
-        allowedFirstSeenDates || []
+      const clean = (s: string, reasoningPart: boolean) => guardDates(
+        sanitizeCitations(s, citeIds, injectedTitles, materialsText, reasoningPart ? { reasoning: true } : { personaId: effectivePersonaId, quoteMaterialsText: quoteMaterials, dropFabricatedSentences: archiveTurn })
       );
       let savedText = clean(extractAnswer(fullText), false);
       const rawReasoning = extractReasoning(fullText);

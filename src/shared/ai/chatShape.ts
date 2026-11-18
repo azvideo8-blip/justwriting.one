@@ -8,7 +8,7 @@
 import type { NoteScope } from './buildChatPrompt.js';
 import type { AnswerAudit } from './answerAudit.js';
 
-const PERSONA_IDS = ['group_psychology', 'cbt', 'coach', 'editor', 'parts', 'custom'] as const;
+const PERSONA_IDS = ['group_psychology', 'cbt', 'coach', 'editor', 'parts', 'ta', 'custom'] as const;
 
 export interface ChatShapeLog {
   persona: string;

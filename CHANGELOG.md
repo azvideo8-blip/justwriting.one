@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.11.18 — 2026-11-18
+
+- **[RU]** Собеседник держит одну форму обращения — «ты» или «вы» — на весь разговор, как пишешь ты сам.
+- **[EN]** The companion keeps one form of address for the whole conversation, the one you use yourself.
+- **[RU]** После нескольких ответов-вопросов подряд собеседник подводит итог твоими словами и предлагает продолжить или остановиться.
+- **[EN]** After several replies in a row that end with a question, the companion sums up in your words and offers to continue or stop.
+- **[RU]** В разговоре по приложенной заметке собеседник реже выдаёт сказанное в чате за текст записи и не говорит «ничего не нашлось», когда поиска не было.
+- **[EN]** In a conversation about an attached note, the companion less often presents what you said in chat as the note’s text and no longer says “nothing was found” when no search was made.
+- **[RU]** В «Память ИИ» попадает только то, что ты сказал сам, а не толкования собеседника.
+- **[EN]** Only what you said yourself goes into “AI memory”, not the companion’s interpretations.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.11.17 — 2026-11-18
 
 - **[RU]** Если попросить ИИ «посмотри в той заметке», он берёт запись, на которую сам сослался в прошлом ответе, а не ищет заново.

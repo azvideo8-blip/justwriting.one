@@ -14,6 +14,7 @@ const PRESET_VISUALS: Record<string, PersonaVisual> = {
   group_psychology: { color: '#A583E8', mono: 'Гп', role: { ru: 'многогранная перспектива', en: 'a many-voiced view' } },
   cbt:              { color: '#7BA9F0', mono: 'К',  role: { ru: 'когнитивно-поведенческий', en: 'cognitive-behavioural' } },
   editor:           { color: '#F0A879', mono: 'Р',  role: { ru: 'посты из ваших заметок', en: 'posts from your notes' } },
+  ta:               { color: '#E8B86D', mono: 'ТА', role: { ru: 'Родитель, Взрослый, Ребёнок', en: 'Parent, Adult, Child' } },
   coach:            { color: '#7DD3A8', mono: 'Кч', role: { ru: 'действие и цели', en: 'action and goals' } },
 };
 

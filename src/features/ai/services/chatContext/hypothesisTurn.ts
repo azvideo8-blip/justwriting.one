@@ -5,8 +5,8 @@ import { reportError } from '../../../../shared/errors/reportError';
 import { formatDateYYYYMMDD } from './corpusStats';
 import { loadAnalysedIds } from '../../utils/retrieval/docSnapshot';
 import { isExcludedFromAI } from '../../utils/isExcludedFromAI';
-import { HYPOTHESIS_PERSONAS, HYPOTHESIS_TURN_MARK } from '../../../../shared/ai/hypothesisRule';
-import { ANCHOR_PICK_MAX_CANDIDATES, ANCHOR_PICK_TEXT_MAX, type AnchorCandidate, type PickedAnchor } from '../../../../shared/ai/anchorPickPrompt';
+import { HYPOTHESIS_DIRECT_MARK, HYPOTHESIS_PERSONAS, HYPOTHESIS_TURN_MARK } from '../../../../shared/ai/hypothesisRule';
+import { ANCHOR_PICK_FULL_TEXT, ANCHOR_PICK_GIST_MAX, ANCHOR_PICK_MAX_CANDIDATES, ANCHOR_PICK_TEXT_MAX, type AnchorCandidate, type PickedAnchor, type PickedId } from '../../../../shared/ai/anchorPickPrompt';
 
 /**
  * Ход с осторожной гипотезой (стенд ai-hypotheses-fable-2026-11, флаг `chat_hypotheses`).
@@ -14,12 +14,14 @@ import { ANCHOR_PICK_MAX_CANDIDATES, ANCHOR_PICK_TEXT_MAX, type AnchorCandidate,
  * Гипотеза связывает записи разных дней. Вектор «то же самое в другой области
  * жизни» от записи про погоду не отличает (близость 0,45–0,52 у тех и у других),
  * а ответ по трём-четырём полным записям путал, что из какой. Поэтому опоры
- * выбирает отдельный служебный вызов: он читает дюжину ближайших записей и
- * возвращает дословные отрывки; код сверяет каждый с текстом записи. В ход идут
- * только выбранные записи с отмеченным отрывком — новых выводов о человеке блок не делает.
+ * выбирает отдельный служебный вызов: он читает суть до 36 ближайших записей и
+ * полный текст трёх самых близких, возвращает только номера. Отрывок выбирает
+ * код (quoteOf) — кусок записи, ближайший к реплике, дословный по построению.
+ * В ход идут только выбранные записи с отмеченным отрывком — новых выводов о
+ * человеке блок не делает.
  */
 
-export type HypothesisAsk = 'why' | 'reflect';
+export type HypothesisAsk = 'why' | 'reflect' | 'direct';
 
 const B = '(?:^|[^а-яё])';
 const E = '(?![а-яё])';
@@ -35,6 +37,15 @@ const REQUEST_RE = new RegExp(`${B}(?:посоветуй|подскажи|пом
 // рассказ о застрявшем, а не на отчёт о дне.
 const STUCK_RE = new RegExp(`${B}(?:опять|снова|никак|так и не|не могу|не получается|не выходит|не понимаю|вс[её] время|каждый раз|в который раз|откладыва[а-яё]*|тяну|застрял[а-яё]*|злюсь|стыдно|страшно|устал[а-яё]*|надоело|бесит|сорвал[а-яё]*)${E}`, 'i');
 const REFLECT_MIN_CHARS = 60;
+// К26-1 (случай #26): человек прямо просит гипотезы или версии — это повод сам по
+// себе, и при приложенной заметке тоже. «Разбери и предложи гипотезы» — просьба,
+// но именно о том, что делает этот ход.
+const DIRECT_RE = new RegExp(`${B}(?:гипотез[а-яё]*|верси[июй]|версиями|предположени[яй]|предположениями)${E}`, 'i');
+
+/** К26-1: прямая просьба о гипотезах — повод для хода с несколькими версиями. */
+export function directHypothesisAsk(text: string, personaId: string): boolean {
+  return HYPOTHESIS_PERSONAS.includes(personaId) && DIRECT_RE.test(text) && !GREY_ZONE_RE.test(text);
+}
 // «Серая зона» кризиса: слова о нежелании жить или просыпаться, об исчезновении.
 // Детектор риска (detectRisk) ловит явный риск и на таких фразах молчит, а
 // протокол БЕЗОПАСНОСТЬ велит на них не уходить в дела и архив. Правило гипотезы
@@ -49,6 +60,7 @@ const GREY_ZONE_RE = new RegExp(`${B}(?:не хочу (?:больше |даль�
  */
 export function hypothesisAskOf(text: string, personaId: string): HypothesisAsk | null {
   if (!HYPOTHESIS_PERSONAS.includes(personaId)) return null;
+  if (directHypothesisAsk(text, personaId)) return 'direct';
   if (REQUEST_RE.test(text) || GREY_ZONE_RE.test(text)) return null;
   const self = SELF_RE.test(text);
   if (self && WHY_RE.test(text)) return 'why';
@@ -87,17 +99,31 @@ export interface HypothesisBlock {
   dates: string[];
 }
 
-/** Служебный вызов «найди опоры»: сверенные отрывки либо пустой список. */
-export type AnchorPicker = (message: string, candidates: AnchorCandidate[]) => Promise<PickedAnchor[]>;
+/** Служебный вызов «найди опоры»: выбранные записи (номера → id) либо пустой список. */
+export type AnchorPicker = (message: string, candidates: AnchorCandidate[]) => Promise<PickedId[]>;
 
-/** Записи-кандидаты для шага «найди опоры»: ближайшие к реплике, текст с начала записи. */
-export function hypothesisCandidates(turnEmb: number[], notes: HypothesisNote[]): AnchorCandidate[] {
+/** Кандидаты: ближайшие к реплике; суть из разбора, у первых трёх — полный текст. */
+export function hypothesisCandidates(turnEmb: number[], notes: HypothesisNote[], gists: ReadonlyMap<string, string>): AnchorCandidate[] {
   return notes.filter(n => n.chunks.length > 0)
     .map(n => ({ n, score: Math.max(...n.vectors.map(v => cosineSimilarity(turnEmb, v))) }))
     .filter(c => c.score >= HYPOTHESIS_MATERIAL.candidateFloor)
     .sort((a, b) => b.score - a.score)
     .slice(0, ANCHOR_PICK_MAX_CANDIDATES)
-    .map(c => ({ documentId: c.n.id, date: formatDateYYYYMMDD(c.n.at), title: c.n.title, text: c.n.chunks.join('\n').slice(0, ANCHOR_PICK_TEXT_MAX) }));
+    .map((c, i) => ({
+      documentId: c.n.id, date: formatDateYYYYMMDD(c.n.at), title: c.n.title,
+      gist: (gists.get(c.n.id) || c.n.chunks[0]?.slice(0, 160) || '').slice(0, ANCHOR_PICK_GIST_MAX),
+      ...(i < ANCHOR_PICK_FULL_TEXT ? { text: c.n.chunks.join('\n').slice(0, ANCHOR_PICK_TEXT_MAX) } : {}),
+    }));
+}
+
+/** Отрывок выбирает код: кусок записи, ближайший к реплике, — до двух первых предложений. Дословен по построению. */
+export function quoteOf(n: HypothesisNote, turnEmb: number[]): string {
+  let best = 0;
+  let bestScore = -Infinity;
+  n.vectors.forEach((v, i) => { const s = cosineSimilarity(turnEmb, v); if (s > bestScore) { bestScore = s; best = i; } });
+  const chunk = n.chunks[best] ?? n.chunks[0] ?? '';
+  const sentences = chunk.split(/(?<=[.!?…])\s+/).filter(Boolean);
+  return sentences.slice(0, 2).join(' ').slice(0, 400);
 }
 
 /**
@@ -117,17 +143,21 @@ export function diverseAnchors(picked: PickedAnchor[], notes: HypothesisNote[]):
   return kept.map(k => k.a);
 }
 
-/** Блок хода из сверенных опор, от ранней к поздней. null — опор меньше двух. */
-export function buildAnchorBlock(candidates: AnchorCandidate[], picked: PickedAnchor[]): HypothesisBlock | null {
+/** Блок хода из выбранных опор, от ранней к поздней. null — опор меньше двух. */
+export function buildAnchorBlock(candidates: AnchorCandidate[], picked: PickedAnchor[], notes: readonly HypothesisNote[], direct = false): HypothesisBlock | null {
   const byId = new Map(candidates.map(c => [c.documentId, c]));
-  const shown = picked.flatMap(a => { const c = byId.get(a.documentId); return c ? [{ c, quote: a.quote }] : []; })
-    .sort((a, b) => a.c.date.localeCompare(b.c.date));
+  const noteById = new Map(notes.map(n => [n.id, n]));
+  const shown = picked.flatMap(a => {
+    const c = byId.get(a.documentId);
+    const n = noteById.get(a.documentId);
+    return c && n ? [{ c, text: n.chunks.join('\n').slice(0, ANCHOR_PICK_TEXT_MAX), quote: a.quote }] : [];
+  }).sort((a, b) => a.c.date.localeCompare(b.c.date));
   if (new Set(shown.map(x => x.c.date)).size < 2) return null;
   // Запись идёт целиком, с отмеченным отрывком: по одному отрывку модель путала,
   // кто говорит и о чём речь (стенд: 13 искажений на 49 ответов).
-  const lines = shown.map((x, i) => `[#${x.c.documentId} · ${x.c.date}]\nЗаметка ${i + 1}: "${x.c.title || 'Без названия'}"\n${x.c.text}\nГлавное здесь — дословно: ${x.quote.replace(/\s+/g, ' ')}`);
+  const lines = shown.map((x, i) => `[#${x.c.documentId} · ${x.c.date}]\nЗаметка ${i + 1}: "${x.c.title || 'Без названия'}"\n${x.text}\nГлавное здесь — дословно: ${x.quote.replace(/\s+/g, ' ')}`);
   return {
-    block: `${HYPOTHESIS_TURN_MARK}\n\n[Опоры — ${shown.length} записей разных дней, от ранней к поздней; в каждой отмечен главный отрывок.]\n${lines.join('\n\n')}`,
+    block: `${HYPOTHESIS_TURN_MARK}${direct ? `\n${HYPOTHESIS_DIRECT_MARK}` : ''}\n\n[Опоры — ${shown.length} записей разных дней, от ранней к поздней; в каждой отмечен главный отрывок.]\n${lines.join('\n\n')}`,
     ids: shown.map(x => x.c.documentId),
     dates: [...new Set(shown.map(x => x.c.date))],
   };
@@ -145,32 +175,45 @@ export async function buildHypothesisBlock(deps: {
   maxTime: number | undefined;
   injectedDocumentIds: string[];
   allEmbeddings?: Awaited<ReturnType<typeof AIEmbeddingService.getAll>> | undefined;
+  /** К26-1: прямая просьба — блок с меткой нескольких версий. */
+  direct?: boolean | undefined;
+  /** К26-1: приложенные заметки хода — не опоры (опоры — другие дни). */
+  excludeIds?: readonly string[] | undefined;
   /** Флаг `chat_hypotheses`. Спрашивается, только когда ход годится; сбой чтения — false. */
   enabled: () => Promise<boolean>;
   pick: AnchorPicker;
 }): Promise<HypothesisBlock | null> {
-  const { text, turnEmb, db, minTime, maxTime, injectedDocumentIds, allEmbeddings, enabled, pick } = deps;
+  const { text, turnEmb, db, minTime, maxTime, injectedDocumentIds, allEmbeddings, enabled, pick, direct, excludeIds } = deps;
+  const excluded = new Set(excludeIds ?? []);
   if (!turnEmb) return null;
   try {
     if (!(await enabled().catch(() => false))) return null;
-    const [allEmb, docs, analysed] = await Promise.all([
+    const [allEmb, docs, analysed, summaries] = await Promise.all([
       allEmbeddings ?? AIEmbeddingService.getAll(),
       db.getAll('documents'),
       loadAnalysedIds(), // TR-9: в разговор — только разобранные
+      db.getAll('aiSummaries'),
     ]);
+    const gists = new Map(summaries.map(s => [s.documentId, s.summary ?? '']));
     const embById = new Map(allEmb.map(e => [e.documentId, e]));
     const notes: HypothesisNote[] = [];
     for (const d of docs) {
-      if (isExcludedFromAI(d) || !analysed.has(d.id)) continue;
+      if (isExcludedFromAI(d) || !analysed.has(d.id) || excluded.has(d.id)) continue;
       const ts = d.lastSessionAt || d.firstSessionAt;
       if (!ts || (minTime !== undefined && ts < minTime) || (maxTime !== undefined && ts > maxTime)) continue;
       const e = embById.get(d.id);
       if (!e?.chunkTexts?.length) continue;
       notes.push({ id: d.id, at: ts, title: d.title, chunks: e.chunkTexts, vectors: e.vectors });
     }
-    const candidates = hypothesisCandidates(turnEmb, notes);
+    const candidates = hypothesisCandidates(turnEmb, notes, gists);
     if (candidates.length < HYPOTHESIS_MATERIAL.minCandidates) return null;
-    const result = buildAnchorBlock(candidates, diverseAnchors(await pick(text, candidates), notes));
+    const noteById = new Map(notes.map(n => [n.id, n]));
+    const picked: PickedAnchor[] = (await pick(text, candidates)).flatMap(p => {
+      const n = noteById.get(p.documentId);
+      const quote = n ? quoteOf(n, turnEmb) : '';
+      return n && quote ? [{ documentId: p.documentId, quote }] : [];
+    });
+    const result = buildAnchorBlock(candidates, diverseAnchors(picked, notes), notes, direct === true);
     if (result) injectedDocumentIds.push(...result.ids);
     return result;
   } catch (e) {

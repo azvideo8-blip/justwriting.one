@@ -293,13 +293,17 @@ describe('W-4: места печати сбоя провайдера', () => {
     // булевых и два числа. К21-4 добавляет пятое число — пересказ без ссылок,
     // AG-1/AG-2 (0.11.12) — ещё два числа: опора предложений и даты не по шапке.
     expect(Object.keys(parsed).sort()).toEqual([
-      'date_off_header', 'either_or_end', 'empty_claim_with_results', 'finish', 'foreign_ids', 'ms', 'note_text_denied', 'notes_claim_no_ref', 'out_tokens', 'question_run', 'quote_unquoted', 'weak_ref',
+      'attached_claim_weak', 'date_off_header', 'either_or_end', 'empty_claim_with_results', 'finish', 'foreign_ids', 'ms', 'note_text_denied', 'notes_claim_no_ref', 'out_tokens', 'question_run', 'quote_unquoted', 'related_no_ref', 'weak_ref',
     ]);
     expect(typeof parsed.weak_ref).toBe('number');
     expect(typeof parsed.date_off_header).toBe('number');
     // К23-2/К23-5 (0.11.13): длина серии ответов-вопросов и вопрос-выбор — числа.
     expect(typeof parsed.question_run).toBe('number');
     expect(typeof parsed.either_or_end).toBe('number');
+    // К25-3 (0.11.18): предложения «о записи» с малой опорой на её текст — число.
+    expect(typeof parsed.attached_claim_weak).toBe('number');
+    // К26-4 (0.11.18): фон других дней назван без ссылки — число.
+    expect(typeof parsed.related_no_ref).toBe('number');
     expect(parsed.finish).toBe('stop');
     expect(parsed.note_text_denied).toBe(false);
     expect(parsed.empty_claim_with_results).toBe(false);

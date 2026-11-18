@@ -9,6 +9,7 @@ export const PRESET_PERSONAS = [
   { id: 'group_psychology', name: 'Группа консультантов', nameInstrumental: 'Группой консультантов', emoji: '\u{1FAC2}', isPreset: true },
   { id: 'cbt', name: 'КПТ-консультант', nameInstrumental: 'КПТ-консультантом', emoji: '\u{1F9E0}', isPreset: true },
   { id: 'coach', name: 'Коуч', nameInstrumental: 'Коучем', emoji: '\u{1F680}', isPreset: true },
+  { id: 'ta', name: 'Транзактный аналитик', nameInstrumental: 'Транзактным аналитиком', emoji: '\u{1F3AD}', isPreset: true },
   { id: 'editor', name: 'Редактор', nameInstrumental: 'Редактором', emoji: '\u{270D}\u{FE0F}', isPreset: true },
 ] as const;
 

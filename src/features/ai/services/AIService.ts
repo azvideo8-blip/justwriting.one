@@ -2,7 +2,7 @@ import { getCurrentUser, getIdToken } from '../../../core/auth';
 import type { NoteScope } from '../../../shared/ai/buildChatPrompt';
 import { reportError } from '../../../shared/errors/reportError';
 import { withTimeout } from '../../../shared/utils/withTimeout';
-import type { AnchorCandidate, PickedAnchor } from '../../../shared/ai/anchorPickPrompt';
+import type { AnchorCandidate, PickedId } from '../../../shared/ai/anchorPickPrompt';
 import { callAi, type CallAiOptions } from '../../../core/ai/callAi';
 import type { AIErrorCode } from '../types/aiErrors';
 
@@ -245,10 +245,10 @@ export const AIService = {
    * Шаг «найди опоры» хода с гипотезой (флаг chat_hypotheses). Служебный вызов:
    * квоту чата не тратит. Любой сбой — пустой список: ход идёт прежним путём.
    */
-  async pickAnchors(message: string, candidates: AnchorCandidate[]): Promise<PickedAnchor[]> {
+  async pickAnchors(message: string, candidates: AnchorCandidate[]): Promise<PickedId[]> {
     try {
-      const data = await withTimeout(callAi<{ anchors: PickedAnchor[] }>('pickAnchors', { message: message.slice(0, 2_000), candidates }), 30_000);
-      return Array.isArray(data.anchors) ? data.anchors : [];
+      const data = await withTimeout(callAi<{ anchors: PickedId[] }>('pickAnchors', { message: message.slice(0, 2_000), candidates }), 30_000);
+      return Array.isArray(data.anchors) ? data.anchors.filter(a => typeof a?.documentId === 'string') : [];
     } catch (e: unknown) {
       const error = mapAIError(e);
       if (error !== 'AI_CONSENT_REQUIRED' && error !== 'INDEXING_CONSENT_REQUIRED') reportError(e, { action: 'pickAnchors' }, 'warning');

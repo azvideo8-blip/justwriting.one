@@ -99,7 +99,8 @@ describe('DA-12 note text with injection patterns is fenced and not hard-rejecte
 
   it('extractChatMemoryLogic processes messages containing "забудь всё"', async () => {
     generateMock.mockResolvedValue({
-      text: JSON.stringify([{ kind: 'insight', text: 'Понял, что важно отпускать прошлое.' }]),
+      // К25-5: единица из слов самого человека — иначе её отбросит проверка опоры.
+      text: JSON.stringify([{ kind: 'insight', text: 'Вчера понял: забудь всё, что тревожит.' }]),
       tokensIn: 50,
       tokensOut: 50,
       model: 'deepseek-v4-flash',
@@ -113,7 +114,7 @@ describe('DA-12 note text with injection patterns is fenced and not hard-rejecte
     });
 
     expect(out).toEqual({
-      memories: [{ kind: 'insight', text: 'Понял, что важно отпускать прошлое.' }],
+      memories: [{ kind: 'insight', text: 'Вчера понял: забудь всё, что тревожит.' }],
     });
   });
 

@@ -11,6 +11,7 @@ import {
   ANCHOR_PICK_SYSTEM_PROMPT,
   ANCHOR_PICK_MAX_CANDIDATES,
   ANCHOR_PICK_MAX_TOKENS,
+  ANCHOR_PICK_GIST_MAX,
   ANCHOR_PICK_TEXT_MAX,
   buildAnchorPickUserMessage,
   parseAnchorPick,
@@ -22,8 +23,9 @@ const inputSchema = z.object({
     documentId: z.string().regex(/^[A-Za-z0-9_.-]{1,128}$/),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     title: z.string().max(300),
-    text: z.string().min(1).max(ANCHOR_PICK_TEXT_MAX),
-  })).min(2).max(ANCHOR_PICK_MAX_CANDIDATES),
+    gist: z.string().max(ANCHOR_PICK_GIST_MAX).default(''),
+    text: z.string().min(1).max(ANCHOR_PICK_TEXT_MAX).optional(),
+  }).refine(c => c.gist.length > 0 || c.text !== undefined, 'gist or text')).min(2).max(ANCHOR_PICK_MAX_CANDIDATES),
 });
 
 export async function pickAnchorsLogic(ctx: AiContext, uid: string, data: unknown): Promise<unknown> {
@@ -32,8 +34,16 @@ export async function pickAnchorsLogic(ctx: AiContext, uid: string, data: unknow
   const { message } = parsed.data;
   if (hasInjectionAttempt(message)) throw new AiError('invalid-argument', 'Disallowed patterns in query.');
 
-  // Сверка отрывков идёт с тем же текстом, который видела модель.
-  const candidates = parsed.data.candidates.map(c => ({ ...c, title: sanitizeAiInput(c.title), text: sanitizeAiInput(c.text) }));
+  // Санитайз входа: модель видит тот же текст, что и разбор ответа. Поля перечислены
+  // явно, без ...c: zod отдаёт text?: string | undefined, а AnchorCandidate.text при
+  // exactOptionalPropertyTypes — string без undefined.
+  const candidates = parsed.data.candidates.map(c => ({
+    documentId: c.documentId,
+    date: c.date,
+    title: sanitizeAiInput(c.title),
+    gist: sanitizeAiInput(c.gist),
+    ...(c.text !== undefined ? { text: sanitizeAiInput(c.text) } : {}),
+  }));
   const userMessage = buildAnchorPickUserMessage(sanitizeAiInput(message), candidates);
 
   const callRes = await chargeCall(ctx, uid, 'bulk', 'pick_anchors');
@@ -61,7 +71,7 @@ export async function pickAnchorsLogic(ctx: AiContext, uid: string, data: unknow
     ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'pick_anchors' }, reservation).catch(e =>
       console.error('[AI pickAnchors] usage record failed:', safeErrorShape(e)),
     );
-    // Не JSON или отрывок не из записи — пустой список: ход идёт без гипотезы.
+    // Не JSON или меньше двух записей разных дней — пустой список: ход идёт без гипотезы.
     return { anchors: parseAnchorPick(result.text, candidates) };
   } catch (e) {
     await callRes.settle('failed');

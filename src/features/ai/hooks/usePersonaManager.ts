@@ -1,8 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { AIPersonaService, PRESET_PERSONAS } from '../services/AIPersonaService';
 import { personaVisual } from '../constants/personaVisuals';
 import type { AIPersona } from '../../../core/storage/localDb';
 import type { PersonaDetailTarget } from '../components/PersonaDetailModal';
+import { getCurrentUser } from '../../../core/auth';
+import { chatPersonaTaEnabled } from '../../../core/sync/syncFlags';
 
 export function usePersonaManager() {
   const [selectedPersonaId, setSelectedPersonaId] = useState<string>('group_psychology');
@@ -10,13 +12,21 @@ export function usePersonaManager() {
   const [createPersonaOpen, setCreatePersonaOpen] = useState(false);
   const [detailPersona, setDetailPersona] = useState<PersonaDetailTarget | null>(null);
 
+  // Транзактный аналитик — за флагом chat_persona_ta: пока флаг не ответил «да», его нет в списке.
+  const [taEnabled, setTaEnabled] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void chatPersonaTaEnabled(getCurrentUser()?.uid).then(v => { if (alive) setTaEnabled(v); });
+    return () => { alive = false; };
+  }, []);
+
   const loadCustomPersonas = useCallback(async () => {
     const list = await AIPersonaService.listCustom();
     setCustomPersonas(list);
   }, []);
 
   const allPersonas: { id: string; name: string; emoji: string; isPreset: boolean; systemPrompt?: string; nameInstrumental?: string }[] = [
-    ...PRESET_PERSONAS.map(p => ({ id: p.id, name: p.name, emoji: p.emoji, isPreset: true, nameInstrumental: p.nameInstrumental })),
+    ...PRESET_PERSONAS.filter(p => p.id !== 'ta' || taEnabled).map(p => ({ id: p.id, name: p.name, emoji: p.emoji, isPreset: true, nameInstrumental: p.nameInstrumental })),
     ...customPersonas.map(p => ({ id: p.id, name: p.name, emoji: p.emoji, isPreset: false, systemPrompt: p.systemPrompt })),
   ];
 

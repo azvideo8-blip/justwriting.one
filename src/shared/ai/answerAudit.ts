@@ -18,7 +18,7 @@
  * уже свёрнутый ответ. Здесь она живая и строчная.
  */
 
-import { countAbsentQuotes } from './quoteGuard';
+import { countAbsentQuotes, RELATED_DAYS_HEAD } from './quoteGuard';
 import { ANSWER_REF_RE, RESULTS_FOUND_RE, RESULTS_HEAD_RE, notesClaimWithoutRef } from './notesRefRule';
 
 const fold = (s: string): string => s.toLowerCase().replace(/ё/g, 'е');
@@ -82,6 +82,19 @@ export interface AnswerAudit {
   question_run: number;
   /** К23-5: последний вопрос ответа — выбор «A или B» без выхода; 1, иначе 0. */
   either_or_end: number;
+  /**
+   * К25-3 (случай #25, ход 4): ход с приложенной заметкой, предложения без ссылки,
+   * которые говорят о записи («в записи…», «ты пишешь…»), а значимых слов из
+   * самой записи в них меньше 30 %. Только счёт: на живом ходе у выдуманного
+   * предложения было 27 %, у верных 33–77 % — запас мал для вырезания.
+   */
+  attached_claim_weak: number;
+  /**
+   * К26-4 (случай #26): в материалах есть фон других дней (relatedDays), ответ
+   * указывает на другие записи («в недавних записях», «раньше ты писал»), а
+   * ссылки [#id] нет ни одной — открыть эти записи из ответа нельзя. 1, иначе 0.
+   */
+  related_no_ref: number;
 }
 
 // Ревью 0.11.13: «…? [#id]» — тоже вопрос в конце; ссылки после него не считаются.
@@ -121,6 +134,7 @@ function notesOf(doc: string): Map<string, { text: string; month: number; day: n
   return out;
 }
 
+const ANSWER_REF_ONCE = /\[#[^\]\s]{1,120}(?:\s*·[^\]]*)?\]/;
 const stemsOf = (s: string): string[] => (fold(s).match(/[а-яa-z]{5,}/g) ?? []).map(w => w.slice(0, 5));
 
 function groundingCounts(answer: string, doc: string): { weak_ref: number; date_off_header: number } {
@@ -144,6 +158,33 @@ function groundingCounts(answer: string, doc: string): { weak_ref: number; date_
     }
   }
   return { weak_ref: weak, date_off_header: offDate };
+}
+
+// «О записи»: человек или ответ ссылается на текст приложенной заметки словами, а не [#id].
+const ATTACHED_CLAIM_RE = /(?:в (?:этой |твоей |вашей |самой )?(?:записи|заметке|тексте)|ты (?:пишешь|писал[а]?|отмечаешь|упоминаешь|говоришь)|вы (?:пишете|писали|отмечаете|упоминаете)|у тебя (?:написано|сказано)|в ней (?:сказано|написано))/;
+
+// Указание на другие записи — с прилагательным и в обеих формах обращения.
+const OTHER_NOTES_RE = /(?:в (?:тво[еи]х |ваших |мо[еи]х )?(?:недавних|прошлых|других|последних|предыдущих|прежних|ранних) (?:запис|заметк)|(?:раньше|прежде|до этого|недавно|на днях) (?:ты |вы )?(?:писал|писала|писали|упоминал|упоминала|упоминали|отмечал|отмечала|отмечали)|в (?:другие|прошлые|последние|те) дни)/;
+
+function relatedNoRef(answer: string, doc: string): number {
+  if (!doc.includes(RELATED_DAYS_HEAD) || ANSWER_REF_ONCE.test(answer)) return 0;
+  return OTHER_NOTES_RE.test(fold(answer)) ? 1 : 0;
+}
+
+// Честное «в записи этого нет / не сказано» — не приписывание (диета промпта 18.11:
+// таких фраз стало больше, и без этого счётчик рос на правде).
+const CLAIM_NEGATED_RE = /(?:^|[^а-яё])(?:нет|не (?:сказано|написано|упомина|пишешь|писал|писала|говоришь|говорил|говорила|было|видно))(?![а-яё])/;
+
+function attachedClaimWeak(answer: string, doc: string): number {
+  if (!ATTACHED_NOTE_RE.test(doc)) return 0;
+  const hay = fold(doc);
+  let weak = 0;
+  for (const sentence of answer.split(/(?<=[.!?…])\s+/)) {
+    if (ANSWER_REF_ONCE.test(sentence) || !ATTACHED_CLAIM_RE.test(fold(sentence)) || CLAIM_NEGATED_RE.test(fold(sentence))) continue;
+    const stems = stemsOf(sentence);
+    if (stems.length >= 4 && stems.filter(st => hay.includes(st)).length / stems.length < 0.3) weak++;
+  }
+  return weak;
 }
 
 /**
@@ -179,5 +220,7 @@ export function auditAnswer(
     ...groundingCounts(answer, doc),
     question_run: questionRun(answer, priorAssistant),
     either_or_end: eitherOrEnd(answer),
+    attached_claim_weak: attachedClaimWeak(answer, doc),
+    related_no_ref: relatedNoRef(answer, doc),
   };
 }

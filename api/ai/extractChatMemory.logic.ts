@@ -1,6 +1,7 @@
 // functions/src/ai/extractChatMemory.logic.ts
 import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, isIrrealis } from './pure';
+import { groundedInUser, memoryKindFixed } from '../../src/shared/ai/memoryGrounding.js';
 import { generate } from './provider';
 import { safeErrorShape } from '../../src/shared/ai/errorShape.js';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
@@ -67,6 +68,7 @@ export async function extractChatMemoryLogic(ctx: AiContext, uid: string, data: 
 
   const callRes = await chargeCall(ctx, uid, 'bulk', 'memory');
 
+  const userText = parsed.data.messages.filter(m => m.role === 'user').map(m => m.content).join('\n');
   const conversationText = parsed.data.messages
     .map(m => {
       const content = m.role === 'assistant' ? m.content.slice(0, 600) : m.content;
@@ -132,7 +134,12 @@ export async function extractChatMemoryLogic(ctx: AiContext, uid: string, data: 
       .filter(m =>
         m != null && typeof m.text === 'string' && typeof m.kind === 'string' && VALID_KINDS.includes(m.kind) && !hasInjectionAttempt(m.text),
       )
-      .map(m => (m.kind === 'fact' && isIrrealis(m.text) ? { ...m, kind: 'commitment' } : m));
+      .map(m => (m.kind === 'fact' && isIrrealis(m.text) ? { ...m, kind: 'commitment' } : m))
+      // К25-5: промпт запрещает сохранять толкования ассистента, но модель
+      // сохраняла их от первого лица человека. Остаётся только то, чьи слова
+      // есть в репликах самого человека; «обязательство» без намерения — инсайт.
+      .filter(m => groundedInUser(m.text, userText))
+      .map(m => ({ ...m, kind: memoryKindFixed(m.kind, m.text) }));
 
     return { memories };
   } catch (e) {

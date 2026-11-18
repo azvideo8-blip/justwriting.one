@@ -304,6 +304,12 @@ export function unquoteAbsent(
         : sentenceStart
           ? `${before && !before.endsWith('\n') ? ' ' : ''}По смыслу: ${inner}`
           : `, по смыслу: ${inner}`;
+    } else if (!/(?:^|[.!?\n])\s*$/.test(out + before) && !/[:—–\-,(]\s*$/.test(before)) {
+      // К26-2 (случай #26): снятая цитата посреди фразы без знака перед ней —
+      // «спроси себя «что будет, если…» и…» превращалось в сломанную фразу.
+      // Двоеточие держит границу; слова не меняются.
+      before = before.replace(/[ \t]*$/, '');
+      body = `: ${inner}`;
     }
     out += before + body;
     last = at + m[0].length;

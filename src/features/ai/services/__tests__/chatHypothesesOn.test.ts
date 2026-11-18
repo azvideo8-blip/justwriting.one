@@ -62,9 +62,9 @@ const turn = (hook: Hook, text: string) => hook.buildContext({
 // Служебный вызов «найди опоры» подменён: возвращает то, что велено, и запоминает, что ему дали.
 const pick = vi.fn();
 const PICK_OK = [
-  { documentId: 'local_clay', quote: 'Сначала надо разобрать антресоль.' },
-  { documentId: 'local_child', quote: 'сначала гаммы, потом двор' },
-  { documentId: 'local_coffee', quote: 'Кофе налила только после почты и посуды.' },
+  { documentId: 'local_clay' },
+  { documentId: 'local_child' },
+  { documentId: 'local_coffee' },
 ];
 
 describe('chat_hypotheses включён', () => {
@@ -95,12 +95,16 @@ describe('chat_hypotheses включён', () => {
     const ctx = await turn(hook, STUCK);
     // Кандидаты: записи выше порога по убыванию близости; далёкая не уходит.
     expect(pick).toHaveBeenCalledTimes(1);
-    const [message, candidates] = pick.mock.calls[0] as [string, { documentId: string; text: string }[]];
+    const [message, candidates] = pick.mock.calls[0] as [string, { documentId: string; gist: string; text?: string }[]];
     expect(message).toBe(STUCK);
     expect(candidates.map(c => c.documentId)).toEqual(['local_clay', 'local_work', 'local_trip', 'local_coffee', 'local_child', 'local_gift']);
+    // Суть у всех, полный текст — только у трёх ближайших.
+    expect(candidates.every(c => typeof c.gist === 'string' && c.gist.length > 0)).toBe(true);
+    expect(candidates.slice(0, 3).every(c => c.text !== undefined)).toBe(true);
+    expect(candidates.slice(3).every(c => c.text === undefined)).toBe(true);
     const sc = ctx.searchContext ?? '';
     expect(sc.startsWith(HYPOTHESIS_TURN_MARK)).toBe(true);
-    expect(sc).toContain('[#local_child · 2026-03-12]\nЗаметка 1: "Заметка local_child"\nБабушка говорила: сначала гаммы, потом двор.\nГлавное здесь — дословно: сначала гаммы, потом двор');
+    expect(sc).toContain('[#local_child · 2026-03-12]\nЗаметка 1: "Заметка local_child"\nБабушка говорила: сначала гаммы, потом двор.\nГлавное здесь — дословно: Бабушка говорила: сначала гаммы, потом двор.');
     expect(sc.indexOf('[#local_child')).toBeLessThan(sc.indexOf('[#local_clay'));
     // Не выбранные записи в ход не идут; лёгкого поиска на этом ходе нет.
     expect(sc).not.toContain('local_work');
@@ -113,9 +117,9 @@ describe('chat_hypotheses включён', () => {
   it('опоры об одном предмете: вторая близкая запись в ход не идёт', async () => {
     // local_clay и local_work в этой фикстуре смотрят в одну сторону — «один предмет».
     pick.mockResolvedValue([
-      { documentId: 'local_clay', quote: 'Сначала надо разобрать антресоль.' },
-      { documentId: 'local_work', quote: 'Сдала проект' },
-      { documentId: 'local_child', quote: 'сначала гаммы, потом двор' },
+      { documentId: 'local_clay' },
+      { documentId: 'local_work' },
+      { documentId: 'local_child' },
     ]);
     const sc = (await turn(hook, STUCK)).searchContext ?? '';
     expect(sc).toContain('[#local_clay');
@@ -173,7 +177,7 @@ describe('chat_hypotheses включён', () => {
     const sc = (await turn(hook, 'почему я по своим записям всё время откладываю глину')).searchContext ?? '';
     expect(sc).toContain('Результаты поиска по архиву заметок');
     expect(sc).toContain(HYPOTHESIS_TURN_MARK);
-    expect(sc).toContain('Главное здесь — дословно: сначала гаммы, потом двор');
+    expect(sc).toContain('Главное здесь — дословно: Бабушка говорила: сначала гаммы, потом двор.');
   });
 
   describe('правило в системном промпте', () => {

@@ -17,6 +17,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.18',
+    date: '2026-11-18',
+    announce: false,
+    items: [
+      { category: 'improvement', ru: 'Собеседник держит одну форму обращения — «ты» или «вы» — на весь разговор, как пишешь ты сам.', en: 'The companion keeps one form of address for the whole conversation, the one you use yourself.' },
+      { category: 'improvement', ru: 'После нескольких ответов-вопросов подряд собеседник подводит итог твоими словами и предлагает продолжить или остановиться.', en: 'After several replies in a row that end with a question, the companion sums up in your words and offers to continue or stop.' },
+      { category: 'fix', ru: 'В разговоре по приложенной заметке собеседник реже выдаёт сказанное в чате за текст записи и не говорит «ничего не нашлось», когда поиска не было.', en: 'In a conversation about an attached note, the companion less often presents what you said in chat as the note’s text and no longer says “nothing was found” when no search was made.' },
+      { category: 'fix', ru: 'В «Память ИИ» попадает только то, что ты сказал сам, а не толкования собеседника.', en: 'Only what you said yourself goes into “AI memory”, not the companion’s interpretations.' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.11.17',
     date: '2026-11-18',
     items: [

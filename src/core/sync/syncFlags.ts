@@ -60,6 +60,16 @@ export async function chatHypothesesEnabled(uid: string | undefined): Promise<bo
   return flagEnabled('chat_hypotheses', uid, false, 'featureFlag_chatHypotheses');
 }
 
+/**
+ * Флаг `chat_persona_ta`: собеседник «Транзактный аналитик» виден в списке.
+ * Нет строки, гость или сбой чтения — не виден; уже начатый с ним разговор
+ * продолжается (собеседник встроенный, сервер его знает).
+ */
+export async function chatPersonaTaEnabled(uid: string | undefined): Promise<boolean> {
+  if (!uid) return false;
+  return flagEnabled('chat_persona_ta', uid, false, 'featureFlag_chatPersonaTa');
+}
+
 /** Только для тестов: сбросить кэш флага между сценариями. */
 export function resetSyncFlagsForTests(): void {
   cached.clear();

@@ -34,7 +34,7 @@ import { buildLiteRetrievalBlock } from './chatContext/liteRetrieval';
 import { buildTopicChronicleBlock } from './chatContext/topicChronicle';
 import { answerChronicleV2Enabled, chatHypothesesEnabled } from '../../../core/sync/syncFlags';
 import { ARCHIVE_TURN_MARK } from '../../../shared/ai/archiveAnswerRule';
-import { buildHypothesisBlock, hypothesisAskOf } from './chatContext/hypothesisTurn';
+import { buildHypothesisBlock, directHypothesisAsk, hypothesisAskOf } from './chatContext/hypothesisTurn';
 import { buildRelatedDaysBlock } from './chatContext/relatedDays';
 import { AI_WRITTEN_LINE, ATTACHED_BLOCK_SEP, formatRefTag, type AttachedNoteBlock } from '../utils/attachedNoteFormat';
 import { markAiWritten } from '../utils/aiAuthorship';
@@ -722,10 +722,26 @@ export function useAIChatContext(personaId: string): {
       // (кейс 8, кейс 9.8). Правило в промпте усилить нельзя (LD-3: 1/20 → 6/20),
       // поэтому рычаг кодовый.
       const strictPortrait = strictTurnPortrait(userPortrait);
+      // К26-1 (случай #26): прямая просьба о гипотезах при приложенной заметке.
+      // Реплика («какие тут гипотезы?») о предмете ничего не говорит, поэтому
+      // опоры ищутся по вектору самой заметки, а сама она (и другие приложенные)
+      // опорой не бывает — опоры только из других дней.
+      let directHyp: Awaited<ReturnType<typeof buildHypothesisBlock>> = null;
+      if (!crisis && subjectId && !isAttachedExcluded && attachedBlock && directHypothesisAsk(text, effectivePersonaId)) {
+        const all = await AIEmbeddingService.getAll();
+        const own = all.find(e => e.documentId === subjectId)?.vectors ?? [];
+        const noteEmb = own.length > 0 ? own[0]!.map((_, i) => own.reduce((sum, v) => sum + (v[i] ?? 0), 0) / own.length) : undefined;
+        directHyp = await buildHypothesisBlock({
+          text: `${attachedContent.slice(0, 1500)}\n\n${text}`.slice(0, 2000),
+          turnEmb: noteEmb, db, minTime: undefined, maxTime: undefined, injectedDocumentIds, allEmbeddings: all,
+          enabled: () => chatHypothesesEnabled(uid), pick: AIService.pickAnchors, direct: true, excludeIds: attachedIds,
+        });
+      }
+      const strictContext = related ? `${related.block}\n\n${noteBlock}` : noteBlock;
       return {
         userPortrait: strictPortrait,
         customPersona: customSystemPrompt,
-        searchContext: related ? `${related.block}\n\n${noteBlock}` : noteBlock,
+        searchContext: directHyp ? `${strictContext}\n\n${directHyp.block}` : strictContext,
         documentMood: mood,
         memoryContext: null,
         injectedDocumentIds: [...new Set(injectedDocumentIds)],
@@ -1207,10 +1223,11 @@ export function useAIChatContext(personaId: string): {
       // выбрал служебный вызов. Хроника на таком ходе не строится (вопрос о
       // записях — «когда впервые…?», «что я писала про…?» — сюда не попадает);
       // выдача полного поиска, если он был, остаётся. Без «почему» — не два хода подряд.
-      const hypothesisAsk = !attached && !noteIntentNoText && !crisis ? hypothesisAskOf(text, effectivePersonaId) : null;
-      const hypothesisWanted = hypothesisAsk !== null && (hypothesisAsk === 'why' || !lastTurnHypothesisRef.current);
+      // К26-1: прямая просьба о гипотезах — повод и при приложенной заметке, и подряд.
+      const hypothesisAsk = (!attached || directHypothesisAsk(text, effectivePersonaId)) && !noteIntentNoText && !crisis ? hypothesisAskOf(text, effectivePersonaId) : null;
+      const hypothesisWanted = hypothesisAsk !== null && (hypothesisAsk === 'why' || hypothesisAsk === 'direct' || !lastTurnHypothesisRef.current);
       const hypothesis = hypothesisWanted
-        ? await buildHypothesisBlock({ text, turnEmb, db, minTime, maxTime, injectedDocumentIds, allEmbeddings, enabled: () => chatHypothesesEnabled(uid), pick: AIService.pickAnchors })
+        ? await buildHypothesisBlock({ text, turnEmb, db, minTime, maxTime, injectedDocumentIds, allEmbeddings, enabled: () => chatHypothesesEnabled(uid), pick: AIService.pickAnchors, direct: hypothesisAsk === 'direct', excludeIds: attachedIds })
         : null;
       lastTurnHypothesisRef.current = hypothesis !== null;
       if (hypothesis) {

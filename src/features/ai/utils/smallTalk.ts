@@ -14,7 +14,7 @@ import { looksLikeNoteSearch } from './aiChatTransport';
  */
 
 /** Пресеты-психологи: им фасеты профиля нужны и без явного поиска. */
-export const PSYCHE_PERSONAS = ['group_psychology', 'cbt', 'coach', 'parts'];
+export const PSYCHE_PERSONAS = ['group_psychology', 'cbt', 'coach', 'parts', 'ta'];
 
 // Нормализуем ход до строчки строгих букв/цифр и пробелов: «Привет!» и
 // «привет, как дела» — фразы словаря. ё → е, чтобы словарь не двоился.
