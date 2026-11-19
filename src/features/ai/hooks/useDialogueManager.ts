@@ -7,9 +7,11 @@ import { reportError } from '../../../shared/errors/reportError';
 
 interface DialogueManagerParams {
   confirmDialog: (options: { title: string; message: string }) => Promise<boolean>;
+  /** Дейлик 19.11: отказ действия над диалогом — назвать человеку (тост). */
+  notifyError?: (message: string) => void;
 }
 
-export function useDialogueManager({ confirmDialog }: DialogueManagerParams) {
+export function useDialogueManager({ confirmDialog, notifyError }: DialogueManagerParams) {
   const { t } = useLanguage();
   const [dialogues, setDialogues] = useState<AIDialogue[]>([]);
   const [archivedDialogues, setArchivedDialogues] = useState<AIDialogue[]>([]);
@@ -37,28 +39,39 @@ export function useDialogueManager({ confirmDialog }: DialogueManagerParams) {
     }
   }, []);
 
-  const handleRenameDialogue = useCallback(async (id: string, newTitle: string) => {
+  // Дейлик 19.11, подозрение 2: вызовы — `void` из листа, который уже закрылся;
+  // отказ базы был необработанным промисом без тоста. Теперь он назван, список
+  // перечитан (строка осталась на месте — так и показываем).
+  const guarded = useCallback(async (action: string, fn: () => Promise<void>) => {
+    try { await fn(); } catch (e) {
+      reportError(e, { action });
+      notifyError?.(t('error_generic_action'));
+      await loadDialogues();
+    }
+  }, [loadDialogues, notifyError, t]);
+
+  const handleRenameDialogue = useCallback(async (id: string, newTitle: string) => guarded('dialogue_rename', async () => {
     await AIDialogueService.updateTitle(id, newTitle);
     await loadDialogues();
-  }, [loadDialogues]);
+  }), [guarded, loadDialogues]);
 
   // id по умолчанию — активный диалог (так вызывала шапка); лист MR-1 передаёт
   // id строки, чтобы архивировать и удалять не только текущий разговор.
-  const handleArchive = useCallback(async (id?: string) => {
+  const handleArchive = useCallback(async (id?: string) => guarded('dialogue_archive', async () => {
     const target = id ?? activeDialogueId;
     if (target) {
       await AIDialogueService.archive(target);
       if (target === activeDialogueId) setActiveDialogueId(null);
       await loadDialogues();
     }
-  }, [activeDialogueId, loadDialogues]);
+  }), [activeDialogueId, guarded, loadDialogues]);
 
-  const handleUnarchive = useCallback(async (id: string) => {
+  const handleUnarchive = useCallback(async (id: string) => guarded('dialogue_unarchive', async () => {
     await AIDialogueService.unarchive(id);
     await loadDialogues();
-  }, [loadDialogues]);
+  }), [guarded, loadDialogues]);
 
-  const handleDelete = useCallback(async (id?: string) => {
+  const handleDelete = useCallback(async (id?: string) => guarded('dialogue_delete', async () => {
     const target = id ?? activeDialogueId;
     if (target) {
       const ok = await confirmDialog({
@@ -70,7 +83,7 @@ export function useDialogueManager({ confirmDialog }: DialogueManagerParams) {
       if (target === activeDialogueId) setActiveDialogueId(null);
       await loadDialogues();
     }
-  }, [activeDialogueId, confirmDialog, loadDialogues, t]);
+  }), [activeDialogueId, confirmDialog, guarded, loadDialogues, t]);
 
   const handleExport = useCallback(async () => {
     if (!activeDialogueId) return;

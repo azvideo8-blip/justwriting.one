@@ -91,7 +91,8 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
   // that is intact in the cloud as blank.
   const openPreview = useCallback(async (session: ArchiveSession) => {
     setPreviewSession(session);
-    if (!session._contentNotLoaded || !user) return;
+    // Дейлик 19.11: прошлое чтение текста сорвалось — открытие перечитывает.
+    if ((!session._contentNotLoaded && !session._contentError) || !user) return;
     const flags = await loadSessionContent(user.uid, session.id);
     if (!mountedRef.current) return;
     setSessions(prev => prev.map(s => s.id === session.id ? { ...s, ...flags } : s));

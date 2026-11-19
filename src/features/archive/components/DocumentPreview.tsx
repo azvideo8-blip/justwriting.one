@@ -25,6 +25,7 @@ import type { RelatedNote } from '../../../shared/types/common';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { getCurrentUser } from '../../../core/auth';
+import { loadSessionContent } from '../../../core/services/UnifiedSessionLoader';
 import { useAiConsentOff } from '../../../core/ai/useAiConsentOff';
 import { reportError } from '../../../shared/errors/reportError';
 import { aiErrorToText } from '../../../shared/ai/aiErrorUtils';
@@ -120,8 +121,12 @@ export function DocumentPreview({
       return;
     }
     const id = session.id;
+    // Дейлик 19.11, подозрение 5: отказ чтения разбора — не «разбора нет».
     const load = () => void fetchSummary(id).then(s => {
       if (active) setSummary(s ?? null);
+    }).catch(e => {
+      reportError(e, { action: 'preview_fetch_summary', documentId: id });
+      if (active) setAnalyzeError(t('archive_summary_load_error'));
     });
     load();
     // Разбор, сделанный на другом устройстве, приезжает фоновым проходом.
@@ -130,7 +135,7 @@ export function DocumentPreview({
       active = false;
       window.removeEventListener('ai-data-pulled', load);
     };
-  }, [session?.id, fetchSummary]);
+  }, [session?.id, fetchSummary, t]);
 
   useEffect(() => {
     let active = true;
@@ -239,7 +244,8 @@ export function DocumentPreview({
     try {
       const db = await getLocalDb();
       const doc = await db.get('documents', id);
-      if (!doc) return;
+      // Дейлик 19.11, подозрение 4: заметки нет на устройстве (только в облаке) — сказать, а не молчать.
+      if (!doc) { showToast(t('error_load_failed'), 'error'); return; }
       const content = await LocalVersionService.getLatestContent(id);
       const newSession: ArchiveSession = {
         id: doc.id,
@@ -253,15 +259,25 @@ export function DocumentPreview({
         tags: doc.tags ?? [],
         labelId: doc.labelId,
         mood: doc.mood,
-        createdAt: doc.firstSessionAt || doc.lastSessionAt || 0,
-        sessionStartTime: doc.firstSessionAt,
+        // Та же дата, что в списке архива (UnifiedSessionLoader: lastSessionAt).
+        createdAt: doc.lastSessionAt || doc.firstSessionAt || 0,
+        sessionStartTime: doc.lastSessionAt,
         _isLocal: true,
       };
       setSession(newSession);
     } catch (e) {
-      console.error('[DocumentPreview] failed to load related note:', e);
+      reportError(e, { action: 'preview_open_related', documentId: id });
+      showToast(t('error_load_failed'), 'error');
     }
-  }, [t]);
+  }, [t, showToast]);
+
+  // Дейлик 19.11, подозрение 1: сбой чтения текста — повторить, не закрывая заметку.
+  const retryContent = useCallback(async () => {
+    const uid = getCurrentUser()?.uid;
+    if (!session?.id || !uid) return;
+    const flags = await loadSessionContent(uid, session.id);
+    setSession(prev => prev && prev.id === session.id ? { ...prev, ...flags, _contentError: flags._contentError ?? false } : prev);
+  }, [session]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (isMobile) return;
@@ -437,6 +453,7 @@ export function DocumentPreview({
         {...(onTitleChange ? { onTitleChange: (s: ArchiveSession, title: string) => { onTitleChange(s, title); setSession({ ...s, title }); } } : {})}
         relatedNotes={relatedNotes}
         onSelectRelated={id => void handleSelectRelatedNote(id)}
+        onRetryContent={() => void retryContent()}
       />
     );
   }
@@ -769,6 +786,12 @@ export function DocumentPreview({
           <div className="flex flex-col items-center justify-center text-center p-8 border border-accent-danger/20 bg-accent-danger/5 rounded-2xl my-auto">
             <AlertCircle size={32} className="text-accent-danger/80 mb-3" />
             <p className="text-sm text-text-main/80 font-medium mb-1">{t('archive_decryption_error')}</p>
+          </div>
+        ) : session._contentError ? (
+          <div role="alert" className="flex flex-col items-center justify-center text-center p-8 border border-accent-danger/20 bg-accent-danger/5 rounded-2xl my-auto">
+            <AlertCircle size={32} className="text-accent-danger/80 mb-3" />
+            <p className="text-sm text-text-main/80 font-medium mb-3">{t('archive_content_load_error')}</p>
+            <Button onClick={() => void retryContent()} className="underline text-accent-danger/80">{t('retry')}</Button>
           </div>
         ) : session._contentNotLoaded ? (
           <div className="flex flex-col items-center justify-center text-center p-8 my-auto text-text-main/60">

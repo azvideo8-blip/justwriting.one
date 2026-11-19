@@ -17,6 +17,7 @@ import { MobilePageHeader } from '../../shared/components/MobilePageHeader';
 import { MeAccountSection } from './MeAccountSection';
 import { useLoginModal } from '../useLoginModal';
 import { LoadingSkeleton } from '../../shared/components/LoadingSkeleton';
+import { Button } from '../../shared/components/Button';
 import { useProfileStats } from '../../features/profile/hooks/useProfileStats';
 import { useSyncStatus } from '../../core/sync/useSyncStatus';
 import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
@@ -116,7 +117,7 @@ export function MobileMeScreen({ user, profile }: MobileMeScreenProps) {
   const [signOutOpen, setSignOutOpen] = useState(false);
   const confirmSignOut = useConfirmSignOut();
 
-  const { sessions, kpiStats, loading: loadingSessions, refresh: _refresh } = useProfileStats(userId, user);
+  const { sessions, kpiStats, loading: loadingSessions, error: statsError, cloudLoadFailed, refresh } = useProfileStats(userId, user);
 
   const createdDate = user?.metadata?.creationTime ? new Date(user.metadata.creationTime) : null;
   const practiceDays = createdDate ? Math.max(0, differenceInCalendarDays(new Date(), createdDate)) : 0;
@@ -184,6 +185,24 @@ export function MobileMeScreen({ user, profile }: MobileMeScreenProps) {
               /settings#account. */}
               <MeAccountSection user={user} onSignOut={() => setSignOutOpen(true)} onSignIn={openLoginModal} />
 
+              {/* Дейлик 19.11 Н-1: сбой чтения — не «0 слов»; ветки те же, что на
+                  десктопе (ProfilePage): ошибка с «Повторить», плашка про облако. */}
+              {statsError ? (
+                <div role="alert" className="p-6 text-center rounded-2xl border bg-accent-danger/10 border-accent-danger/20">
+                  <p className="text-accent-danger text-sm mb-3">{t('profile_load_error')}</p>
+                  <Button onClick={() => void refresh()} className="px-4 py-2 rounded-xl text-sm font-medium text-accent-danger border border-accent-danger/30">
+                    {t('retry')}
+                  </Button>
+                </div>
+              ) : (<>
+              {cloudLoadFailed && (
+                <div role="alert" className="px-4 py-3 rounded-2xl text-sm bg-accent-danger/10 border border-accent-danger/30 text-accent-danger flex items-center justify-between gap-3">
+                  <span>{t('profile_cloud_load_error')}</span>
+                  <Button onClick={() => void refresh()} className="shrink-0 underline text-accent-danger/70">
+                    {t('retry')}
+                  </Button>
+                </div>
+              )}
               {/* 2. KPI Strip (Metrics row) */}
               <KPIStrip stats={kpiStats} />
 
@@ -207,6 +226,7 @@ export function MobileMeScreen({ user, profile }: MobileMeScreenProps) {
                 stats={kpiStats}
                 sessions={sessions}
               />
+              </>)}
             </div>
           )
         )}

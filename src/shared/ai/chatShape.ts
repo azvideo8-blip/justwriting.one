@@ -22,6 +22,8 @@ export interface ChatShapeLog {
   scope: 'note' | 'wide' | null;
   crisis: boolean;
   reasoning: boolean;
+  /** Разбор 18.11: выбранный объём — по нему видно, дошёл ли он до сервера. */
+  length: 'short' | 'standard' | 'detailed' | null;
   msgs: number;
   histChars: number;
   docChars: number;
@@ -41,6 +43,7 @@ export interface ChatShapeInput {
   userPortrait?: string | null | undefined;
   memoryContext?: string | null | undefined;
   system: string;
+  responseLength?: string | null | undefined;
   hypoStats?: HypoStats | null | undefined;
 }
 
@@ -56,6 +59,7 @@ export function chatShape(input: ChatShapeInput): ChatShapeLog {
     scope: input.noteScope?.mode ?? null,
     crisis: input.crisis === true,
     reasoning: input.reasoning === true,
+    length: input.responseLength === 'short' || input.responseLength === 'standard' || input.responseLength === 'detailed' ? input.responseLength : null,
     msgs: input.messages.length,
     histChars: input.messages.reduce((sum, m) => sum + m.content.length, 0),
     docChars: input.documentContent?.length ?? 0,

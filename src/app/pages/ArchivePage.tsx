@@ -446,6 +446,13 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
             </div>
             {activeTab === 'trash' ? (
               <div className="mt-4 flex-1 min-h-0 pr-1">
+                {/* Дейлик 19.11 Н-2: сбой чтения — не «Корзина пуста»; пока читаем — тоже не «пуста». */}
+                {error ? (
+                  <div role="alert" className="p-12 text-center rounded-3xl border bg-accent-danger/10 border-accent-danger/30">
+                    <p className="text-accent-danger mb-4">{error}</p>
+                    <Button onClick={() => void fetchSessions()} className="underline text-accent-danger/70 hover:text-accent-danger">{t('retry')}</Button>
+                  </div>
+                ) : loading && trashedSessions.length === 0 ? null : (
                 <ArchiveTrashView
                   trashedSessions={filteredTrashedSessions}
                   onRestore={handleRestoreSession}
@@ -457,6 +464,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                   tp={tp}
                   isMobile={isMobile}
                 />
+                )}
               </div>
             ) : (
               <div className={cn("mt-4 pr-1", isMobile && calendarOpen ? "h-[70dvh] shrink-0" : "flex-1 min-h-0")}>

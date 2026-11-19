@@ -59,7 +59,8 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
 
   const dailyLimit = useDailyLimit();
 
-  const dialogueManager = useDialogueManager({ confirmDialog });
+  const notifyDialogueError = useCallback((m: string) => showToast(m, 'error'), [showToast]);
+  const dialogueManager = useDialogueManager({ confirmDialog, notifyError: notifyDialogueError });
   const {
     dialogues,
     archivedDialogues,

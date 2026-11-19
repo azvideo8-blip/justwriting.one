@@ -175,7 +175,7 @@ export function MobileDialogueListSheet(props: MobileDialogueListSheetProps) {
               <div className="py-8 text-center text-xs text-text-main/60">{t('common_loading')}</div>
             )}
             {!loadError && !loading && rows.length === 0 && (
-              <div className="py-8 text-center text-xs text-text-main/60">{t('ai_no_active_dialogues')}</div>
+              <div className="py-8 text-center text-xs text-text-main/60">{t(showArchived ? 'ai_no_archived_dialogues' : 'ai_no_active_dialogues')}</div>
             )}
             {/* SA-11: «ноль — не показатель»: пустой архив строки не получает, ноль не пишем. */}
             {(showArchived || archivedDialogues.length > 0) && (

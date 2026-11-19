@@ -29,6 +29,16 @@ async function queueMetadataRetry(localId: string, userId: string, field: Metada
   await SyncService.addToQueue(localId, userId);
 }
 
+/**
+ * Дейлик 19.11 Н-3: тост итога скрытия от ИИ — один на все входы. Облако
+ * отказало (локально скрыто, досылка в очереди) — это не успех: на втором
+ * устройстве заметка ещё уходит модели.
+ */
+export function aiExclusionToast(result: { cloudSyncFailed?: boolean } | undefined, excluded: boolean): { key: 'archive_cloud_sync_failed' | 'ai_note_excluded' | 'ai_note_include'; kind: 'error' | 'success' } {
+  if (result?.cloudSyncFailed) return { key: 'archive_cloud_sync_failed', kind: 'error' };
+  return { key: excluded ? 'ai_note_excluded' : 'ai_note_include', kind: 'success' };
+}
+
 export async function toggleAIExclusion(
   session: ArchiveSession,
   excluded: boolean,

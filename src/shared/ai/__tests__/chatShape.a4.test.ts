@@ -43,7 +43,7 @@ describe('A-4: форма запроса в журнал — только раз
   it('поля и типы зафиксированы', () => {
     const shape = chatShape(input);
     expect(Object.keys(shape).sort()).toEqual([
-      'crisis', 'docChars', 'histChars', 'memoryChars', 'msgs', 'persona', 'portraitChars', 'reasoning', 'scope', 'systemChars',
+      'crisis', 'docChars', 'histChars', 'length', 'memoryChars', 'msgs', 'persona', 'portraitChars', 'reasoning', 'scope', 'systemChars',
     ].sort());
     expect(shape.msgs).toBe(3);
     expect(shape.histChars).toBe(HISTORY.length * 3);
@@ -114,5 +114,12 @@ describe('разбор 18.11: схема запроса — счётчики о�
       expect(r.success).toBe(true);
       expect(r.success && r.data.hypoStats).toBeUndefined();
     }
+  });
+});
+
+describe('разбор 18.11: выбранный объём ответа в строке', () => {
+  it('значение из перечисления; без объёма — null', () => {
+    expect(chatShape({ ...input, responseLength: 'detailed' }).length).toBe('detailed');
+    expect(chatShape(input).length).toBeNull();
   });
 });

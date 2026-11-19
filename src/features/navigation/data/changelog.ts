@@ -17,6 +17,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.20',
+    date: '2026-11-19',
+    announce: false,
+    items: [
+      { category: 'fix', ru: 'Если собеседник вместо ответа выдавал служебную разметку поиска, теперь вместо неё — кнопка поиска по записям.', en: 'If the companion replied with internal search markup instead of an answer, a button to search your notes now appears instead.' },
+      { category: 'fix', ru: 'Сбой чтения больше не выглядит как пустой профиль на телефоне, пустая корзина или пустая заметка: показывается ошибка и кнопка «Повторить».', en: 'A read failure no longer looks like an empty profile on the phone, an empty trash or an empty note: an error and a Retry button are shown.' },
+      { category: 'fix', ru: 'Если облако не приняло «Не показывать ИИ», об этом сказано, а не показан тост успеха.', en: 'If the cloud did not accept “Hide from AI”, you are told so instead of seeing a success message.' },
+      { category: 'fix', ru: 'Сбой при переименовании, архивации или удалении разговора, а также при открытии связанной заметки теперь называется, а не проходит молча.', en: 'A failure when renaming, archiving or deleting a conversation, or when opening a related note, is now reported instead of passing silently.' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.11.19',
     date: '2026-11-18',
     announce: false,

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.11.20 — 2026-11-19
+
+- **[RU]** Если собеседник вместо ответа выдавал служебную разметку поиска, теперь вместо неё — кнопка поиска по записям.
+- **[EN]** If the companion replied with internal search markup instead of an answer, a button to search your notes now appears instead.
+- **[RU]** Сбой чтения больше не выглядит как пустой профиль на телефоне, пустая корзина или пустая заметка: показывается ошибка и кнопка «Повторить».
+- **[EN]** A read failure no longer looks like an empty profile on the phone, an empty trash or an empty note: an error and a Retry button are shown.
+- **[RU]** Если облако не приняло «Не показывать ИИ», об этом сказано, а не показан тост успеха.
+- **[EN]** If the cloud did not accept “Hide from AI”, you are told so instead of seeing a success message.
+- **[RU]** Сбой при переименовании, архивации или удалении разговора, а также при открытии связанной заметки теперь называется, а не проходит молча.
+- **[EN]** A failure when renaming, archiving or deleting a conversation, or when opening a related note, is now reported instead of passing silently.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.11.19 — 2026-11-18
 
 - **[RU]** Подсказки следующей реплики больше не запрашиваются заново при каждом открытии старого разговора — дневной лимит служебных запросов не кончается раньше времени.

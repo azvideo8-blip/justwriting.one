@@ -11,7 +11,7 @@ import { ArchiveSession } from '../types';
 import { Label } from '../../../types';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
-import { toggleAIExclusion } from '../services/archiveCrud';
+import { aiExclusionToast, toggleAIExclusion } from '../services/archiveCrud';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { useToast } from '../../../shared/components/Toast';
 import { Button } from '../../../shared/components/Button';
@@ -129,12 +129,13 @@ export function ArchiveNoteList({
     setAiExclusionLoadingMap(m => ({ ...m, [session.id]: true }));
     try {
       const user = getCurrentUser();
-      await toggleAIExclusion(session, newExcluded, user, userId);
+      const result = await toggleAIExclusion(session, newExcluded, user, userId);
       if (newExcluded) {
         setAiProcessedMap(m => ({ ...m, [session.id]: false }));
       }
       onStorageChange();
-      showToast(newExcluded ? t('ai_note_excluded') : t('ai_note_include'), 'success');
+      const toast = aiExclusionToast(result, newExcluded);
+      showToast(t(toast.key), toast.kind);
     } catch (e) {
       reportError(e, { action: 'archive_toggle_ai_exclusion', documentId: session.id });
       showToast(t('error_generic_action'), 'error');

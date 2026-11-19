@@ -25,7 +25,7 @@ import { splitNoteTitle } from './noteTitle';
 import { getDateLocale, toDate } from '../../../core/utils/dateUtils';
 import { getCurrentUser } from '../../../core/auth';
 import { useAiConsentOff } from '../../../core/ai/useAiConsentOff';
-import { toggleAIExclusion } from '../services/archiveCrud';
+import { aiExclusionToast, toggleAIExclusion } from '../services/archiveCrud';
 import { reportError } from '../../../shared/errors/reportError';
 import type { AIDocumentSummary } from '../../../core/storage/localDb';
 import type { RelatedNote } from '../../../shared/types/common';
@@ -33,6 +33,8 @@ import { LABEL_PRESET_COLORS } from '../../../core/constants/labelColors';
 
 interface MobileNoteReaderProps {
   session: ArchiveSession;
+  /** Дейлик 19.11: текст не прочитался — повторить чтение. */
+  onRetryContent?: (() => void) | undefined;
   onClose: () => void;
   onContinue: (session: ArchiveSession) => void;
   onTagsChange?: ((session: ArchiveSession, tags: string[]) => void) | undefined;
@@ -60,7 +62,7 @@ interface MobileNoteReaderProps {
 export function MobileNoteReader({
   session, onClose, onContinue, onTagsChange, onLabelChange, labels, allTags,
   onDelete, onStorageChange, summary, analyzing, justFinished, analyzeError, onAnalyze, onClearAnalysis,
-  onAddLabel, onTitleChange, relatedNotes, onSelectRelated,
+  onAddLabel, onTitleChange, relatedNotes, onSelectRelated, onRetryContent,
 }: MobileNoteReaderProps) {
   const { t, tp, language } = useLanguage();
   // MP-1/Safari: читалка — не окно, поэтому прокрутку страницы за собой не
@@ -109,9 +111,10 @@ export function MobileNoteReader({
     const nextExcluded = !session.excludedFromAI;
     setExclusionLoading(true);
     void toggleAIExclusion(session, nextExcluded, user, actorId)
-      .then(() => {
+      .then((result) => {
         onStorageChange?.();
-        showToast(nextExcluded ? t('ai_note_excluded') : t('ai_note_include'), 'success');
+        const toast = aiExclusionToast(result, nextExcluded);
+        showToast(t(toast.key), toast.kind);
       })
       .catch(e => {
         reportError(e, { action: 'reader_toggle_ai_exclusion', documentId: session.id });
@@ -191,6 +194,13 @@ export function MobileNoteReader({
           </div>
         ) : session._decryptionError ? (
           <p className="mt-4 text-[17px] text-accent-danger">{t('archive_decryption_error')}</p>
+        ) : session._contentError ? (
+          <div role="alert" className="mt-4">
+            <p className="text-[17px] text-accent-danger">{t('archive_content_load_error')}</p>
+            {onRetryContent && (
+              <Button onClick={onRetryContent} className="mt-3 rounded-xl bg-accent-danger/10 px-4 py-2 text-[15px] text-accent-danger">{t('retry')}</Button>
+            )}
+          </div>
         ) : session._contentNotLoaded ? (
           <p className="mt-4 text-[17px] text-text-main/60">{t('common_loading')}</p>
         ) : (

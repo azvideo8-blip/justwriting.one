@@ -64,6 +64,8 @@ export const archiveTranslations: Translations = {
   archive_import_failed: { ru: 'Не удалось импортировать файлов: {count}', en: 'Failed to import {count} files' },
   archive_import_date_warning: { ru: 'Дата заметки не распознана ({count}) — сохранено с текущей датой', en: 'Note date could not be read ({count}) — saved with current date' },
   archive_no_content: { ru: 'Содержимое недоступно', en: 'Content unavailable' },
+  archive_content_load_error: { ru: 'Текст заметки не прочитался.', en: 'The note text could not be read.' },
+  archive_summary_load_error: { ru: 'Разбор не прочитался — открой заметку ещё раз.', en: 'The analysis could not be read — open the note again.' },
   archive_stat_docs: { ru: 'заметок', en: 'notes' },
   archive_stat_docs_one: { ru: 'заметка', en: 'note' },
   archive_stat_docs_few: { ru: 'заметки', en: 'notes' },

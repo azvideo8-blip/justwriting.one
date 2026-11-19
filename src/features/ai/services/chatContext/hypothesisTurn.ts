@@ -219,7 +219,11 @@ export async function buildHypothesisBlock(deps: {
       return n && quote ? [{ documentId: p.documentId, quote }] : [];
     });
     const diverse = diverseAnchors(picked, notes);
-    const result = buildAnchorBlock(candidates, diverse, notes, direct === true);
+    // Прод 18.11, дважды: дневник об одном и том же — фильтр «о разном» сворачивал
+    // 4 выбранные опоры в одну, и гипотеза шла без опор. Меньше двух — добор из
+    // выбранных служебным вызовом по порядку, до трёх.
+    const anchors = diverse.length >= 2 ? diverse : [...diverse, ...picked.filter(p => !diverse.includes(p))].slice(0, 3);
+    const result = buildAnchorBlock(candidates, anchors, notes, direct === true);
     if (deps.stats) Object.assign(deps.stats, { picked: pickedIds.length, quoted: picked.length, diverse: diverse.length, shown: result?.ids.length ?? 0 });
     if (result) injectedDocumentIds.push(...result.ids);
     return result;

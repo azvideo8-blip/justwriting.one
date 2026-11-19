@@ -25,10 +25,11 @@ async function run(vec: (i: number) => number[]) {
 }
 
 describe('счётчики шагов подбора опор', () => {
-  it('опоры об одном и том же — фильтр «о разном» оставляет одну, блока нет', async () => {
+  it('опоры об одном и том же — фильтр «о разном» оставляет одну, добор из выбранных до трёх', async () => {
+    // Прод 18.11, дважды: hypo {picked:4, diverse:1, shown:0} — гипотезы без опор.
     const { block, stats } = await run(i => [1, 0.001 * i, 0]);
-    expect(block).toBeNull();
-    expect(stats).toEqual({ cands: 7, picked: 3, quoted: 3, diverse: 1, shown: 0 });
+    expect(block).not.toBeNull();
+    expect(stats).toEqual({ cands: 7, picked: 3, quoted: 3, diverse: 1, shown: 3 });
   });
   it('опоры о разном — блок из трёх', async () => {
     const { block, stats } = await run(i => (i === 0 ? [1, 1, 0] : i === 2 ? [1, -1, 0] : i === 4 ? [1, 0, 1] : [1, 0.001 * i, 0]));

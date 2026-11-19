@@ -48,7 +48,7 @@ import { fixCitedDates, hypothesisCitedDates } from '../utils/citedDateGuard';
 import { normalizeQuoteText, quoteMaterialsText, unquoteAbsent, dropFabricatedSentences } from '../../../shared/ai/quoteGuard';
 import { ARCHIVE_TURN_MARK } from '../../../shared/ai/archiveAnswerRule';
 import { notesClaimWithoutRef } from '../../../shared/ai/notesRefRule';
-import { CITATION_RE, isRecognisedCitation, extractSearchRequest } from '../shared/citationPatterns';
+import { CITATION_RE, isRecognisedCitation, extractSearchRequest, toolCallToSearchMarker } from '../shared/citationPatterns';
 import { setAIStage } from '../store/useAIStageStore';
 import { aiErrorToText } from '../../../shared/ai/aiErrorUtils';
 export { API_MSG_CAP };
@@ -745,7 +745,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             signal: controller.signal,
             onChunk: (partial, reasoning) => {
               const cleanPartial = guardDates(
-                sanitizeCitations(partial, citeIds, injectedTitles, materialsText, { personaId: effectivePersonaId, quoteMaterialsText: quoteMaterials, dropFabricatedSentences: archiveTurn })
+                sanitizeCitations(toolCallToSearchMarker(partial), citeIds, injectedTitles, materialsText, { personaId: effectivePersonaId, quoteMaterialsText: quoteMaterials, dropFabricatedSentences: archiveTurn })
               );
               const cleanReasoning = reasoning
                 ? guardDates(
@@ -812,6 +812,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         }
       }
 
+      // Разбор 18.11: разметка вызова инструмента вместо ответа — в кнопку поиска.
+      fullText = toolCallToSearchMarker(fullText);
+
       // User stopped before any text arrived — just halt, no error, nothing saved.
       if (controller.signal.aborted && (!fullText || !fullText.trim())) {
         setStreamingMessage(null); setStreamingReasoning(null);
@@ -867,6 +870,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         savedReasoning = clean(fullText, true).trim();
         savedText = 'Ответ не дошёл: я потратил весь лимит на рассуждение и оборвался на полуслове. Ход мысли сохранён ниже. Попробуй переспросить короче или выключить режим рассуждений.';
       }
+      // Разбор 18.11: ответ был одной разметкой поиска — пустой пузырь с кнопкой
+      // непонятен; одна строка объясняет, что кнопка ниже — поиск.
+      if (!savedText.trim() && searchReq) savedText = 'Могу поискать в записях — нажми на запрос ниже.';
       if (controller.signal.aborted) {
         savedText = `${savedText.trim()}${INTERRUPTED_STREAM_MARKER}`;
       }

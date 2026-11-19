@@ -67,6 +67,14 @@ interface MobileWriteScreenProps {
   onOpenMemory?: (s: ArchiveSession) => void;
 }
 
+
+// Дейлик 19.11 Н-5: текст отказа сохранения — один на обычную шапку и дзен-строку;
+// дзен терял причину («Ошибка сохранения» вместо «Недостаточно места»).
+function saveFailureKey(status: 'error' | 'cloud-stale', kind: DraftErrorKind | undefined) {
+  if (status === 'cloud-stale') return kind === 'cloud-too-large' ? 'editor_cloud_too_large' : kind === 'cloud-refused' ? 'editor_cloud_refused' : 'editor_cloud_stale';
+  return kind === 'quota' ? 'editor_error_quota' : 'editor_error_save';
+}
+
 export function MobileWriteScreen({
   onPlay, onStop, saveStatus, saveErrorKind, keystrokeTrackerRef, renderAiPanel,
   status: statusProp, streakDays = 0, streakFreezeUsed = false, sessionType = 'free', onOpenSetup, hasDraft, draftInEditor, restoreDraft, discardDraft, removeDraft,
@@ -336,8 +344,8 @@ export function MobileWriteScreen({
             {saveMoment === null && (saveStatus === 'error' || saveStatus === 'cloud-stale') && (
               <span data-testid="save-status-text" className="max-w-[40%] shrink-0 truncate text-[12px] tabular-nums">
                 {saveStatus === 'cloud-stale'
-                  ? <span className="text-[var(--accent-warning)]">{t(saveErrorKind === 'cloud-too-large' ? 'editor_cloud_too_large' : saveErrorKind === 'cloud-refused' ? 'editor_cloud_refused' : 'editor_cloud_stale')}</span>
-                  : <span className="text-[var(--accent-danger)]">{saveErrorKind === 'quota' ? t('editor_error_quota') : t('editor_error_save')}</span>}
+                  ? <span className="text-[var(--accent-warning)]">{t(saveFailureKey(saveStatus, saveErrorKind))}</span>
+                  : <span className="text-[var(--accent-danger)]">{t(saveFailureKey(saveStatus, saveErrorKind))}</span>}
               </span>
             )}
 
@@ -398,8 +406,8 @@ export function MobileWriteScreen({
           {(saveStatus === 'error' || saveStatus === 'cloud-stale') && (
             <span className="text-[12px] tabular-nums shrink-0">
               {saveStatus === 'cloud-stale'
-                ? <span className="text-[var(--accent-warning)]">{t('editor_cloud_stale')}</span>
-                : <span className="text-[var(--accent-danger)]">{t('editor_error_save')}</span>}
+                ? <span className="text-[var(--accent-warning)]">{t(saveFailureKey(saveStatus, saveErrorKind))}</span>
+                : <span className="text-[var(--accent-danger)]">{t(saveFailureKey(saveStatus, saveErrorKind))}</span>}
             </span>
           )}
         </motion.div>

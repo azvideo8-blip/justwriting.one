@@ -40,3 +40,17 @@ export function extractSearchRequest(text: string): string | null {
   if (!query || MARKER_PLACEHOLDERS.has(query.toLowerCase())) return null;
   return query;
 }
+
+// Разбор 18.11: deepseek иногда отвечает не текстом, а своей разметкой вызова
+// инструмента (DSML, «<｜｜DSML｜｜ invoke name="search_notes">…»), хотя
+// инструментов в запросе нет. Запрос из неё становится кнопкой поиска
+// [[ПОИСК: …]]; разметка — в том числе недописанная посреди стрима — не видна.
+const TOOL_MARKUP_START_RE = /<[｜|]+\s*(?:DSML|tool▁)/;
+const TOOL_QUERY_RE = /parameter name="query"[^>]*>([^<]+)</;
+
+export function toolCallToSearchMarker(text: string): string {
+  const at = text.search(TOOL_MARKUP_START_RE);
+  if (at < 0) return text;
+  const query = TOOL_QUERY_RE.exec(text.slice(at))?.[1]?.trim();
+  return query ? `${text.slice(0, at)}[[ПОИСК: ${query}]]` : text.slice(0, at);
+}
