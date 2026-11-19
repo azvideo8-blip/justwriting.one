@@ -3,6 +3,7 @@ import 'fake-indexeddb/auto';
 import { ChaosBrowser, ChaosDevice, ChaosTab } from '../chaosBrowser';
 import type { FaultType } from '../faultTypes';
 import type { TableName } from '../inMemoryPostgres';
+import { unexcusedRevivals } from '../revivalRule';
 
 async function loadTab(env: ChaosTab) {
   return env.run(async () => {
@@ -191,6 +192,11 @@ describe('two devices: request faults, vault and overlapping operations', () => 
         const deleted = new Set<string>();
         const deletedUuids = new Set<string>();
         const copiesBeforeDeletion = new Map<string, Set<string>>();
+        // I3 (владелец 19.11): правило — revivalRule.ts; здесь шаг появления копий.
+        const firstSeen = new Map<string, number>();
+        const noteCloudCopies = (at: number) => {
+          for (const d of pg.getRows('documents')) if (!firstSeen.has(String(d.uuid))) firstSeen.set(String(d.uuid), at);
+        };
         const accept = async (tab: Tab, text: string, operation: () => Promise<unknown>) => {
           try { await operation(); saved.add(text); }
           catch (error) {
@@ -213,6 +219,7 @@ describe('two devices: request faults, vault and overlapping operations', () => 
 
         let reloaded = false;
         for (let step = 0; step < steps; step++) {
+          noteCloudCopies(step);
           const dev = pick([A, B]);
           activate(dev);
           const tab = dev.tab;
@@ -373,6 +380,7 @@ describe('two devices: request faults, vault and overlapping operations', () => 
           }
           await texts(dev.tab, uid);
         }
+        noteCloudCopies(steps);
         A.device.offline = B.device.offline = false;
         // Let the persisted 30s lease expire after the last clock correction (withDocumentLock.ts:36-37).
         browser.elapsed += 31_000;
@@ -398,11 +406,11 @@ describe('two devices: request faults, vault and overlapping operations', () => 
           expect(!row || Boolean(row.deleted_at), `I3: revived ${uuid}`).toBe(true);
         }
         const liveUuids = new Set(cloudDocs.filter(d => !d.deleted_at).map(d => d.uuid));
-        const revived = pg.getRows('versions').filter(v => {
-          const text = cloudTexts.get(v.id)!;
-          return liveUuids.has(v.document_uuid) && deleted.has(text) && !copiesBeforeDeletion.get(text)?.has(String(v.document_uuid));
+        const revived = unexcusedRevivals({
+          versions: pg.getRows('versions').map(v => ({ uuid: String(v.document_uuid), text: cloudTexts.get(v.id)! })),
+          liveUuids: new Set([...liveUuids].map(String)), deleted, copiesBeforeDeletion, firstSeen, steps,
         });
-        expect(revived.map(v => cloudTexts.get(v.id)), 'I3: deleted text reappears in a new copy').toEqual([]);
+        expect(revived, 'I3: deleted text reappears in a new copy').toEqual([]);
         expect(pg.getRows('versions').filter(v => deletedUuids.has(String(v.document_uuid))), 'I3: deleted versions survive').toEqual([]);
       } catch (error) {
         throw new Error(`${String(error)}\nseed=${seed}, steps=${steps}\n${log.join('\n')}`, { cause: error });
