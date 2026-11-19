@@ -26,15 +26,16 @@ function dialogue(id: string, title: string, personaId: string, updatedAt: numbe
   } as AIDialogue;
 }
 
+const ACTIVE = [
+  dialogue('d1', 'Разговор с мамой', 'p1', now),
+  dialogue('d2', 'Про работу', 'p2', now - 3 * DAY),
+];
+
 function setup(overrides: Partial<Parameters<typeof MobileDialogueListSheet>[0]> = {}) {
   const props = {
     open: true,
     onClose: vi.fn(),
-    dialogues: [
-      dialogue('d1', 'Разговор с мамой', 'p1', now),
-      dialogue('d2', 'Про работу', 'p2', now - 3 * DAY),
-    ],
-    archivedDialogues: [dialogue('d3', 'Старый диалог', 'p1', now - 40 * DAY, { archivedAt: now - 40 * DAY })],
+    list: { status: 'data' as const, data: { active: ACTIVE, archived: [dialogue('d3', 'Старый диалог', 'p1', now - 40 * DAY, { archivedAt: now - 40 * DAY })] } },
     activeDialogueId: 'd1',
     showArchived: false,
     setShowArchived: vi.fn(),
@@ -129,7 +130,7 @@ describe('MR-1: MobileDialogueListSheet', () => {
     });
 
     it('архив пуст — строки архива нет; не пуст — счёт без нуля', () => {
-      setup({ archivedDialogues: [] });
+      setup({ list: { status: 'data' as const, data: { active: ACTIVE, archived: [] } } });
       expect(screen.queryByRole('button', { name: /ai_dialogues_archived_row/ })).toBeNull();
       cleanup();
       setup();

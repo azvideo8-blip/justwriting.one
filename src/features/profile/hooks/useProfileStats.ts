@@ -6,6 +6,7 @@ import { calculateStreak, consumeStreakFreezes, getActiveDayKeys } from '../../.
 import { syncStreakFreezesWithCloud } from '../../../core/utils/streakFreeze';
 import { toTimestampMs } from '../../../core/utils/dateUtils';
 import { reportError } from '../../../shared/errors/reportError';
+import { loadState, type LoadState } from '../../../shared/loadState';
 
 interface StatsSession extends Session {
   _totalWords?: number;
@@ -28,7 +29,7 @@ export interface KPIStats {
   wordsPerDay: number;
 }
 
-interface ProfileStatsData {
+export interface ProfileStatsData {
   sessions: Session[];
   stats: DocLevelStats;
   streak: number;
@@ -123,16 +124,23 @@ function computeKPIStats(sessions: Session[], docStats: DocLevelStats): KPIStats
   }
 }
 
+/** Прочитано целиком, записей нет: нули для экранов, где «пусто» — те же виджеты. */
+export const EMPTY_PROFILE_STATS: ProfileStatsData = { sessions: [], stats: EMPTY_STATS, streak: 0, kpiStats: EMPTY_KPI };
+
+const hasNoSessions = (data: ProfileStatsData) => data.sessions.length === 0;
+
 export function useProfileStats(userId: string, user: AppUser | null) {
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [stats, setStats] = useState<DocLevelStats>(EMPTY_STATS);
-  const [streak, setStreak] = useState(0);
-  const [kpiStats, setKpiStats] = useState<KPIStats>(EMPTY_KPI);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  // D-2: облако не прочиталось — статистика считается только по устройству.
-  const [cloudLoadFailed, setCloudLoadFailed] = useState(false);
+  // Одно состояние вместо loading/error/cloudLoadFailed/sessions порознь:
+  // нули статистики нельзя нарисовать, не разобрав ошибку (shared/loadState).
+  const [state, setState] = useState<LoadState<ProfileStatsData>>(loadState.loading());
   const [fetchKey, setFetchKey] = useState(0);
+
+  // Повтор едет внутри состояния (error.retry, partial.retry): экрану не из чего
+  // собрать ошибку без выхода.
+  const refresh = useCallback(() => {
+    profileStatsCache.delete(userId);
+    setFetchKey(k => k + 1);
+  }, [userId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -141,22 +149,16 @@ export function useProfileStats(userId: string, user: AppUser | null) {
       const cached = profileStatsCache.get(userId);
       if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
         if (cancelled) return;
-        setSessions(cached.data.sessions);
-        setStats(cached.data.stats);
-        setStreak(cached.data.streak);
-        setKpiStats(cached.data.kpiStats);
-        setLoading(false);
-        setError(null);
-        setCloudLoadFailed(false);
+        setState(loadState.settled(cached.data, hasNoSessions));
         return;
       }
 
-      setLoading(true);
-      setError(null);
+      // Тот же объект, если уже читаем: новый объект на каждый запуск эффекта
+      // при нестабильном `user` даёт бесконечный рендер (setLoading(true) его глушил сам).
+      setState(prev => (prev.status === 'loading' ? prev : loadState.loading()));
       try {
         const result = await loadAllSessions(userId, user);
         if (cancelled) return;
-        setCloudLoadFailed(result.cloudLoadFailed);
         if (user && !userId.startsWith('guest')) {
           try {
             await syncStreakFreezesWithCloud(userId);
@@ -176,28 +178,19 @@ export function useProfileStats(userId: string, user: AppUser | null) {
           streak: streakVal,
           kpiStats: kpi,
         };
+        // D-2: облако не прочиталось — статистика только по устройству, в кэш не кладём.
         if (!result.cloudLoadFailed) profileStatsCache.set(userId, { data, timestamp: Date.now() });
-        setSessions(data.sessions);
-        setStats(data.stats);
-        setStreak(data.streak);
-        setKpiStats(data.kpiStats);
+        setState(loadState.settled(data, hasNoSessions, result.cloudLoadFailed ? { retry: refresh } : null));
       } catch (err) {
         if (cancelled) return;
         reportError(err, { page: 'profileStats', userId: user?.uid ?? 'guest' });
-        setError('load_failed');
-      } finally {
-        if (!cancelled) setLoading(false);
+        setState(loadState.error(refresh));
       }
     };
 
     void load();
     return () => { cancelled = true; };
-  }, [userId, user, fetchKey]);
+  }, [userId, user, fetchKey, refresh]);
 
-  const refresh = useCallback(() => {
-    profileStatsCache.delete(userId);
-    setFetchKey(k => k + 1);
-  }, [userId]);
-
-  return { sessions, stats, streak, kpiStats, loading, error, cloudLoadFailed, refresh };
+  return state;
 }

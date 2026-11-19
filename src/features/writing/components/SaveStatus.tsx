@@ -5,6 +5,7 @@ import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 import { useWritingSettings } from '../../../core/settings/WritingSettingsContext';
 import type { DraftErrorKind } from '../hooks/useDraftCore';
+import { saveProblem } from './saveProblem';
 
 export type SaveStatusKind = 'idle' | 'saving' | 'saved' | 'cloud-stale' | 'error';
 
@@ -96,18 +97,9 @@ export function SaveStatus({
   }, [wantHide, hidden]);
   if (hidden) return null;
 
-  const tip = isError
-    ? (saveErrorKind === 'quota' ? t('editor_error_quota') : t('editor_error_save'))
-    : isStale
-      // N1-5: на телефоне эта пара живёт в одном слоте с обрезкой, поэтому
-      // обещание досылки — здесь, в подсказке десктопа (наведения на телефоне нет).
-      ? saveErrorKind === 'cloud-too-large'
-        ? t('editor_cloud_too_large_hint')
-        : saveErrorKind === 'cloud-refused'
-          ? t('editor_cloud_refused_hint')
-          : saveErrorKind === 'cloud-off'
-            ? t('editor_cloud_off_hint')
-          : `${t('editor_cloud_stale')}. ${t('editor_cloud_stale_hint')}`
+  const problem = saveProblem(saveStatus, saveErrorKind);
+  const tip = problem
+    ? problem.hint(t)
       : saveStatus === 'saving'
         ? t('editor_saving')
         : savedAt

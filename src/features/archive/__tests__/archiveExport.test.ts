@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { exportAsMd, sessionToMarkdown, isExpectedShareRefusal, stripMarkdown, ExportStrings, isExportable } from '../../../core/services/ArchiveExportService';
+import { exportAsMd, sessionToMarkdown, isExpectedShareRefusal, stripMarkdown, ExportStrings, exportRefusalKey } from '../../../core/services/ArchiveExportService';
 import type { ArchiveSession } from '../types';
 import type { Session } from '../../../types/index';
 
@@ -200,7 +200,7 @@ describe('stripMarkdown', () => {
   });
 });
 
-describe('isExportable (S-6)', () => {
+describe('exportRefusalKey (S-6)', () => {
   const plainSession: ArchiveSession = {
     id: 's1',
     userId: 'u1',
@@ -215,20 +215,12 @@ describe('isExportable (S-6)', () => {
     _isLocal: true,
   };
 
-  it('allows plain session to be exported', () => {
-    expect(isExportable(plainSession)).toBe(true);
-  });
-
-  it('rejects unloaded session (_contentNotLoaded: true)', () => {
-    expect(isExportable({ ...plainSession, _contentNotLoaded: true })).toBe(false);
-  });
-
-  it('rejects locked session (_locked: true)', () => {
-    expect(isExportable({ ...plainSession, _locked: true })).toBe(false);
-  });
-
-  it('rejects decryption error session (_decryptionError: true)', () => {
-    expect(isExportable({ ...plainSession, _decryptionError: true })).toBe(false);
+  // Мутация: убрать ветку _contentError — сбой чтения снова назван «зашифровано» (красный).
+  it('причина отказа названа настоящая; замок — раньше «не загружено»', () => {
+    expect(exportRefusalKey(plainSession)).toBeNull();
+    expect(exportRefusalKey({ ...plainSession, _contentNotLoaded: true })).toBe('archive_export_not_loaded');
+    expect(exportRefusalKey({ ...plainSession, _locked: true, _contentNotLoaded: true })).toBe('archive_export_locked');
+    expect(exportRefusalKey({ ...plainSession, _decryptionError: true })).toBe('archive_export_encrypted_unavailable');
+    expect(exportRefusalKey({ ...plainSession, _contentError: true })).toBe('archive_content_load_error');
   });
 });
-

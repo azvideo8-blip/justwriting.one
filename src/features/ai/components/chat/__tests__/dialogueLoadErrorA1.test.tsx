@@ -16,6 +16,8 @@ vi.mock('../../../../../core/storage/localDb', async importOriginal => {
   return { ...actual, getLocalDb: mocks.getLocalDb };
 });
 
+vi.mock('../../../../../shared/components/Toast', () => ({ useToast: () => ({ showToast: vi.fn() }) }));
+
 vi.mock('../../../../../shared/i18n', () => ({
   useLanguage: () => ({ t: (key: string) => key }),
 }));
@@ -37,16 +39,12 @@ function Harness({ variant }: { variant: 'sidebar' | 'sheet' }) {
   useEffect(() => { void loadDialogues(); }, [loadDialogues]);
 
   const shared = {
-    dialogues: manager.dialogues,
-    archivedDialogues: manager.archivedDialogues,
+    list: manager.dialogueList,
     activeDialogueId: manager.activeDialogueId,
     showArchived: manager.showArchived,
     setShowArchived: manager.setShowArchived,
     onSelectDialogue: vi.fn(),
     onUnarchive: vi.fn(),
-    loading: manager.dialoguesLoading,
-    loadError: manager.dialoguesLoadError,
-    onRetry: () => { void manager.loadDialogues(); },
   };
 
   if (variant === 'sidebar') {

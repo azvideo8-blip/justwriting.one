@@ -17,8 +17,8 @@ import { MobilePageHeader } from '../../shared/components/MobilePageHeader';
 import { MeAccountSection } from './MeAccountSection';
 import { useLoginModal } from '../useLoginModal';
 import { LoadingSkeleton } from '../../shared/components/LoadingSkeleton';
-import { Button } from '../../shared/components/Button';
-import { useProfileStats } from '../../features/profile/hooks/useProfileStats';
+import { LoadStateView, LoadNotice } from '../../shared/components/LoadStateView';
+import { EMPTY_PROFILE_STATS, useProfileStats, type ProfileStatsData } from '../../features/profile/hooks/useProfileStats';
 import { useSyncStatus } from '../../core/sync/useSyncStatus';
 import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
 import { useEncryptionStore } from '../../core/crypto/useEncryptionStore';
@@ -117,12 +117,39 @@ export function MobileMeScreen({ user, profile }: MobileMeScreenProps) {
   const [signOutOpen, setSignOutOpen] = useState(false);
   const confirmSignOut = useConfirmSignOut();
 
-  const { sessions, kpiStats, loading: loadingSessions, error: statsError, cloudLoadFailed, refresh } = useProfileStats(userId, user);
+  const statsState = useProfileStats(userId, user);
 
   const createdDate = user?.metadata?.creationTime ? new Date(user.metadata.creationTime) : null;
   const practiceDays = createdDate ? Math.max(0, differenceInCalendarDays(new Date(), createdDate)) : 0;
   const streakDays = profile?.streakDays ?? 0;
 
+
+  const statsBody = ({ sessions, kpiStats }: ProfileStatsData, notice: ReactNode) => (<>
+              {notice}
+              {/* 2. KPI Strip (Metrics row) */}
+              <KPIStrip stats={kpiStats} />
+
+              {/* 3. Streak Ribbon */}
+              <StreakRibbon sessions={sessions} />
+
+              {/* 4. Heatmap Activity — U-27 (решение владельца 2026-10-18): обёртка
+                  MeGroup снята, у виджета свой заголовок — как на десктопном
+                  `ProfilePage`. */}
+              <Heatmap sessions={sessions} />
+
+              {/* 5. Hour Rhythm */}
+              <HourRhythm sessions={sessions} />
+
+              {/* 6. Mood Trend */}
+              <MoodTrend userId={userId} className="py-4" />
+
+              {/* 7. Achievements — сброс достижений живёт в настройках (MC-7):
+                  в профиле он был единственной разрушительной кнопкой. */}
+              <Achievements
+                stats={kpiStats}
+                sessions={sessions}
+              />
+  </>);
 
   return (
     <>
@@ -134,7 +161,7 @@ export function MobileMeScreen({ user, profile }: MobileMeScreenProps) {
       {/* Section Content */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 pb-20">
         {(
-          loadingSessions ? (
+          statsState.status === 'loading' ? (
             <div className="space-y-4">
               <LoadingSkeleton lines={3} className="p-4 bg-text-main/[0.03] border border-border-subtle rounded-2xl" />
               <LoadingSkeleton lines={4} className="p-4 bg-text-main/[0.03] border border-border-subtle rounded-2xl" />
@@ -185,48 +212,18 @@ export function MobileMeScreen({ user, profile }: MobileMeScreenProps) {
               /settings#account. */}
               <MeAccountSection user={user} onSignOut={() => setSignOutOpen(true)} onSignIn={openLoginModal} />
 
-              {/* Дейлик 19.11 Н-1: сбой чтения — не «0 слов»; ветки те же, что на
-                  десктопе (ProfilePage): ошибка с «Повторить», плашка про облако. */}
-              {statsError ? (
-                <div role="alert" className="p-6 text-center rounded-2xl border bg-accent-danger/10 border-accent-danger/20">
-                  <p className="text-accent-danger text-sm mb-3">{t('profile_load_error')}</p>
-                  <Button onClick={() => void refresh()} className="px-4 py-2 rounded-xl text-sm font-medium text-accent-danger border border-accent-danger/30">
-                    {t('retry')}
-                  </Button>
-                </div>
-              ) : (<>
-              {cloudLoadFailed && (
-                <div role="alert" className="px-4 py-3 rounded-2xl text-sm bg-accent-danger/10 border border-accent-danger/30 text-accent-danger flex items-center justify-between gap-3">
-                  <span>{t('profile_cloud_load_error')}</span>
-                  <Button onClick={() => void refresh()} className="shrink-0 underline text-accent-danger/70">
-                    {t('retry')}
-                  </Button>
-                </div>
-              )}
-              {/* 2. KPI Strip (Metrics row) */}
-              <KPIStrip stats={kpiStats} />
-
-              {/* 3. Streak Ribbon */}
-              <StreakRibbon sessions={sessions} />
-
-              {/* 4. Heatmap Activity — U-27 (решение владельца 2026-10-18): обёртка
-                  MeGroup снята, у виджета свой заголовок — как на десктопном
-                  `ProfilePage`. */}
-              <Heatmap sessions={sessions} />
-
-              {/* 5. Hour Rhythm */}
-              <HourRhythm sessions={sessions} />
-
-              {/* 6. Mood Trend */}
-              <MoodTrend userId={userId} className="py-4" />
-
-              {/* 7. Achievements — сброс достижений живёт в настройках (MC-7):
-                  в профиле он был единственной разрушительной кнопкой. */}
-              <Achievements
-                stats={kpiStats}
-                sessions={sessions}
-              />
-              </>)}
+              {/* Дейлик 19.11 Н-1: сбой чтения — не «0 слов». Разбор веток общий
+                  с десктопом (ProfilePage) — LoadStateView. */}
+              <LoadStateView
+                state={statsState}
+                loading={null}
+                error={retry => <LoadNotice variant="panel" className="p-6" text={t('profile_load_error')} onRetry={retry} />}
+                partial={retry => <LoadNotice variant="row" text={t('profile_cloud_load_error')} onRetry={retry} />}
+                // Телефон: пустой аккаунт — те же виджеты с нулями (отдельного экрана «пусто» нет).
+                empty={statsBody(EMPTY_PROFILE_STATS, null)}
+              >
+                {statsBody}
+              </LoadStateView>
             </div>
           )
         )}

@@ -41,6 +41,7 @@ vi.mock('../../services/archiveCrud', async (orig) => {
   return {
     ...actual,
     deleteArchiveSession: vi.fn(),
+    trashArchiveSession: vi.fn(),
     pruneExpiredTrash: vi.fn(async (sessions) => ({ prunedCount: 0, remainingSessions: sessions })),
   };
 });
@@ -49,7 +50,7 @@ vi.mock('../useArchiveWordCloud', () => ({
   rebuildWordCloud: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { deleteArchiveSession } from '../../services/archiveCrud';
+import { deleteArchiveSession, trashArchiveSession } from '../../services/archiveCrud';
 
 describe('useArchiveSessions — delete not applied (F-1)', () => {
   beforeEach(() => {
@@ -76,6 +77,24 @@ describe('useArchiveSessions — delete not applied (F-1)', () => {
     });
 
     expect(result.current.sessions).toContainEqual(expect.objectContaining({ id: 's_test_1' }));
-    expect(mockShowToast).toHaveBeenCalledWith('delete_not_applied_uploading');
+    expect(mockShowToast).toHaveBeenCalledWith('delete_not_applied_uploading', 'warning');
+  });
+
+  // Доделки 19.11: «удалено только здесь» — предупреждение, а не зелёный успех.
+  // Мутация: убрать 'warning' у любого из двух тостов — красный.
+  it('отказ облака: удаление и корзина говорят «только на этом устройстве» предупреждением', async () => {
+    vi.mocked(deleteArchiveSession).mockResolvedValueOnce({ cloudSynced: false, derivativesOk: true, applied: true });
+    vi.mocked(trashArchiveSession).mockResolvedValueOnce({ cloudSynced: false });
+    const mockUser = { uid: 'u_f1_test' } as unknown as AppUser;
+    const t = (k: string) => k; // вне renderHook: новая функция на каждый рендер зациклит чтение
+    const { result } = renderHook(() => useArchiveSessions(mockUser, 'u_f1_test', t));
+    await waitFor(() => expect(result.current.sessions).toHaveLength(1));
+
+    await act(async () => { await result.current.handleTrashSession(mockSession); });
+    expect(mockShowToast.mock.calls).toEqual([['delete_local_only_queued', 'warning']]);
+
+    mockShowToast.mockClear();
+    await act(async () => { await result.current.handlePermanentDeleteSession(mockSession); });
+    expect(mockShowToast.mock.calls).toEqual([['delete_local_only_queued', 'warning']]);
   });
 });

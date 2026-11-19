@@ -49,30 +49,30 @@ vi.mock('../../../features/auth/hooks/useAdminStatus', () => ({
 
 vi.mock('../../../features/profile/hooks/useProfileStats', () => ({
   useProfileStats: () => ({
-    sessions: [
-      {
-        id: 's1',
-        title: 'Session 1',
-        date: Date.now(),
-        words: 100,
-        wordsAdded: 100,
-        wordsDeleted: 0,
-        durationSeconds: 120,
-        wpm: 50,
-        mode: 'zen',
+      status: 'data',
+      data: {
+        sessions: [
+          {
+            id: 's1',
+            title: 'Session 1',
+            date: Date.now(),
+            words: 100,
+            wordsAdded: 100,
+            wordsDeleted: 0,
+            durationSeconds: 120,
+            wpm: 50,
+            mode: 'zen',
+          },
+        ],
+        kpiStats: {
+          totalWords: 1000,
+          totalSessions: 10,
+          totalDurationSeconds: 1200,
+          averageWpm: 50,
+          longestStreakDays: 3,
+          currentStreakDays: 1,
+        },
       },
-    ],
-    kpiStats: {
-      totalWords: 1000,
-      totalSessions: 10,
-      totalDurationSeconds: 1200,
-      averageWpm: 50,
-      longestStreakDays: 3,
-      currentStreakDays: 1,
-    },
-    loading: false,
-    error: null,
-    refresh: vi.fn(),
   }),
 }));
 

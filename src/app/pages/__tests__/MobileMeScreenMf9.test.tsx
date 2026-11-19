@@ -15,7 +15,8 @@ vi.mock('react-router-dom', async () => {
 const openSettings = vi.hoisted(() => vi.fn());
 vi.mock('../../../core/settings/SettingsContext', () => ({ useSettings: () => ({ openSettings }) }));
 vi.mock('../../../features/profile/hooks/useProfileStats', () => ({
-  useProfileStats: () => ({ sessions: [], kpiStats: {}, loading: false, refresh: vi.fn() }),
+  useProfileStats: () => ({ status: 'empty' }),
+  EMPTY_PROFILE_STATS: { sessions: [], kpiStats: {} },
 }));
 vi.mock('../../../features/profile/components/ProfileHero', () => ({ ProfileHero: () => null }));
 vi.mock('../../../features/profile/components/KPIStrip', () => ({ KPIStrip: () => null }));

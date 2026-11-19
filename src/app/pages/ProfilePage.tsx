@@ -20,6 +20,7 @@ import { useToast } from '../../shared/components/Toast';
 import { useProfileStats } from '../../features/profile/hooks/useProfileStats';
 import { useAdminStatus } from '../../features/auth/hooks/useAdminStatus';
 import { Button } from '../../shared/components/Button';
+import { LoadStateView, LoadNotice } from '../../shared/components/LoadStateView';
 import { CollapsibleSection } from '../../features/profile/components/CollapsibleSection';
 import { ProfileFacets } from '../../features/ai/components/ProfileFacets';
 import { ContactDoors } from '../../features/ai/components/ContactDoors';
@@ -40,7 +41,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
   const userId = useUserId(user);
   const navigate = useNavigate();
 
-  const { sessions, kpiStats, loading, error, cloudLoadFailed, refresh } = useProfileStats(userId, user);
+  const state = useProfileStats(userId, user);
   const [achResetKey, setAchResetKey] = useState(0);
   const { showToast: _showToast } = useToast();
 
@@ -61,51 +62,47 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
     }
   }, [user]);
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-6 py-24">
-        <motion.div
-          animate={{ opacity: [0.7, 1, 0.7] }}
-          transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-          className="drop-shadow-[0_0_24px_color-mix(in_srgb,var(--brand-soft)_40%,transparent)]"
-        >
-          <JustWritingLogo size={120} variant="dark" showRailway={true} showRoman={true} showCrown={true} />
-        </motion.div>
-        <p className="text-sm text-text-main/60 tracking-widest uppercase font-sans">
-          {t("profile_loading")}
-        </p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-12 text-center rounded-2xl border bg-accent-danger/10 border-accent-danger/20">
-        <AlertCircle size={24} className="mx-auto mb-3 text-accent-danger/70" /><p className="text-accent-danger text-sm mb-4">{t('profile_load_error')}</p>
-          <Button onClick={() => void refresh()} className="px-4 py-2 rounded-xl text-sm font-medium text-accent-danger border border-accent-danger/30 hover:bg-accent-danger/10 transition-colors">
-           {t('retry')}
-         </Button>
-      </div>
-    );
-  }
-
-  if (!loading && sessions.length === 0 && !cloudLoadFailed) {
-    return (
-      <div className="min-h-screen bg-surface-base flex flex-col items-center justify-center gap-8 px-6 text-center">
-        <ProfileHero user={user} profile={profile} isGuest={isGuest} onStartSession={() => void navigate('/')} />
-        <div className="max-w-sm space-y-3">
-          <p className="text-[15px] text-text-main/60 leading-relaxed">
-            {t('profile_empty_desc')}
-          </p>
-          <p className="text-[13px] text-text-main/60 font-mono uppercase tracking-widest">
-            {t('profile_empty_hint')}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
+  // Порядок веток (загрузка → ошибка → пусто → данные) — в LoadStateView, один
+  // с телефоном (MobileMeScreen). «Пусто» — только при целиком удавшемся чтении.
   return (
+    <LoadStateView
+      state={state}
+      loading={
+          <div className="flex flex-col items-center justify-center gap-6 py-24">
+            <motion.div
+              animate={{ opacity: [0.7, 1, 0.7] }}
+              transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+              className="drop-shadow-[0_0_24px_color-mix(in_srgb,var(--brand-soft)_40%,transparent)]"
+            >
+              <JustWritingLogo size={120} variant="dark" showRailway={true} showRoman={true} showCrown={true} />
+            </motion.div>
+            <p className="text-sm text-text-main/60 tracking-widest uppercase font-sans">
+              {t("profile_loading")}
+            </p>
+          </div>
+      }
+      error={retry => (
+        <LoadNotice
+          variant="panel" text={t('profile_load_error')} onRetry={retry}
+          icon={<AlertCircle size={24} className="mx-auto mb-3 text-accent-danger/70" />}
+        />
+      )}
+      partial={retry => <LoadNotice variant="row" text={t('profile_cloud_load_error')} onRetry={retry} />}
+      empty={
+        <div className="min-h-screen bg-surface-base flex flex-col items-center justify-center gap-8 px-6 text-center">
+          <ProfileHero user={user} profile={profile} isGuest={isGuest} onStartSession={() => void navigate('/')} />
+          <div className="max-w-sm space-y-3">
+            <p className="text-[15px] text-text-main/60 leading-relaxed">
+              {t('profile_empty_desc')}
+            </p>
+            <p className="text-[13px] text-text-main/60 font-mono uppercase tracking-widest">
+              {t('profile_empty_hint')}
+            </p>
+          </div>
+        </div>
+      }
+    >
+      {({ sessions, kpiStats }, notice) => (
     <div className="min-h-screen bg-surface-base pb-12">
       <ProfileHero
         user={user} profile={profile} isGuest={isGuest}
@@ -113,14 +110,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
       />
       
       <div className="max-w-screen-2xl mx-auto px-6 md:px-9 space-y-6 pt-6">
-        {cloudLoadFailed && (
-          <div role="alert" className="px-4 py-3 rounded-2xl text-sm bg-accent-danger/10 border border-accent-danger/30 text-accent-danger flex items-center justify-between gap-3">
-            <span>{t('profile_cloud_load_error')}</span>
-            <Button onClick={() => void refresh()} className="shrink-0 underline text-accent-danger/70 hover:text-accent-danger">
-              {t('retry')}
-            </Button>
-          </div>
-        )}
+        {notice}
         <CollapsibleSection title={t('profile_sec_how_write')} storageKey="profile_sec_how_write_v2" defaultOpen={true}>
           <div className="flex flex-row md:flex-col overflow-x-auto md:overflow-x-visible scroll-snap-x-container gap-6 md:gap-0 pb-6 md:pb-0">
             <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden animate-none">
@@ -198,5 +188,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
         </CollapsibleSection>
       </div>
     </div>
+      )}
+    </LoadStateView>
   );
 }

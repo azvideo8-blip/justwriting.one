@@ -31,7 +31,7 @@ vi.mock('@/core/services/StorageService', () => ({
 vi.mock('@/core/events/domainEvents', () => ({ emitDomainEvent: vi.fn() }));
 vi.mock('@/shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('@/core/services/ArchiveExportService', () => ({
-  exportAsDocx: vi.fn(), exportAsMd: vi.fn(), exportAsTxt: vi.fn(), isExportable: () => true,
+  exportAsDocx: vi.fn(), exportAsMd: vi.fn(), exportAsTxt: vi.fn(), exportRefusalKey: () => null,
 }));
 vi.mock('@/core/services/UnifiedSessionLoader', () => ({ loadSessionContent: vi.fn() }));
 vi.mock('@/app/useAuthStatus', () => ({ useAuthStatus: () => ({ profile: {}, user: { uid: 'u-d39c' } }) }));

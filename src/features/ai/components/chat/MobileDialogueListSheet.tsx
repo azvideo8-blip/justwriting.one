@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Archive, Pencil, RotateCcw, Trash2, FileText } from 'lucide-react';
 import type { AIDialogue } from '../../../../core/storage/localDb';
+import type { DialogueLists } from '../../hooks/useDialogueManager';
+import { knownData, mapLoadState, type LoadState } from '../../../../shared/loadState';
+import { DialogueRows } from './DialogueRows';
 import { ModalShell, SECTION_LABEL, SHEET_DIVIDER, SHEET_ROW, SheetTitle } from '../../../../shared/components/ModalShell';
 import { useLanguage } from '../../../../shared/i18n';
 import { Button } from '../../../../shared/components/Button';
@@ -13,8 +16,7 @@ import { hasOnlyTouchPointer } from '../../../../shared/utils/touchPointer';
 export interface MobileDialogueListSheetProps {
   open: boolean;
   onClose: () => void;
-  dialogues: AIDialogue[];
-  archivedDialogues: AIDialogue[];
+  list: LoadState<DialogueLists>;
   activeDialogueId: string | null;
   showArchived: boolean;
   setShowArchived: (v: boolean) => void;
@@ -23,9 +25,6 @@ export interface MobileDialogueListSheetProps {
   onArchive: (id: string) => void;
   onUnarchive: (id: string) => void;
   onDelete: (id: string) => void;
-  loading?: boolean;
-  loadError?: boolean;
-  onRetry?: () => void;
 }
 
 const HOLD_MS = 500;
@@ -41,10 +40,9 @@ function daysAgo(ts: number): number {
 
 export function MobileDialogueListSheet(props: MobileDialogueListSheetProps) {
   const {
-    open, onClose, dialogues, archivedDialogues, activeDialogueId,
+    open, onClose, list, activeDialogueId,
     showArchived, setShowArchived, onSelectDialogue,
     onRename, onArchive, onUnarchive, onDelete,
-    loading = false, loadError = false, onRetry,
   } = props;
   const { t } = useLanguage();
   const [query, setQuery] = useState('');
@@ -63,15 +61,15 @@ export function MobileDialogueListSheet(props: MobileDialogueListSheetProps) {
     onClose();
   };
 
-  const source = showArchived ? archivedDialogues : dialogues;
-  const rows = useMemo(() => {
+  const rowsState = useMemo(() => mapLoadState(list, l => {
+    const source = showArchived ? l.archived : l.active;
     const q = query.trim().toLowerCase();
-    const list = !q ? source : source.filter(d =>
+    const found = !q ? source : source.filter(d =>
       d.title.toLowerCase().includes(q) || (d.messages[0]?.content ?? '').toLowerCase().includes(q));
-    return [...list].sort((a, b) => b.updatedAt - a.updatedAt);
-  }, [source, query]);
+    return [...found].sort((a, b) => b.updatedAt - a.updatedAt);
+  }, rows => rows.length === 0), [list, showArchived, query]);
 
-  const groups = useMemo(() => {
+  const groupRows = (rows: AIDialogue[]) => {
     const out: { key: string; label: string; items: AIDialogue[] }[] = [];
     for (const d of rows) {
       const days = daysAgo(d.updatedAt);
@@ -82,7 +80,11 @@ export function MobileDialogueListSheet(props: MobileDialogueListSheetProps) {
       else out.push({ key, label, items: [d] });
     }
     return out;
-  }, [rows, t]);
+  };
+  // Строка «Архив диалогов · N» — по последнему известному списку: при сбое перечитывания он остаётся.
+  const known = knownData(list);
+  const activeCount = known?.active.length ?? 0;
+  const archivedCount = known?.archived.length ?? 0;
 
   const openActions = (d: AIDialogue) => { setActionsFor(d); setRenaming(false); };
 
@@ -128,7 +130,12 @@ export function MobileDialogueListSheet(props: MobileDialogueListSheetProps) {
             />
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2">
-            {groups.map(g => (
+            <DialogueRows
+              state={rowsState}
+              showArchived={showArchived}
+              noticeClassName="mx-2 my-2 px-3 py-3 rounded-xl text-xs gap-2"
+            >
+            {rows => groupRows(rows).map(g => (
               <div key={g.key}>
                 <div className={`px-3 pt-3 pb-1 ${SECTION_LABEL}`}>{g.label}</div>
                 {g.items.map(d => {
@@ -161,32 +168,17 @@ export function MobileDialogueListSheet(props: MobileDialogueListSheetProps) {
                 })}
               </div>
             ))}
-            {loadError && (
-              <div className="mx-2 my-2 px-3 py-3 rounded-xl text-xs bg-accent-danger/10 border border-accent-danger/30 text-accent-danger flex items-center justify-between gap-2">
-                <span>{t('ai_dialogues_load_error')}</span>
-                {onRetry && (
-                  <Button onClick={onRetry} className="shrink-0 underline text-accent-danger/70 hover:text-accent-danger">
-                    {t('retry')}
-                  </Button>
-                )}
-              </div>
-            )}
-            {!loadError && loading && rows.length === 0 && (
-              <div className="py-8 text-center text-xs text-text-main/60">{t('common_loading')}</div>
-            )}
-            {!loadError && !loading && rows.length === 0 && (
-              <div className="py-8 text-center text-xs text-text-main/60">{t(showArchived ? 'ai_no_archived_dialogues' : 'ai_no_active_dialogues')}</div>
-            )}
+            </DialogueRows>
             {/* SA-11: «ноль — не показатель»: пустой архив строки не получает, ноль не пишем. */}
-            {(showArchived || archivedDialogues.length > 0) && (
+            {(showArchived || archivedCount > 0) && (
               <Button
                 onClick={() => setShowArchived(!showArchived)}
                 className="w-full mt-2 px-3 py-3 rounded-xl text-sm font-medium text-text-main/75 border border-border-subtle flex items-center justify-between"
               >
                 <span>
                   {showArchived ? t('ai_dialogues_active_row') : t('ai_dialogues_archived_row')}
-                  {(showArchived ? dialogues.length : archivedDialogues.length) > 0
-                    ? ` · ${showArchived ? dialogues.length : archivedDialogues.length}`
+                  {(showArchived ? activeCount : archivedCount) > 0
+                    ? ` · ${showArchived ? activeCount : archivedCount}`
                     : ''}
                 </span>
                 {showArchived ? <RotateCcw size={15} /> : <Archive size={15} />}

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.11.21 — 2026-11-19
+
+- **[RU]** Листание длинной заметки на телефоне больше не включает и не выключает режим фокуса — экран не прыгает в начало текста.
+- **[EN]** Scrolling a long note on the phone no longer turns focus mode on or off — the screen no longer jumps to the start of the text.
+- **[RU]** Если ответ собеседника оборвался по дороге, под ним теперь пометка «ответ не дописан», а не обрезанный текст как целый.
+- **[EN]** If the companion’s reply was cut off in transit, it is now marked as unfinished instead of looking complete.
+- **[RU]** Удаление в корзину и восстановление из неё: если облако не ответило, вы увидите предупреждение или ошибку, а не «Готово».
+- **[EN]** Moving to and restoring from the trash: if the cloud did not respond, you see a warning or an error instead of “Done”.
+- **[RU]** Профиль, корзина, список разговоров, превью и читалка показывают загрузку, сбой и пустоту одинаково на телефоне и компьютере; копирование заметки, текст которой не прочитался, называет ошибку вместо пустого текста.
+- **[EN]** Profile, trash, conversation list, preview and reader show loading, failure and emptiness the same way on phone and desktop; copying a note whose text failed to load reports an error instead of copying empty text.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.11.20 — 2026-11-19
 
 - **[RU]** Если собеседник вместо ответа выдавал служебную разметку поиска, теперь вместо неё — кнопка поиска по записям.

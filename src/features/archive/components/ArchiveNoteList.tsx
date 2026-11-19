@@ -11,7 +11,8 @@ import { ArchiveSession } from '../types';
 import { Label } from '../../../types';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
-import { aiExclusionToast, toggleAIExclusion } from '../services/archiveCrud';
+import { toggleAIExclusion } from '../services/archiveCrud';
+import { runMutation } from '../../../shared/mutationResult';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { useToast } from '../../../shared/components/Toast';
 import { Button } from '../../../shared/components/Button';
@@ -127,21 +128,15 @@ export function ArchiveNoteList({
     if (!session.id || aiExclusionLoadingMap[session.id]) return;
     const newExcluded = !session.excludedFromAI;
     setAiExclusionLoadingMap(m => ({ ...m, [session.id]: true }));
-    try {
-      const user = getCurrentUser();
-      const result = await toggleAIExclusion(session, newExcluded, user, userId);
-      if (newExcluded) {
-        setAiProcessedMap(m => ({ ...m, [session.id]: false }));
-      }
+    // Дейлик 19.11 Н-3: итог называет общий помощник — отказ облака не «Скрыто от ИИ».
+    const done = await runMutation({ showToast, t }, 'archive_toggle_ai_exclusion',
+      () => toggleAIExclusion(session, newExcluded, getCurrentUser(), userId),
+      { successText: t(newExcluded ? 'ai_note_excluded' : 'ai_note_include'), context: { documentId: session.id } });
+    if (done) {
+      if (newExcluded) setAiProcessedMap(m => ({ ...m, [session.id]: false }));
       onStorageChange();
-      const toast = aiExclusionToast(result, newExcluded);
-      showToast(t(toast.key), toast.kind);
-    } catch (e) {
-      reportError(e, { action: 'archive_toggle_ai_exclusion', documentId: session.id });
-      showToast(t('error_generic_action'), 'error');
-    } finally {
-      setAiExclusionLoadingMap(m => ({ ...m, [session.id]: false }));
     }
+    setAiExclusionLoadingMap(m => ({ ...m, [session.id]: false }));
   };
 
   // Заметка разбирается только по этому нажатию — фонового разбора нет.

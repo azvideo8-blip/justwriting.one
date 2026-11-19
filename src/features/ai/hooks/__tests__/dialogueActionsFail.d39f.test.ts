@@ -15,6 +15,9 @@ const svc = vi.hoisted(() => ({
 vi.mock('../../services/AIDialogueService', () => ({ AIDialogueService: svc }));
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../shared/i18n', () => ({ useLanguage: () => ({ t: (k: string) => k }) }));
+// load-state-fable: отказ называет общий runMutation через тост, параметра notifyError больше нет.
+const showToast = vi.hoisted(() => vi.fn());
+vi.mock('../../../../shared/components/Toast', () => ({ useToast: () => ({ showToast }) }));
 
 import { useDialogueManager } from '../useDialogueManager';
 
@@ -29,9 +32,8 @@ describe('действия с диалогом при отказе базы', ()
     ['delete', (m: ReturnType<typeof useDialogueManager>) => m.handleDelete('d1'), () => svc.delete.mockImplementation(boom)],
   ])('%s: ошибка названа, промис не бросает', async (_n, run, arrange) => {
     arrange();
-    const notifyError = vi.fn();
-    const { result } = renderHook(() => useDialogueManager({ confirmDialog: async () => true, notifyError }));
+    const { result } = renderHook(() => useDialogueManager({ confirmDialog: async () => true }));
     await act(async () => { await expect(run(result.current)).resolves.toBeUndefined(); });
-    expect(notifyError).toHaveBeenCalledWith('error_generic_action');
+    expect(showToast).toHaveBeenCalledWith('error_generic_action', 'error');
   });
 });

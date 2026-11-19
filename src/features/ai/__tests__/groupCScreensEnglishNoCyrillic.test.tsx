@@ -202,8 +202,7 @@ describe('T-1 (c) AI panel components English localization (no Cyrillic characte
     const { container } = render(
       <LanguageProvider>
         <AIChatSidebar
-          dialogues={[]}
-          archivedDialogues={[]}
+          list={{ status: 'empty' }}
           activeDialogueId={null}
           onSelectDialogue={() => {}}
           showArchived={false}

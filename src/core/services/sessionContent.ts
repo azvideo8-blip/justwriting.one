@@ -12,6 +12,28 @@ export type SessionWithContentFlags = Session & {
   _linkedCloudId?: string | undefined;
 };
 
+/**
+ * Что показать на месте текста заметки. Один разбор флагов на все входы
+ * (превью на десктопе, читалка на телефоне): раньше цепочка
+ * `_locked ? … : _decryptionError ? … : _contentError ? …` жила копиями, и
+ * копии расходились. Текст доступен только в `ready` — «заметка пустая»
+ * нельзя нарисовать, не разобрав «не прочиталось» и «ещё читаем».
+ */
+export type SessionContentState =
+  | { kind: 'locked' }
+  | { kind: 'undecryptable' }
+  | { kind: 'error' }
+  | { kind: 'loading' }
+  | { kind: 'ready'; content: string };
+
+export function sessionContentState(session: Pick<SessionWithContentFlags, 'content' | '_locked' | '_decryptionError' | '_contentError' | '_contentNotLoaded'>): SessionContentState {
+  if (session._locked) return { kind: 'locked' };
+  if (session._decryptionError) return { kind: 'undecryptable' };
+  if (session._contentError) return { kind: 'error' };
+  if (session._contentNotLoaded) return { kind: 'loading' };
+  return { kind: 'ready', content: session.content ?? '' };
+}
+
 export type SessionContentResult =
   | { ok: true; content: string }
   | { ok: false; reason: 'locked' | 'decryption_error' | 'error' | 'not_found' };

@@ -95,8 +95,10 @@ function listSheetProps(overrides: Partial<Parameters<typeof MobileDialogueListS
   return {
     open: true,
     onClose: vi.fn(),
-    dialogues: [dialogue('d1', 'Про гончарный круг', Date.now())],
-    archivedDialogues: [dialogue('d2', 'Старый диалог', Date.now() - 40 * DAY, { archivedAt: Date.now() - 40 * DAY })],
+    list: { status: 'data' as const, data: {
+      active: [dialogue('d1', 'Про гончарный круг', Date.now())],
+      archived: [dialogue('d2', 'Старый диалог', Date.now() - 40 * DAY, { archivedAt: Date.now() - 40 * DAY })],
+    } },
     activeDialogueId: 'd1',
     showArchived: false,
     setShowArchived: vi.fn(),

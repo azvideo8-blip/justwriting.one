@@ -31,14 +31,15 @@ import { useAutoHideCursor } from '../hooks/useAutoHideCursor';
 import type { SessionType } from '../store/types';
 import type { LifeLogDocument } from '../types/lifeLog';
 import type { ArchiveSession } from '../../../shared/types/common';
-import type { DraftErrorKind } from '../hooks/useDraftCore';
+import type { DraftErrorKind, DraftSaveStatus } from '../hooks/useDraftCore';
+import { SaveProblemText } from './saveProblem';
 
 // Ревью 0.9.39: жетон всегда говорил «Поток», хотя первая буква запускает
 // режим, оставшийся от прошлой сессии (таймер, цель по словам, дедлайн).
 interface MobileWriteScreenProps {
   onPlay: () => void;
   onStop: () => void;
-  saveStatus?: string;
+  saveStatus?: DraftSaveStatus;
   saveErrorKind?: DraftErrorKind;
   keystrokeTrackerRef?: React.RefObject<KeystrokeTracker>;
   renderAiPanel?: (open: boolean, onClose: () => void) => React.ReactNode;
@@ -67,13 +68,6 @@ interface MobileWriteScreenProps {
   onOpenMemory?: (s: ArchiveSession) => void;
 }
 
-
-// Дейлик 19.11 Н-5: текст отказа сохранения — один на обычную шапку и дзен-строку;
-// дзен терял причину («Ошибка сохранения» вместо «Недостаточно места»).
-function saveFailureKey(status: 'error' | 'cloud-stale', kind: DraftErrorKind | undefined) {
-  if (status === 'cloud-stale') return kind === 'cloud-too-large' ? 'editor_cloud_too_large' : kind === 'cloud-refused' ? 'editor_cloud_refused' : 'editor_cloud_stale';
-  return kind === 'quota' ? 'editor_error_quota' : 'editor_error_save';
-}
 
 export function MobileWriteScreen({
   onPlay, onStop, saveStatus, saveErrorKind, keystrokeTrackerRef, renderAiPanel,
@@ -182,6 +176,7 @@ export function MobileWriteScreen({
   useAutoHideCursor(editorAreaRef, autoHideCursor);
   const swipeTouchStartY = useRef<number>(0);
   const swipeTouchStartX = useRef<number>(0);
+  const swipeAtTop = useRef(true);
 
   const prevMilestoneRef = useRef(0);
 
@@ -206,6 +201,9 @@ export function MobileWriteScreen({
     if (!touch) return;
     swipeTouchStartY.current = touch.clientY;
     swipeTouchStartX.current = touch.clientX;
+    // Палец вниз посреди длинной заметки — это прокрутка вверх, а не «в дзен»
+    // (видео 19.11: экран прыгал в начало). Жест — только когда текст уже в самом верху.
+    swipeAtTop.current = (textareaRef.current?.scrollTop ?? 0) <= 0;
   };
 
   const handleEditorTouchEnd = (e: React.TouchEvent) => {
@@ -213,7 +211,7 @@ export function MobileWriteScreen({
     if (!touch) return;
     const deltaY = touch.clientY - swipeTouchStartY.current;
     const deltaX = Math.abs(touch.clientX - swipeTouchStartX.current);
-    if (deltaY > 60 && deltaX < 40 && isRunning) {
+    if (deltaY > 60 && deltaX < 40 && isRunning && swipeAtTop.current) {
       setFocusMode(true);
     }
   };
@@ -341,12 +339,8 @@ export function MobileWriteScreen({
             {saveMoment === null && (saveStatus === 'saving' || saveStatus === 'saved' || saveStatus === 'idle') && (
               <SaveStatus saveStatus={saveStatus} saveErrorKind={saveErrorKind} hideWhenIdle />
             )}
-            {saveMoment === null && (saveStatus === 'error' || saveStatus === 'cloud-stale') && (
-              <span data-testid="save-status-text" className="max-w-[40%] shrink-0 truncate text-[12px] tabular-nums">
-                {saveStatus === 'cloud-stale'
-                  ? <span className="text-[var(--accent-warning)]">{t(saveFailureKey(saveStatus, saveErrorKind))}</span>
-                  : <span className="text-[var(--accent-danger)]">{t(saveFailureKey(saveStatus, saveErrorKind))}</span>}
-              </span>
+            {saveMoment === null && (
+              <SaveProblemText status={saveStatus ?? 'idle'} kind={saveErrorKind} testId="save-status-text" className="max-w-[40%] shrink-0 truncate text-[12px] tabular-nums" />
             )}
 
             {saveMoment === null && (isIdleState ? (
@@ -403,13 +397,7 @@ export function MobileWriteScreen({
           </span>
           <span className="flex-1" />
           {(saveStatus === 'saving' || saveStatus === 'saved' || saveStatus === 'idle') && <SaveStatus saveStatus={saveStatus} saveErrorKind={saveErrorKind} hideWhenIdle />}
-          {(saveStatus === 'error' || saveStatus === 'cloud-stale') && (
-            <span className="text-[12px] tabular-nums shrink-0">
-              {saveStatus === 'cloud-stale'
-                ? <span className="text-[var(--accent-warning)]">{t(saveFailureKey(saveStatus, saveErrorKind))}</span>
-                : <span className="text-[var(--accent-danger)]">{t(saveFailureKey(saveStatus, saveErrorKind))}</span>}
-            </span>
-          )}
+          <SaveProblemText status={saveStatus ?? 'idle'} kind={saveErrorKind} className="text-[12px] tabular-nums shrink-0" />
         </motion.div>
       )}
       </AnimatePresence>

@@ -16,8 +16,9 @@ function renderSheet(showArchived: boolean) {
       h(MobileDialogueListSheet, {
         open: true,
         onClose: vi.fn(),
-        dialogues: [],
-        archivedDialogues: [],
+        // load-state-fable: список приходит одним состоянием (shared/loadState);
+        // «прочитано, пусто» = status 'empty' — то же, что loading:false, loadError:false.
+        list: { status: 'empty' },
         activeDialogueId: null,
         showArchived,
         setShowArchived: vi.fn(),
@@ -26,8 +27,6 @@ function renderSheet(showArchived: boolean) {
         onArchive: vi.fn(),
         onUnarchive: vi.fn(),
         onDelete: vi.fn(),
-        loading: false,
-        loadError: false,
       })),
   );
 }

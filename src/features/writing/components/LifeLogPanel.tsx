@@ -151,11 +151,11 @@ export function LifeLogPanel({
         errorMessage: t('error_delete_failed'),
         onSuccess: (res) => {
           if (!res?.applied) {
-            showToast(t('delete_not_applied_uploading'));
+            showToast(t('delete_not_applied_uploading'), 'warning');
           } else if (res?.cloudSynced) {
             showToast(t('session_deleted'), 'success');
           } else {
-            showToast(t('delete_local_only_queued'));
+            showToast(t('delete_local_only_queued'), 'warning');
           }
         },
       }

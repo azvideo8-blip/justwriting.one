@@ -158,9 +158,12 @@ export const StorageService = {
       try {
         await DocumentService.trashDocument(userId, targetCloudId, new Date(now));
       } catch (e) {
+        // Без локальной копии досылать нечего: ничего не изменилось — это отказ,
+        // а не «отправится позже» (находка 19.11; вызывающие показывают ошибку).
+        if (!localId) throw e;
         cloudSynced = false;
         reportError(e, { action: 'trashDocument_cloud', documentId: targetCloudId });
-        if (localId) await queueMetadataRetry(userId, localId);
+        await queueMetadataRetry(userId, localId);
       }
     } else if (lookupFailed && localId && !userId.startsWith('guest')) {
       cloudSynced = false;
@@ -179,9 +182,12 @@ export const StorageService = {
       try {
         await DocumentService.restoreDocument(userId, targetCloudId);
       } catch (e) {
+        // Без локальной копии досылать нечего: ничего не изменилось — это отказ,
+        // а не «отправится позже» (находка 19.11; вызывающие показывают ошибку).
+        if (!localId) throw e;
         cloudSynced = false;
         reportError(e, { action: 'restoreDocument_cloud', documentId: targetCloudId });
-        if (localId) await queueMetadataRetry(userId, localId);
+        await queueMetadataRetry(userId, localId);
       }
     } else if (lookupFailed && localId && !userId.startsWith('guest')) {
       cloudSynced = false;

@@ -11,7 +11,8 @@ vi.mock('react-router-dom', async () => {
 });
 vi.mock('../../../core/settings/SettingsContext', () => ({ useSettings: () => ({ openSettings: vi.fn() }) }));
 vi.mock('../../../features/profile/hooks/useProfileStats', () => ({
-  useProfileStats: () => ({ sessions: [], kpiStats: {}, loading: false, refresh: vi.fn() }),
+  useProfileStats: () => ({ status: 'empty' }),
+  EMPTY_PROFILE_STATS: { sessions: [], kpiStats: {} },
 }));
 for (const name of ['ProfileHero', 'KPIStrip', 'StreakRibbon', 'Heatmap', 'HourRhythm', 'Achievements', 'MoodTrend']) {
   vi.mock(`../../../features/profile/components/${name}`, () => ({ [name]: () => null }));

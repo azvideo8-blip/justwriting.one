@@ -225,8 +225,18 @@ describe('DC-A3 useNoteStorageActions: удаление копий', () => {
     });
   });
 
-  it('облачная копия без локальной — в корзину', async () => {
+  // Мутация: вернуть безусловный тост archive_trash_moved — красный.
+  it('в корзину при отказе облака — «только на этом устройстве», предупреждением, а не зелёный успех', async () => {
     vi.mocked(StorageService.trashDocument).mockResolvedValueOnce({ cloudSynced: false });
+    render(<Harness doc={{ localId: 'local_1', hasLocal: true, hasCloud: false }} userId={userId} onStorageChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', { name: 'request-local' }));
+    fireEvent.click(screen.getByRole('button', { name: 'storage_delete_confirm' }));
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith('delete_local_only_queued', 'warning'));
+    expect(mockShowToast).not.toHaveBeenCalledWith('archive_trash_moved', 'success');
+  });
+
+  it('облачная копия без локальной — в корзину', async () => {
+    vi.mocked(StorageService.trashDocument).mockResolvedValueOnce({ cloudSynced: true });
     render(<Harness doc={{ cloudId: 'cloud_1', hasLocal: false, hasCloud: true }} userId={userId} onStorageChange={onChange} />);
     fireEvent.click(screen.getByRole('button', { name: 'request-cloud' }));
     fireEvent.click(screen.getByRole('button', { name: 'storage_delete_confirm' }));

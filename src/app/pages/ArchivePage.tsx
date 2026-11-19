@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
+import { Trash2 } from 'lucide-react';
 import type { AppUser } from '../../core/auth/types';
 import { UserProfile } from '../../types';
 import { calculateStreak, cn } from '../../core/utils/utils';
@@ -10,6 +11,9 @@ import { AdaptiveContainer } from '../../shared/components/Layout/AdaptiveContai
 import { useLanguage } from '../../shared/i18n';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../shared/components/Button';
+import { EmptyState } from '../../shared/components/EmptyState';
+import { LoadStateView, LoadNotice } from '../../shared/components/LoadStateView';
+import { loadStateFromFlags } from '../../shared/loadState';
 import { useConfirmDialog } from '../../shared/components/ConfirmDialog';
 import { useUserId } from '../../shared/hooks/useUserId';
 import { ArchiveHeader, type SortMode } from '../../features/archive/components/ArchiveHeader';
@@ -446,25 +450,37 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
             </div>
             {activeTab === 'trash' ? (
               <div className="mt-4 flex-1 min-h-0 pr-1">
-                {/* Дейлик 19.11 Н-2: сбой чтения — не «Корзина пуста»; пока читаем — тоже не «пуста». */}
-                {error ? (
-                  <div role="alert" className="p-12 text-center rounded-3xl border bg-accent-danger/10 border-accent-danger/30">
-                    <p className="text-accent-danger mb-4">{error}</p>
-                    <Button onClick={() => void fetchSessions()} className="underline text-accent-danger/70 hover:text-accent-danger">{t('retry')}</Button>
-                  </div>
-                ) : loading && trashedSessions.length === 0 ? null : (
-                <ArchiveTrashView
-                  trashedSessions={filteredTrashedSessions}
-                  onRestore={handleRestoreSession}
-                  onDeletePermanently={s => void requestPermanentDelete(s)}
-                  onEmptyTrash={() => void requestEmptyTrash()}
-                  onOpenPreview={s => void openPreview(s)}
-                  dateLocale={dateLocale}
-                  t={t}
-                  tp={tp}
-                  isMobile={isMobile}
-                />
-                )}
+                {/* Дейлик 19.11 Н-2: сбой чтения — не «Корзина пуста»; пока читаем — тоже
+                    не «пуста». Ветки разбирает LoadStateView; плашка об облаке — общая
+                    для вкладок, выше, поэтому при частичном отказе здесь просто нет «пусто». */}
+                <LoadStateView
+                  state={loadStateFromFlags({ loading, failed: !!error, partial: cloudLoadFailed, retry: () => void fetchSessions() }, filteredTrashedSessions)}
+                  loading={null}
+                  error={retry => <LoadNotice variant="panel" className="rounded-3xl border-accent-danger/30" text={error ?? ''} onRetry={retry} />}
+                  partial={() => null}
+                  empty={
+                    <div className="py-12">
+                      <EmptyState icon={Trash2} title={t('archive_trash_empty')} description={t('archive_trash_empty_desc')} />
+                    </div>
+                  }
+                >
+                  {(list, notice) => (<>
+                    {notice}
+                    {list.length > 0 && (
+                    <ArchiveTrashView
+                      trashedSessions={list}
+                      onRestore={handleRestoreSession}
+                      onDeletePermanently={s => void requestPermanentDelete(s)}
+                      onEmptyTrash={() => void requestEmptyTrash()}
+                      onOpenPreview={s => void openPreview(s)}
+                      dateLocale={dateLocale}
+                      t={t}
+                      tp={tp}
+                      isMobile={isMobile}
+                    />
+                    )}
+                  </>)}
+                </LoadStateView>
               </div>
             ) : (
               <div className={cn("mt-4 pr-1", isMobile && calendarOpen ? "h-[70dvh] shrink-0" : "flex-1 min-h-0")}>

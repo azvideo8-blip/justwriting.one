@@ -4,51 +4,53 @@ import type { AIDialogue } from '../../../core/storage/localDb';
 import { useLanguage } from '../../../shared/i18n';
 import { localDayKey } from '../../../core/utils/dateUtils';
 import { reportError } from '../../../shared/errors/reportError';
+import { runMutation } from '../../../shared/mutationResult';
+import { useToast } from '../../../shared/components/Toast';
+import { knownData, loadState, type LoadState } from '../../../shared/loadState';
+
+/** Оба списка диалогов читаются одним чтением и живут в одном состоянии. */
+export interface DialogueLists { active: AIDialogue[]; archived: AIDialogue[] }
 
 interface DialogueManagerParams {
   confirmDialog: (options: { title: string; message: string }) => Promise<boolean>;
-  /** Дейлик 19.11: отказ действия над диалогом — назвать человеку (тост). */
-  notifyError?: (message: string) => void;
 }
 
-export function useDialogueManager({ confirmDialog, notifyError }: DialogueManagerParams) {
+export function useDialogueManager({ confirmDialog }: DialogueManagerParams) {
   const { t } = useLanguage();
-  const [dialogues, setDialogues] = useState<AIDialogue[]>([]);
-  const [archivedDialogues, setArchivedDialogues] = useState<AIDialogue[]>([]);
+  const { showToast } = useToast();
+  // Одно состояние вместо dialogues / archivedDialogues / loading / loadError:
+  // «Нет диалогов» нельзя нарисовать, не разобрав сбой чтения (shared/loadState).
+  const [dialogueList, setDialogueList] = useState<LoadState<DialogueLists>>(loadState.loading());
   const [activeDialogueId, setActiveDialogueId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
-  const [dialoguesLoading, setDialoguesLoading] = useState(true);
-  const [dialoguesLoadError, setDialoguesLoadError] = useState(false);
 
   const loadDialogues = useCallback(async () => {
-    setDialoguesLoading(true);
+    // Повтор едет внутри состояния ошибки: экрану не из чего собрать ошибку без выхода.
+    const retry = () => { void loadDialogues(); };
+    // Прошлый список остаётся на экране, пока перечитываем.
+    setDialogueList(prev => loadState.loading(knownData(prev)));
     try {
       const [active, archived] = await Promise.all([
         AIDialogueService.list({ includeArchived: false }),
         AIDialogueService.list({ includeArchived: true }),
       ]);
-      setDialogues(active);
-      setArchivedDialogues(archived.filter(d => d.archivedAt));
-      setDialoguesLoadError(false);
+      setDialogueList(loadState.settled(
+        { active, archived: archived.filter(d => d.archivedAt) },
+        lists => lists.active.length === 0 && lists.archived.length === 0,
+      ));
     } catch (error) {
       // A-1: сбой чтения — не «пусто»: прошлый список остаётся, экран говорит об ошибке.
       reportError(error, { action: 'loadDialogues', source: 'ai-dialogues' });
-      setDialoguesLoadError(true);
-    } finally {
-      setDialoguesLoading(false);
+      setDialogueList(prev => loadState.error(retry, knownData(prev)));
     }
   }, []);
 
   // Дейлик 19.11, подозрение 2: вызовы — `void` из листа, который уже закрылся;
-  // отказ базы был необработанным промисом без тоста. Теперь он назван, список
-  // перечитан (строка осталась на месте — так и показываем).
+  // отказ базы был необработанным промисом без тоста. Общий runMutation называет
+  // отказ; список перечитан (строка осталась на месте — так и показываем).
   const guarded = useCallback(async (action: string, fn: () => Promise<void>) => {
-    try { await fn(); } catch (e) {
-      reportError(e, { action });
-      notifyError?.(t('error_generic_action'));
-      await loadDialogues();
-    }
-  }, [loadDialogues, notifyError, t]);
+    await runMutation({ showToast, t }, action, fn, { successText: null, onFailure: loadDialogues });
+  }, [loadDialogues, showToast, t]);
 
   const handleRenameDialogue = useCallback(async (id: string, newTitle: string) => guarded('dialogue_rename', async () => {
     await AIDialogueService.updateTitle(id, newTitle);
@@ -89,7 +91,8 @@ export function useDialogueManager({ confirmDialog, notifyError }: DialogueManag
     if (!activeDialogueId) return;
     const md = await AIDialogueService.exportAsMarkdown(activeDialogueId);
     if (!md) return;
-    const activeDialogue = dialogues.find(d => d.id === activeDialogueId) || archivedDialogues.find(d => d.id === activeDialogueId);
+    const known = knownData(dialogueList);
+    const activeDialogue = known?.active.find(d => d.id === activeDialogueId) || known?.archived.find(d => d.id === activeDialogueId);
     const rawTitle = activeDialogue?.title || 'dialogue';
     const safeTitle = rawTitle.replace(/[/\\?%*:|"<>]/g, '-').trim() || 'dialogue';
     const dateStr = localDayKey();
@@ -100,19 +103,14 @@ export function useDialogueManager({ confirmDialog, notifyError }: DialogueManag
     a.download = `${safeTitle}-${dateStr}.md`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [activeDialogueId, dialogues, archivedDialogues]);
+  }, [activeDialogueId, dialogueList]);
 
   return {
-    dialogues,
-    setDialogues,
-    archivedDialogues,
-    setArchivedDialogues,
+    dialogueList,
     activeDialogueId,
     setActiveDialogueId,
     showArchived,
     setShowArchived,
-    dialoguesLoading,
-    dialoguesLoadError,
     loadDialogues,
     handleRenameDialogue,
     handleArchive,

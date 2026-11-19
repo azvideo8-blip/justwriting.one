@@ -10,7 +10,7 @@ import { useToast } from '../../../shared/components/Toast';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { cn } from '../../../core/utils/utils';
 import { toDate, getDateLocale } from '../../../core/utils/dateUtils';
-import { exportAsTxt, exportAsMd, exportAsPdf, exportAsDocx, ExportStrings, isExportable } from '../../../core/services/ArchiveExportService';
+import { exportAsTxt, exportAsMd, exportAsPdf, exportAsDocx, ExportStrings, exportRefusalKey } from '../../../core/services/ArchiveExportService';
 import { CopyNoteModal } from './CopyNoteModal';
 import { InlineTags } from './InlineTags';
 import { LABEL_PRESET_COLORS } from '../../../core/constants/labelColors';
@@ -30,6 +30,7 @@ import { useAiConsentOff } from '../../../core/ai/useAiConsentOff';
 import { reportError } from '../../../shared/errors/reportError';
 import { aiErrorToText } from '../../../shared/ai/aiErrorUtils';
 import { isBlankTitle } from '../../../shared/utils/titleUtils';
+import { sessionContentState } from '../../../core/services/sessionContent';
 
 const relatedNotesCache = new Map<string, RelatedNote[]>();
 
@@ -376,6 +377,7 @@ export function DocumentPreview({
   };
 
   if (!session) return null;
+  const body = sessionContentState(session);
 
   const currentLabel = labels?.find(l => l.id === session.labelId);
 
@@ -397,16 +399,12 @@ export function DocumentPreview({
   };
   // Refuse to export a note whose text could not be read (vault locked, decryption
   // or storage failure) — otherwise the user silently downloads an empty file.
-  const exportUnavailableMessage = session._contentNotLoaded
-    ? t('archive_export_not_loaded')
-    : session._locked
-    ? t('archive_export_locked')
-    : t('archive_export_encrypted_unavailable');
   // PDF and DOCX exporters are async; typing this as `() => void` made passing
   // them a no-misused-promises error.
   const runExport = (fn: () => void | Promise<void>) => {
-    if (!isExportable(session)) {
-      showToast(exportUnavailableMessage, 'error');
+    const refusal = exportRefusalKey(session);
+    if (refusal) {
+      showToast(t(refusal), 'error');
       return;
     }
     void fn();
@@ -767,7 +765,7 @@ export function DocumentPreview({
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-5 flex flex-col justify-between">
-        {session._locked ? (
+        {body.kind === 'locked' ? (
           <div className="flex flex-col items-center justify-center text-center p-8 border border-accent-warning/20 bg-accent-warning/5 rounded-2xl my-auto">
             <Lock size={32} className="text-accent-warning/80 mb-3" />
             <p className="text-sm text-text-main/80 font-medium mb-1">{t('archive_note_locked')}</p>
@@ -782,25 +780,25 @@ export function DocumentPreview({
               {t('archive_unlock')}
             </Button>
           </div>
-        ) : session._decryptionError ? (
+        ) : body.kind === 'undecryptable' ? (
           <div className="flex flex-col items-center justify-center text-center p-8 border border-accent-danger/20 bg-accent-danger/5 rounded-2xl my-auto">
             <AlertCircle size={32} className="text-accent-danger/80 mb-3" />
             <p className="text-sm text-text-main/80 font-medium mb-1">{t('archive_decryption_error')}</p>
           </div>
-        ) : session._contentError ? (
+        ) : body.kind === 'error' ? (
           <div role="alert" className="flex flex-col items-center justify-center text-center p-8 border border-accent-danger/20 bg-accent-danger/5 rounded-2xl my-auto">
             <AlertCircle size={32} className="text-accent-danger/80 mb-3" />
             <p className="text-sm text-text-main/80 font-medium mb-3">{t('archive_content_load_error')}</p>
             <Button onClick={() => void retryContent()} className="underline text-accent-danger/80">{t('retry')}</Button>
           </div>
-        ) : session._contentNotLoaded ? (
+        ) : body.kind === 'loading' ? (
           <div className="flex flex-col items-center justify-center text-center p-8 my-auto text-text-main/60">
             <Loader2 size={24} className="animate-spin mb-2" />
             <p className="text-xs">{t('common_loading')}</p>
           </div>
         ) : (
           <p className="text-[15px] text-text-main/80 leading-[1.8] whitespace-pre-wrap text-pretty">
-            {session.content || (
+            {body.content || (
               <span className="text-text-main/60 italic">{t('archive_no_content')}</span>
             )}
           </p>
@@ -864,19 +862,14 @@ export function DocumentPreview({
         {session !== null && (
           <Button
             onClick={() => {
-              if (session._locked) {
-                showToast(t('archive_note_locked'), 'error');
-                return;
+              // Отказ по тому же разбору, что и тело превью: новая причина не пройдёт мимо.
+              switch (body.kind) {
+                case 'locked': showToast(t('archive_note_locked'), 'error'); return;
+                case 'undecryptable': showToast(t('archive_decryption_error'), 'error'); return;
+                case 'error': showToast(t('archive_content_load_error'), 'error'); return;
+                case 'loading': showToast(t('archive_no_content'), 'error'); return;
+                case 'ready': setCopyModalOpen(true);
               }
-              if (session._decryptionError) {
-                showToast(t('archive_decryption_error'), 'error');
-                return;
-              }
-              if (session._contentNotLoaded) {
-                showToast(t('archive_no_content'), 'error');
-                return;
-              }
-              setCopyModalOpen(true);
             }}
             className="flex items-center justify-center px-3 h-11 rounded-xl bg-surface-card border border-border-subtle text-text-main/60 hover:text-text-main hover:bg-surface-elevated transition-colors text-sm cursor-pointer"
             title={t('archive_copy_modal_title')}

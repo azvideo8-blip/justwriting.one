@@ -134,8 +134,8 @@ describe('D-2: экспорт при сбое облака', () => {
     mocks.getDocuments.mockRejectedValue(new Error('MARKER_D2_CLOUD'));
     const { result } = renderHook(() => useProfileStats('d2-user', { uid: 'd2-user' } as never));
 
-    await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.cloudLoadFailed).toBe(true);
+    await waitFor(() => expect(result.current.status).not.toBe('loading'));
+    expect(result.current.status).toBe('partial');
   });
 
   it('пусто только при успешном чтении облака', async () => {

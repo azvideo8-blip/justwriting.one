@@ -25,11 +25,12 @@ import { splitNoteTitle } from './noteTitle';
 import { getDateLocale, toDate } from '../../../core/utils/dateUtils';
 import { getCurrentUser } from '../../../core/auth';
 import { useAiConsentOff } from '../../../core/ai/useAiConsentOff';
-import { aiExclusionToast, toggleAIExclusion } from '../services/archiveCrud';
-import { reportError } from '../../../shared/errors/reportError';
+import { toggleAIExclusion } from '../services/archiveCrud';
+import { runMutation } from '../../../shared/mutationResult';
 import type { AIDocumentSummary } from '../../../core/storage/localDb';
 import type { RelatedNote } from '../../../shared/types/common';
 import { LABEL_PRESET_COLORS } from '../../../core/constants/labelColors';
+import { sessionContentState } from '../../../core/services/sessionContent';
 
 interface MobileNoteReaderProps {
   session: ArchiveSession;
@@ -100,6 +101,7 @@ export function MobileNoteReader({
 
   const date = toDate(session.createdAt) ?? new Date();
   const currentLabel = labels?.find(l => l.id === session.labelId);
+  const body = sessionContentState(session);
   const readable = !session._locked && !session._decryptionError && !session._contentNotLoaded;
   const title = session._locked
     ? t('archive_note_locked')
@@ -110,17 +112,14 @@ export function MobileNoteReader({
   const handleExclusionClick = () => {
     const nextExcluded = !session.excludedFromAI;
     setExclusionLoading(true);
-    void toggleAIExclusion(session, nextExcluded, user, actorId)
-      .then((result) => {
-        onStorageChange?.();
-        const toast = aiExclusionToast(result, nextExcluded);
-        showToast(t(toast.key), toast.kind);
-      })
-      .catch(e => {
-        reportError(e, { action: 'reader_toggle_ai_exclusion', documentId: session.id });
-        showToast(t('error_generic_action'), 'error');
-      })
-      .finally(() => setExclusionLoading(false));
+    // Дейлик 19.11 Н-3: тот же помощник итога, что в списке архива.
+    void runMutation({ showToast, t }, 'reader_toggle_ai_exclusion',
+      () => toggleAIExclusion(session, nextExcluded, user, actorId),
+      { successText: t(nextExcluded ? 'ai_note_excluded' : 'ai_note_include'), context: { documentId: session.id } },
+    ).then(done => {
+      if (done) onStorageChange?.();
+      setExclusionLoading(false);
+    });
   };
 
   // MB-4: портал в body. Внутри `main` `fixed` считается от предка с
@@ -175,7 +174,7 @@ export function MobileNoteReader({
         <time data-testid="reader-date" dateTime={date.toISOString()} className="mt-1.5 block text-[13px] text-text-subtle">
           {format(date, date.getFullYear() === new Date().getFullYear() ? 'd MMMM, HH:mm' : 'd MMMM yyyy, HH:mm', { locale: getDateLocale(language) })}
         </time>
-        {session._locked ? (
+        {body.kind === 'locked' ? (
           <div className="mt-6 rounded-2xl border border-accent-warning/20 bg-accent-warning/5 p-5 text-center">
             {/* U-25 (решение владельца 2026-10-18): как на десктопе — замок 32 и
                 заголовок над пояснением (`DocumentPreview.tsx:727-731`). */}
@@ -192,20 +191,20 @@ export function MobileNoteReader({
               {t('archive_unlock')}
             </Button>
           </div>
-        ) : session._decryptionError ? (
+        ) : body.kind === 'undecryptable' ? (
           <p className="mt-4 text-[17px] text-accent-danger">{t('archive_decryption_error')}</p>
-        ) : session._contentError ? (
+        ) : body.kind === 'error' ? (
           <div role="alert" className="mt-4">
             <p className="text-[17px] text-accent-danger">{t('archive_content_load_error')}</p>
             {onRetryContent && (
               <Button onClick={onRetryContent} className="mt-3 rounded-xl bg-accent-danger/10 px-4 py-2 text-[15px] text-accent-danger">{t('retry')}</Button>
             )}
           </div>
-        ) : session._contentNotLoaded ? (
+        ) : body.kind === 'loading' ? (
           <p className="mt-4 text-[17px] text-text-main/60">{t('common_loading')}</p>
         ) : (
           <p data-testid="reader-body" className="mt-3 whitespace-pre-wrap text-[length:var(--reading-size)] leading-[var(--reading-lh)] text-pretty text-[var(--ink)]">
-            {session.content || <span className="italic text-text-main/60">{t('archive_no_content')}</span>}
+            {body.content || <span className="italic text-text-main/60">{t('archive_no_content')}</span>}
           </p>
         )}
         {readable && (relatedNotes?.length ?? 0) > 0 && onSelectRelated && (

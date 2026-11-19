@@ -14,6 +14,7 @@ import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
 import { logger } from '../../../shared/errors/logger';
 import { useToast } from '../../../shared/components/Toast';
 import { rebuildWordCloud } from './useArchiveWordCloud';
+import { reportMutationResult } from '../../../shared/mutationResult';
 
 export function useArchiveSessions(user: AppUser | null, userId: string, t: (key: string) => string) {
   const [sessions, setSessions] = useState<ArchiveSession[]>([]);
@@ -113,7 +114,7 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
       if (res.cloudSynced) {
         showToast(t('archive_trash_moved'), 'success');
       } else {
-        showToast(t('delete_local_only_queued'));
+        showToast(t('delete_local_only_queued'), 'warning');
       }
       void rebuildWordCloud(userId).catch(() => { /* non-critical */ });
     } catch (e) {
@@ -139,7 +140,7 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
     try {
       const res = await deleteArchiveSession(s, userId);
       if (!res.applied) {
-        showToast(t('delete_not_applied_uploading'));
+        showToast(t('delete_not_applied_uploading'), 'warning');
         return;
       }
       setSessions(prev => prev.filter(x => x.id !== s.id));
@@ -147,7 +148,7 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
       if (res.cloudSynced && res.derivativesOk !== false) {
         showToast(t('session_deleted'), 'success');
       } else if (!res.cloudSynced) {
-        showToast(t('delete_local_only_queued'));
+        showToast(t('delete_local_only_queued'), 'warning');
       } else {
         showToast(t('session_deleted_partial'), 'warning');
       }
@@ -192,9 +193,7 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
         patch.labelId = value;
       }
       updateSession(session.id, patch);
-      if (result.cloudSyncFailed) {
-        showToast(t('archive_cloud_sync_failed'), 'error');
-      }
+      reportMutationResult({ showToast, t }, result, { successText: null });
     } catch (e) {
       logger.error('archive', `Failed to update ${field}`, { error: String(e) });
       showToast(t('error_generic_action'), 'error');

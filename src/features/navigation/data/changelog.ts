@@ -17,6 +17,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.21',
+    date: '2026-11-19',
+    announce: false,
+    items: [
+      { category: 'fix', ru: 'Листание длинной заметки на телефоне больше не включает и не выключает режим фокуса — экран не прыгает в начало текста.', en: 'Scrolling a long note on the phone no longer turns focus mode on or off — the screen no longer jumps to the start of the text.' },
+      { category: 'fix', ru: 'Если ответ собеседника оборвался по дороге, под ним теперь пометка «ответ не дописан», а не обрезанный текст как целый.', en: 'If the companion’s reply was cut off in transit, it is now marked as unfinished instead of looking complete.' },
+      { category: 'fix', ru: 'Удаление в корзину и восстановление из неё: если облако не ответило, вы увидите предупреждение или ошибку, а не «Готово».', en: 'Moving to and restoring from the trash: if the cloud did not respond, you see a warning or an error instead of “Done”.' },
+      { category: 'fix', ru: 'Профиль, корзина, список разговоров, превью и читалка показывают загрузку, сбой и пустоту одинаково на телефоне и компьютере; копирование заметки, текст которой не прочитался, называет ошибку вместо пустого текста.', en: 'Profile, trash, conversation list, preview and reader show loading, failure and emptiness the same way on phone and desktop; copying a note whose text failed to load reports an error instead of copying empty text.' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.11.20',
     date: '2026-11-19',
     announce: false,

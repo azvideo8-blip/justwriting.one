@@ -723,6 +723,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // Response length and reasoning variables moved to top of sendMessage
 
       let fullText: string;
+      let streamCut = false;
 
       if (Date.now() < _streamUnavailableUntil) {
         fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: turnMessages, documentContent: searchContext, userPortrait: safePortrait, memoryContext, noteScope, authorGender, responseLength: effectiveResponseLength, reasoning: effectiveReasoning, crisis, hypoStats, signal: controller.signal });
@@ -784,6 +785,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             const lastPartial = shownPartial;
             if (lastPartial.trim().length > 200) {
               fullText = lastPartial;
+              // Случай #27: кусок оставляем, но не молча — иначе оборванный
+              // посреди слова ответ выглядит целым.
+              streamCut = true;
             } else {
               // DY10-6: кризисный флаг — и в запасном пути, как в стриме и прямом callable.
               fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: turnMessages, documentContent: searchContext, userPortrait: safePortrait, memoryContext, noteScope, authorGender, responseLength: effectiveResponseLength, reasoning: effectiveReasoning, crisis, hypoStats, signal: controller.signal });
@@ -873,7 +877,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // Разбор 18.11: ответ был одной разметкой поиска — пустой пузырь с кнопкой
       // непонятен; одна строка объясняет, что кнопка ниже — поиск.
       if (!savedText.trim() && searchReq) savedText = 'Могу поискать в записях — нажми на запрос ниже.';
-      if (controller.signal.aborted) {
+      if (controller.signal.aborted || streamCut) {
         savedText = `${savedText.trim()}${INTERRUPTED_STREAM_MARKER}`;
       }
       // К21-4: признак «пересказал записи, но не сослался ни на одну» считается

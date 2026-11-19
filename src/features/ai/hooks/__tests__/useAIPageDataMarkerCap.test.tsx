@@ -37,8 +37,7 @@ vi.mock('../../utils/noteRetriever', () => ({ searchNotes }));
 vi.mock('../useDailyLimit', () => ({ useDailyLimit: () => ({}) }));
 vi.mock('../useDialogueManager', () => ({
   useDialogueManager: () => ({
-    dialogues: [],
-    archivedDialogues: [],
+    dialogueList: { status: 'empty' },
     activeDialogueId: 'dlg_1',
     setActiveDialogueId: vi.fn(),
     showArchived: false,

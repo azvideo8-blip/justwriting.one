@@ -74,13 +74,14 @@ describe('d39a: сбой чтения профиля на телефоне — �
     });
   });
 
-  it('КОНТРОЛЬ: хук отдаёт error=load_failed — сигнал есть, экран его теряет', async () => {
+  // load-state-fable: хук отдаёт одно состояние (shared/loadState) — сигнал
+  // тот же, форма новая: status='error' вместо error='load_failed' + sessions=[].
+  it('КОНТРОЛЬ: хук отдаёт status=error — сигнал есть, экран его теряет', async () => {
     loadAllSessions.mockRejectedValue(new Error('MARKER_DAILY_IDB_DOWN'));
     const { result } = renderHook(() => useProfileStats('u-d39a', user));
     await waitFor(() => {
-      expect(result.current.loading).toBe(false);
+      expect(result.current.status).not.toBe('loading');
     });
-    expect(result.current.error).toBe('load_failed');
-    expect(result.current.sessions).toEqual([]);
+    expect(result.current).toMatchObject({ status: 'error', stale: undefined });
   });
 });

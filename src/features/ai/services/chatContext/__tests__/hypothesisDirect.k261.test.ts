@@ -85,3 +85,23 @@ describe('К26-1: приложенная заметка — не опора', ()
     expect(sent.length).toBeGreaterThanOrEqual(6);
   });
 });
+
+// Случай #27 (27.4): строка «тело и день» стояла в правиле всегда, и сама её
+// оговорка «если нет — не пиши» вызывала абзац «о ночи в записи ничего нет».
+// Строка идёт в правило только когда в материале хода есть сон, болезнь, усталость.
+describe('27.4: «тело и день» — только когда в записи есть тело', () => {
+  const messages = [{ role: 'user', content: 'приведи несколько гипотез' }];
+  const build = (note: string) => buildChatSystemPrompt({
+    ...assembleChatPromptParams({ personaId: 'ta', messages, documentContent: `[#own · 20261119]\n${note}\n\n${HYPOTHESIS_TURN_MARK}\n${HYPOTHESIS_DIRECT_MARK}\n\n[#a · 2026-03-01]\nопора`, noteScope: { mode: 'note' as const, title: 'Синтетика', date: '2026-11-19' } }),
+    rnd: () => 0,
+  });
+
+  it('о сне и усталости ни слова — строки нет', () => {
+    const p = build('Думаю о деньгах и о том, на что их тратить.');
+    expect(p).toContain(HYPOTHESIS_RULE_DIRECT);
+    expect(p).not.toContain('ТЕЛО И ДЕНЬ');
+  });
+  it.each(['Ночью почти не спал, с утра разбитый.', 'Третий день болею, температура.', 'Сильно устал за неделю.'])('есть «%s» — строка есть', (note) => {
+    expect(build(note)).toContain('ТЕЛО И ДЕНЬ');
+  });
+});

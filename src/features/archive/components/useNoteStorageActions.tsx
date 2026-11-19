@@ -216,10 +216,12 @@ export function useNoteStorageActions({
       switch (kind) {
         case 'delete-local-only':
         case 'delete-cloud-only': {
-          await StorageService.trashDocument(userId, doc.localId, doc.cloudId); // намеренно: тост одинаков для local и cloudSynced (N-4)
+          const res = await StorageService.trashDocument(userId, doc.localId, doc.cloudId);
           emitDomainEvent({ type: 'note.trashed', documentId: doc.localId || doc.cloudId! });
           useActivityLogStore.getState().addActivity('activity_note_trashed', undefined, 'info', 'archive');
-          showToast(t('archive_trash_moved'), 'success');
+          // Тот же итог, что у корзины из списка архива (useArchiveSessions.handleTrashSession).
+          if (res.cloudSynced) showToast(t('archive_trash_moved'), 'success');
+          else showToast(t('delete_local_only_queued'), 'warning');
           break;
         }
         case 'delete-local': {

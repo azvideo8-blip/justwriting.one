@@ -6,7 +6,6 @@ import { ArchiveSession } from '../types';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { ModalShell, SheetTitle } from '../../../shared/components/ModalShell';
-import { EmptyState } from '../../../shared/components/EmptyState';
 import { cn } from '../../../core/utils/utils';
 
 const TEN_DAYS_MS = 10 * 24 * 60 * 60 * 1000;
@@ -148,18 +147,6 @@ export const ArchiveTrashView = memo(function ArchiveTrashView({
   tp,
   isMobile = false,
 }: ArchiveTrashViewProps) {
-  if (trashedSessions.length === 0) {
-    return (
-      <div className="py-12">
-        <EmptyState
-          icon={Trash2}
-          title={t('archive_trash_empty')}
-          description={t('archive_trash_empty_desc')}
-        />
-      </div>
-    );
-  }
-
   if (isMobile) {
     return (
       <div className="flex flex-col py-2">

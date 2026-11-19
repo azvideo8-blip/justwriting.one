@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, type MouseEvent as ReactMouseEvent } from 'react';
 import { Plus, FileText, RotateCcw, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
-import type { AIDialogue } from '../../../../core/storage/localDb';
+import type { DialogueLists } from '../../hooks/useDialogueManager';
+import { mapLoadState, type LoadState } from '../../../../shared/loadState';
+import { DialogueRows } from './DialogueRows';
 import { Button } from '../../../../shared/components/Button';
 import { useLanguage } from '../../../../shared/i18n';
 import { cn } from '../../../../core/utils/utils';
@@ -8,32 +10,24 @@ import { Monogram, threadPreview } from '../AIChatPresentational';
 import { personaVisual } from '../../constants/personaVisuals';
 
 export interface AIChatSidebarProps {
-  dialogues: AIDialogue[];
-  archivedDialogues: AIDialogue[];
+  list: LoadState<DialogueLists>;
   activeDialogueId: string | null;
   onSelectDialogue: (id: string, personaId: string) => void;
   showArchived: boolean;
   setShowArchived: (v: boolean) => void;
   onNewDialogue: () => void;
   onUnarchive: (id: string) => void;
-  loading?: boolean;
-  loadError?: boolean;
-  onRetry?: () => void;
 }
 
 export function AIChatSidebar(props: AIChatSidebarProps) {
   const {
-    dialogues,
-    archivedDialogues,
+    list,
     activeDialogueId,
     onSelectDialogue,
     showArchived,
     setShowArchived,
     onNewDialogue,
     onUnarchive,
-    loading = false,
-    loadError = false,
-    onRetry,
   } = props;
   const { t } = useLanguage();
 
@@ -151,7 +145,12 @@ export function AIChatSidebar(props: AIChatSidebarProps) {
 
             <div className="flex-1 overflow-y-auto px-3 py-1.5 space-y-0.5">
 
-              {(showArchived ? archivedDialogues : dialogues).map(d => {
+              <DialogueRows
+                state={mapLoadState(list, l => (showArchived ? l.archived : l.active), rows => rows.length === 0)}
+                showArchived={showArchived}
+                noticeClassName="mx-2 my-2 px-3 py-2 rounded-xl text-xs gap-2"
+              >
+              {rows => rows.map(d => {
                 const v = personaVisual(d.personaId, d.personaName);
                 const isActive = activeDialogueId === d.id;
                 const preview = threadPreview(d);
@@ -191,24 +190,7 @@ export function AIChatSidebar(props: AIChatSidebarProps) {
                   </Button>
                 );
               })}
-              {loadError && (
-                <div className="mx-2 my-2 px-3 py-2 rounded-xl text-xs bg-accent-danger/10 border border-accent-danger/30 text-accent-danger flex items-center justify-between gap-2">
-                  <span>{t('ai_dialogues_load_error')}</span>
-                  {onRetry && (
-                    <Button onClick={onRetry} className="shrink-0 underline text-accent-danger/70 hover:text-accent-danger">
-                      {t('retry')}
-                    </Button>
-                  )}
-                </div>
-              )}
-              {!loadError && loading && (showArchived ? archivedDialogues : dialogues).length === 0 && (
-                <div className="py-8 text-center text-xs text-text-main/60">{t('common_loading')}</div>
-              )}
-              {!loadError && !loading && (showArchived ? archivedDialogues : dialogues).length === 0 && (
-                <div className="py-8 text-center text-xs text-text-main/60">
-                  {showArchived ? t('ai_no_archived_dialogues') : t('ai_no_active_dialogues')}
-                </div>
-              )}
+              </DialogueRows>
             </div>
           </>
         )}

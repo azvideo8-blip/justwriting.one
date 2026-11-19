@@ -108,9 +108,14 @@ async function downloadBlob(content: string | Blob, type: string, filename: stri
 // A locked / undecryptable / unreadable session carries content: '' — exporting it
 // would produce a file with a header and no text. Mirrors the flag check the bulk
 // export already does (ExportAllService).
-export function isExportable(session: ArchiveSession): boolean {
-  const f = session as ArchiveSession & { _locked?: boolean; _decryptionError?: boolean; _contentError?: boolean; _contentNotLoaded?: boolean };
-  return !f._locked && !f._decryptionError && !f._contentError && !f._contentNotLoaded;
+// Причина отказа — ключ текста, один на превью и лист телефона; null — можно.
+// Запертая заметка несёт и `_contentNotLoaded`, поэтому замок проверяется первым (R7F-023).
+export function exportRefusalKey(session: ArchiveSession): 'archive_export_locked' | 'archive_export_encrypted_unavailable' | 'archive_content_load_error' | 'archive_export_not_loaded' | null {
+  if (session._locked) return 'archive_export_locked';
+  if (session._decryptionError) return 'archive_export_encrypted_unavailable';
+  if (session._contentError) return 'archive_content_load_error';
+  if (session._contentNotLoaded) return 'archive_export_not_loaded';
+  return null;
 }
 
 export function exportAsTxt(session: ArchiveSession, s: ExportStrings): void {

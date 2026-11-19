@@ -11,7 +11,7 @@ import { ModalShell, SECTION_LABEL, SHEET_DIVIDER, SHEET_ROW } from '../../share
 import { buildNoteActions, type NoteActionId, type NoteActionItem, type NoteLabelsSection } from '../../features/archive/components/noteActions';
 import { splitNoteTitle } from '../../features/archive/components/noteTitle';
 import type { ArchiveSession } from '../../features/archive/types';
-import { exportAsDocx, exportAsMd, exportAsTxt, isExportable, type ExportStrings } from '../../core/services/ArchiveExportService';
+import { exportAsDocx, exportAsMd, exportAsTxt, exportRefusalKey, type ExportStrings } from '../../core/services/ArchiveExportService';
 import { loadSessionContent } from '../../core/services/UnifiedSessionLoader';
 import { reportError } from '../../shared/errors/reportError';
 import { useToast } from '../../shared/components/Toast';
@@ -127,8 +127,9 @@ function MobileNoteActionsSheetBody({
         return;
       }
     }
-    if (!isExportable(target)) {
-      showToast(target._contentNotLoaded ? t('archive_export_not_loaded') : t('archive_export_encrypted_unavailable'), 'error');
+    const refusal = exportRefusalKey(target);
+    if (refusal) {
+      showToast(t(refusal), 'error');
       return;
     }
     try {

@@ -1,4 +1,5 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { knownData } from '../../../shared/loadState';
 import { AIDialogueService } from '../services/AIDialogueService';
 import { AIProfileFacetService } from '../services/AIProfileFacetService';
 import { AIChatMemoryService } from '../services/AIChatMemoryService';
@@ -59,17 +60,13 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
 
   const dailyLimit = useDailyLimit();
 
-  const notifyDialogueError = useCallback((m: string) => showToast(m, 'error'), [showToast]);
-  const dialogueManager = useDialogueManager({ confirmDialog, notifyError: notifyDialogueError });
+  const dialogueManager = useDialogueManager({ confirmDialog });
   const {
-    dialogues,
-    archivedDialogues,
+    dialogueList,
     activeDialogueId,
     setActiveDialogueId,
     showArchived,
     setShowArchived,
-    dialoguesLoading,
-    dialoguesLoadError,
     loadDialogues,
     handleRenameDialogue,
     handleArchive,
@@ -77,6 +74,8 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     handleDelete,
     handleExport,
   } = dialogueManager;
+  // Активный разговор ищем в последнем известном списке: при сбое перечитывания он остаётся.
+  const dialogues = useMemo(() => knownData(dialogueList)?.active ?? [], [dialogueList]);
 
   const personaManager = usePersonaManager();
   const {
@@ -595,8 +594,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   }, [displayMessages, activeDialogue]);
 
   return {
-    dialogues, archivedDialogues, activeDialogueId, setActiveDialogueId,
-    dialoguesLoading, dialoguesLoadError,
+    dialogueList, activeDialogueId, setActiveDialogueId,
     selectedPersonaId, setSelectedPersonaId,
     showArchived, setShowArchived,
     customPersonas,

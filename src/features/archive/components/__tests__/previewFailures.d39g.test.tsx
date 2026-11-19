@@ -50,6 +50,21 @@ describe('превью: отказы чтения названы', () => {
     expect(loadSessionContent).toHaveBeenCalledWith('user-1', 'doc-1');
   });
 
+  // Доделки 19.11. Мутации: убрать ветку `error` у копирования — окно копирования
+  // открывается над непрочитанным текстом; убрать `_contentError` из exportRefusalKey —
+  // отказ экспорта снова «зашифрована». Обе красят этот тест.
+  it('текст не прочитался — копирование и экспорт отказывают словами про сбой чтения', async () => {
+    renderPreview({ ...base, _contentError: true });
+    await screen.findByRole('button', { name: 'Повторить' });
+    fireEvent.click(screen.getByTitle('Скопировать как'));
+    expect(await screen.findAllByText('Текст заметки не прочитался.')).toHaveLength(2);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.click(screen.getByTitle('Экспортировать'));
+    fireEvent.click(await screen.findByText('Текстовый (.txt)'));
+    expect(await screen.findAllByText('Текст заметки не прочитался.')).toHaveLength(3);
+    expect(screen.queryByText('Заметка зашифрована или недоступна — экспортировать нечего.')).toBeNull();
+  });
+
   it('5: разбор не прочитался — сказано, а не молча «Разобрать»', async () => {
     renderPreview({ ...base, content: 'Текст.' }, { fetchSummary: () => Promise.reject(new Error('IDB down')) });
     expect(await screen.findByText('Разбор не прочитался — открой заметку ещё раз.')).toBeTruthy();

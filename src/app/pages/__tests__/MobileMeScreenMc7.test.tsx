@@ -20,7 +20,8 @@ vi.mock('../../../shared/hooks/useLayoutMode', () => ({
 }));
 
 vi.mock('../../../features/profile/hooks/useProfileStats', () => ({
-  useProfileStats: () => ({ sessions: [], kpiStats: {}, loading: false, refresh: vi.fn() }),
+  useProfileStats: () => ({ status: 'empty' }),
+  EMPTY_PROFILE_STATS: { sessions: [], kpiStats: {} },
 }));
 vi.mock('../../../features/profile/components/KPIStrip', () => ({ KPIStrip: () => null }));
 vi.mock('../../../features/profile/components/StreakRibbon', () => ({ StreakRibbon: () => null }));

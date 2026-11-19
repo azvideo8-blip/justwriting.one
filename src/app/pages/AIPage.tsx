@@ -42,8 +42,7 @@ export function AIPage() {
   const isMobile = layoutMode === 'mobile';
 
   const {
-    dialogues, archivedDialogues, activeDialogueId, setActiveDialogueId,
-    dialoguesLoading, dialoguesLoadError,
+    dialogueList, activeDialogueId, setActiveDialogueId,
     selectedPersonaId, setSelectedPersonaId,
     showArchived, setShowArchived,
     inputText, setInputText,
@@ -59,7 +58,6 @@ export function AIPage() {
     crisisActive, dismissCrisis,
     dialogue,
     dailyLimit,
-    loadDialogues,
     loadCustomPersonas,
     handleSendMessage, handleNewDialogue, handleArchive, handleUnarchive, handleDelete, handleExport,
     handleDocSelect, handleCopyMessage, handleDeleteMessage, handleFileUpload, triggerForcedSearch,
@@ -100,17 +98,13 @@ export function AIPage() {
     <div className={cn("bg-surface-base flex", isMobile ? "h-full flex-col" : "h-screen flex-row")}>
       {!isMobile && (
         <AIChatSidebar
-          dialogues={dialogues}
-          archivedDialogues={archivedDialogues}
+          list={dialogueList}
           activeDialogueId={activeDialogueId}
           onSelectDialogue={(id, personaId) => { setActiveDialogueId(id); setSelectedPersonaId(personaId); }}
           showArchived={showArchived}
           setShowArchived={setShowArchived}
           onNewDialogue={handleNewDialogue}
           onUnarchive={(id) => { void handleUnarchive(id); }}
-          loading={dialoguesLoading}
-          loadError={dialoguesLoadError}
-          onRetry={() => { void loadDialogues(); }}
         />
       )}
 
@@ -226,8 +220,7 @@ export function AIPage() {
         <MobileDialogueListSheet
           open={dialoguesOpen}
           onClose={() => setDialoguesOpen(false)}
-          dialogues={dialogues}
-          archivedDialogues={archivedDialogues}
+          list={dialogueList}
           activeDialogueId={activeDialogueId}
           showArchived={showArchived}
           setShowArchived={setShowArchived}
@@ -240,9 +233,6 @@ export function AIPage() {
           onArchive={(id) => { void handleArchive(id); }}
           onUnarchive={(id) => { void handleUnarchive(id); }}
           onDelete={(id) => { void handleDelete(id); }}
-          loading={dialoguesLoading}
-          loadError={dialoguesLoadError}
-          onRetry={() => { void loadDialogues(); }}
         />
       )}
 

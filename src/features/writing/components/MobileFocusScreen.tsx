@@ -64,9 +64,16 @@ export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
   const touchStartY = useRef<number>(0);
   const touchStartX = useRef<number>(0);
 
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const atBottom = useRef(true);
+
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartY.current = e.touches[0]!.clientY;
     touchStartX.current = e.touches[0]!.clientX;
+    // Палец вверх посреди текста — прокрутка вниз, а не выход из дзена:
+    // выход — только когда текст уже долистан до конца.
+    const ta = textareaRef.current;
+    atBottom.current = !ta || ta.scrollTop + ta.clientHeight >= ta.scrollHeight - 1;
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
@@ -74,7 +81,7 @@ export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
     if (!touch) return;
     const deltaY = touchStartY.current - touch.clientY;
     const deltaX = Math.abs(touchStartX.current - touch.clientX);
-    if (deltaY > 60 && deltaX < 40) {
+    if (deltaY > 60 && deltaX < 40 && atBottom.current) {
       onExit();
     }
     if (Math.abs(deltaY) < 10 && deltaX < 10) {
@@ -102,6 +109,7 @@ export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
         onTouchEnd={handleTouchEnd}
       >
       <textarea
+        ref={textareaRef}
         dir="auto"
         value={content}
         onChange={e => {

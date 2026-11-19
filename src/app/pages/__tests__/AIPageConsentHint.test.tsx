@@ -23,7 +23,7 @@ vi.mock('react-router-dom', async importOriginal => ({
 const visual = { color: '#888', mono: 'E', role: { ru: 'Роль', en: 'Role' } };
 vi.mock('../../../features/ai/hooks/useAIPageData', () => ({
   useAIPageData: () => new Proxy({
-    dialogues: [], archivedDialogues: [], activeDialogueId: null,
+    dialogueList: { status: 'empty' }, activeDialogueId: null,
     selectedPersonaId: 'coach', inputText: '', pendingAttachments: [],
     messagesEndRef: { current: null }, fileInputRef: { current: null }, attachMenuRef: { current: null },
     isLoading: false, streamingMessage: null, streamingReasoning: null, error: null,
