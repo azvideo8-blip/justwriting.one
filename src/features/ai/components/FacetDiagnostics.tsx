@@ -8,6 +8,7 @@ import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { getDomainSeedVectors, type DomainSeedVec } from '../utils/domainSeeds';
+import { LIFE_DOMAINS } from '../utils/lifeDomains';
 import { reportError } from '../../../shared/errors/reportError';
 
 interface DomainScore {
@@ -69,6 +70,10 @@ export function FacetDiagnostics() {
       if (seeds.length === 0) {
         showToast(t('admin_facet_toast_seeds_error'), 'error');
         return;
+      }
+      // Часть сфер не посчиталась — сказано, а не молча меньше строк.
+      if (seeds.length < LIFE_DOMAINS.length) {
+        showToast(t('admin_facet_toast_seeds_partial', { missing: LIFE_DOMAINS.length - seeds.length }), 'warning');
       }
 
       const newRows: NoteRow[] = [];

@@ -6,7 +6,7 @@
 // собран ход» без единого символа пользовательского текста: логи читаются кем
 // угодно, а приложение пишет про людей.
 import type { NoteScope } from './buildChatPrompt.js';
-import type { AnswerAudit } from './answerAudit.js';
+import type { TurnAudit } from './answerAudit.js';
 
 const PERSONA_IDS = ['group_psychology', 'cbt', 'coach', 'editor', 'parts', 'ta', 'custom'] as const;
 
@@ -97,7 +97,7 @@ export interface ChatEndSignals {
    * состав строки остаётся прежним. Четыре поля: два булевых и два числа, текста
    * нет.
    */
-  audit?: AnswerAudit | null | undefined;
+  audit?: TurnAudit | null | undefined;
 }
 
 /**

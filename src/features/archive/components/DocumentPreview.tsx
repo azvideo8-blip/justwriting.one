@@ -31,9 +31,20 @@ import { useAiConsentOff } from '../../../core/ai/useAiConsentOff';
 import { reportError } from '../../../shared/errors/reportError';
 import { aiErrorToText } from '../../../shared/ai/aiErrorUtils';
 import { isBlankTitle } from '../../../shared/utils/titleUtils';
+import { onDomainEvent } from '../../../core/events/domainEvents';
 import { sessionContentState } from '../../../core/services/sessionContent';
 
 const relatedNotesCache = new Map<string, RelatedNote[]>();
+// Дейлик 20.11: кэш жил до перезагрузки и переживал удаление заметки — в списке
+// связанных оставалась удалённая/скрытая. Любая смена набора заметок сбрасывает
+// кэш целиком; следующее открытие подберёт связи заново.
+// ponytail: сброс целиком, а не по id — связь хранится у соседа, не у удалённой.
+onDomainEvent(e => {
+  if (e.type === 'note.deleted' || e.type === 'note.trashed' || e.type === 'note.restored'
+    || e.type === 'note.excludedFromAI' || e.type === 'note.saved' || e.type === 'account.reset') {
+    relatedNotesCache.clear();
+  }
+});
 
 export function DocumentPreview({
   session: propSession, onClose, onContinue, onTagsChange, onLabelChange, onAddLabel, onTitleChange, labels, allTags, onAttach,
@@ -44,7 +55,7 @@ export function DocumentPreview({
   onContinue: (session: ArchiveSession) => void;
   onTagsChange?: ((session: ArchiveSession, tags: string[]) => void) | undefined;
   onLabelChange?: ((session: ArchiveSession, labelId: string | undefined) => void) | undefined;
-  onAddLabel?: ((label: { name: string; color: string; id?: string }) => void) | undefined;
+  onAddLabel?: ((label: { name: string; color: string; id?: string }) => void | Promise<boolean>) | undefined;
   /** Ревью 0.9.40: переименование из читалки на телефоне — тот же путь, что у строки списка. */
   onTitleChange?: ((session: ArchiveSession, title: string) => void) | undefined;
   labels?: Label[] | undefined;
@@ -211,11 +222,16 @@ export function DocumentPreview({
   };
 
   const [relatedNotes, setRelatedNotes] = useState<RelatedNote[]>([]);
+  // Дейлик 20.11 Н-5: сбой подбора связанных ≠ «связанных нет» — строка с повтором.
+  const [relatedFailed, setRelatedFailed] = useState(false);
+  const [relatedAttempt, setRelatedAttempt] = useState(0);
 
   useEffect(() => {
     let active = true;
+    // Сбой подбора прошлой заметки не висит над новой, пока та подбирается (ревью 0.11.23).
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset per selected note
+    setRelatedFailed(false);
     if (!session?.id || !fetchRelatedNotes) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear related notes when no session is selected
       setRelatedNotes([]);
       return;
     }
@@ -223,6 +239,7 @@ export function DocumentPreview({
     const cached = relatedNotesCache.get(session.id);
     if (cached) {
       setRelatedNotes(cached);
+      setRelatedFailed(false);
       return;
     }
 
@@ -232,16 +249,22 @@ export function DocumentPreview({
         if (active) {
           relatedNotesCache.set(session.id!, related);
           setRelatedNotes(related);
+          setRelatedFailed(false);
         }
       } catch (e) {
-        console.error('[DocumentPreview] failed to compute related notes:', e);
+        reportError(e, { action: 'documentPreview_relatedNotes', documentId: session.id });
+        if (active) {
+          setRelatedNotes([]);
+          setRelatedFailed(true);
+        }
       }
     })();
 
     return () => {
       active = false;
     };
-  }, [session?.id, fetchRelatedNotes]);
+  }, [session?.id, fetchRelatedNotes, relatedAttempt]);
+  const retryRelated = () => setRelatedAttempt(n => n + 1);
 
   const handleSelectRelatedNote = useCallback(async (id: string) => {
     try {
@@ -419,10 +442,14 @@ export function DocumentPreview({
     { label: t('export_docx'), action: () => runExport(() => exportAsDocx(session, exportStrings)) },
   ];
 
-  const handleCreateLabel = () => {
+  const handleCreateLabel = async () => {
     const trimmed = newLabelName.trim();
     if (trimmed) {
-      onAddLabel?.({ name: trimmed, color: newLabelColor });
+      // Отказ сохранения (false) — форма открыта с введённым, тост ошибки.
+      if ((await onAddLabel?.({ name: trimmed, color: newLabelColor })) === false) {
+        showToast(t('archive_label_save_failed'), 'error');
+        return;
+      }
       setNewLabelName('');
       setNewLabelColor(LABEL_PRESET_COLORS[0]!);
     }
@@ -452,6 +479,8 @@ export function DocumentPreview({
         {...(onAddLabel ? { onAddLabel } : {})}
         {...(onTitleChange ? { onTitleChange: (s: ArchiveSession, title: string) => { onTitleChange(s, title); setSession({ ...s, title }); } } : {})}
         relatedNotes={relatedNotes}
+        relatedFailed={relatedFailed}
+        onRetryRelated={retryRelated}
         onSelectRelated={id => void handleSelectRelatedNote(id)}
         onRetryContent={() => void retryContent()}
       />
@@ -624,7 +653,7 @@ export function DocumentPreview({
                     aria-label={t('archive_label_name_placeholder')}
                     className="w-24 bg-transparent text-label-sm text-text-main outline-none placeholder:text-text-main/40"
                     onKeyDown={e => {
-                      if (e.key === 'Enter') handleCreateLabel();
+                      if (e.key === 'Enter') void handleCreateLabel();
                       if (e.key === 'Escape') setCreatingLabel(false);
                     }}
                   />
@@ -640,7 +669,7 @@ export function DocumentPreview({
                     ))}
                   </div>
                   <Button
-                    onClick={handleCreateLabel}
+                    onClick={() => void handleCreateLabel()}
                     disabled={!newLabelName.trim()}
                     className="text-label font-medium text-text-main/60 hover:text-text-main disabled:opacity-30"
                   >
@@ -808,6 +837,9 @@ export function DocumentPreview({
           </p>
         )}
 
+        {relatedFailed && (
+          <LoadNotice variant="row" className="mt-8" text={`${t('archive_related_notes')}: ${t('load_failed_retry')}`} onRetry={retryRelated} />
+        )}
         {relatedNotes.length > 0 && (
           <div className="mt-8 pt-5 border-t border-border-subtle/40">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-text-main/55 mb-3 flex items-center gap-1.5">

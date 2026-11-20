@@ -378,7 +378,11 @@ export interface AIPersona {
 
 export interface AIChatMemory {
   id: string;
-  kind: 'fact' | 'insight' | 'commitment' | 'preference';
+  /**
+   * `conclusion` (DI-3, «выводы из разговоров») — подтверждённый человеком вывод собеседника;
+   * пишется только `AIChatMemoryService.addConclusion`, из обычного извлечения прийти не может.
+   */
+  kind: 'fact' | 'insight' | 'commitment' | 'preference' | 'conclusion';
   text: string;
   sourceDialogueId: string;
   createdAt: number;
@@ -396,6 +400,14 @@ export interface AIChatMemory {
    * ставит эту отметку.
    */
   reviewedAt?: number;
+  /** DI-3 (только `conclusion`): реплика человека, после которой прозвучал вывод (до 300 знаков). */
+  context?: string;
+  /** DI-3 (только `conclusion`): id ответа собеседника (`DialogueMessage.id`). */
+  sourceMessageId?: string;
+  /** DI-3 (только `conclusion`): когда человек подтвердил вывод. */
+  confirmedAt?: number;
+  /** DI-3 (только `conclusion`): подтверждено ответом человека или кнопкой «Сохранить вывод». */
+  confirmedBy?: 'reply' | 'button';
 }
 
 /** A theme/facet of the living AI profile, derived by clustering note embeddings. */

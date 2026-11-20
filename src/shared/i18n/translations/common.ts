@@ -226,6 +226,7 @@ export const commonTranslations: Translations = {
   enc_recovery_confirm_password: { ru: 'Подтверди новый пароль', en: 'Confirm new password' },
   enc_recovery_submit: { ru: 'Восстановить доступ', en: 'Recover Access' },
   enc_recovery_code_wrong: { ru: 'Код не подошёл', en: 'Invalid recovery code' },
+  enc_recovery_login_password_failed: { ru: 'Сейф восстановлен и открыт, но пароль входа не сменился — входи пока со старым. При следующем входе сейф один раз спросит новый пароль, после этого пароли снова совпадут.', en: 'The vault is restored and open, but your login password was not changed — keep signing in with the old one. Next time the vault will ask for the new password once, then the two passwords match again.' },
   enc_recovery_success: { ru: 'Доступ восстановлен, пароль обновлён', en: 'Access restored, password updated' },
   enc_recovery_back_to_password: { ru: 'Войти по паролю', en: 'Back to password unlock' },
   enc_generate_recovery_code_btn: { ru: 'Создать код восстановления', en: 'Generate recovery code' },

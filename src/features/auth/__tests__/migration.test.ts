@@ -381,11 +381,10 @@ describe('GROUP B — Error/interruption scenarios', () => {
 
     await migrateDocuments(GUEST_ID, USER_ID);
 
-    let callCount = 0;
     MockDocumentService.createDocument.mockImplementation(async (_uid: string, data: Record<string, unknown>) => {
-      callCount++;
-      // Make the second doc fail
-      if (callCount === 2) throw new Error('Firestore write failed');
+      // Make the second doc fail — и при повторе из очереди в том же проходе (FN-6:
+      // дренаж входит в итог; документ, удавшийся со второй попытки, не «ошибка»).
+      if (data.title === 'Fail Doc') throw new Error('Firestore write failed');
       const id = `cloud_${Math.random().toString(36).slice(2)}`;
       cloudDocs.set(id, { id, ...data, totalWords: 0, totalDuration: 0, currentVersion: 0 });
       return id;

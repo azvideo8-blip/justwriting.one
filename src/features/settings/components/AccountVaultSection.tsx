@@ -32,7 +32,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
 
   const [vaultPassword, setVaultPassword] = useState('');
   const [confirmVaultPassword, setConfirmVaultPassword] = useState('');
-  const [vaultLoading, setVaultLoading] = useState(false);
+  const [vaultBusy, setVaultBusy] = useState(false);
   const [vaultError, setVaultError] = useState<string | null>(null);
   const [showMigrate, setShowMigrate] = useState(false);
 
@@ -41,7 +41,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
   const [recoveryPromptOpen, setRecoveryPromptOpen] = useState(false);
   const [recoveryPromptPassword, setRecoveryPromptPassword] = useState('');
   const [recoveryPromptError, setRecoveryPromptError] = useState<string | null>(null);
-  const [recoveryPromptLoading, setRecoveryPromptLoading] = useState(false);
+  const [recoveryPromptBusy, setRecoveryPromptBusy] = useState(false);
   // Новый код отменяет прежний. Спрашиваем до, а не сообщаем после.
 
   const [migrationRunning, setMigrationRunning] = useState(false);
@@ -57,7 +57,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
   const handleUnlockVault = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!vaultPassword) return;
-    setVaultLoading(true);
+    setVaultBusy(true);
     setVaultError(null);
 
     try {
@@ -72,7 +72,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
         setVaultError(t('error_generic_action'));
       }
     } finally {
-      setVaultLoading(false);
+      setVaultBusy(false);
     }
   };
 
@@ -86,7 +86,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
       setVaultError(t('settings_passwords_dont_match'));
       return;
     }
-    setVaultLoading(true);
+    setVaultBusy(true);
     setVaultError(null);
 
     // D-28: один пароль — сейф создаётся только из пароля от аккаунта.
@@ -96,7 +96,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
       await reauthenticate(email, vaultPassword);
     } catch {
       setVaultError(t('enc_setup_wrong_account_password'));
-      setVaultLoading(false);
+      setVaultBusy(false);
       return;
     }
 
@@ -120,7 +120,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
       reportError(err, { action: 'initializeEncryptionInSettings', userId });
       setVaultError(err instanceof EncryptionService.VaultAlreadyExistsError ? t('enc_setup_vault_exists') : t('error_generic_action'));
     } finally {
-      setVaultLoading(false);
+      setVaultBusy(false);
     }
   };
 
@@ -157,7 +157,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
   const handleConfirmRecoveryPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!recoveryPromptPassword) return;
-    setRecoveryPromptLoading(true);
+    setRecoveryPromptBusy(true);
     setRecoveryPromptError(null);
     try {
       const code = await EncryptionService.generateRecoveryCodeForExistingVault(userId, recoveryPromptPassword);
@@ -173,15 +173,22 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
         setRecoveryPromptError(t('error_generic_action'));
       }
     } finally {
-      setRecoveryPromptLoading(false);
+      setRecoveryPromptBusy(false);
     }
   };
 
-  const handleLockVault = () => {
+  const handleLockVault = async () => {
     EncryptionService.lockVault(userId);
     // Explicit lock cancels "remember on this device" so it won't auto-unlock on reload.
     setRememberDevice(false);
-    void clearDeviceKey(userId);
+    try {
+      await clearDeviceKey(userId);
+    } catch (err) {
+      // Ключ устройства жив — после перезагрузки сейф откроется сам: «заперт» не говорим.
+      reportError(err, { action: 'clearDeviceKey_lockVault', userId });
+      showToast(t('settings_vault_lock_device_key_failed'), 'error');
+      return;
+    }
     showToast(t('settings_vault_locked_done'), 'info');
   };
 
@@ -246,10 +253,10 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
             />
             <Button
               type="submit"
-              disabled={vaultLoading}
+              disabled={vaultBusy}
               className="w-full py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-brand-primary"
             >
-              {vaultLoading ? (
+              {vaultBusy ? (
                 <LoadingSpinner size={4} />
               ) : (
                 <>
@@ -309,10 +316,10 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
             />
             <Button
               type="submit"
-              disabled={vaultLoading}
+              disabled={vaultBusy}
               className="w-full py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-brand-primary"
             >
-              {vaultLoading ? (
+              {vaultBusy ? (
                 <LoadingSpinner size={4} />
               ) : (
                 <>
@@ -335,7 +342,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
             </div>
             
             <Button
-              onClick={handleLockVault}
+              onClick={() => void handleLockVault()}
               className="mt-2 text-xs font-semibold text-text-main/60 hover:text-accent-danger transition-colors flex items-center gap-1.5"
             >
               <Lock size={12} />
@@ -494,10 +501,10 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={recoveryPromptLoading || !recoveryPromptPassword}
+                  disabled={recoveryPromptBusy || !recoveryPromptPassword}
                   className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-[var(--brand-primary)]"
                 >
-                  {recoveryPromptLoading ? (
+                  {recoveryPromptBusy ? (
                     <Loader2 size={16} className="animate-spin" />
                   ) : (
                     t('enc_recovery_password_submit')

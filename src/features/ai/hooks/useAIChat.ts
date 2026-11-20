@@ -20,6 +20,7 @@ import { reportAIDegradation } from '../utils/aiDegradationReporter';
 import { useAIChatContext, type AttachedNoteRef } from '../services/aiChatContext';
 import { turnScope, type TurnScope } from '../utils/turnScope';
 import { noteMetaFor, noteScopeFor } from '../utils/noteMeta';
+import { repairStrictNoteRefs } from '../../../shared/ai/strictRefRepair';
 import {
   streamChat,
   callableChat,
@@ -251,7 +252,7 @@ export function sanitizeCitations(
 export function useAIChat(dialogueId: string | null, personaId: string, responseLength?: 'short' | 'standard' | 'detailed', reasoning?: boolean): UseAIChatReturn {
   const { language, t } = useLanguage();
   const [dialogue, setDialogue] = useState<AIDialogue | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   // Режим последнего ответа: под строгим — кнопка «Посмотреть в других записях».
   const [lastTurnScope, setLastTurnScope] = useState<TurnScope | null>(null);
   const [streamingMessage, setStreamingMessage] = useState<string | null>(null);
@@ -266,7 +267,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
   // Stop button: abort the in-flight streaming request.
   const abortRef = useRef<AbortController | null>(null);
-  // R-1: Synchronous re-entrancy guard — isLoading is React state (async commit),
+  // R-1: Synchronous re-entrancy guard — isSending is React state (async commit),
   // so two calls in the same tick both bypass it. sendingRef is checked/set
   // synchronously, preventing concurrent streams and orphaned AbortControllers.
   const sendingRef = useRef(false);
@@ -401,7 +402,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
   ): Promise<string | null> => {
     if (!text.trim() && !forcedSearchQuery) return null;
     // R-1: Synchronous re-entrancy guard — prevents two calls in the same tick
-    // from both proceeding past the isLoading check (state isn't committed yet).
+    // from both proceeding past the isSending check (state isn't committed yet).
     if (sendingRef.current) return null;
     sendingRef.current = true;
 
@@ -446,7 +447,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       localStorage.setItem('jw_ai_inflight', String(Date.now() + 15_000));
     } catch { /* ignore */ }
 
-    setIsLoading(true);
+    setIsSending(true);
     setStreamingMessage(null); setStreamingReasoning(null);
     setError(null);
     setConsentRequired(null);
@@ -699,6 +700,16 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         const d = sanitizeFirstSeenDates(s, allowedFirstSeenDates || []);
         return citedDates ? fixCitedDates(d, citedDates) : d;
       };
+      // К28-1: в строгом ходе чужой день под ссылкой на приложенную запись — ссылка прошлой
+      // записи либо снимается (кодом, без вызова модели). Только для ответа, не для хода мысли.
+      const strictNote = turnMode === 'note' && visibleBlocks.length === 1 && visibleBlocks[0]!.content
+        ? { noteId: visibleBlocks[0]!.documentId, noteText: visibleBlocks[0]!.content }
+        : null;
+      const citeIdSet = new Set(citeIds);
+      const priorAssistantTexts = apiMessages.filter(m => m.role === 'assistant').map(m => m.content);
+      const repairRefs = (answerText: string) => strictNote
+        ? repairStrictNoteRefs(answerText, strictNote, priorAssistantTexts, citeIdSet)
+        : answerText;
       // П-4: по графемам — slice мог разрезать эмодзи пополам.
       const safePortrait = userPortrait && userPortrait.length > 4_000 ? truncateText(userPortrait, 4_000, { maxCodeUnits: 4_000 }) : userPortrait;
 
@@ -745,9 +756,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             hypoStats,
             signal: controller.signal,
             onChunk: (partial, reasoning) => {
-              const cleanPartial = guardDates(
+              const cleanPartial = repairRefs(guardDates(
                 sanitizeCitations(toolCallToSearchMarker(partial), citeIds, injectedTitles, materialsText, { personaId: effectivePersonaId, quoteMaterialsText: quoteMaterials, dropFabricatedSentences: archiveTurn })
-              );
+              ));
               const cleanReasoning = reasoning
                 ? guardDates(
                     sanitizeCitations(reasoning, citeIds, injectedTitles, materialsText, { reasoning: true })
@@ -805,9 +816,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             }
             if (cleanAnswer) {
               setStreamingMessage(
-                guardDates(
+                repairRefs(guardDates(
                   sanitizeCitations(cleanAnswer, citeIds, injectedTitles, materialsText, { personaId: effectivePersonaId, quoteMaterialsText: quoteMaterials, dropFabricatedSentences: archiveTurn })
-                )
+                ))
               );
             }
           } else {
@@ -845,9 +856,12 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // ED-1b: ответ и ход мыслей чистятся порознь, как в стриме. Чистка всего
       // текста до разбора возвращала в сохранённый ход мыслей «по смыслу», которых
       // во время стрима не было.
-      const clean = (s: string, reasoningPart: boolean) => guardDates(
-        sanitizeCitations(s, citeIds, injectedTitles, materialsText, reasoningPart ? { reasoning: true } : { personaId: effectivePersonaId, quoteMaterialsText: quoteMaterials, dropFabricatedSentences: archiveTurn })
-      );
+      const clean = (s: string, reasoningPart: boolean) => {
+        const guarded = guardDates(
+          sanitizeCitations(s, citeIds, injectedTitles, materialsText, reasoningPart ? { reasoning: true } : { personaId: effectivePersonaId, quoteMaterialsText: quoteMaterials, dropFabricatedSentences: archiveTurn })
+        );
+        return reasoningPart ? guarded : repairRefs(guarded);
+      };
       let savedText = clean(extractAnswer(fullText), false);
       const rawReasoning = extractReasoning(fullText);
       let savedReasoning = rawReasoning ? clean(rawReasoning, true) : rawReasoning;
@@ -1025,7 +1039,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     } finally {
       try { localStorage.removeItem('jw_ai_inflight'); } catch { /* ignore */ }
       sendingRef.current = false;
-      setIsLoading(false);
+      setIsSending(false);
       setAIStage(null);
     }
     // context excluded intentionally: buildContext reads current personaId, and personaId
@@ -1059,7 +1073,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
   // Previous variants are preserved so the user can browse ‹ 2/3 › after several
   // regenerations. Nothing is lost.
   const regenerateLast = useCallback(async () => {
-    if (isLoading) return;
+    if (isSending) return;
     const id = dialogueId ?? dialogue?.id;
     if (!id) return;
     const d = await AIDialogueService.get(id);
@@ -1092,11 +1106,11 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       replaceUserId: msgs[userIdx]?.id,
       ...(attachedTurn ? { question: attachedTurn.question || 'Разбери эту заметку' } : {}),
     });
-  }, [isLoading, dialogueId, dialogue, sendMessage]);
+  }, [isSending, dialogueId, dialogue, sendMessage]);
 
   const triggerForcedSearch = useCallback(async (query: string) => {
     await sendMessage('', undefined, undefined, query);
   }, [sendMessage]);
 
-  return { dialogue, isLoading, streamingMessage, streamingReasoning, error, consentRequired, sendMessage, lastTurnScope, prepareAttachment, stop, regenerateLast, triggerForcedSearch, crisisActive, dismissCrisis, clearError };
+  return { dialogue, isLoading: isSending, streamingMessage, streamingReasoning, error, consentRequired, sendMessage, lastTurnScope, prepareAttachment, stop, regenerateLast, triggerForcedSearch, crisisActive, dismissCrisis, clearError };
 }

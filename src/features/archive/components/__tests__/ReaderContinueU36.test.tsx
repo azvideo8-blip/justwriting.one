@@ -89,4 +89,21 @@ describe('читалка: текст не прочитался', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
     expect(onRetryContent).toHaveBeenCalledTimes(1);
   });
+
+  // Дейлик 20.11: текст не прочитался — заметка нечитаема: связанных не показываем.
+  // Мутация: убрать `!session._contentError` из readable — красный.
+  it('текст не прочитался — без блока связанных', () => {
+    cleanup();
+    const session = { ...base, content: '', _contentError: true } as unknown as ArchiveSession;
+    renderWithProviders(
+      <MemoryRouter>
+        <ToastProvider>
+          <MobileNoteReader session={session} onClose={vi.fn()} onContinue={vi.fn()} onRetryContent={vi.fn()} summary={null}
+            relatedNotes={[{ documentId: 'doc-r', title: 'Связанная', date: '2026-11-01', score: 0.9 }]} onSelectRelated={vi.fn()} />
+        </ToastProvider>
+      </MemoryRouter>,
+    );
+    expect(screen.queryByTestId('reader-related')).toBeNull();
+  });
 });
+

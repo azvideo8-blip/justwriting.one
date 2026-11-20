@@ -118,8 +118,8 @@ export function ArchiveNoteList({
   const { showToast } = useToast();
   const { confirm: confirmDialog } = useConfirmDialog();
   const [aiProcessedMap, setAiProcessedMap] = useState<Record<string, boolean>>({});
-  const [aiLoadingMap, setAiLoadingMap] = useState<Record<string, boolean>>({});
-  const [aiExclusionLoadingMap, setAiExclusionLoadingMap] = useState<Record<string, boolean>>({});
+  const [aiBusyMap, setAiBusyMap] = useState<Record<string, boolean>>({});
+  const [aiExclusionBusyMap, setAiExclusionBusyMap] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (loadAiProcessedMap) {
@@ -128,9 +128,9 @@ export function ArchiveNoteList({
   }, [loadAiProcessedMap]);
 
   const handleAIExclusionClick = async (session: ArchiveSession) => {
-    if (!session.id || aiExclusionLoadingMap[session.id]) return;
+    if (!session.id || aiExclusionBusyMap[session.id]) return;
     const newExcluded = !session.excludedFromAI;
-    setAiExclusionLoadingMap(m => ({ ...m, [session.id]: true }));
+    setAiExclusionBusyMap(m => ({ ...m, [session.id]: true }));
     // Дейлик 19.11 Н-3: итог называет общий помощник — отказ облака не «Скрыто от ИИ».
     const done = await runMutation({ showToast, t }, 'archive_toggle_ai_exclusion',
       () => toggleAIExclusion(session, newExcluded, getCurrentUser(), userId),
@@ -139,14 +139,14 @@ export function ArchiveNoteList({
       if (newExcluded) setAiProcessedMap(m => ({ ...m, [session.id]: false }));
       onStorageChange();
     }
-    setAiExclusionLoadingMap(m => ({ ...m, [session.id]: false }));
+    setAiExclusionBusyMap(m => ({ ...m, [session.id]: false }));
   };
 
   // Заметка разбирается только по этому нажатию — фонового разбора нет.
   // Второе нажатие на разобранной заметке удаляет сводку и вектор, в том числе
   // облачные копии: иначе «удалить разбор» ничего бы не удаляло.
   const handleAIClick = async (session: ArchiveSession) => {
-    if (!session.id || aiLoadingMap[session.id] || session.excludedFromAI) return;
+    if (!session.id || aiBusyMap[session.id] || session.excludedFromAI) return;
 
     if (aiProcessedMap[session.id]) {
       const ok = await confirmDialog({
@@ -154,7 +154,7 @@ export function ArchiveNoteList({
         message: t('ai_note_clear_confirm_hint'),
       });
       if (!ok) return;
-      setAiLoadingMap(m => ({ ...m, [session.id]: true }));
+      setAiBusyMap(m => ({ ...m, [session.id]: true }));
       try {
         const res = onClearAnalysis ? await onClearAnalysis(session.id) : { cloudSynced: true };
         setAiProcessedMap(m => ({ ...m, [session.id]: false }));
@@ -164,14 +164,14 @@ export function ArchiveNoteList({
         reportError(e, { action: 'archive_clear_analysis', documentId: session.id });
         showToast(t('error_generic_action'), 'error');
       } finally {
-        setAiLoadingMap(m => ({ ...m, [session.id]: false }));
+        setAiBusyMap(m => ({ ...m, [session.id]: false }));
       }
       return;
     }
 
     if (!onAnalyzeNote) return;
 
-    setAiLoadingMap(m => ({ ...m, [session.id]: true }));
+    setAiBusyMap(m => ({ ...m, [session.id]: true }));
     try {
       const res = await onAnalyzeNote(session.id);
       if (res.ok) {
@@ -191,7 +191,7 @@ export function ArchiveNoteList({
       reportError(e, { action: 'archive_analyze_note', documentId: session.id });
       showToast(t('ai_error_server'), 'error');
     } finally {
-      setAiLoadingMap(m => ({ ...m, [session.id]: false }));
+      setAiBusyMap(m => ({ ...m, [session.id]: false }));
     }
   };
 
@@ -305,9 +305,9 @@ export function ArchiveNoteList({
                 onStorageChange={onStorageChange}
                 userId={userId}
                 aiProcessed={!!aiProcessedMap[session.id]}
-                aiLoading={!!aiLoadingMap[session.id]}
+                aiLoading={!!aiBusyMap[session.id]}
                 onAIClick={() => void handleAIClick(session)}
-                aiExclusionLoading={!!aiExclusionLoadingMap[session.id]}
+                aiExclusionLoading={!!aiExclusionBusyMap[session.id]}
                 onAIExclusionClick={() => void handleAIExclusionClick(session)}
               />
             )}
@@ -337,9 +337,9 @@ export function ArchiveNoteList({
               allTags={allTags}
               searchQuery={searchQuery}
               aiProcessed={!!aiProcessedMap[session.id]}
-              aiLoading={!!aiLoadingMap[session.id]}
+              aiLoading={!!aiBusyMap[session.id]}
               onAIClick={() => void handleAIClick(session)}
-              aiExclusionLoading={!!aiExclusionLoadingMap[session.id]}
+              aiExclusionLoading={!!aiExclusionBusyMap[session.id]}
               onAIExclusionClick={() => void handleAIExclusionClick(session)}
             />
           )}
@@ -376,9 +376,9 @@ export function ArchiveNoteList({
                         onStorageChange={onStorageChange}
                         userId={userId}
                         aiProcessed={!!aiProcessedMap[session.id]}
-                        aiLoading={!!aiLoadingMap[session.id]}
+                        aiLoading={!!aiBusyMap[session.id]}
                         onAIClick={() => void handleAIClick(session)}
-                        aiExclusionLoading={!!aiExclusionLoadingMap[session.id]}
+                        aiExclusionLoading={!!aiExclusionBusyMap[session.id]}
                         onAIExclusionClick={() => void handleAIExclusionClick(session)}
                       />
                     </div>
@@ -422,9 +422,9 @@ export function ArchiveNoteList({
                   allTags={allTags}
                   searchQuery={searchQuery}
                   aiProcessed={!!aiProcessedMap[session.id]}
-                  aiLoading={!!aiLoadingMap[session.id]}
+                  aiLoading={!!aiBusyMap[session.id]}
                   onAIClick={() => void handleAIClick(session)}
-                  aiExclusionLoading={!!aiExclusionLoadingMap[session.id]}
+                  aiExclusionLoading={!!aiExclusionBusyMap[session.id]}
                   onAIExclusionClick={() => void handleAIExclusionClick(session)}
                 />
               ))}

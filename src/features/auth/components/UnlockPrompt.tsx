@@ -5,6 +5,7 @@ import { useToast } from '../../../shared/components/Toast';
 import {
   WrongPasswordError,
   WrongRecoveryCodeError,
+  LoginPasswordNotUpdatedError,
   unlockVault,
   recoverVaultWithCode,
 } from '../../../core/services/EncryptionService';
@@ -35,7 +36,7 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
 
-  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const attemptCountRef = useRef(0);
@@ -43,8 +44,8 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
 
   const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!password || loading || backoffSeconds > 0) return;
-    setLoading(true);
+    if (!password || busy || backoffSeconds > 0) return;
+    setBusy(true);
     setError(null);
 
     try {
@@ -75,7 +76,7 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
         setError(t('error_generic'));
       }
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
@@ -93,12 +94,18 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
       setError(t('enc_passwords_dont_match'));
       return;
     }
-    setLoading(true);
+    setBusy(true);
     setError(null);
 
     try {
-      await recoverVaultWithCode(uid, recoveryCode, newPassword);
-      showToast(t('enc_recovery_success'), 'success');
+      // Пароль входа не сменился — сейф уже перевёрнут и открыт: это успех с
+      // предупреждением, а не ошибка в окне, которое не закрывается (ревью FN-2).
+      const loginNotUpdated = await recoverVaultWithCode(uid, recoveryCode, newPassword).then(
+        () => false,
+        (err: unknown) => { if (err instanceof LoginPasswordNotUpdatedError) return true; throw err; },
+      );
+      if (loginNotUpdated) showToast(t('enc_recovery_login_password_failed'), 'warning');
+      else showToast(t('enc_recovery_success'), 'success');
       onUnlocked();
     } catch (err) {
       if (err instanceof WrongRecoveryCodeError) {
@@ -108,7 +115,7 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
         setError(t('error_generic_action'));
       }
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
@@ -156,10 +163,10 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
               <div className="flex gap-2">
                 <Button
                   type="submit"
-                  disabled={loading || !password || backoffSeconds > 0}
+                  disabled={busy || !password || backoffSeconds > 0}
                   className="flex-1 min-h-11 md:min-h-0 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-[var(--brand-primary)]"
                 >
-                  {loading ? <Loader2 size={16} className="animate-spin" /> : <Lock size={14} />}
+                  {busy ? <Loader2 size={16} className="animate-spin" /> : <Lock size={14} />}
                   {backoffSeconds > 0 ? `${backoffSeconds}s...` : t('unlock_submit')}
                 </Button>
 
@@ -226,10 +233,10 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
               <div className="flex gap-2">
                 <Button
                   type="submit"
-                  disabled={loading || !recoveryCode || !newPassword || !confirmNewPassword}
+                  disabled={busy || !recoveryCode || !newPassword || !confirmNewPassword}
                   className="flex-1 min-h-11 md:min-h-0 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-[var(--brand-primary)]"
                 >
-                  {loading ? <Loader2 size={16} className="animate-spin" /> : <KeyRound size={14} />}
+                  {busy ? <Loader2 size={16} className="animate-spin" /> : <KeyRound size={14} />}
                   {t('enc_recovery_submit')}
                 </Button>
 

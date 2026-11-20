@@ -54,18 +54,21 @@ interface MobileNoteReaderProps {
   /** MF-12: «Удалить разбор ИИ» в листе действий читалки — как в списке. */
   onClearAnalysis?: (() => void) | undefined;
   /** Ревью 0.9.40: новая метка с телефона — тот же `addLabel`, что на десктопе. */
-  onAddLabel?: ((label: { name: string; color: string }) => void) | undefined;
+  onAddLabel?: ((label: { name: string; color: string }) => void | Promise<boolean>) | undefined;
   /** Ревью 0.9.40: «Изменить название» переименовывает, а не открывает редактор. */
   onTitleChange?: ((session: ArchiveSession, title: string) => void) | undefined;
   /** Ревью 0.9.40: «Связанные записи» — в конце текста, как в десктопной панели. */
   relatedNotes?: RelatedNote[] | undefined;
+  /** Подбор связанных сорвался — строка с повтором вместо «связанных нет». */
+  relatedFailed?: boolean | undefined;
+  onRetryRelated?: (() => void) | undefined;
   onSelectRelated?: ((documentId: string) => void) | undefined;
 }
 
 export function MobileNoteReader({
   session, onClose, onContinue, onTagsChange, onLabelChange, labels, allTags,
   onDelete, onStorageChange, summary, analyzing, justFinished, analyzeError, onAnalyze, onClearAnalysis,
-  onAddLabel, onTitleChange, relatedNotes, onSelectRelated, onRetryContent,
+  onAddLabel, onTitleChange, relatedNotes, relatedFailed, onRetryRelated, onSelectRelated, onRetryContent,
 }: MobileNoteReaderProps) {
   const { t, tp, language } = useLanguage();
   // MP-1/Safari: читалка — не окно, поэтому прокрутку страницы за собой не
@@ -85,15 +88,19 @@ export function MobileNoteReader({
   const [infoOpen, setInfoOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [tagAdding, setTagAdding] = useState(false);
-  const [exclusionLoading, setExclusionLoading] = useState(false);
+  const [exclusionBusy, setExclusionBusy] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [creatingLabel, setCreatingLabel] = useState(false);
   const [newLabelName, setNewLabelName] = useState('');
   const [newLabelColor, setNewLabelColor] = useState<string>(LABEL_PRESET_COLORS[0]!);
-  const createLabel = () => {
+  const createLabel = async () => {
     const name = newLabelName.trim();
     if (!name || !onAddLabel) return;
-    onAddLabel({ name, color: newLabelColor });
+    // Отказ сохранения (false) — форма открыта с введённым, тост ошибки.
+    if ((await onAddLabel({ name, color: newLabelColor })) === false) {
+      showToast(t('archive_label_save_failed'), 'error');
+      return;
+    }
     setNewLabelName('');
     setNewLabelColor(LABEL_PRESET_COLORS[0]!);
     setCreatingLabel(false);
@@ -104,7 +111,8 @@ export function MobileNoteReader({
   const date = toDate(session.createdAt) ?? new Date();
   const currentLabel = labels?.find(l => l.id === session.labelId);
   const body = sessionContentState(session);
-  const readable = !session._locked && !session._decryptionError && !session._contentNotLoaded;
+  // Дейлик 20.11: сбой чтения текста — тоже нечитаемая заметка (ИИ-кнопки и связанные — нет).
+  const readable = !session._locked && !session._decryptionError && !session._contentNotLoaded && !session._contentError;
   const title = session._locked
     ? t('archive_note_locked')
     : session._decryptionError
@@ -113,14 +121,14 @@ export function MobileNoteReader({
 
   const handleExclusionClick = () => {
     const nextExcluded = !session.excludedFromAI;
-    setExclusionLoading(true);
+    setExclusionBusy(true);
     // Дейлик 19.11 Н-3: тот же помощник итога, что в списке архива.
     void runMutation({ showToast, t }, 'reader_toggle_ai_exclusion',
       () => toggleAIExclusion(session, nextExcluded, user, actorId),
       { successText: t(nextExcluded ? 'ai_note_excluded' : 'ai_note_include'), context: { documentId: session.id } },
     ).then(done => {
       if (done) onStorageChange?.();
-      setExclusionLoading(false);
+      setExclusionBusy(false);
     });
   };
 
@@ -203,6 +211,9 @@ export function MobileNoteReader({
           <p data-testid="reader-body" className="mt-3 whitespace-pre-wrap text-[length:var(--reading-size)] leading-[var(--reading-lh)] text-pretty text-[var(--ink)]">
             {body.content || <span className="italic text-text-main/60">{t('archive_no_content')}</span>}
           </p>
+        )}
+        {readable && relatedFailed && onRetryRelated && (
+          <LoadNotice variant="row" className="mt-10" text={`${t('archive_related_notes')}: ${t('load_failed_retry')}`} onRetry={onRetryRelated} />
         )}
         {readable && (relatedNotes?.length ?? 0) > 0 && onSelectRelated && (
           <section data-testid="reader-related" className="mt-10 border-t border-border-subtle/60 pt-5">
@@ -319,7 +330,7 @@ export function MobileNoteReader({
                       <input
                         value={newLabelName}
                         onChange={e => setNewLabelName(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') createLabel(); }}
+                        onKeyDown={e => { if (e.key === 'Enter') void createLabel(); }}
                         placeholder={t('archive_label_name_placeholder')}
                         aria-label={t('archive_label_name_placeholder')}
                         className="min-h-11 rounded-xl border border-border-subtle bg-transparent px-3 text-[15px] text-text-main outline-none"
@@ -345,7 +356,7 @@ export function MobileNoteReader({
                           {t('common_cancel')}
                         </Button>
                         <Button
-                          onClick={createLabel}
+                          onClick={() => void createLabel()}
                           disabled={!newLabelName.trim()}
                           className="min-h-11 rounded-xl px-3 text-[15px] font-medium text-text-main disabled:opacity-40"
                         >
@@ -452,7 +463,7 @@ export function MobileNoteReader({
           onDelete={() => onDelete?.(session)}
           onLabelChange={labelId => onLabelChange?.(session, labelId)}
           onStorageChange={() => onStorageChange?.()}
-          aiExclusionLoading={exclusionLoading}
+          aiExclusionLoading={exclusionBusy}
           onAIExclusionClick={readable ? handleExclusionClick : undefined}
         />
 

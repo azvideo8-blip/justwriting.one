@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.11.23 — 2026-11-20
+
+- **[RU]** Собеседник держит выбранное обращение на «ты» или «вы» в каждом ответе, а в разборе приложенной заметки не ставит под её ссылкой события из других дней.
+- **[EN]** The companion keeps the chosen form of address in every reply, and when analysing an attached note it no longer puts events from other days under that note’s link.
+- **[RU]** Просьба «посмотри», «поищи», «глянь» или «проверь» больше не прерывается подведением итога; в память собеседника не попадают его же слова, которые вы процитировали в ответ.
+- **[EN]** Asking the companion to look, search or check no longer gets interrupted by a summary; the companion’s memory no longer stores its own words that you quoted back.
+- **[RU]** Связанные заметки в превью и читалке: если они не загрузились, вы увидите это и кнопку «Повторить»; подсказки к ответу после перегенерации — к новому ответу.
+- **[EN]** Related notes in the preview and reader: if they fail to load you see it with a Retry button; reply suggestions after regenerating match the new reply.
+- **[RU]** Удаление записи из журнала, восстановление сейфа кодом, «Запереть сейф», метки профиля, «Отправить все заметки», «Восстановить из облака», выход и окно памяти собеседника больше не показывают «Готово», если сделано не всё.
+- **[EN]** Deleting a log entry, restoring the vault with a recovery code, “Lock vault”, profile labels, “Upload all notes”, “Restore from cloud”, signing out and the companion’s memory window no longer say “Done” when not everything was done.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.11.22 — 2026-11-19
 
 - **[RU]** Архив: если список не загрузился или облако не ответило, вы увидите ошибку или предупреждение с кнопкой «Повторить», а не «Пока нет записей»; при правке заметки список больше не мигает.

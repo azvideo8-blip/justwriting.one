@@ -1,5 +1,6 @@
 import { getLocalDb, type AIChatMemory, type AIDialogue, randomUUID } from '../../../core/storage/localDb';
 import { MEMORY_EXTRACT_MAX_MESSAGES, MEMORY_EXTRACT_MAX_MESSAGE_CHARS, INTERNAL_CALL_MAX_INPUT_CHARS } from '../../../shared/ai/aiPolicy';
+import { stripEchoedAssistantText } from '../../../shared/ai/memoryGrounding';
 import { AIService } from './AIService';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { reportError } from '../../../shared/errors/reportError';
@@ -21,6 +22,8 @@ const VALID_KINDS: MemoryKind[] = ['fact', 'insight', 'commitment', 'preference'
 function coerceKind(kind: string): MemoryKind {
   return VALID_KINDS.includes(kind as MemoryKind) ? (kind as MemoryKind) : 'fact';
 }
+
+const normalizeConclusion = (text: string): string => text.toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
 
 function docsById(docs: ReadonlyArray<CitableNoteDoc>): Map<string, CitableNoteDoc> {
   const byId = new Map<string, CitableNoteDoc>();
@@ -114,9 +117,17 @@ export const AIChatMemoryService = {
       //
       // Отбор по role: схема проверяет именно role, и сообщение с role:'system'
       // раньше проходило фильтр по type и валило запрос целиком.
+      //
+      // К28-3: человек иногда вставляет в реплику слова модели (фразу в кавычках или
+      // кусок ответа) и соглашается — такой текст вычитается ДО отправки. Ответы модели
+      // служат только для вычитания на клиенте; на сервер уходят очищенные реплики человека.
+      const assistantTexts = bounded
+        .filter(m => m.role === 'assistant' && m.type !== 'system')
+        .map(m => m.content);
       const recent = bounded
         .filter(m => m.role === 'user')
-        .map(m => ({ role: 'user' as const, content: m.content.slice(0, MEMORY_EXTRACT_MAX_MESSAGE_CHARS) }));
+        .map(m => ({ role: 'user' as const, content: stripEchoedAssistantText(m.content, assistantTexts).slice(0, MEMORY_EXTRACT_MAX_MESSAGE_CHARS) }))
+        .filter(m => m.content.trim().length > 0);
       if (recent.length === 0) return;
 
       // DA-2: ограничить суммарный вход памяти до INTERNAL_CALL_MAX_INPUT_CHARS (4000)
@@ -333,6 +344,8 @@ export const AIChatMemoryService = {
     const byId = docsById(await db.getAll('documents'));
 
     return all
+      // DI-3: вывод в общий блок памяти не идёт (вспоминание — своим путём, DI-7).
+      .filter(m => m.kind !== 'conclusion')
       .filter(m => m.vector)
       .filter(m => memorySourcesVisible(m, byId))
       .map(m => ({ m, sim: cosineSimilarity(queryVector, m.vector!) }))
@@ -344,6 +357,66 @@ export const AIChatMemoryService = {
   async getAll(): Promise<AIChatMemory[]> {
     const db = await getLocalDb();
     return db.getAll('aiChatMemory');
+  },
+
+  /**
+   * DI-3: подтверждённый вывод собеседника. Дубль (тот же текст после нормализации) — не новая
+   * запись, а обновление отметки подтверждения. `vector` не заполняется: вспоминание идёт без
+   * векторов и не зависит от согласия на индексацию. `sourceDocumentIds` — всегда массив: без него
+   * запись считалась бы «старой без источника» и ИИ не отдавалась (`memorySourcesVisible`).
+   */
+  async addConclusion(input: {
+    text: string;
+    context: string;
+    dialogueId: string;
+    messageId: string;
+    sourceDocumentIds: string[];
+    confirmedBy: 'reply' | 'button';
+  }): Promise<'saved' | 'duplicate' | 'failed'> {
+    try {
+      const db = await getLocalDb();
+      const now = Date.now();
+      const key = normalizeConclusion(input.text);
+      const existing = (await db.getAll('aiChatMemory')).find(m => m.kind === 'conclusion' && normalizeConclusion(m.text) === key);
+      if (existing) {
+        existing.confirmedAt = now;
+        existing.updatedAt = now;
+        await db.put('aiChatMemory', existing);
+        LocalStoreSyncService.scheduleStoreSync('aiChatMemory', existing.id);
+        return 'duplicate';
+      }
+      const entry: AIChatMemory = {
+        id: randomUUID(),
+        kind: 'conclusion',
+        text: input.text,
+        context: input.context.slice(0, 300),
+        sourceDialogueId: input.dialogueId,
+        sourceMessageId: input.messageId,
+        sourceDocumentIds: input.sourceDocumentIds,
+        confirmedAt: now,
+        confirmedBy: input.confirmedBy,
+        createdAt: now,
+        updatedAt: now,
+      };
+      await db.put('aiChatMemory', entry);
+      LocalStoreSyncService.scheduleStoreSync('aiChatMemory', entry.id);
+      return 'saved';
+    } catch (e) {
+      reportError(e, { action: 'memory_add_conclusion' });
+      return 'failed';
+    }
+  },
+
+  /** DI-3: выводы, новые сверху. Ошибку чтения НЕ ловим: вызывающий обязан отличить сбой от «пусто». */
+  async getConclusions(): Promise<AIChatMemory[]> {
+    const db = await getLocalDb();
+    const all = await db.getAll('aiChatMemory');
+    return all.filter(m => m.kind === 'conclusion').sort((a, b) => b.createdAt - a.createdAt);
+  },
+
+  /** DI-3: выводы, которые можно отдать ИИ: опора не скрыта, не в корзине, не удалена. */
+  async getUsableConclusions(docs: ReadonlyArray<CitableNoteDoc>): Promise<AIChatMemory[]> {
+    return usableMemories(await AIChatMemoryService.getConclusions(), docs);
   },
 
   // AX-8: Always retrieve preference-type memories (not by similarity) so 👍/👎

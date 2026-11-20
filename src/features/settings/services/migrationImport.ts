@@ -715,10 +715,15 @@ export async function importMigrationManifest(
           queued: 0,
           reason: "Sync already running — use «Upload all notes to cloud» once it finishes.",
         } : {
-          status: "completed",
+          // queued — по факту постановки: failed включает и заметки, что не встали в очередь.
+          status: syncRes.skippedReason === "vault_locked" ? "vault_locked"
+            : syncRes.failed > (syncRes.queued ?? 0) ? "failed" : "completed",
           attempted: importedDocIds.length,
           uploaded: syncRes.synced,
-          queued: syncRes.failed,
+          queued: syncRes.queued ?? 0,
+          ...(syncRes.failed > (syncRes.queued ?? 0)
+            ? { reason: `${syncRes.failed - (syncRes.queued ?? 0)} note(s) could not be queued — saved only on this device.` }
+            : {}),
         };
       } catch (uploadErr) {
         let queued = 0;

@@ -12,6 +12,7 @@ import { getAiQuotaLogic } from './ai/getAiQuota.logic';
 import { judgeFacetsLogic } from './ai/judgeFacets.logic';
 import { rerankNotesLogic } from './ai/rerankNotes.logic';
 import { pickAnchorsLogic } from './ai/pickAnchors.logic';
+import { pickInsightLogic } from './ai/pickInsight.logic';
 import { summarizeDocumentLogic } from './ai/summarizeDocument.logic';
 import { summarizeFacetLogic } from './ai/summarizeFacet.logic';
 import { validateCustomPromptLogic } from './ai/validateCustomPrompt.logic';
@@ -37,6 +38,7 @@ const LOGIC_MAP: Record<string, LogicFn> = {
   judgeFacets: judgeFacetsLogic,
   rerankNotes: rerankNotesLogic,
   pickAnchors: pickAnchorsLogic,
+  pickInsight: pickInsightLogic,
   summarizeDocument: summarizeDocumentLogic,
   summarizeFacet: summarizeFacetLogic,
   validateCustomPrompt: validateCustomPromptLogic,

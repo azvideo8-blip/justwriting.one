@@ -4,6 +4,8 @@ import { RecoveryCodeGate } from '../RecoveryCodeGate';
 import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
 
 vi.mock('../../../../app/useAuthStatus', () => ({ useAuthStatus: () => ({ user: { uid: 'u1' }, isGuest: false }) }));
+vi.mock('../../../../shared/components/Toast', () => ({ useToast: () => ({ showToast: vi.fn() }) }));
+vi.mock('../../../../shared/i18n', () => ({ useLanguage: () => ({ t: (k: string) => k }) }));
 vi.mock('../../../../shared/components/RecoveryCodeDisplayModal', () => ({ RecoveryCodeDisplayModal: () => null }));
 
 // R3-2: код восстановления — второй фактор сейфа. В localStorage он жил

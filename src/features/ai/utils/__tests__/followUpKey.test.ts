@@ -36,4 +36,9 @@ describe('followUpKey — подсказки только к свежему от
     expect(followUpKey([q, { ...a, createdAt: now - 10 * 60_000 }], now).fresh).toBe(false);
     expect(followUpKey([q, a], now).fresh).toBe(false);
   });
+  // Дейлик 20.11: перегенерация старого ответа — createdAt прежний, updatedAt
+  // свежий. Мутация: свежесть только по createdAt — красный.
+  it('перегенерированный старый ответ — свежий', () => {
+    expect(followUpKey([q, { ...a, createdAt: now - 60 * 60_000, updatedAt: now - 3_000 }], now).fresh).toBe(true);
+  });
 });

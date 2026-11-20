@@ -350,24 +350,26 @@ export const AIDerivedDataSyncService = {
    * нажатием могла приехать синхронизация, и удалять по устаревшему списку
    * значит удалять то, что уже перестало быть сиротой.
    */
-  async deleteOrphanedDerivatives(userId: string): Promise<{ summaries: number; embeddings: number; failed: number }> {
+  async deleteOrphanedDerivatives(userId: string): Promise<{ summaries: number; embeddings: number; failed: number; cloudChecked: boolean }> {
     const survey = await AIDerivedDataSyncService.findOrphanedDerivatives(userId);
-    if (!survey.cloudChecked) return { summaries: 0, embeddings: 0, failed: 0 };
+    // Повторная опись не состоялась (облако не прочиталось) — это отказ, а не «убрано 0».
+    if (!survey.cloudChecked) return { summaries: 0, embeddings: 0, failed: 0, cloudChecked: false };
 
     const db = await getLocalDb(userId);
     let summaries = 0;
     let embeddings = 0;
+    let localFailed = 0;
     for (const id of survey.summaries) {
-      try { await db.delete('aiSummaries', id); summaries++; } catch { /* намеренно: считаем только удалённое; остаток найдёт следующий проход */ }
+      try { await db.delete('aiSummaries', id); summaries++; } catch (e) { localFailed++; reportError(e, { action: 'deleteOrphanedDerivatives_localSummary' }, 'warning'); }
     }
     for (const id of survey.embeddings) {
-      try { await db.delete('aiEmbeddings', id); embeddings++; } catch { /* намеренно: как выше */ }
+      try { await db.delete('aiEmbeddings', id); embeddings++; } catch (e) { localFailed++; reportError(e, { action: 'deleteOrphanedDerivatives_localEmbedding' }, 'warning'); }
     }
     // X-5: удалённые векторы не должны остаться в памяти хода.
     if (embeddings > 0) invalidateEmbeddingIndexCache();
     // S-46: облачные хвосты под надгробиями; отказ не считается удалённым.
     const cloud = await deleteCloudTombstoned(userId, survey);
-    return { summaries: summaries + cloud.summaries, embeddings: embeddings + cloud.embeddings, failed: cloud.failed };
+    return { summaries: summaries + cloud.summaries, embeddings: embeddings + cloud.embeddings, failed: cloud.failed + localFailed, cloudChecked: true };
   },
 
   /**

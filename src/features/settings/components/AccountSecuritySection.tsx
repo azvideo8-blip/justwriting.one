@@ -27,7 +27,7 @@ export function AccountSecuritySection({ userId }: AccountSecuritySectionProps) 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordBusy, setPasswordBusy] = useState(false);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [signingOutOthers, setSigningOutOthers] = useState(false);
   const { showToast } = useToast();
@@ -46,7 +46,7 @@ export function AccountSecuritySection({ userId }: AccountSecuritySectionProps) 
       setPasswordError(t('auth_error_weak_password'));
       return;
     }
-    setPasswordLoading(true);
+    setPasswordBusy(true);
     setPasswordError(null);
     setPasswordSuccess(false);
     try {
@@ -75,7 +75,7 @@ export function AccountSecuritySection({ userId }: AccountSecuritySectionProps) 
       }
       setPasswordError(msg);
     } finally {
-      setPasswordLoading(false);
+      setPasswordBusy(false);
     }
   };
 
@@ -163,10 +163,10 @@ export function AccountSecuritySection({ userId }: AccountSecuritySectionProps) 
                 <div className="flex gap-2">
                   <Button
                     type="submit"
-                    disabled={passwordLoading}
+                    disabled={passwordBusy}
                     className="flex-1 py-2 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors bg-brand-primary"
                   >
-                    {passwordLoading ? <span className="flex justify-center"><LoadingSpinner size={4} /></span> : t('settings_change_password')}
+                    {passwordBusy ? <span className="flex justify-center"><LoadingSpinner size={4} /></span> : t('settings_change_password')}
                   </Button>
                   <Button
                     type="button"

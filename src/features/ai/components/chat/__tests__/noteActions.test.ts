@@ -85,6 +85,20 @@ describe('createNoteActions', () => {
       expect(SyncService.syncOne).toHaveBeenCalledWith('u_test_1', 'local_fail');
       expect(showToast).toHaveBeenCalledWith('Заметка успешно создана', 'success');
     });
+
+    // PIN-1 (дейлик 20.11): отказ создания заметки из ответа ИИ назван ошибкой, без «успешно создана».
+    // Мутация: убрать showToast('Не удалось создать заметку', 'error') в catch — красный.
+    it('PIN-1: saveNew отказал (сейф заперт) — error-тост, без «успешно создана» и без события', async () => {
+      vi.mocked(StorageService.saveNew).mockRejectedValue(new Error('LOCKED: vault'));
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const actions = createNoteActions({ userId: 'u_test_1', showToast });
+      await actions.handleCreateNote('Текст ответа ИИ для заметки');
+      errSpy.mockRestore();
+      expect(showToast).toHaveBeenCalledWith('Не удалось создать заметку', 'error');
+      expect(showToast).not.toHaveBeenCalledWith('Заметка успешно создана', 'success');
+      expect(emitSpy).not.toHaveBeenCalled();
+      expect(SyncService.addToQueue).not.toHaveBeenCalled();
+    });
   });
 
 });

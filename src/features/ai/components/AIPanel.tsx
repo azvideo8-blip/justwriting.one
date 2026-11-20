@@ -34,7 +34,7 @@ export interface AIPanelContentProps {
 export function AIPanelContent({ content = '', onApplyContent }: AIPanelContentProps = {}) {
   const { t } = useLanguage();
 
-  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<Partial<Record<AIAction, string>>>({});
   const [activeAction, setActiveAction] = useState<AIAction | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +51,7 @@ export function AIPanelContent({ content = '', onApplyContent }: AIPanelContentP
       setError(t('ai_error_offline'));
       return;
     }
-    if (!content.trim() || loading) return;
+    if (!content.trim() || busy) return;
 
     const { remaining, useRequest: consumeRequest } = useAiLimitStore.getState();
     if (remaining <= 0) {
@@ -61,7 +61,7 @@ export function AIPanelContent({ content = '', onApplyContent }: AIPanelContentP
       return;
     }
 
-    setLoading(true);
+    setBusy(true);
     setActiveAction(action);
     setError(null);
 
@@ -74,8 +74,8 @@ export function AIPanelContent({ content = '', onApplyContent }: AIPanelContentP
     } else {
       setError(aiErrorToText((res as { ok: false; error: string }).error, { t, isLoggedIn: !!getCurrentUser() }));
     }
-    setLoading(false);
-  }, [content, loading, t, results]);
+    setBusy(false);
+  }, [content, busy, t, results]);
 
   const handleApply = useCallback(() => {
     if (!activeAction || !onApplyContent) return;
@@ -131,20 +131,20 @@ export function AIPanelContent({ content = '', onApplyContent }: AIPanelContentP
         {AI_ACTIONS.map(({ action, icon, labelKey }) => {
           const hasResult = results[action] !== undefined;
           const isActive = activeAction === action;
-          const isBusy = loading && activeAction === action;
+          const isBusy = busy && activeAction === action;
           return (
             <Button
               key={action}
               variant="ghost"
               size="sm"
               onClick={() => void runAction(action, false)}
-              disabled={loading || !hasContent}
+              disabled={busy || !hasContent}
               className={cn(
                 "flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium transition-colors",
                 isActive
                   ? "bg-brand-soft/15 text-brand-soft"
                   : "bg-text-main/[0.04] text-text-main/60 hover:bg-text-main/[0.08] hover:text-text-main/80",
-                (loading || !hasContent) && "opacity-50 cursor-not-allowed"
+                (busy || !hasContent) && "opacity-50 cursor-not-allowed"
               )}
             >
               {isBusy ? <Loader2 size={14} className="animate-spin" /> : icon}
@@ -171,7 +171,7 @@ export function AIPanelContent({ content = '', onApplyContent }: AIPanelContentP
             </motion.div>
           )}
 
-          {activeResult && !loading && (
+          {activeResult && !busy && (
             <motion.div
               key={activeAction}
               initial={{ opacity: 0, y: 4 }}

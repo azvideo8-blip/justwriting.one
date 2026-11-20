@@ -99,20 +99,20 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
   const handleBuild = async () => {
     setBuilding(true);
     setProgress(null);
-    let pendingStarted = false;
     try {
       const res = await AIProfileFacetService.build(p => setProgress(p));
       if (res.ok) {
-        showToast(`Темы профиля построены: ${res.count}`, 'success');
         await load();
-        pendingStarted = true;
-        void AIProfileFacetService.summarizePending(p => setProgress(p))
-          .then(() => { void load(); })
-          .catch(e => { reportError(e, { action: 'profile_facets_summarize_pending' }); })
-          .finally(() => {
-            setBuilding(false);
-            setProgress(null);
-          });
+        // Итог — после суммаризации и с её итогом: «построены» зелёным, пока часть граней
+        // осталась без сводок (отказ поставщика, бюджет), — неправда.
+        // Отказ суммаризации — темы уже построены: не «Ошибка построения тем» (ревью FN-4).
+        const sum = await AIProfileFacetService.summarizePending(p => setProgress(p)).catch((e: unknown) => {
+          reportError(e, { action: 'profile_facets_summarize' });
+          return null;
+        });
+        if (!sum) showToast(t('ai_facets_built_summary_failed', { count: res.count }), 'warning');
+        else if (sum.failed > 0) showToast(t('ai_facets_resummarize_partial', { count: sum.done, failed: sum.failed }), 'warning');
+        else showToast(`Темы профиля построены: ${res.count}`, 'success');
       } else if (res.error === 'NO_EMBEDDINGS') {
         showToast('Сначала проиндексируйте заметки (вкладка «База данных»)', 'error');
       } else if (res.error === 'NO_CHUNK_TEXTS') {
@@ -124,11 +124,9 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
       reportError(e, { action: 'profile_facets_build' });
       showToast('Ошибка построения тем', 'error');
     } finally {
-      if (!pendingStarted) {
-        setBuilding(false);
-        setProgress(null);
-        void load();
-      }
+      setBuilding(false);
+      setProgress(null);
+      void load();
     }
   };
 

@@ -97,6 +97,14 @@ export interface AnswerAudit {
   related_no_ref: number;
 }
 
+/**
+ * Строка `[chat-end]`: аудит ответа против материалов (может отсутствовать — без
+ * материалов считать нечего) плюс метки хода, которые от материалов не зависят.
+ * `summary` — К28-2: в ход положена строка итога; `ok` — ответ дал итог с проверкой,
+ * `miss` — нет. Поля нет — строки итога в ходе не было.
+ */
+export type TurnAudit = Partial<AnswerAudit> & { summary?: 'ok' | 'miss' | undefined };
+
 // Ревью 0.11.13: «…? [#id]» — тоже вопрос в конце; ссылки после него не считаются.
 const ENDS_WITH_QUESTION_RE = /\?[\s»")]*(?:\[#[^\]]+\][\s.]*)*$/;
 // Выход из выбора: «или что-то другое», «или иначе», «или ни то ни другое»…
@@ -135,7 +143,7 @@ function notesOf(doc: string): Map<string, { text: string; month: number; day: n
 }
 
 const ANSWER_REF_ONCE = /\[#[^\]\s]{1,120}(?:\s*·[^\]]*)?\]/;
-const stemsOf = (s: string): string[] => (fold(s).match(/[а-яa-z]{5,}/g) ?? []).map(w => w.slice(0, 5));
+export const stemsOf = (s: string): string[] => (fold(s).match(/[а-яa-z]{5,}/g) ?? []).map(w => w.slice(0, 5));
 
 function groundingCounts(answer: string, doc: string): { weak_ref: number; date_off_header: number } {
   const notes = notesOf(doc);

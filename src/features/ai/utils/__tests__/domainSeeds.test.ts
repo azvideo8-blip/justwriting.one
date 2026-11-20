@@ -85,3 +85,16 @@ describe('getSeedVectors (arbitrary list)', () => {
     expect(embedMock).toHaveBeenCalledTimes(2);
   });
 });
+
+// 20.11: неполный набор (часть сфер не посчиталась) не кэшируется — иначе
+// выпавшие сферы пропадали до перезагрузки. Мутация: кэшировать всегда — красный.
+describe('getDomainSeedVectors: неполный набор', () => {
+  it('одна сфера не посчиталась — следующий вызов пробует снова', async () => {
+    embedMock.mockResolvedValueOnce({ ok: false, error: 'UPSTREAM' } as never).mockResolvedValue(okVec());
+    const first = await getDomainSeedVectors();
+    expect(first).toHaveLength(LIFE_DOMAINS.length - 1);
+    const second = await getDomainSeedVectors();
+    expect(second).toHaveLength(LIFE_DOMAINS.length);
+  });
+});
+

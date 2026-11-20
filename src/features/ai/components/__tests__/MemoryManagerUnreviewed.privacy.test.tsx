@@ -21,6 +21,7 @@ vi.mock('../../services/AIChatMemoryService', async () => {
   };
 });
 vi.mock('../../../../shared/i18n', () => ({ useLanguage: () => ({ t: (k: string) => k, language: 'ru' }) }));
+vi.mock('../../../../shared/components/Toast', () => ({ useToast: () => ({ showToast: vi.fn() }) }));
 vi.mock('../../../../shared/components/ConfirmDialog', () => ({ useConfirmDialog: () => ({ confirm: vi.fn(async () => true) }) }));
 
 import { MemoryManagerModal } from '../MemoryManagerModal';

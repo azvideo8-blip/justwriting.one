@@ -8,6 +8,9 @@ import { setRememberDevice } from '../../../../core/crypto/useEncryptionStore';
 import { reportError } from '../../../../shared/errors/reportError';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
+const showToast = vi.hoisted(() => vi.fn());
+vi.mock('../../../../shared/components/Toast', () => ({ useToast: () => ({ showToast }) }));
+vi.mock('../../../../shared/i18n', () => ({ useLanguage: () => ({ t: (k: string) => k }) }));
 vi.mock('../../../../app/useAuthStatus', () => ({ useAuthStatus: () => ({ user: { uid: 'u1' }, isGuest: false }) }));
 vi.mock('../../../../core/crypto/keyVaultCache', () => ({ clearDeviceKey: vi.fn(async () => {}) }));
 vi.mock('../../../../core/crypto/useEncryptionStore', () => ({ setRememberDevice: vi.fn() }));
@@ -50,5 +53,22 @@ describe('R3-9: the auto-created vault asks whether to remember this device', ()
       action: 'clearDeviceKey_uncheckRememberDevice',
       userId: 'u1',
     }));
+  });
+
+  // FN-3 (дейлик 20.11, Н-3): ключ устройства не стёрт — сейф откроется сам после
+  // перезагрузки, человеку это называем тостом ошибки, а не молчим.
+  it('FN-3: отказ clearDeviceKey — тост ошибки; успех — без тоста', async () => {
+    vi.mocked(clearDeviceKey).mockRejectedValueOnce(new Error('keyVault error'));
+    const { unmount } = render(<RecoveryCodeGate />);
+    fireEvent.click(await screen.findByText('shared'));
+    await new Promise(r => setTimeout(r, 0));
+    expect(showToast).toHaveBeenCalledWith('settings_vault_lock_device_key_failed', 'error');
+    unmount();
+    showToast.mockClear();
+    sessionStorage.setItem(STORAGE_KEYS.PENDING_RECOVERY_CODE('u1'), 'ABCD');
+    render(<RecoveryCodeGate />);
+    fireEvent.click(await screen.findByText('shared'));
+    await new Promise(r => setTimeout(r, 0));
+    expect(showToast).not.toHaveBeenCalled();
   });
 });

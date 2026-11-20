@@ -54,7 +54,9 @@ export async function getSeedVectors(domains: LifeDomain[]): Promise<DomainSeedV
     });
   }
 
-  domainSeedCache = { key: cacheKey, vecs };
+  // Неполный набор (часть сфер не посчиталась) не кэшируем: иначе выпавшие
+  // сферы пропадали до перезагрузки, и следующий проход их уже не пробовал.
+  if (vecs.length === domains.length) domainSeedCache = { key: cacheKey, vecs };
   return vecs;
 }
 

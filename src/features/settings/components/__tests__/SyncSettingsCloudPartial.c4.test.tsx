@@ -74,5 +74,27 @@ describe('C4: неполное облако видно в «синхронизи
     // Мутация: вернуть `return` после тоста «уже идёт» — красный.
     expect(h.downloadAll).toHaveBeenCalled();
   });
+
+  // FN-6: очередь не шла, потому что сейф заперт, — не «Синхронизировано: 0» зелёным.
+  // Мутация: не читать res.skippedReason в handleSyncAll — красный.
+  it('FN-6: очередь на паузе из-за запертого сейфа — «сейф заперт», не зелёное «0»', async () => {
+    const { SyncService } = await import('../../../../core/services/SyncService');
+    vi.mocked(SyncService.syncAllUnlinked).mockResolvedValueOnce({ synced: 0, failed: 1, queued: 1, skippedReason: 'vault_locked' } as never);
+    h.downloadAll.mockResolvedValue({ downloaded: 0, skipped: 0, failed: 0 });
+    render(<SyncSettingsSection userId="u-c4" />);
+    fireEvent.click(await screen.findByTestId('sync-all-unlinked-btn'));
+    await waitFor(() => expect(h.showToast).toHaveBeenCalledWith('settings_sync_vault_locked', 'error'));
+    expect(h.showToast).not.toHaveBeenCalledWith('settings_sync_all_unlinked_done', 'success');
+  });
+
+  // FN-6: заметки, исключённые из выгрузки, названы. Мутация: убрать тост skipped — красный.
+  it('FN-6: исключённые заметки названы отдельной строкой', async () => {
+    const { SyncService } = await import('../../../../core/services/SyncService');
+    vi.mocked(SyncService.syncAllUnlinked).mockResolvedValueOnce({ synced: 1, failed: 0, skipped: 3 } as never);
+    h.downloadAll.mockResolvedValue({ downloaded: 0, skipped: 0, failed: 0 });
+    render(<SyncSettingsSection userId="u-c4" />);
+    fireEvent.click(await screen.findByTestId('sync-all-unlinked-btn'));
+    await waitFor(() => expect(h.showToast).toHaveBeenCalledWith('settings_sync_all_skipped', 'info'));
+  });
 });
 

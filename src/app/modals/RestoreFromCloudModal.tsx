@@ -15,7 +15,7 @@ import { setRestoreDismissed } from '../../core/sync/useEmptyDeviceDetection';
 import { CloudDownload, CheckCircle, AlertTriangle } from 'lucide-react';
 
 export interface RestoreFromCloudModalProps {
-  onRestoreAIData?: ((userId: string) => Promise<{ summaries: number; embeddings?: number; localStoreRecords: number; failed: number; oversized?: number }>) | undefined;
+  onRestoreAIData?: ((userId: string) => Promise<{ summaries: number; embeddings?: number; localStoreRecords: number; failed: number; oversized?: number; skippedLocked?: boolean; sectionFailed?: boolean }>) | undefined;
   open: boolean;
   onClose: () => void;
   initialLocalCount?: number | undefined;
@@ -43,6 +43,10 @@ interface RestoreSummaryReport {
   /** FD-1: проход заметок неполный — повтор ещё нужен. */
   notesIncomplete?: boolean;
   oversizedCount?: number;
+  /** Сейф заперт: заметки и/или разделы ИИ не восстановлены, а не «нечего восстанавливать». */
+  locked?: boolean;
+  /** Раздел ИИ пропущен (сейф заперт / журнал удалений не прочитан) — итог неполный. */
+  aiSectionsSkipped?: boolean;
 }
 
 export function RestoreFromCloudModal({
@@ -189,7 +193,8 @@ export function RestoreFromCloudModal({
         });
         resultSummary.restoredNotes = noteRes.restored;
         resultSummary.failedCount += noteRes.failed ?? 0;
-        resultSummary.notesIncomplete = noteRes.hasMore === true;
+        resultSummary.notesIncomplete = noteRes.hasMore === true || noteRes.throttled === true;
+        if (noteRes.locked) resultSummary.locked = true;
       }
 
       // Step 2: AI Summaries, Embeddings & Local Store Records (13 stores)
@@ -209,6 +214,8 @@ export function RestoreFromCloudModal({
           resultSummary.restoredAIStoreRecords = aiRes.localStoreRecords;
           resultSummary.failedCount += aiRes.failed;
           resultSummary.oversizedCount = (aiRes as { oversized?: number }).oversized ?? 0;
+          if (aiRes.skippedLocked) resultSummary.locked = true;
+          if (aiRes.skippedLocked || aiRes.sectionFailed) resultSummary.aiSectionsSkipped = true;
         } else {
           emitDomainEvent({ type: 'sync.restoredFromCloud', userId: user.uid });
         }
@@ -245,7 +252,8 @@ export function RestoreFromCloudModal({
         // падение. Сказать «прервано ошибкой» там, где ошибки не было, —
         // такая же ложь наоборот, как и «завершено» после падения.
         // Отбитые загрузки — как раз ошибка: сказать «нечего восстанавливать» нельзя.
-        setThrew(resultSummary.failedCount > 0 || resultSummary.notesIncomplete === true);
+        // Запертый сейф — отдельный итог («открой и повтори»), не «нечего восстанавливать».
+        setThrew(resultSummary.failedCount > 0 || resultSummary.notesIncomplete === true || (resultSummary.aiSectionsSkipped === true && !resultSummary.locked));
         setStep('failed');
       } else {
         setRestoreDismissed(user.uid, true);
@@ -298,7 +306,7 @@ export function RestoreFromCloudModal({
               {step === 'completed'
                 ? t('restore_cloud_title_completed')
                 : step === 'failed'
-                  ? (threw ? t('restore_cloud_title_failed') : t('restore_cloud_title_empty'))
+                  ? (report?.locked ? t('restore_cloud_title_locked') : threw ? t('restore_cloud_title_failed') : t('restore_cloud_title_empty'))
                   : t('restore_cloud_title_loading')}
             </h2>
           </div>
@@ -461,9 +469,11 @@ export function RestoreFromCloudModal({
             <div className="p-3.5 bg-accent-danger/10 border border-accent-danger/20 rounded-xl space-y-2">
               <div className="flex items-center gap-2 text-xs font-semibold text-accent-danger">
                 <AlertTriangle className="w-4 h-4 text-accent-danger" />
-                {threw
-                  ? t('restore_cloud_fail_threw')
-                  : t('restore_cloud_fail_empty')}
+                {report?.locked
+                  ? t('restore_cloud_fail_locked')
+                  : threw
+                    ? t('restore_cloud_fail_threw')
+                    : t('restore_cloud_fail_empty')}
               </div>
               {/* Частичный успех — числами: что успело вернуться до падения. */}
               {(Boolean(report?.restoredNotes) || Boolean(report?.restoredSummaries) || Boolean(report?.restoredEmbeddings) || Boolean(report?.restoredAIStoreRecords) || Boolean(report?.oversizedCount)) && (
@@ -515,6 +525,12 @@ export function RestoreFromCloudModal({
                   <div data-testid="restore-cloud-notes-incomplete" className="text-accent-warning flex items-center gap-1 mt-1">
                     <AlertTriangle className="w-3.5 h-3.5" />
                     {t('restore_cloud_notes_incomplete')}
+                  </div>
+                )}
+                {report?.aiSectionsSkipped && (
+                  <div data-testid="restore-cloud-ai-skipped" className="text-accent-warning flex items-center gap-1 mt-1">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    {t('restore_cloud_ai_skipped')}
                   </div>
                 )}
                 {Boolean(report?.oversizedCount) && (

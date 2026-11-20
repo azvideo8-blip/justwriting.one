@@ -164,6 +164,7 @@ export const settingsTranslations: Translations = {
   settings_encryption_locked_desc: { ru: 'Введи пароль от аккаунта, чтобы открыть зашифрованные заметки.', en: 'Enter your account password to open your encrypted notes.' },
   settings_unlock_submit: { ru: 'Разблокировать сейф', en: 'Unlock Vault' },
   settings_lock_vault: { ru: 'Заблокировать сейф', en: 'Lock Vault' },
+  settings_vault_lock_device_key_failed: { ru: 'Не удалось забыть ключ на этом устройстве — после перезагрузки сейф может открыться сам. Повтори', en: 'Could not forget the key on this device — the vault may reopen by itself after a restart. Try again' },
   settings_vault_locked_done: { ru: 'Сейф заперт', en: 'Vault locked' },
   settings_vault_unlocked: { ru: 'Сейф разблокирован', en: 'Vault Unlocked' },
   settings_vault_unlocked_desc: { ru: 'Ты можешь расшифровать и редактировать зашифрованные заметки. Также можно зашифровать все существующие незашифрованные заметки.', en: 'You can decrypt and edit encrypted notes. You can also encrypt all existing unencrypted notes.' },
@@ -226,6 +227,7 @@ export const settingsTranslations: Translations = {
   settings_sync_all_unlinked_button: { ru: 'Отправить все заметки в облако', en: 'Upload all notes to cloud' },
   settings_sync_all_unlinked_progress: { ru: 'Отправляю заметки в облако...', en: 'Uploading notes to cloud...' },
   settings_sync_all_unlinked_done: { ru: 'Синхронизировано: {synced} заметок', en: 'Synced: {synced} documents' },
+  settings_sync_all_skipped: { ru: 'В выгрузку не вошло заметок: {count} — заперты, не читаются или остаются только на этом устройстве', en: 'Notes left out of the upload: {count} — locked, unreadable or kept on this device only' },
   settings_sync_all_unlinked_failed: { ru: 'Не удалось отправить: {failed} заметок', en: 'Failed to upload: {failed} documents' },
   // C4: битый ряд в облаке — скачано не всё, и человек это видит.
   settings_sync_cloud_partial: { ru: 'Облако прочиталось не целиком — часть заметок не скачана. Попробуйте позже', en: 'The cloud was not read completely — some notes were not downloaded. Try again later' },
@@ -298,6 +300,7 @@ export const settingsTranslations: Translations = {
   // C-4 (R2-007): тосты после выхода — их показывает уже новая загрузка страницы.
   settings_sign_out_notice: { ru: 'Выход из аккаунта выполнен', en: 'Signed out' },
   settings_sign_out_notice_wiped: { ru: 'Выход выполнен, локальные данные удалены', en: 'Signed out — local data deleted' },
+  settings_sign_out_notice_key_kept: { ru: 'Выход выполнен, но ключ этого устройства не забыт — при следующем входе сейф здесь может открыться без пароля. Выйди ещё раз.', en: 'Signed out, but this device’s key was not forgotten — the vault may open here without a password next time. Sign out again.' },
   settings_sign_out_notice_wipe_failed: { ru: 'Выход выполнен, но очистить локальные данные не удалось. Очисти данные сайта в браузере вручную.', en: 'Signed out, but local data could not be cleared. Clear this site’s data in your browser manually.' },
   settings_delete_account_password_prompt: {
     ru: 'Введи пароль, чтобы подтвердить удаление аккаунта. Это необратимо.',

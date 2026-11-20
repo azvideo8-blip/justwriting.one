@@ -34,7 +34,7 @@ interface SyncSettingsSectionProps {
     onRestoreAIData?: ((userId: string) => Promise<{ summaries: number; embeddings?: number; localStoreRecords: number; failed: number }>) | undefined;
   }) => ReactNode;
   onFindOrphans?: (userId: string) => Promise<{ summaries: string[]; embeddings: string[]; cloudSummaries: string[]; cloudEmbeddings: string[]; cloudChecked: boolean }>;
-  onDeleteOrphans?: (userId: string) => Promise<{ summaries: number; embeddings: number; failed: number }>;
+  onDeleteOrphans?: (userId: string) => Promise<{ summaries: number; embeddings: number; failed: number; cloudChecked?: boolean }>;
   onLoadDerivedDrift?: (userId: string) => Promise<DerivedDriftView>;
 }
 
@@ -122,7 +122,8 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
       if (res.inProgress) showToast(t('sync_already_running'), 'info');
       const dlRes = await SyncService.downloadAllFromCloud(userId);
 
-      if (dlRes.locked) {
+      const vaultLocked = dlRes.locked || res.skippedReason === 'vault_locked';
+      if (vaultLocked) {
         showToast(t('settings_sync_vault_locked'), 'error');
       }
 
@@ -130,7 +131,7 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
       const totalFailed = res.failed + dlRes.failed;
       // Всё упало или облако прочиталось не целиком — «Синхронизировано: 0» зелёным
       // было бы неправдой; ошибку и предупреждение ниже показывают отдельно.
-      if (totalSynced > 0 || (!res.inProgress && !dlRes.locked && totalFailed === 0 && !dlRes.incomplete)) {
+      if (totalSynced > 0 || (!res.inProgress && !vaultLocked && totalFailed === 0 && !dlRes.incomplete)) {
         showToast(
           t('settings_sync_all_unlinked_done', { synced: String(totalSynced) }),
           'success'
@@ -143,6 +144,8 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
         );
       }
       if (dlRes.incomplete) showToast(t('settings_sync_cloud_partial'), 'warning');
+      // Заперты, не читаются или остаются только на устройстве — в выгрузку не вошли.
+      if (res.skipped) showToast(t('settings_sync_all_skipped', { count: String(res.skipped) }), 'info');
     } catch (err) {
       reportError(err, { action: 'syncAllUnlinked' });
       showToast(t('error_generic_action'), 'error');
@@ -181,6 +184,11 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
       if (!ok) return;
 
       const removed = await onDeleteOrphans(userId);
+      // Повторная опись перед уборкой не прочитала облако — тот же отказ, что у первой.
+      if (removed.cloudChecked === false) {
+        showToast(t('settings_sync_orphans_offline'), 'error');
+        return;
+      }
       showToast(
         t('settings_sync_orphans_done', {
           summaries: String(removed.summaries),

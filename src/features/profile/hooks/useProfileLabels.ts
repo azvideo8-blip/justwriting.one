@@ -13,7 +13,7 @@ const fetchedSet = new Set<string>();
 export function useProfileLabels(userId: string, initialLabels: Label[] = []) {
   const cached = labelCache.get(userId);
   const [labels, setLabels] = useState<Label[]>(cached ?? initialLabels);
-  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
   const isVaultUnlocked = useEncryptionStore(s => s.isVaultUnlocked);
   const prevVaultUnlockedRef = useRef(isVaultUnlocked);
 
@@ -71,36 +71,42 @@ export function useProfileLabels(userId: string, initialLabels: Label[] = []) {
     };
   }, [userId]);
 
-  const updateLabels = async (newLabels: Label[]) => {
-    setLoading(true);
+  // true — метки сохранены; false — отказ (назван в журнале): вызывающий не закрывает
+  // форму и не продолжает разрушительные шаги.
+  const updateLabels = async (newLabels: Label[]): Promise<boolean> => {
+    setBusy(true);
     try {
       await ProfileService.updateLabels(userId, newLabels);
       labelCache.set(userId, newLabels);
       setLabels(newLabels);
+      return true;
     } catch (error) {
       reportError(error, { action: 'profileLabels/updateLabels' });
+      return false;
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
-  const addLabel = (label: Omit<Label, 'id'>) => {
+  const addLabel = (label: Omit<Label, 'id'>): Promise<boolean> => {
     const newLabel: Label = { ...label, id: randomUUID() };
-    void updateLabels([...labels, newLabel]);
+    return updateLabels([...labels, newLabel]);
   };
 
-  const updateLabel = (labelId: string, updates: Partial<Omit<Label, 'id'>>) => {
+  const updateLabel = (labelId: string, updates: Partial<Omit<Label, 'id'>>): Promise<boolean> => {
     const newLabels = labels.map(l => l.id === labelId ? { ...l, ...updates } : l);
-    void updateLabels(newLabels);
+    return updateLabels(newLabels);
   };
 
-  const removeLabel = async (labelId: string) => {
-    await updateLabels(labels.filter(l => l.id !== labelId));
+  const removeLabel = async (labelId: string): Promise<boolean> => {
+    // Метка осталась в профиле — с заметок её не снимаем.
+    if (!(await updateLabels(labels.filter(l => l.id !== labelId)))) return false;
     if (!userId.startsWith('guest')) {
       DocumentService.clearLabelFromAllDocs(userId, labelId).catch(e => { reportError(e, { action: 'profileLabels/clearLabelFromCloudDocs' }); });
     }
     LocalDocumentService.clearLabelFromAllDocs(userId, labelId).catch(e => { reportError(e, { action: 'profileLabels/clearLabelFromLocalDocs' }); });
+    return true;
   };
 
-  return { labels, addLabel, updateLabel, removeLabel, loading };
+  return { labels, addLabel, updateLabel, removeLabel, loading: busy };
 }

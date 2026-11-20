@@ -23,6 +23,7 @@ import {
   recoverVaultWithCode,
   WrongPasswordError,
   WrongRecoveryCodeError,
+  LoginPasswordNotUpdatedError,
 } from '../../../core/services/EncryptionService';
 import { migrateFromLegacy } from '../../../core/services/LegacyKeyMigration';
 import { getSessionKey } from '../../../core/crypto/encrypt';
@@ -57,7 +58,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rememberDevice, setRememberDeviceChecked] = useState(false);
   const [isAutoCreated, setIsAutoCreated] = useState(false);
@@ -106,8 +107,8 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
   const handleSetup = async (e: React.FormEvent) => {
     e.preventDefault();
     // Ref, не state: два клика в одном кадре видят одно и то же устаревшее
-    // значение state, а loading ещё не перерисовался ко второму клику.
-    if (setupInFlightRef.current || loading) return;
+    // значение state, а busy ещё не перерисовался ко второму клику.
+    if (setupInFlightRef.current || busy) return;
     if (password.length < MIN_PASSWORD_LENGTH) {
       setError(t('enc_password_min_length', { min: MIN_PASSWORD_LENGTH }));
       return;
@@ -117,7 +118,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
       return;
     }
     setupInFlightRef.current = true;
-    setLoading(true);
+    setBusy(true);
     // D-28: один пароль — сейф создаётся только из пароля от аккаунта.
     try {
       const email = getCurrentUser()?.email;
@@ -125,7 +126,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
       await reauthenticate(email, password);
     } catch {
       setError(t('enc_setup_wrong_account_password'));
-      setLoading(false);
+      setBusy(false);
       setupInFlightRef.current = false;
       return;
     }
@@ -152,14 +153,14 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
       setError(err instanceof VaultAlreadyExistsError ? t('enc_setup_vault_exists') : t('error_generic_action'));
     } finally {
       setupInFlightRef.current = false;
-      setLoading(false);
+      setBusy(false);
     }
   };
 
   const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!password) return;
-    setLoading(true);
+    setBusy(true);
     setError(null);
     try {
       await unlockVault(userId, password);
@@ -186,7 +187,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
         setError(t('unlock_cloud_unreachable'));
       }
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
@@ -204,16 +205,21 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
       setError(t('enc_passwords_dont_match'));
       return;
     }
-    setLoading(true);
+    setBusy(true);
     setError(null);
     try {
-      await recoverVaultWithCode(userId, recoveryCode, password);
+      // Пароль входа не сменился — сейф уже перевёрнут и открыт: успех с предупреждением (ревью FN-2).
+      const loginNotUpdated = await recoverVaultWithCode(userId, recoveryCode, password).then(
+        () => false,
+        (err: unknown) => { if (err instanceof LoginPasswordNotUpdatedError) return true; throw err; },
+      );
       try {
         const { STORAGE_KEYS } = await import('../../../shared/constants/storageKeys');
         sessionStorage.removeItem(STORAGE_KEYS.VAULT_AUTO_UNLOCK_FAILED(userId));
       } catch { /* ignore */ }
       await refreshProfile();
-      showToast(t('enc_recovery_success'), 'success');
+      if (loginNotUpdated) showToast(t('enc_recovery_login_password_failed'), 'warning');
+      else showToast(t('enc_recovery_success'), 'success');
       setPassword('');
       setConfirmPassword('');
       setRecoveryCode('');
@@ -226,7 +232,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
         setError(t('error_generic_action'));
       }
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
@@ -245,7 +251,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
       setError(t('enc_passwords_dont_match'));
       return;
     }
-    setLoading(true);
+    setBusy(true);
     setError(null);
     try {
       // AUD-14: миграция выдаёт код восстановления — показываем его один раз,
@@ -263,7 +269,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
         setError(t('error_generic_action'));
       }
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
@@ -443,14 +449,14 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
             <Button
               type="submit"
               disabled={
-                loading ||
+                busy ||
                 !password ||
                 (isRecovering && (!recoveryCode || !confirmPassword)) ||
                 (!isUnlock && !confirmPassword)
               }
               className="w-full min-h-11 md:min-h-0 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-[var(--brand-primary)]"
             >
-              {loading ? (
+              {busy ? (
                 <Loader2 size={16} className="animate-spin" />
               ) : isRecovering ? (
                 <KeyRound size={14} />

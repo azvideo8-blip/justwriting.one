@@ -24,6 +24,16 @@ const PORTRAIT_TY_RE = /на\s*«?ты»?|обращ[а-яё]*\s+на\s*«?ты|
 interface Msg { role: string; content: string }
 
 export function addressFormOf(messages: readonly Msg[] | null | undefined, portrait: string | null | undefined): AddressForm {
+  // До первого перевеса — по портрету, иначе «ты».
+  let form: AddressForm = 'ty';
+  if (portrait) {
+    const vyP = PORTRAIT_VY_RE.test(portrait);
+    const tyP = PORTRAIT_TY_RE.test(portrait);
+    if (vyP && !tyP) form = 'vy';
+  }
+  // Дейлик 20.11 Н-3: форма решается после каждой реплики человека, и ничья
+  // перевеса оставляет прежнюю — «одна форма на весь разговор» (К25-1), а не
+  // прыжок на «ты», когда человек один раз смешал формы.
   let vy = 0;
   let ty = 0;
   for (const m of messages ?? []) {
@@ -31,15 +41,10 @@ export function addressFormOf(messages: readonly Msg[] | null | undefined, portr
     const own = m.content.toLowerCase().replace(QUOTED_RE, ' ');
     vy += own.match(VY_RE)?.length ?? 0;
     ty += own.match(TY_RE)?.length ?? 0;
+    if (vy > ty) form = 'vy';
+    else if (ty > vy) form = 'ty';
   }
-  if (vy > ty) return 'vy';
-  if (ty > vy) return 'ty';
-  if (portrait) {
-    const vyP = PORTRAIT_VY_RE.test(portrait);
-    const tyP = PORTRAIT_TY_RE.test(portrait);
-    if (vyP && !tyP) return 'vy';
-  }
-  return 'ty';
+  return form;
 }
 
 export const ADDRESS_FORM_LINES: Record<AddressForm, string> = {

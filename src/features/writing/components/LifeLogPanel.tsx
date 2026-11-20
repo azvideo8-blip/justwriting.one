@@ -152,10 +152,12 @@ export function LifeLogPanel({
         onSuccess: (res) => {
           if (!res?.applied) {
             showToast(t('delete_not_applied_uploading'), 'warning');
-          } else if (res?.cloudSynced) {
-            showToast(t('session_deleted'), 'success');
-          } else {
+          } else if (!res?.cloudSynced) {
             showToast(t('delete_local_only_queued'), 'warning');
+          } else if (res.derivativesOk === false) {
+            showToast(t('session_deleted_partial'), 'warning');
+          } else {
+            showToast(t('session_deleted'), 'success');
           }
         },
       }

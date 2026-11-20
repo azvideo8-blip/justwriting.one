@@ -90,6 +90,21 @@ export interface SyncPendingResult {
   skippedReason?: 'sync_disabled' | 'in_progress' | 'vault_locked' | 'offline' | undefined;
 }
 
+/**
+ * Итог «Отправить все заметки»: `synced`/`failed` включают результат дренажа очереди;
+ * `skipped` — заметки, исключённые из выгрузки (заперты, нечитаемы, «только на устройстве»);
+ * `skippedReason` — почему не ушла очередь (заперт сейф, офлайн).
+ */
+export interface SyncAllResult {
+  synced: number;
+  failed: number;
+  inProgress?: true;
+  skipped?: number;
+  /** Задачи, оставшиеся ждать в очереди (из `failed` — те, что встали в очередь). */
+  queued?: number;
+  skippedReason?: SyncPendingResult['skippedReason'];
+}
+
 export const SyncService = {
   addToQueue: addToSyncQueue,
 
@@ -278,7 +293,7 @@ export const SyncService = {
     }
   },
 
-  async syncAllUnlinked(userId: string): Promise<{ synced: number; failed: number; inProgress?: true }> {
+  async syncAllUnlinked(userId: string): Promise<SyncAllResult> {
     // SEC-8: Ручное действие пользователя («Отправить все заметки в облако»)
     // намеренно выполняется независимо от switch-настройки автосинка.
     // inProgress — уже идёт другая синхронизация, этот вызов ничего не сделал:
@@ -304,9 +319,10 @@ export const SyncService = {
       // must NOT be uploaded as an unlinked note on this pass. Doing so creates
       // a second cloud copy and splits history. Exclude skippedIds from toUpload.
       const localDocs = await LocalDocumentService.getDocumentsByOwner(userId);
+      let skipped = 0;
       const toUpload = localDocs.filter(d => {
         const status = syncStatusOf(d);
-        if (status === 'local-only' || status === 'locked' || status === 'unreadable') return false;
+        if (status === 'local-only' || status === 'locked' || status === 'unreadable') { skipped++; return false; }
         if (skippedSet.has(d.id)) return false;
         if (status === 'unlinked-new') return true;
         return (d.currentVersion ?? 0) > (d.lastSyncedCloudVersion ?? 0);
@@ -318,6 +334,7 @@ export const SyncService = {
 
       let synced = 0;
       const failedIds: string[] = [];
+      const uploadedIds = new Set<string>();
       results.forEach((r, i) => {
         if (r.status === 'rejected') { failedIds.push(toUpload[i]!.id); return; }
         // AG-QUAR-1: пустой cloudId — не отказ. Так отвечают штатные ветки
@@ -325,27 +342,60 @@ export const SyncService = {
         // облачная копия удалена и ссылка уже снята. Обе прибрали за собой;
         // считать их провалом — занизить счётчик и поставить в очередь
         // работу, которой нет. Настоящий сбой приходит исключением.
-        if (r.value && r.value !== CLOUD_COPY_LOCAL_ONLY && r.value !== CLOUD_COPY_TOMBSTONE) synced++;
+        if (r.value && r.value !== CLOUD_COPY_LOCAL_ONLY && r.value !== CLOUD_COPY_TOMBSTONE) { synced++; uploadedIds.add(toUpload[i]!.id); }
       });
 
       // Failed uploads are put into the queue for subsequent retries.
+      let notQueued = 0;
       for (const id of failedIds) {
         try {
           await SyncService.addToQueue(id, userId);
         } catch (e) {
+          // Не встала в очередь — заметку никто не повторит: это отказ, а не «ждёт».
+          notQueued++;
           reportError(e, { action: 'syncAllUnlinked_queueFailed', documentId: id });
         }
       }
 
       // 4. Drain the queue AFTER all producers (relink, background tasks, deletes, portraits).
-      await _drainPendingQueue(userId);
+      // Итог дренажа считаем по заметкам, а не по задачам: дренаж гонит и удаления, и портрет,
+      // и по две задачи на заметку (ревью exec-2026-11-20). Заметка с задачей документа/версии
+      // до дренажа: задача исчезла — отправлена, осталась — не ушла (ждёт или отказ).
+      // Только что выгруженные напрямую уже в synced — их задачи (перелинковка) не считаем.
+      // Удаление/портрет, оставшиеся в очереди, — тоже не ушли (failed), но в synced не идут.
+      // До дренажа — те же задачи, что берёт дренаж (без карантина и чужого аккаунта): карантинную
+      // он не трогает, и она висела бы «ошибкой» при каждом нажатии. После — все: задача, ушедшая
+      // в карантин в этом проходе, осталась в очереди — не «отправлена».
+      const snapshot = async (drainable: boolean) => {
+        const tasks = (await (await getLocalDb(userId)).getAll('syncQueue')).filter(t =>
+          !t.id.startsWith('lock_cloud_') &&
+          (!drainable || (!t.dead && (t.ownerId === undefined || t.ownerId === userId))));
+        const isNote = (t: (typeof tasks)[number]) => t.type === 'document' || t.type === 'version';
+        return {
+          notes: new Set(tasks.filter(isNote).map(t => t.documentId).filter(id => !uploadedIds.has(id))),
+          other: new Set(tasks.filter(t => !isNote(t)).map(t => t.id)),
+        };
+      };
+      const before = await snapshot(true);
+      const drain = await _drainPendingQueue(userId);
+      const after = await snapshot(false);
+      const drained = [...before.notes].filter(id => !after.notes.has(id)).length;
+      const waiting = [...before.notes].filter(id => after.notes.has(id)).length;
+      const otherLeft = [...before.other].filter(id => after.other.has(id)).length;
 
       // S-19: Sync streak freezes with cloud
       await syncStreakFreezesWithCloud(userId).catch(e =>
         reportError(e, { action: 'syncStreakFreezes_syncAllUnlinked', userId })
       );
 
-      return { synced, failed: failedIds.length };
+      // Не ушедшие из очереди (дренаж не шёл — офлайн, сейф заперт — или отказал) — не «0 ошибок».
+      return {
+        synced: synced + drained,
+        failed: notQueued + waiting + otherLeft,
+        skipped,
+        queued: waiting,
+        ...(drain.skippedReason ? { skippedReason: drain.skippedReason } : {}),
+      };
     } finally {
       _syncInProgress.delete(userId);  // [A-08] delete instead of set(false)
     }

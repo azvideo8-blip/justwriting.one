@@ -30,11 +30,11 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
   const { profile, refreshProfile } = useProfile();
   const { showToast } = useToast();
   const { confirm: confirmDialog } = useConfirmDialog();
-  const [loading, setLoading] = useState(false);
-  const [indexingLoading, setIndexingLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [indexingBusy, setIndexingBusy] = useState(false);
   const [clearing, setClearing] = useState(false);
   // Local preference, not server state: no network call, cannot fail, so no
-  // loading/error state — the store update and the render are one click.
+  // busy/error state — the store update and the render are one click.
   const [sendPortrait, setSendPortraitState] = useState(() => getSendPortraitInDialogue(userId));
   const [chatExtras, setChatExtrasState] = useState(() => getChatExtrasEnabled(userId));
   const handleToggleChatExtras = (next: boolean) => {
@@ -56,7 +56,7 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
   const indexingConsentState = getIndexingConsent(userId);
 
   const handleGrantConsent = async () => {
-    setLoading(true);
+    setBusy(true);
     try {
       const now = new Date();
       await DataProvider.updateProfile(userId, {
@@ -72,7 +72,7 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
       reportError(e, { action: 'grantAiConsent', userId });
       showToast(t('settings_ai_consent_grant_failed'), 'error');
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
@@ -83,7 +83,7 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
     });
     if (!ok) return;
 
-    setLoading(true);
+    setBusy(true);
     try {
       await DataProvider.updateProfile(userId, {
         aiConsentAt: null,
@@ -96,12 +96,12 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
       reportError(e, { action: 'withdrawAiConsent', userId });
       showToast(t('settings_ai_consent_withdraw_failed'), 'error');
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
   const handleGrantIndexingConsent = async () => {
-    setIndexingLoading(true);
+    setIndexingBusy(true);
     try {
       const now = new Date();
       await DataProvider.updateProfile(userId, {
@@ -119,7 +119,7 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
       reportError(e, { action: 'grantIndexingConsent', userId });
       showToast(t('settings_ai_indexing_grant_failed'), 'error');
     } finally {
-      setIndexingLoading(false);
+      setIndexingBusy(false);
     }
   };
 
@@ -130,7 +130,7 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
     });
     if (!ok) return;
 
-    setIndexingLoading(true);
+    setIndexingBusy(true);
     try {
       await DataProvider.updateProfile(userId, {
         indexingConsentAt: null,
@@ -142,7 +142,7 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
       reportError(e, { action: 'withdrawIndexingConsent', userId });
       showToast(t('settings_ai_indexing_withdraw_failed'), 'error');
     } finally {
-      setIndexingLoading(false);
+      setIndexingBusy(false);
     }
   };
 
@@ -232,7 +232,7 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
             {hasConsent ? (
               <Button
                 onClick={() => void handleWithdrawConsent()}
-                disabled={loading}
+                disabled={busy}
                 className="py-2 px-3 rounded-xl border border-border-subtle text-xs text-text-main/70 hover:text-accent-danger hover:border-accent-danger/30 transition-colors"
               >
                 {t('settings_ai_revoke_consent')}
@@ -240,7 +240,7 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
             ) : (
               <Button
                 onClick={() => void handleGrantConsent()}
-                disabled={loading}
+                disabled={busy}
                 className="py-2 px-3 rounded-xl bg-brand-soft text-surface-base text-xs font-medium hover:bg-brand-soft-hover transition-colors"
               >
                 {t('settings_ai_grant_consent')}
@@ -296,7 +296,7 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
             {indexingConsentState === 'granted' ? (
               <Button
                 onClick={() => void handleWithdrawIndexingConsent()}
-                disabled={indexingLoading}
+                disabled={indexingBusy}
                 className="py-2 px-3 rounded-xl border border-border-subtle text-xs text-text-main/70 hover:text-accent-danger hover:border-accent-danger/30 transition-colors"
               >
                 {t('settings_ai_disable_semantic')}
@@ -304,7 +304,7 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
             ) : (
               <Button
                 onClick={() => void handleGrantIndexingConsent()}
-                disabled={indexingLoading}
+                disabled={indexingBusy}
                 className="py-2 px-3 rounded-xl bg-brand-soft text-surface-base text-xs font-medium hover:bg-brand-soft-hover transition-colors"
               >
                 {t('settings_ai_enable_semantic')}

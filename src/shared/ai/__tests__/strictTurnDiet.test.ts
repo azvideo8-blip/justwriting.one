@@ -14,7 +14,7 @@
 //  - вернуть пункт «Конкретика» в короткий текст → «полный и короткий тексты отличаются ровно семью пунктами».
 import { describe, expect, it } from 'vitest';
 import { buildChatSystemPrompt, noteScopeRule, type ChatPromptParams } from '../buildChatPrompt.js';
-import { NOTES_GUARD_BASE, NOTES_GUARD_STRICT, REFLECTION_GUIDE, leanReflectionGuide } from '../prompts.js';
+import { NOTES_GUARD_BASE, NOTES_GUARD_STRICT, REFLECTION_GUIDE, REFLECTION_GUIDE_NOTE, leanReflectionGuide } from '../prompts.js';
 
 const NOTE = '[Сегодня: среда, 18 ноября 2026 г.]\n\n[#local_n1 · 20261118]\n[Прикреплена заметка: "Суббота"]\nХочу в субботу съездить к маме.';
 const turn = (over: Partial<ChatPromptParams>): string => buildChatSystemPrompt({
@@ -87,12 +87,17 @@ describe('принципы разговора: короткий текст', () 
     expect(REFLECTION_GUIDE.split('\n').length - lean.split('\n').length).toBe(DROPPED.length);
   });
 
-  it('Редактор и своя персона не тронуты: их ходы не мерились', () => {
+  // Дейлик 20.11 Н-4 (владелец: «чини»): у Редактора и своей персоны в ходе по
+  // заметке сняты только правила о поиске, которого не было; остальное — как было
+  // (их ходы не мерились). Мутация: notesBase/reflection снова по strictDialogue — красный.
+  it('Редактор и своя персона: в ходе по заметке без правил о несостоявшемся поиске, остальное не тронуто', () => {
     for (const over of [{ personaId: 'editor', lastUserMessage: 'Сделай пост' }, { personaId: 'custom', customSystemPrompt: 'Говори просто.' }]) {
       const p = turn(over);
-      for (const rule of SEARCH_RULES) expect(p, `${over.personaId}: ${rule}`).toContain(rule);
+      expect(p, `${over.personaId}`).not.toContain('по этому запросу в базе ничего не нашлось');
+      expect(p, `${over.personaId}`).not.toContain('в найденных записях этого нет');
+      expect(p).toContain('ОТВЕТ НА ХОД:');
       expect(p).toContain('и о том, как с ним говорить');
-      expect(p).toContain(REFLECTION_GUIDE);
+      expect(p).toContain(REFLECTION_GUIDE_NOTE);
     }
     expect(noteScopeRule({ mode: 'note', title: 'Т', date: '' })).toContain('и о том, как с ним говорить');
   });

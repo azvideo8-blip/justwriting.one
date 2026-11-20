@@ -7,7 +7,8 @@ import { postgresAiContext } from './postgresAiContext';
 import { buildChatSystemPrompt, sanitizeAiInputShared, assembleChatPromptParams, isLongNoteTurn, chatInputSchema, withReasoningLanguage, withEnglishNudge, type ReplyLanguage } from '../src/shared/ai/buildChatPrompt.js';
 import { resolveAiChatModel, resolveChatModel } from '../src/shared/ai/requestConfig.js';
 import { logChatShape, chatEndRecorder, answerHitLimit, type ChatEndSignals } from '../src/shared/ai/chatShape.js';
-import { auditAnswer, type AnswerAudit } from '../src/shared/ai/answerAudit.js';
+import { auditAnswer, type TurnAudit } from '../src/shared/ai/answerAudit.js';
+import { SUMMARY_TURN_LINE, summaryChecked } from '../src/shared/ai/summaryTurn.js';
 import { quoteMaterialsText } from '../src/shared/ai/quoteGuard.js';
 import { safeErrorShape } from '../src/shared/ai/errorShape.js';
 import { needsEnglishNudge, questionPart } from '../src/shared/ai/languageNudge.js';
@@ -204,7 +205,7 @@ async function streamOpenRouterReasoning(
   reservation: GlobalReservation | null,
   chargedDay: string,
   estimatedInputTokens?: number,
-  answerAudit?: (answer: string) => AnswerAudit | null,
+  answerAudit?: (answer: string) => TurnAudit | null,
   replyLang: ReplyLanguage = 'ru',
 ): Promise<void> {
   const startedAt = Date.now();
@@ -573,9 +574,17 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     memoryContext: parsed.data.memoryContext,
     humanTurns: messages.filter(m => m.role === 'user').map(m => m.content),
   });
-  const answerAudit = (answer: string): AnswerAudit | null => auditAnswer(
-    answer, parsed.data.documentContent, quoteMaterials, messages.filter(m => m.role === 'assistant').map(m => m.content),
-  );
+  // К28-2: строка итога легла в ход — значит, она есть в собранном промпте (все
+  // условия — кризис, шаг ТА, характер — уже учтены сборкой). Одно место на оба
+  // пути ответа: обычный и с рассуждением берут аудит отсюда.
+  const summaryShown = systemPrompt.includes(SUMMARY_TURN_LINE);
+  const answerAudit = (answer: string): TurnAudit | null => {
+    const audit = auditAnswer(
+      answer, parsed.data.documentContent, quoteMaterials, messages.filter(m => m.role === 'assistant').map(m => m.content),
+    );
+    if (!summaryShown) return audit;
+    return { ...(audit ?? {}), summary: summaryChecked(answer) ? 'ok' : 'miss' };
+  };
   const lastUserText = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
   const replyLang: ReplyLanguage = !isInternalCall && needsEnglishNudge(questionPart(lastUserText)) ? 'en' : 'ru';
   const providerRequest = reasoning === true

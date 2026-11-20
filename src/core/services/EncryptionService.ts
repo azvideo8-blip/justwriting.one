@@ -95,6 +95,14 @@ export class WrongRecoveryCodeError extends Error {
   }
 }
 
+/** Сейф восстановлен кодом, но пароль входа не обновился (отказ auth-провайдера). */
+export class LoginPasswordNotUpdatedError extends Error {
+  constructor() {
+    super('LOGIN_PASSWORD_NOT_UPDATED');
+    this.name = 'LoginPasswordNotUpdatedError';
+  }
+}
+
 export async function initializeEncryption(
   userId: string,
   password: string,
@@ -342,14 +350,18 @@ export async function recoverVaultWithCode(
   } catch { /* non-critical */ }
 
   // Восстановление ставит новый пароль и на сейф, и на вход — они снова одинаковые.
-  clearPendingLoginPassword(userId);
+  // Отложенный пароль входа стирается только после успешной смены: при отказе он
+  // нужен unlockVault, чтобы свести пароли позже. Сейф уже перевёрнут — не откатываем,
+  // а называем отказ (код восстановления остаётся рабочим, повтор безопасен).
   if (getCurrentUser()) {
     try {
       await updateUserPassword(newPassword);
     } catch (e) {
       reportError(e, { action: 'recoverVault_updateUserPassword', userId });
+      throw new LoginPasswordNotUpdatedError();
     }
   }
+  clearPendingLoginPassword(userId);
 }
 
 export class KeyNotExtractableError extends Error {

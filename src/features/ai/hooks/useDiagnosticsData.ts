@@ -81,6 +81,8 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
   const [aiLimits, setAiLimits] = useState<FreeTierLimits | null>(null);
   const [aiUsageDate, setAiUsageDate] = useState(new Date().toISOString().slice(0, 10));
   const [aiUsageLoading, setAiUsageLoading] = useState(false);
+  // Не загрузилось ≠ «нет данных»; и цифры прошлой даты под новой не остаются.
+  const [aiUsageFailed, setAiUsageFailed] = useState(false);
   const [aiSearchQuery, setAiSearchQuery] = useState('');
   const [expandedUid, setExpandedUid] = useState<string | null>(null);
   const [userEvents, setUserEvents] = useState<AIRequestEvent[]>([]);
@@ -108,6 +110,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
 
   const fetchAIUsage = useCallback(async () => {
     setAiUsageLoading(true);
+    setAiUsageFailed(false);
     try {
       if (users.length === 0) {
         const { users: usersData } = await AdminUserService.getUsers(ADMIN_AI_USERS_LIMIT);
@@ -122,6 +125,9 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     } catch (e) {
       reportError(e, { action: 'Failed to fetch AI usage' });
       showToast('Не удалось загрузить статистику AI', 'error');
+      setAiUsage([]);
+      setAiTotals(null);
+      setAiUsageFailed(true);
     } finally {
       setAiUsageLoading(false);
     }
@@ -321,6 +327,8 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       const result = await SyncService.syncAllUnlinked(user.uid);
       if (result.inProgress) {
         showToast(t('sync_already_running'), 'info');
+      } else if (result.skippedReason === 'vault_locked') {
+        showToast(t('settings_sync_vault_locked'), 'error');
       } else if (result.failed > 0) {
         showToast(`Синхронизация завершена с ошибками: не удалось выгрузить ${result.failed} заметок`, 'error');
       } else {
@@ -603,6 +611,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     aiUsageDate,
     setAiUsageDate,
     aiUsageLoading,
+    aiUsageFailed,
     aiSearchQuery,
     setAiSearchQuery,
     expandedUid,

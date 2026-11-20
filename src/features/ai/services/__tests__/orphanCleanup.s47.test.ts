@@ -75,7 +75,7 @@ describe('S-47: cloud derivative cleanup deletes only under a confirmed tombston
     expect(reportError).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('EMPTY_NOTES_LISTING') }), expect.anything(), 'warning');
 
     const removed = await AIDerivedDataSyncService.deleteOrphanedDerivatives(UID);
-    expect(removed).toEqual({ summaries: 0, embeddings: 0, failed: 0 });
+    expect(removed).toEqual({ summaries: 0, embeddings: 0, failed: 0, cloudChecked: false });
     expect(deleteSummary).not.toHaveBeenCalled();
     expect(deleteEmbedding).not.toHaveBeenCalled();
     expect(await (await getLocalDb(UID)).count('aiSummaries')).toBe(1);
@@ -95,7 +95,7 @@ describe('S-47: cloud derivative cleanup deletes only under a confirmed tombston
     const removed = await AIDerivedDataSyncService.deleteOrphanedDerivatives(UID);
     expect(deleteSummary.mock.calls.map(c => c[1])).toEqual([TOMBSTONED]);
     expect(deleteEmbedding.mock.calls.map(c => c[1])).toEqual([TOMBSTONED]);
-    expect(removed).toEqual({ summaries: 1, embeddings: 1, failed: 0 });
+    expect(removed).toEqual({ summaries: 1, embeddings: 1, failed: 0, cloudChecked: true });
   });
 
   it('a rejected cloud summary delete is counted as a failure, not as removed', async () => {
@@ -103,7 +103,7 @@ describe('S-47: cloud derivative cleanup deletes only under a confirmed tombston
     deleteSummary.mockRejectedValueOnce(new Error('Failed to fetch'));
 
     const removed = await AIDerivedDataSyncService.deleteOrphanedDerivatives(UID);
-    expect(removed).toEqual({ summaries: 0, embeddings: 1, failed: 1 });
+    expect(removed).toEqual({ summaries: 0, embeddings: 1, failed: 1, cloudChecked: true });
   });
 
   it('the tombstone query failing means no cloud check — nothing is deleted', async () => {
@@ -112,7 +112,7 @@ describe('S-47: cloud derivative cleanup deletes only under a confirmed tombston
 
     const survey = await AIDerivedDataSyncService.findOrphanedDerivatives(UID);
     expect(survey.cloudChecked).toBe(false);
-    expect(await AIDerivedDataSyncService.deleteOrphanedDerivatives(UID)).toEqual({ summaries: 0, embeddings: 0, failed: 0 });
+    expect(await AIDerivedDataSyncService.deleteOrphanedDerivatives(UID)).toEqual({ summaries: 0, embeddings: 0, failed: 0, cloudChecked: false });
   });
 
   // S-63 survivor: тот же проход для эмбеддингов (AIDerivedDataSyncService.ts:201).

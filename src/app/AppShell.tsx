@@ -107,6 +107,7 @@ export function AppShell() {
     const notice = takeAccountChangeNotice();
     if (notice === 'signed_out') showToast(t('settings_sign_out_notice'), 'success');
     else if (notice === 'signed_out_wiped') showToast(t('settings_sign_out_notice_wiped'), 'success');
+    else if (notice === 'signed_out_key_kept') showToast(t('settings_sign_out_notice_key_kept'), 'warning');
     else if (notice === 'wipe_failed') showToast(t('settings_sign_out_notice_wipe_failed'), 'error');
     else if (notice === 'account_deleted') showToast(t('settings_delete_account_success'), 'success');
     else if (notice === 'account_deleted_wipe_failed') showToast(t('settings_delete_account_wipe_failed'), 'error');

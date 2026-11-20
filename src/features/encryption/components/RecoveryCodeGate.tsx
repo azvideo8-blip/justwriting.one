@@ -4,6 +4,8 @@ import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { clearDeviceKey } from '../../../core/crypto/keyVaultCache';
 import { setRememberDevice } from '../../../core/crypto/useEncryptionStore';
 import { reportError } from '../../../shared/errors/reportError';
+import { useToast } from '../../../shared/components/Toast';
+import { useLanguage } from '../../../shared/i18n';
 
 // Код показывается раз в жизни сейфа — модалка вынесена из стартового куска (бюджет CI).
 const RecoveryCodeDisplayModal = lazy(() =>
@@ -12,6 +14,8 @@ const RecoveryCodeDisplayModal = lazy(() =>
 
 export function RecoveryCodeGate() {
   const { user, isGuest } = useAuthStatus();
+  const { t } = useLanguage();
+  const { showToast } = useToast();
 
   // Derived on every render — reactive to user/isGuest changes without an effect.
   // No lazy initializer needed: the function is cheap and runs synchronously.
@@ -57,6 +61,8 @@ export function RecoveryCodeGate() {
       setRememberDevice(false);
       void clearDeviceKey(user.uid).catch((err) => {
         reportError(err, { action: 'clearDeviceKey_uncheckRememberDevice', userId: user.uid });
+        // Ключ жив — сейф может открыться сам после перезагрузки: человеку это говорим.
+        showToast(t('settings_vault_lock_device_key_failed'), 'error');
       });
     }
     if (user) {
@@ -68,7 +74,7 @@ export function RecoveryCodeGate() {
       }
     }
     setExternalTick((t) => t + 1);
-  }, [user]);
+  }, [user, t, showToast]);
 
   if (!pendingCode || !user || isGuest) {
     return null;

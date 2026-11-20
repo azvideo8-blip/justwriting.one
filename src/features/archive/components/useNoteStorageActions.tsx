@@ -90,8 +90,8 @@ export function useNoteStorageActions({
   // X-6: id заголовка — цель aria-labelledby в ModalShell; useId, чтобы две
   // открытые панели не спорили об один id.
   const confirmTitleId = useId();
-  const [uploading, setUploading] = useState(false);
-  const [downloading, setDownloading] = useState(false);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [downloadBusy, setDownloadBusy] = useState(false);
   const [pendingAction, setPendingAction] = useState<'upload' | 'download' | null>(null);
   const [showUnlock, setShowUnlock] = useState(false);
   const [showEncryptionSetup, setShowEncryptionSetup] = useState(false);
@@ -100,7 +100,7 @@ export function useNoteStorageActions({
 
   const doDownload = async () => {
     if (!doc.cloudId || !userId || userId.startsWith('guest_')) return;
-    setDownloading(true);
+    setDownloadBusy(true);
     try {
       await StorageService.addLocalCopy(userId, doc.cloudId);
       showToast(t('storage_downloaded_local'), 'success');
@@ -119,13 +119,13 @@ export function useNoteStorageActions({
         }
       }
     } finally {
-      setDownloading(false);
+      setDownloadBusy(false);
     }
   };
 
   const doUpload = async () => {
     if (!doc.localId || !userId || userId.startsWith('guest_')) return;
-    setUploading(true);
+    setUploadBusy(true);
     try {
       // D-5: до этого клика заметка числилась «только на устройстве», и
       // addCloudCopy законно отказывал. Нажатие «Загрузить на облако» — сменившийся
@@ -157,7 +157,7 @@ export function useNoteStorageActions({
       reportError(e, { action: doc.hasPendingSync ? 'syncDocument' : 'addCloudCopy', userId, localId: doc.localId });
       showToast(t('storage_sync_error_activity_log'), 'error');
     } finally {
-      setUploading(false);
+      setUploadBusy(false);
     }
   };
 
@@ -394,5 +394,5 @@ export function useNoteStorageActions({
     </>
   );
 
-  return { uploading, downloading, requestLocal, requestCloud, requestExclusion, confirm, handleConfirm: () => { void handleConfirm(); }, cancelConfirm: () => setConfirmState('idle'), dialogs };
+  return { uploading: uploadBusy, downloading: downloadBusy, requestLocal, requestCloud, requestExclusion, confirm, handleConfirm: () => { void handleConfirm(); }, cancelConfirm: () => setConfirmState('idle'), dialogs };
 }

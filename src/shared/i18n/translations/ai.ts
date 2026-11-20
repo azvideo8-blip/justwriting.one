@@ -2,12 +2,14 @@ import { Translations } from '../types';
 
 export const aiTranslations: Translations = {
   ai_facets_resummarize_partial: { ru: 'Обновлено тем: {count}, не удалось: {failed}', en: 'Themes updated: {count}, failed: {failed}' },
+  ai_facets_built_summary_failed: { ru: 'Темы профиля построены: {count}, но сводки не составлены — «Обновить» повторит', en: 'Profile themes built: {count}, but summaries were not written — «Refresh» will retry' },
   ai_facets_judge_partial: { ru: 'Проверено тем: {judged}, не проверено: {unchecked} — сервис не ответил', en: 'Themes checked: {judged}, unchecked: {unchecked} — the service did not respond' },
   ai_portrait_partial: { ru: 'Портрет обновлён не полностью: часть разделов из прошлой сборки или ещё не готова', en: 'Portrait partly updated: some sections are from an earlier build or not ready yet' },
   admin_embed_toast_sync_failed: { ru: 'Выгружено векторов: {synced}, не удалось: {failed}', en: 'Vectors uploaded: {synced}, failed: {failed}' },
   admin_embed_toast_sync_waiting: { ru: 'Выгружено векторов: {synced}; ждут заметку в облаке: {waiting}', en: 'Vectors uploaded: {synced}; waiting for the note in the cloud: {waiting}' },
   admin_diag_download_failed: { ru: 'Не удалось собрать файл диагностики', en: 'Could not build the diagnostics file' },
   admin_db_partial: { ru: 'Часть строк облака не прочиталась: {count} — таблица неполная', en: 'Some cloud rows could not be read: {count} — the table is incomplete' },
+  admin_facet_toast_seeds_partial: { ru: 'Часть сфер не посчиталась: {missing} — диагностика неполная, повтори позже', en: 'Some life domains failed to compute: {missing} — the diagnostics are incomplete, try again later' },
   ai_archive_analysis_all_failed: { ru: 'Не удалось разобрать заметок: {count}', en: 'Could not analyze notes: {count}' },
   ai_archive_analysis_done: { ru: 'Разобрано заметок: {count}{tail}. Теперь можно обновить профиль', en: 'Notes analyzed: {count}{tail}. You can now refresh the profile' },
   ai_archive_analysis_no_vector_tail: { ru: ', без вектора осталось {count}', en: ', {count} left without a vector' },
@@ -88,6 +90,7 @@ export const aiTranslations: Translations = {
   ai_memory_kind_fact: { ru: 'Факты', en: 'Facts' },
   ai_memory_kind_insight: { ru: 'Инсайты', en: 'Insights' },
   ai_memory_kind_commitment: { ru: 'Обязательства', en: 'Commitments' },
+  ai_memory_kind_conclusion: { ru: 'Выводы из разговоров', en: 'Conversation takeaways' },
   ai_memory_empty: { ru: 'ИИ пока ничего не запомнил', en: 'AI hasn\'t memorized anything yet' },
   ai_memory_forget_all: { ru: 'Забыть всё', en: 'Forget all' },
   ai_memory_forget_all_confirm: { ru: 'Удалить все воспоминания безвозвратно?', en: 'Delete all memories permanently?' },

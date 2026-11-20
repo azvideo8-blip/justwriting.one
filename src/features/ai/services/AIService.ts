@@ -262,6 +262,21 @@ export const AIService = {
     }
   },
 
+  /**
+   * DI-2: служебный вызов «выпиши вывод» — дословная цитата вывода из ответа собеседника.
+   * Квоту чата не тратит. «Вывода нет» (`quote: null`) и сбой — разные ответы: сбой — `ok: false`.
+   */
+  async pickInsight(prevUser: string, reply: string): Promise<{ ok: true; quote: string | null } | { ok: false; error: string }> {
+    try {
+      const data = await withTimeout(callAi<{ quote: string | null }>('pickInsight', { prevUser: prevUser.slice(0, 1_200), reply: reply.slice(0, 4_000) }), 30_000);
+      return { ok: true, quote: typeof data.quote === 'string' && data.quote.length > 0 ? data.quote : null };
+    } catch (e: unknown) {
+      const error = mapAIError(e);
+      if (error !== 'AI_CONSENT_REQUIRED' && error !== 'INDEXING_CONSENT_REQUIRED') reportError(e, { action: 'pickInsight' }, 'warning');
+      return { ok: false, error };
+    }
+  },
+
   async summarizeFacet(params: {
     notes: { title: string; excerpt: string }[];
     focus?: string | null | undefined;

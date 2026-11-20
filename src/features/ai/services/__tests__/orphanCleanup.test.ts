@@ -121,7 +121,7 @@ describe('уборка производных без заметки', () => {
     expect(deleteSummary).not.toHaveBeenCalledWith('user-1', CLOUD_ONLY);
     expect(deleteSummary).not.toHaveBeenCalledWith('user-1', LOCAL_AND_CLOUD);
     // GHOST локально (разбор + вектор) + облачный разбор; облачный вектор отказал.
-    expect(removed).toEqual({ summaries: 2, embeddings: 1, failed: 1 });
+    expect(removed).toEqual({ summaries: 2, embeddings: 1, failed: 1, cloudChecked: true });
   });
 
   it('S-46: отказ списка облачных строк — сверки не было, ничего не удаляется', async () => {
@@ -139,7 +139,7 @@ describe('уборка производных без заметки', () => {
 
     const removed = await AIDerivedDataSyncService.deleteOrphanedDerivatives('user-1');
 
-    expect(removed).toEqual({ summaries: 1, embeddings: 1, failed: 0 });
+    expect(removed).toEqual({ summaries: 1, embeddings: 1, failed: 0, cloudChecked: true });
 
     const db = await getLocalDb('user-1');
     const left = (await db.getAll('aiSummaries')).map(r => r.documentId).sort();
@@ -151,7 +151,7 @@ describe('уборка производных без заметки', () => {
 
     const removed = await AIDerivedDataSyncService.deleteOrphanedDerivatives('user-1');
 
-    expect(removed).toEqual({ summaries: 0, embeddings: 0, failed: 0 });
+    expect(removed).toEqual({ summaries: 0, embeddings: 0, failed: 0, cloudChecked: false });
     const db = await getLocalDb('user-1');
     expect(await db.count('aiSummaries')).toBe(3);
   });
@@ -168,7 +168,7 @@ describe('уборка производных без заметки', () => {
 
     const removed = await AIDerivedDataSyncService.deleteOrphanedDerivatives('user-1');
 
-    expect(removed).toEqual({ summaries: 0, embeddings: 0, failed: 0 });
+    expect(removed).toEqual({ summaries: 0, embeddings: 0, failed: 0, cloudChecked: false });
     const db = await getLocalDb('user-1');
     expect(await db.count('aiSummaries')).toBe(3);
     spy.mockRestore();

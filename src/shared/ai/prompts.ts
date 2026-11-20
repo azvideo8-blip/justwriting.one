@@ -56,6 +56,8 @@ const NO_ANSWER_FOUND = '«в найденных записях этого не�
 const NO_ANSWER_NOTE = '«в этой записи этого нет»';
 
 export const REFLECTION_GUIDE = reflectionGuide(NO_ANSWER_FOUND, true);
+/** Полные принципы (Редактор, своя персона) в ходе по приложенной заметке: поиска не было. */
+export const REFLECTION_GUIDE_NOTE = reflectionGuide(NO_ANSWER_NOTE, true);
 
 /** Принципы разговора для собеседников, чьи ходы мерились: без общих пунктов и дубля о языке. */
 export const leanReflectionGuide = (strict: boolean): string => reflectionGuide(strict ? NO_ANSWER_NOTE : NO_ANSWER_FOUND, false);

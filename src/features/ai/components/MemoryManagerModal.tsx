@@ -9,14 +9,16 @@ import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ModalShell } from '../../../shared/components/ModalShell';
 import { LoadNotice } from '../../../shared/components/LoadStateView';
 import { reportError } from '../../../shared/errors/reportError';
+import { useToast } from '../../../shared/components/Toast';
 
-const KIND_ORDER: AIChatMemory['kind'][] = ['preference', 'fact', 'insight', 'commitment'];
+const KIND_ORDER: AIChatMemory['kind'][] = ['conclusion', 'preference', 'fact', 'insight', 'commitment'];
 
 const KIND_ACCENT: Record<AIChatMemory['kind'], string> = {
   preference: 'border-l-brand-soft/40',
   fact: 'border-l-border-subtle',
   insight: 'border-l-accent-info/40',
   commitment: 'border-l-accent-success/40',
+  conclusion: 'border-l-accent-warning/40',
 };
 
 interface MemoryManagerModalProps {
@@ -26,9 +28,12 @@ interface MemoryManagerModalProps {
 export function MemoryManagerModal({ onClose }: MemoryManagerModalProps) {
   const { t } = useLanguage();
   const { confirm: confirmDialog } = useConfirmDialog();
+  const { showToast } = useToast();
   const [memories, setMemories] = useState<AIChatMemory[]>([]);
   // Не прочиталось ≠ «ИИ ничего не запомнил».
   const [read, setRead] = useState<'loading' | 'error' | 'done'>('loading');
+  // Идёт запись в хранилище: строка уходит из списка только после ответа, повторный клик ждёт.
+  const [busy, setBusy] = useState(false);
 
   const loadMemories = useCallback(async () => {
     setRead('loading');
@@ -47,25 +52,35 @@ export function MemoryManagerModal({ onClose }: MemoryManagerModalProps) {
     void loadMemories();
   }, [loadMemories]);
 
-  const handleDelete = async (id: string) => {
-    setMemories(prev => prev.filter(m => m.id !== id));
+  // MEM-1: список меняется только после ответа хранилища; сбой — строка на месте и тост ошибки
+  // (раньше строка исчезала до ответа и при сбое молча возвращалась перечитыванием).
+  const mutate = async (action: string, write: () => Promise<void>, apply: () => void) => {
+    if (busy) return;
+    setBusy(true);
     try {
-      await AIChatMemoryService.delete(id);
-    } catch {
-      void loadMemories();
+      await write();
+      apply();
+    } catch (e) {
+      reportError(e, { action });
+      showToast(t('error_generic_action'), 'error');
+    } finally {
+      setBusy(false);
     }
   };
 
+  const handleDelete = (id: string) => mutate(
+    'memory_manager_delete',
+    () => AIChatMemoryService.delete(id),
+    () => setMemories(prev => prev.filter(m => m.id !== id)),
+  );
+
   // Решение владельца 2026-10-20 (AP-2, «в»): старая память без источника ИИ не
   // уходит, пока человек не вернул её в контекст.
-  const handleReturn = async (id: string) => {
-    setMemories(prev => prev.map(m => (m.id === id ? { ...m, reviewedAt: Date.now() } : m)));
-    try {
-      await AIChatMemoryService.markReviewed(id);
-    } catch {
-      void loadMemories();
-    }
-  };
+  const handleReturn = (id: string) => mutate(
+    'memory_manager_return',
+    () => AIChatMemoryService.markReviewed(id),
+    () => setMemories(prev => prev.map(m => (m.id === id ? { ...m, reviewedAt: Date.now() } : m))),
+  );
 
   const unreviewedCount = memories.filter(isUnreviewedLegacyMemory).length;
 
@@ -75,8 +90,7 @@ export function MemoryManagerModal({ onClose }: MemoryManagerModalProps) {
       message: t('ai_memory_forget_all_confirm'),
     });
     if (!ok) return;
-    await AIChatMemoryService.deleteAll();
-    setMemories([]);
+    await mutate('memory_manager_delete_all', () => AIChatMemoryService.deleteAll(), () => setMemories([]));
   };
 
   const grouped = KIND_ORDER.map(kind => ({
@@ -140,6 +154,7 @@ export function MemoryManagerModal({ onClose }: MemoryManagerModalProps) {
                           {isUnreviewedLegacyMemory(m) && (
                             <IconButton
                               onClick={() => void handleReturn(m.id)}
+                              disabled={busy}
                               className="shrink-0 p-1 rounded-lg text-text-main/60 hover:text-text-main transition-colors"
                               label={t('ai_memory_return')}
                               title={t('ai_memory_return')}
@@ -148,6 +163,7 @@ export function MemoryManagerModal({ onClose }: MemoryManagerModalProps) {
                           )}
                           <IconButton
                             onClick={() => void handleDelete(m.id)}
+                            disabled={busy}
                             className="shrink-0 p-1 rounded-lg text-text-main/30 hover:text-accent-danger transition-colors"
                             label={t('ai_memory_delete')}
                             icon={<Trash2 size={14} />}

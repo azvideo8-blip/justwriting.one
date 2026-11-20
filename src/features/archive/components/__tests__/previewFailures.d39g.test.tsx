@@ -5,7 +5,8 @@
 // 5 — отказ чтения разбора молчал: кнопка «Разобрать», будто разбора нет.
 // Мутации: убрать ветку _contentError / тост «не открылась» / .catch у сводки — красный.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent } from '@testing-library/react';
+import { useState } from 'react';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { renderWithProviders } from '../../../../test/utils/render';
 import { ToastProvider } from '../../../../shared/components/Toast';
@@ -23,14 +24,14 @@ const base: ArchiveSession = {
   id: 'doc-1', userId: 'user-1', title: 'Заметка', content: '', duration: 60, wordCount: 10, charCount: 0, wpm: 10, tags: [], createdAt: Date.now(), _isLocal: true,
 };
 
-function renderPreview(session: ArchiveSession, opts: { fetchSummary?: () => Promise<null>; related?: { documentId: string; title: string; date: string; score: number }[] } = {}) {
+function renderPreview(session: ArchiveSession, opts: { fetchSummary?: () => Promise<null>; related?: { documentId: string; title: string; date: string; score: number }[]; fetchRelated?: () => Promise<never> } = {}) {
   return renderWithProviders(
     <MemoryRouter>
       <ToastProvider>
         <DocumentPreview
           session={session} onClose={vi.fn()} onContinue={vi.fn()} onAnalyzeNote={vi.fn()}
           fetchSummary={opts.fetchSummary ?? (async () => null)}
-          fetchRelatedNotes={async () => (opts.related ?? []) as never}
+          fetchRelatedNotes={opts.fetchRelated ?? (async () => (opts.related ?? []) as never)}
         />
       </ToastProvider>
     </MemoryRouter>,
@@ -76,4 +77,61 @@ describe('превью: отказы чтения названы', () => {
     fireEvent.click(await screen.findByText('Связанная'));
     expect(await screen.findByText('Не удалось загрузить данные.')).toBeTruthy();
   });
+
+  // Дейлик 20.11 Н-5: подбор связанных сорвался — строка с «Повторить», а не
+  // молча нет блока. Мутация: в catch не ставить relatedFailed — красный.
+  it('связанные не подобрались — сказано, «Повторить» подбирает заново', async () => {
+    const fetchRelated = vi.fn()
+      .mockRejectedValueOnce(new Error('vectors down'))
+      .mockResolvedValueOnce([{ documentId: 'doc-r', title: 'Связанная синтетика', date: '2026-11-01', score: 0.9 }]);
+    renderPreview({ ...base, id: 'doc-rel', content: 'Текст.' }, { fetchRelated });
+    expect(await screen.findByText(/Не прочиталось — попробуй ещё раз/)).toBeTruthy();
+    const retry = screen.getAllByRole('button', { name: 'Повторить' }).at(-1)!;
+    fireEvent.click(retry);
+    expect(await screen.findByText('Связанная синтетика')).toBeTruthy();
+    expect(fetchRelated).toHaveBeenCalledTimes(2);
+  });
+
+  // Дейлик 20.11: кэш связанных переживал удаление заметки. Мутация: убрать
+  // подписку на события заметок — красный (второй подбор не случается).
+  it('после удаления заметки связанные подбираются заново, без события — из кэша', async () => {
+    const { emitDomainEvent } = await import('../../../../core/events/domainEvents');
+    const fetchRelated = vi.fn(async () => [{ documentId: 'doc-x', title: 'Связь', date: '2026-11-01', score: 0.9 }] as never);
+    const first = renderPreview({ ...base, id: 'doc-cache', content: 'Текст.' }, { fetchRelated });
+    await screen.findByText('Связь');
+    first.unmount();
+    const again = renderPreview({ ...base, id: 'doc-cache', content: 'Текст.' }, { fetchRelated });
+    await screen.findByText('Связь');
+    expect(fetchRelated).toHaveBeenCalledTimes(1);
+    again.unmount();
+    emitDomainEvent({ type: 'note.trashed', documentId: 'doc-x' });
+    renderPreview({ ...base, id: 'doc-cache', content: 'Текст.' }, { fetchRelated });
+    await waitFor(() => expect(fetchRelated).toHaveBeenCalledTimes(2));
+  });
+
+  // Ревью 0.11.23: строка сбоя связанных от прошлой заметки не висит над новой, пока
+  // та подбирается. Мутация: не сбрасывать relatedFailed в начале эффекта — красный.
+  it('другая заметка — строка сбоя прошлой снята, пока подбор новой идёт', async () => {
+    const fail = { ...base, id: 'doc-fail', content: 'Текст.' };
+    const next = { ...base, id: 'doc-next', content: 'Другой текст.' };
+    function Switcher() {
+      const [current, setCurrent] = useState<ArchiveSession>(fail);
+      return (
+        <>
+          <button onClick={() => setCurrent(next)}>switch</button>
+          <DocumentPreview
+            session={current} onClose={vi.fn()} onContinue={vi.fn()} onAnalyzeNote={vi.fn()}
+            fetchSummary={async () => null}
+            fetchRelatedNotes={(id: string) => (id === 'doc-fail' ? Promise.reject(new Error('vectors down')) : new Promise<never>(() => {}))}
+          />
+        </>
+      );
+    }
+    renderWithProviders(<MemoryRouter><ToastProvider><Switcher /></ToastProvider></MemoryRouter>);
+    expect(await screen.findByText(/Не прочиталось — попробуй ещё раз/)).toBeTruthy();
+    fireEvent.click(screen.getByText('switch'));
+    await screen.findByText('Другой текст.');
+    expect(screen.queryByText(/Не прочиталось — попробуй ещё раз/)).toBeNull();
+  });
 });
+

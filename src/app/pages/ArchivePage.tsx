@@ -159,7 +159,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
   }, [selectedLabels, selectedTags, selectedDate, profileLabels, dateLocale]);
 
   const tagEditor = useTagEditor(userId, fetchSessions);
-  const labelEditor = useLabelEditor({ addLabel, updateLabel, removeLabel: (id) => void removeLabel(id) });
+  const labelEditor = useLabelEditor({ addLabel, updateLabel, removeLabel });
 
   const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -534,7 +534,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                 context={previewContext}
                 onContinue={s => closePanelsForNavigation(() => void navigate('/', { state: { sessionToContinue: s } }))}
                 onTagsChange={(s, tags) => void handleTagsChange(s, tags)} onLabelChange={(s, label) => void handleLabelChange(s, label)}
-                onAddLabel={(label) => void addLabel(label)} labels={profileLabels} allTags={allTags}
+                onAddLabel={addLabel} labels={profileLabels} allTags={allTags}
                 onTitleChange={(s, title) => void handleTitleChange(s, title)}
                 onDelete={s => void requestTrash(s)} onStorageChange={() => void fetchSessions()}
                 onAnalyzeNote={id => NoteAnalysisService.analyze(id)}

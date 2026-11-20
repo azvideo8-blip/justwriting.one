@@ -25,15 +25,15 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
   const { showToast } = useToast();
   const { user, profile } = useAuthStatus();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [loading, setLoading] = useState(false);
-  const [jsonLoading, setJsonLoading] = useState(false);
+  const [zipBusy, setZipBusy] = useState(false);
+  const [jsonBusy, setJsonBusy] = useState(false);
   // D-2: сбой облака не должен давать молчаливую неполную GDPR-выгрузку.
   const [cloudExportError, setCloudExportError] = useState<null | 'zip' | 'json'>(null);
-  const [migrationLoading, setMigrationLoading] = useState(false);
+  const [migrationBusy, setMigrationBusy] = useState(false);
   const [migrationResult, setMigrationResult] = useState<{
     documents: number; versions: number; verbatim: number; skipped: number;
   } | null>(null);
-  const [importLoading, setImportLoading] = useState(false);
+  const [importBusy, setImportBusy] = useState(false);
   const [importResult, setImportResult] = useState<MigrationImportResult | null>(null);
 
   const vaultConfigured = hasVault(profile);
@@ -43,7 +43,7 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
   const localOnlyMark = () => ({ suffix: t('settings_export_local_only_suffix'), note: t('settings_export_local_only_note') });
 
   const handleExportAll = async (localOnly = false) => {
-    setLoading(true);
+    setZipBusy(true);
     setCloudExportError(null);
     try {
       const { sessions: listed, cloudLoadFailed } = await loadAllSessions(userId, user, { withContent: true });
@@ -79,12 +79,12 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
       reportError(err, { action: 'exportAllAsZip' });
       showToast(t('error_generic_action'), 'error');
     } finally {
-      setLoading(false);
+      setZipBusy(false);
     }
   };
 
   const handleExportJson = async (localOnly = false) => {
-    setJsonLoading(true);
+    setJsonBusy(true);
     setCloudExportError(null);
     try {
       const { sessions: listed, cloudLoadFailed } = await loadAllSessions(userId, user, { withContent: true });
@@ -136,12 +136,12 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
       reportError(err, { action: 'exportJson' });
       showToast(t('error_generic_action'), 'error');
     } finally {
-      setJsonLoading(false);
+      setJsonBusy(false);
     }
   };
 
   const handleMigrationExport = async () => {
-    setMigrationLoading(true);
+    setMigrationBusy(true);
     setMigrationResult(null);
     try {
       const manifest = await exportMigrationManifest();
@@ -158,7 +158,7 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
       reportError(err, { action: 'migrationExport' });
       showToast(t('error_generic_action'), 'error');
     } finally {
-      setMigrationLoading(false);
+      setMigrationBusy(false);
     }
   };
 
@@ -166,7 +166,7 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
-    setImportLoading(true);
+    setImportBusy(true);
     setImportResult(null);
     try {
       // Cap до чтения файла: multi-гигабайтный манифест убивает вкладку на
@@ -213,7 +213,7 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
       reportError(err, { action: 'migrationImport' });
       showToast(t('error_generic_action'), 'error');
     } finally {
-      setImportLoading(false);
+      setImportBusy(false);
     }
   };
 
@@ -223,10 +223,10 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
         <div className="text-xs text-text-main/60 leading-relaxed">{t('settings_export_all_desc')}</div>
         <Button
           onClick={() => void handleExportAll()}
-          disabled={loading}
+          disabled={zipBusy}
           className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-colors disabled:opacity-50"
         >
-          {loading ? (
+          {zipBusy ? (
             <>
               <Loader2 size={16} className="animate-spin" />
               {t('settings_export_all_progress')}
@@ -240,10 +240,10 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
         </Button>
         <Button
           onClick={() => void handleExportJson()}
-          disabled={jsonLoading}
+          disabled={jsonBusy}
           className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-colors disabled:opacity-50"
         >
-          {jsonLoading ? (
+          {jsonBusy ? (
             <>
               <Loader2 size={16} className="animate-spin" />
               {t('settings_export_all_progress')}
@@ -269,11 +269,11 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
         )}
         <Button
           onClick={() => void handleMigrationExport()}
-          disabled={migrationLoading}
+          disabled={migrationBusy}
           data-testid="migration-export-btn"
           className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-colors disabled:opacity-50"
         >
-          {migrationLoading ? (
+          {migrationBusy ? (
             <>
               <Loader2 size={16} className="animate-spin" />
               {t('settings_migration_export_progress')}
@@ -322,11 +322,11 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
           )}
           <Button
             onClick={() => fileInputRef.current?.click()}
-            disabled={importLoading || !vaultConfigured}
+            disabled={importBusy || !vaultConfigured}
             data-testid="migration-import-btn"
             className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {importLoading ? (
+            {importBusy ? (
               <>
                 <Loader2 size={16} className="animate-spin" />
                 {t('settings_migration_import_progress')}

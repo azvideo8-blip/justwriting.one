@@ -17,6 +17,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.23',
+    date: '2026-11-20',
+    announce: false,
+    items: [
+      { category: 'fix', ru: 'Собеседник держит выбранное обращение на «ты» или «вы» в каждом ответе, а в разборе приложенной заметки не ставит под её ссылкой события из других дней.', en: 'The companion keeps the chosen form of address in every reply, and when analysing an attached note it no longer puts events from other days under that note’s link.' },
+      { category: 'fix', ru: 'Просьба «посмотри», «поищи», «глянь» или «проверь» больше не прерывается подведением итога; в память собеседника не попадают его же слова, которые вы процитировали в ответ.', en: 'Asking the companion to look, search or check no longer gets interrupted by a summary; the companion’s memory no longer stores its own words that you quoted back.' },
+      { category: 'fix', ru: 'Связанные заметки в превью и читалке: если они не загрузились, вы увидите это и кнопку «Повторить»; подсказки к ответу после перегенерации — к новому ответу.', en: 'Related notes in the preview and reader: if they fail to load you see it with a Retry button; reply suggestions after regenerating match the new reply.' },
+      { category: 'fix', ru: 'Удаление записи из журнала, восстановление сейфа кодом, «Запереть сейф», метки профиля, «Отправить все заметки», «Восстановить из облака», выход и окно памяти собеседника больше не показывают «Готово», если сделано не всё.', en: 'Deleting a log entry, restoring the vault with a recovery code, “Lock vault”, profile labels, “Upload all notes”, “Restore from cloud”, signing out and the companion’s memory window no longer say “Done” when not everything was done.' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.11.22',
     date: '2026-11-19',
     announce: false,

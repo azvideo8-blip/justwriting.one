@@ -134,6 +134,7 @@ export function DiagnosticsPage() {
     aiUsageDate,
     setAiUsageDate,
     aiUsageLoading,
+    aiUsageFailed,
     aiSearchQuery,
     setAiSearchQuery,
     expandedUid,
@@ -196,10 +197,10 @@ export function DiagnosticsPage() {
     }
   };
 
-  const [staleInvitesLoading, setStaleInvitesLoading] = useState(false);
+  const [staleInvitesBusy, setStaleInvitesBusy] = useState(false);
 
   const handleStaleInvites = async () => {
-    setStaleInvitesLoading(true);
+    setStaleInvitesBusy(true);
     try {
       const list = await AdminUserService.listStaleInvites();
       if (list.length === 0) {
@@ -221,7 +222,7 @@ export function DiagnosticsPage() {
       reportError(e, { action: 'deleteStaleInvites' });
       showToast(t('admin_stale_invites_failed'), 'error');
     } finally {
-      setStaleInvitesLoading(false);
+      setStaleInvitesBusy(false);
     }
   };
 
@@ -496,11 +497,11 @@ export function DiagnosticsPage() {
               <div className="text-xs text-text-main/60 leading-relaxed">{t('admin_stale_invites_desc')}</div>
               <Button
                 onClick={() => void handleStaleInvites()}
-                disabled={staleInvitesLoading}
+                disabled={staleInvitesBusy}
                 data-testid="stale-invites-btn"
                 className="shrink-0 px-3 py-1.5 rounded-xl border border-border-subtle text-text-main/70 text-xs font-semibold hover:text-text-main transition-colors disabled:opacity-50"
               >
-                {staleInvitesLoading ? <Loader2 size={13} className="animate-spin" /> : null}
+                {staleInvitesBusy ? <Loader2 size={13} className="animate-spin" /> : null}
                 {t('admin_stale_invites_btn')}
               </Button>
             </div>
@@ -794,7 +795,10 @@ export function DiagnosticsPage() {
                 </table>
               </div>
 
-              {aiUsage.length === 0 && !aiUsageLoading && (
+              {aiUsageFailed && !aiUsageLoading && (
+                <LoadNotice variant="row" text={t('load_failed_retry')} onRetry={() => void fetchAIUsage()} />
+              )}
+              {aiUsage.length === 0 && !aiUsageLoading && !aiUsageFailed && (
                 <div className="py-12 text-center text-xs text-text-main/60">{t('admin_no_data')}</div>
               )}
             </div>

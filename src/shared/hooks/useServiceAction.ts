@@ -11,7 +11,7 @@ interface ServiceActionOptions<T = unknown> {
 }
 
 export function useServiceAction() {
-  const [isLoading, setIsLoading] = useState(false);
+  const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { showToast } = useToast();
   const { t } = useLanguage();
@@ -35,7 +35,7 @@ export function useServiceAction() {
     if (inFlightRef.current) return null;
     inFlightRef.current = true;
     const controller = new AbortController();
-    setIsLoading(true);
+    setIsBusy(true);
     setError(null);
     callIdRef.current++;
     const callId = callIdRef.current;
@@ -64,9 +64,9 @@ export function useServiceAction() {
 
     } finally {
       inFlightRef.current = false;
-      if (callIdRef.current === callId && !abortedRef.current) setIsLoading(false);
+      if (callIdRef.current === callId && !abortedRef.current) setIsBusy(false);
     }
   }, [showToast, t]);
 
-  return { execute, isLoading, error };
+  return { execute, isLoading: isBusy, error };
 }

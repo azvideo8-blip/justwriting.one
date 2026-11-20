@@ -685,6 +685,10 @@ export const authScreensTranslations: Translations = {
     ru: 'Восстановление не удалось',
     en: 'Restore failed',
   },
+  restore_cloud_title_locked: {
+    ru: 'Сейф заперт',
+    en: 'Vault is locked',
+  },
   restore_cloud_title_empty: {
     ru: 'Нечего восстанавливать',
     en: 'Nothing to restore',
@@ -805,6 +809,14 @@ export const authScreensTranslations: Translations = {
   restore_cloud_fail_threw: {
     ru: 'Восстановление прервано ошибкой. Попробуй ещё раз позже.',
     en: 'Restore interrupted by an error. Please try again later.',
+  },
+  restore_cloud_fail_locked: {
+    ru: 'Сейф заперт — открой его и повтори восстановление.',
+    en: 'The vault is locked — unlock it and try the restore again.',
+  },
+  restore_cloud_ai_skipped: {
+    ru: 'Данные ИИ вернулись не полностью: сейф был заперт или часть разделов не прочиталась. Открой сейф и повтори.',
+    en: 'AI data came back incomplete: the vault was locked or some sections could not be read. Unlock the vault and try again.',
   },
   restore_cloud_fail_empty: {
     ru: 'Проход завершился, но из облака ничего не вернулось.',

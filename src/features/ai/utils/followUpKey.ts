@@ -15,7 +15,11 @@ export function followUpKey(messages: readonly DialogueMessage[], now = Date.now
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i];
     if (m && m.role === 'assistant' && m.type !== 'system') {
-      const fresh = m.createdAt !== undefined && now - m.createdAt < FOLLOW_UP_FRESH_MS;
+      // Дейлик 20.11: перегенерация оставляет ответу прежний createdAt (порядок
+      // реплик), но ставит updatedAt — свежесть по более позднему из двух, иначе
+      // к новому варианту старого ответа подсказки не спрашивались.
+      const stamp = Math.max(m.createdAt ?? -Infinity, m.updatedAt ?? -Infinity);
+      const fresh = Number.isFinite(stamp) && now - stamp < FOLLOW_UP_FRESH_MS;
       return { key: `${m.id ?? ''}:${m.variantIndex ?? 0}:${m.content.slice(0, 100)}`, lastAssistant: m.content, fresh };
     }
   }

@@ -122,6 +122,7 @@ export const archiveTranslations: Translations = {
   archive_tag_delete: { ru: 'Удалить тег', en: 'Delete tag' },
   archive_label_rename: { ru: 'Переименовать метку', en: 'Rename label' },
   archive_label_delete: { ru: 'Удалить метку', en: 'Delete label' },
+  archive_label_save_failed: { ru: 'Метка не сохранилась. Попробуй ещё раз.', en: 'The label was not saved. Please try again.' },
   archive_label_delete_confirm: { ru: 'Удалить метку? Она будет снята со всех заметок.', en: 'Delete label? It will be removed from all notes.' },
   archive_labels_vault_locked: { ru: 'Сейф заперт. Открой сейф в настройках, чтобы увидеть названия меток', en: 'Vault is locked. Unlock vault in settings to view label names' },
 

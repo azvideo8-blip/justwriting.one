@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { LoadNotice } from '../../../shared/components/LoadStateView';
 import { Loader2, RefreshCw, Upload, Trash2 } from 'lucide-react';
 import { Button } from '../../../shared/components/Button';
 import { useToast } from '../../../shared/components/Toast';
@@ -21,14 +22,16 @@ export function QueueExplorer({ userId }: { userId: string }) {
   const { showToast } = useToast();
   const { confirm: confirmDialog } = useConfirmDialog();
   const [items, setItems] = useState<QueueItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Не прочиталась очередь ≠ «очередь пуста».
+  const [read, setRead] = useState<'loading' | 'error' | 'done'>('loading');
+  const loading = read === 'loading';
   const [syncingAll, setSyncingAll] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [syncingRow, setSyncingRow] = useState<string | null>(null);
   const [removingRow, setRemovingRow] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    setLoading(true);
+    setRead('loading');
     try {
       const db = await getLocalDb();
       const queue = await db.getAll('syncQueue');
@@ -41,11 +44,11 @@ export function QueueExplorer({ userId }: { userId: string }) {
           title: docMap.get(item.documentId) ?? t('admin_queue_unknown_note', { id: item.documentId }),
         }));
       setItems(filtered);
+      setRead('done');
     } catch (e) {
       reportError(e, { action: 'queue_explorer_refresh' });
       showToast(t('admin_queue_toast_load_error'), 'error');
-    } finally {
-      setLoading(false);
+      setRead('error');
     }
   }, [showToast, t]);
 
@@ -173,7 +176,10 @@ export function QueueExplorer({ userId }: { userId: string }) {
         </div>
       </div>
 
-      {items.length === 0 && !loading && (
+      {read === 'error' && (
+        <LoadNotice variant="row" text={t('admin_queue_toast_load_error')} onRetry={() => void refresh()} />
+      )}
+      {items.length === 0 && read === 'done' && (
         <p className="text-xs text-text-main/50 py-4 text-center">{t('admin_queue_empty')}</p>
       )}
 

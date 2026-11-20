@@ -77,7 +77,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
 
   const { t } = useLanguage();
   const [error, setError] = useState<React.ReactNode | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [prevPrefilledEmail, setPrevPrefilledEmail] = useState(prefilledEmail);
   const [email, setEmail] = useState(prefilledEmail);
@@ -99,7 +99,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
   const [showSignupInfo, setShowSignupInfo] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
-  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotBusy, setForgotBusy] = useState(false);
   const [forgotError, setForgotError] = useState<string | null>(null);
   const [resendAt, setResendAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -144,7 +144,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
       setError(t('auth_age_required'));
       return;
     }
-    setLoading(true);
+    setBusy(true);
     setError(null);
     try {
       if (mode === 'register') {
@@ -160,7 +160,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
       reportError(err, { action: 'emailAuth', mode });
       setError(mapSupabaseAuthError(err, t));
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
@@ -172,7 +172,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
 
   const handleSendPasswordReset = async () => {
     if (!forgotEmail) return;
-    setForgotLoading(true);
+    setForgotBusy(true);
     setForgotError(null);
     try {
       await AuthService.sendPasswordReset(forgotEmail);
@@ -202,7 +202,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
         setForgotError(t('auth_error_generic'));
       }
     } finally {
-      setForgotLoading(false);
+      setForgotBusy(false);
     }
   };
 
@@ -304,10 +304,10 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
 
             <Button
               type="submit"
-              disabled={loading}
+              disabled={busy}
               className="w-full flex items-center justify-center gap-2 py-4 rounded-xl font-bold hover:brightness-110 active:scale-[0.98] transition-colors disabled:opacity-50 text-white bg-[var(--brand-primary)]"
             >
-              {loading ? (
+              {busy ? (
                 <LoadingSpinner size={5} />
               ) : (
                 mode === 'login' ? <LogIn size={18} /> : <UserPlus size={18} />
@@ -410,10 +410,10 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                   <div className="flex flex-col gap-2 pt-1">
                     <Button
                       onClick={() => void handleSendPasswordReset()}
-                      disabled={forgotLoading || secondsLeft > 0}
+                      disabled={forgotBusy || secondsLeft > 0}
                       className="w-full py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors bg-[var(--brand-primary)]"
                     >
-                      {forgotLoading ? (
+                      {forgotBusy ? (
                         <span className="flex justify-center"><LoadingSpinner size={4} /></span>
                       ) : secondsLeft > 0 ? (
                         `${t('auth_forgot_resend')} (${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')})`
@@ -462,10 +462,10 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                   <div className="flex gap-2">
                     <Button
                       type="submit"
-                      disabled={forgotLoading || !forgotEmail}
+                      disabled={forgotBusy || !forgotEmail}
                       className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors bg-[var(--brand-primary)]"
                     >
-                      {forgotLoading ? <span className="flex justify-center"><LoadingSpinner size={4} /></span> : t('auth_forgot_confirm_anyway')}
+                      {forgotBusy ? <span className="flex justify-center"><LoadingSpinner size={4} /></span> : t('auth_forgot_confirm_anyway')}
                     </Button>
                     <Button
                       type="button"

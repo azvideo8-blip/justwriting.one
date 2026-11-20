@@ -348,6 +348,8 @@ interface FirstRunFlowProps {
  */
 export function FirstRunFlow({ uid, showPrivacy, showConsent, onPrivacyDone, onConsentDone, onOpenChange }: FirstRunFlowProps) {
   const navigate = useNavigate();
+  const { t } = useLanguage();
+  const { showToast } = useToast();
   const [codeTick, setCodeTick] = useState(0);
   const { shouldPrompt, cloudCount, dismiss: dismissRestore } = useEmptyDeviceDetection();
 
@@ -437,8 +439,11 @@ export function FirstRunFlow({ uid, showPrivacy, showConsent, onPrivacyDone, onC
             // переключатель забывает ключ устройства, код стирается всегда.
             if (!rememberDevice) {
               setRememberDevice(false);
-              void clearDeviceKey(uid).catch(err =>
-                reportError(err, { action: 'clearDeviceKey_uncheckRememberDevice', userId: uid }));
+              void clearDeviceKey(uid).catch(err => {
+                reportError(err, { action: 'clearDeviceKey_uncheckRememberDevice', userId: uid });
+                // Ключ жив — сейф может открыться сам после перезагрузки: человеку это говорим.
+                showToast(t('settings_vault_lock_device_key_failed'), 'error');
+              });
             }
             try {
               sessionStorage.removeItem(STORAGE_KEYS.PENDING_RECOVERY_CODE(uid));

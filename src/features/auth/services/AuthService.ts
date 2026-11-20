@@ -166,11 +166,16 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean; isAcc
     }
   }
 
+  let deviceKeyKept = false;
   try {
     await clearDeviceKey(currentUid);
   } catch (e) {
     if (opts?.clearLocalData) {
       wipeFailed = wipeFailed || e;
+    } else {
+      // Обычный выход обещает забыть ключ устройства; отказ — ключ жив, и сейф при
+      // следующем входе откроется без пароля: «Выход выполнен» зелёным тут неправда.
+      deviceKeyKept = true;
     }
     reportError(e, { action: 'signOut_clearDeviceKey' });
   }
@@ -195,7 +200,8 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean; isAcc
     opts?.isAccountDeletion
       ? (wipeFailed ? 'account_deleted_wipe_failed' : 'account_deleted')
       : wipeFailed ? 'wipe_failed'
-        : opts?.clearLocalData ? 'signed_out_wiped' : 'signed_out',
+        : opts?.clearLocalData ? 'signed_out_wiped'
+          : deviceKeyKept ? 'signed_out_key_kept' : 'signed_out',
   );
   setAccountReloadTarget('/login');
   if (opts?.clearLocalData === true) skipFlushOnAccountReload();

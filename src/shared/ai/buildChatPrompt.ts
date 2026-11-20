@@ -4,7 +4,7 @@
 // so an extensionless relative import fails at runtime with ERR_MODULE_NOT_FOUND
 // and 500s the whole /api/chat endpoint. Vite resolves the .js → .ts for the SPA.
 import { z } from 'zod';
-import { PERSONA_PROMPTS, TOPIC_GUARD, NOTES_GUARD_BASE, NOTES_GUARD_STRICT, NOTES_SEARCH_GUARD, OPEN_QUESTION_POOL, REFLECTION_GUIDE, leanReflectionGuide, SAFETY_GUIDE, EDITOR_PROMPT_BODY, EDITOR_EVAL_TAIL, EDITOR_LIST_TAIL } from './prompts.js';
+import { PERSONA_PROMPTS, TOPIC_GUARD, NOTES_GUARD_BASE, NOTES_GUARD_STRICT, NOTES_SEARCH_GUARD, OPEN_QUESTION_POOL, REFLECTION_GUIDE, REFLECTION_GUIDE_NOTE, leanReflectionGuide, SAFETY_GUIDE, EDITOR_PROMPT_BODY, EDITOR_EVAL_TAIL, EDITOR_LIST_TAIL } from './prompts.js';
 import { ARCHIVE_TURN_MARK, archiveAnswerRule } from './archiveAnswerRule.js';
 import { HYPOTHESIS_PERSONAS, HYPOTHESIS_TURN_MARK, HYPOTHESIS_RULE, HYPOTHESIS_DIRECT_MARK, HYPOTHESIS_RULE_DIRECT, HYPOTHESIS_BODY_LINE, HYPOTHESIS_BODY_RE } from './hypothesisRule.js';
 import { TA_STEP_LINES, taStepOf, type TaStep } from './taRule.js';
@@ -185,10 +185,15 @@ export function buildChatSystemPrompt(params: ChatPromptParams): string {
   // собирается ещё и без правил, которые ему не к месту, — о поиске по базе и о
   // светском ходе. Редактор и своя персона не тронуты: их ходы не мерились.
   const dieted = personaId !== 'editor' && personaId !== 'custom';
-  const strictDialogue = dieted && noteScope?.mode === 'note';
-  const hasSearch = !strictDialogue && Boolean(documentContent && (documentContent.includes('Результаты поиска') || documentContent.includes('[#')));
-  const notesBase = strictDialogue ? NOTES_GUARD_STRICT : NOTES_GUARD_BASE;
-  const reflection = dieted ? leanReflectionGuide(strictDialogue) : REFLECTION_GUIDE;
+  // Дейлик 20.11 Н-4 (владелец: «чини»): ход по приложенной заметке — поиска не
+  // было у любой персоны (найденные записи расширяют ход до 'wide'), поэтому
+  // правила о пустом поиске и «в найденных записях этого нет» снимаются и у
+  // Редактора со своей персоной. Остальная диета — только у измеренных.
+  const noteTurn = noteScope?.mode === 'note';
+  const strictDialogue = dieted && noteTurn;
+  const hasSearch = !noteTurn && Boolean(documentContent && (documentContent.includes('Результаты поиска') || documentContent.includes('[#')));
+  const notesBase = noteTurn ? NOTES_GUARD_STRICT : NOTES_GUARD_BASE;
+  const reflection = dieted ? leanReflectionGuide(strictDialogue) : noteTurn ? REFLECTION_GUIDE_NOTE : REFLECTION_GUIDE;
   const baseNotesGuard = hasSearch ? `${notesBase}\n\n${NOTES_SEARCH_GUARD}` : notesBase;
   // DLG-Q2 (Fable T-8): правило ссылок редактора — до правила строгого хода,
   // как в харнессе (run.mjs:57).

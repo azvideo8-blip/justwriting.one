@@ -84,7 +84,7 @@ describe('SEC-7b: useProfileLabels end-to-end decryption and edit cycle', () => 
     });
 
     await act(async () => {
-      result.current.addLabel({ name: 'Книга', color: '#0088FF' });
+      void result.current.addLabel({ name: 'Книга', color: '#0088FF' });
     });
 
     await waitFor(() => {
