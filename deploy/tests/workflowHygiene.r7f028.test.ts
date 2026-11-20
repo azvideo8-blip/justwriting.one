@@ -38,13 +38,43 @@ describe('R7F-024: доступ к проду начинается вместе 
     expect(deploy).not.toMatch(/~\/\.ssh\/deploy_key/);
   });
 
-  it('установщик браузера не просит root (R7F-024: `--with-deps` требует sudo)', () => {
-    // Проверка по строкам команды, а не по всему файлу: в комментариях этот флаг
-    // помянут словами, и запретить упоминание — значит заглушить гейт.
-    const install = deploy.split('\n').filter(l => /^\s*run:.*playwright install/.test(l));
-    expect(install.length, 'хотя бы один шаг ставит chromium').toBeGreaterThan(0);
-    for (const line of install) expect(line, `шаг: ${line.trim()}`).not.toMatch(/--with-deps/);
-    expect(deploy).toMatch(/playwright install chromium/);
+  // 2026-11-20 (решение владельца): своего раннера на проде больше нет. Любой
+  // workflow на нём исполнял бы код ветки рядом с базой и в группе docker.
+  it('ни один workflow не идёт на своём раннере', () => {
+    for (const [name, text] of [['deploy', deploy], ['ci', ci], ['gates', gates]] as const) {
+      const lines = text.split('\n').filter(l => /^\s*runs-on:/.test(l));
+      expect(lines.length, `${name}: runs-on объявлен`).toBeGreaterThan(0);
+      for (const l of lines) expect(l.trim(), name).toBe('runs-on: ubuntu-latest');
+    }
+  });
+
+  // Ключ выкатки входит пользователем deploy; его sudo — одна команда, которую
+  // выкатка не обновляет (deploy/jw-deploy.sh ставится руками от root). Любой
+  // другой `sudo …` в выкатке значил бы, что граница снова — весь root.
+  it('на сервере выкатка зовёт под sudo только jw-deploy', () => {
+    const sudo = [...deploy.matchAll(/\bsudo\s+(\S+)/g)]
+      .filter(m => !deploy.slice(deploy.lastIndexOf('\n', m.index!), m.index!).trimStart().startsWith('#'))
+      .map(m => m[1]);
+    expect(sudo.length, 'sudo-вызовы есть').toBeGreaterThan(0);
+    for (const cmd of sudo) expect(cmd).toBe('/usr/local/sbin/jw-deploy');
+    const script = readFileSync(join(root, 'deploy/jw-deploy.sh'), 'utf8');
+    for (const action of new Set([...deploy.matchAll(/jw-deploy ([a-z]+-[a-z]+)(?=[\s'"]|$)/gm)].map(m => m[1]!))) {
+      expect(script, `в jw-deploy.sh нет команды ${action}`).toContain(`  ${action})`);
+    }
+  });
+
+  // Ревью 20.11: root, читающий каталог deploy напрямую, ловится на подмене
+  // ссылкой между проверкой и копированием. Каталог читается правами deploy
+  // (tar от его имени), дальше — только копия в /root; права её корня 0755,
+  // иначе rsync -p закрыл бы сайт (было на проверке 20.11).
+  it('jw-deploy читает каталог deploy только через tar от его имени', () => {
+    const script = readFileSync(join(root, 'deploy/jw-deploy.sh'), 'utf8');
+    const code = script.split('\n').filter(l => !l.trimStart().startsWith('#')).join('\n');
+    expect(code).toMatch(/runuser -u "\$OWNER" -- tar -C "\$d" -cf - \. \| tar -xf - -C "\$STAGE"/);
+    const tarAt = code.indexOf('runuser -u');
+    expect(code.indexOf('chmod 0755 "$STAGE"'), 'права корня копии — после распаковки').toBeGreaterThan(tarAt);
+    expect(code, 'аргумент каталога не читается мимо копии').not.toMatch(/"\$2"\//);
+    expect(code).not.toMatch(/\bd=\$2\b/);
   });
 
   it('выкатка идёт только из main и не берёт CI-прогон чужой ветки (R7Q-030)', () => {

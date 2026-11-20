@@ -17,25 +17,20 @@ concurrency:
   # засчитывает только push в main (deploy.yml, R7Q-030).
   cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref != 'refs/heads/main') }}
 
-# Минуты GitHub кончаются (2026-09-27): push гоняется на своём раннере на VPS
-# бесплатно. Машины GitHub — только вручную (мажорный релиз: Run workflow →
-# hosted) и для pull_request: чужой код из PR (dependabot) на прод-сервере не
-# исполняется.
+# 2026-11-20 (решение владельца): всё на машинах GitHub. Свой раннер на проде
+# снят: CI исполняет код любой ветки, а раннер жил рядом с базой и в группе
+# docker (= root). Порты ниже (E2E_PORT, стенд mobile-e2e) остались не
+# дефолтными с тех времён — на чистой машине они просто свободны.
 on:
   push:
     branches: [ '**', '!dependabot/**' ]
   pull_request:
     branches: [ main, master ]
     # PR от Dependabot не гоняются вовсе (см. `if:` у джобов): на машинах
-    # GitHub это минуты за каждый недельный PR, а на прод-раннере — чужой код.
+    # GitHub это минуты за каждый недельный PR.
     # Обновления зависимостей идут пачкой руками: корень и deploy/api вместе
-    # (тест AG-DEPS-1 держит их равными), прогон — на своём раннере при push.
+    # (тест AG-DEPS-1 держит их равными), прогон — при push.
   workflow_dispatch:
-    inputs:
-      hosted:
-        description: 'Гнать на машинах GitHub (мажорный релиз)'
-        type: boolean
-        default: false
 
 jobs:
   # Решение владельца 2026-10-20: push в main с деревом, которое уже прошло ПОЛНЫЙ
@@ -46,7 +41,7 @@ jobs:
   # (deploy.yml: зелёный push-прогон этого sha в main) не меняется.
   already-green:
     if: github.actor != 'dependabot[bot]' && github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, justwriting-vps]
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       actions: read
@@ -85,9 +80,8 @@ jobs:
     # `!cancelled()`: джоб идёт и когда already-green пропущен (не main) или упал
     # (сбой — значит полный прогон, а не пропуск тестов).
     if: ${{ !cancelled() && github.actor != 'dependabot[bot]' && needs.already-green.outputs.run == '' }}
-    runs-on: ${{ (github.event_name == 'pull_request' || inputs.hosted) && 'ubuntu-latest' || fromJSON('["self-hosted","justwriting-vps"]') }}
+    runs-on: ubuntu-latest
     env:
-      # На VPS :3000 — прод-API, :3100 — стенд из gates.yml; E2E берёт свой порт.
       E2E_PORT: '3200'
       # Клиент живёт на Supabase: без этих двух getSupabase() бросает на старте,
       # и E2E падает 17 тестами из 19 (проверено локально 2026-08-21 — выживают
@@ -169,7 +163,7 @@ jobs:
     # EA-8: браузер ставится ДО сборки — иначе пререндер внутри build молча
     # пропускался, и бюджет размера мерил не ту сборку, что уезжает на сервер.
     - name: Install Playwright
-      run: npx playwright install chromium
+      run: npx playwright install --with-deps chromium
     - run: npm run build
     - name: Bundle size report
       run: |
@@ -315,7 +309,7 @@ jobs:
   rls:
     needs: already-green
     if: ${{ !cancelled() && github.actor != 'dependabot[bot]' && needs.already-green.outputs.run == '' }}
-    runs-on: ${{ (github.event_name == 'pull_request' || inputs.hosted) && 'ubuntu-latest' || fromJSON('["self-hosted","justwriting-vps"]') }}
+    runs-on: ubuntu-latest
     services:
       postgres:
         image: postgres:16
@@ -333,8 +327,7 @@ jobs:
         # 0009, а профиль при регистрации заводит триггер из 0006. С обрезанным
         # набором проверка роли проваливалась, потому что политики из 0009
         # в базе просто не было.
-        # psql — внутри контейнера сервиса: на VPS-раннере клиента Postgres нет,
-        # а порт наружу не публикуется (5432 там — Supavisor прода).
+        # psql — внутри контейнера сервиса: порт наружу не публикуется.
         # server_stamp.test.sql идёт третьим не для порядка: он проверяет то, чего
         # ни один юнит-тест не видит, — что метку версии строки ставит база. Вся
         # защита от убежавших часов держится на одном триггере из 0037, а миграции
@@ -370,25 +363,19 @@ jobs:
   # MB-12: мобильные спеки (e2e/mobile/*.spec.ts) под проектом Mobile Chrome.
   # Отдельный джоб, а не шаг в build: спекам нужен живой стек (мобильный макет
   # открывается по праву аккаунта, MB-1, а право даёт база), то есть локальный
-  # стенд. На VPS-раннере :3000 держит продовый API, и up.sh на занятом порту
-  # отказывается стартовать — здесь же порты свободны, а docker есть.
+  # стенд (docker на машине GitHub есть).
   # Mobile Safari (WebKit) НЕ включён: ни одна спека этой партии не снималась в
   # WebKit, а единственная известная WebKit-разница (F-20, чтение `users` после
   # входа) сначала проверяется ревьюером на проде — см. MX-6.
-  # Раннер — как у build/rls: push идёт на своём VPS (минуты GitHub кончились),
-  # машины GitHub — только для PR и ручного hosted. С `ubuntu-latest` на каждый
-  # push джоб не стартовал бы, CI коммита был бы красным, и выкатка (deploy.yml
-  # ждёт зелёный CI) не проходила бы. Порты стенда (3300…3313, 8999, 3013, 5442)
-  # на VPS свободны: :3000 и :5432 держит прод, поэтому здесь и не дефолтные.
   mobile-e2e:
     needs: already-green
     if: ${{ !cancelled() && github.actor != 'dependabot[bot]' && needs.already-green.outputs.run == '' }}
-    runs-on: ${{ (github.event_name == 'pull_request' || inputs.hosted) && 'ubuntu-latest' || fromJSON('["self-hosted","justwriting-vps"]') }}
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         fetch-depth: 0
-    # Мобильный набор — самый долгий джоб на единственном раннере. Он нужен, когда
+    # Мобильный набор — самый долгий джоб (минуты GitHub). Он нужен, когда
     # меняется то, что видит телефон или чем стенд поднимается; правки документов,
     # других воркфлоу и одних только vitest-тестов его не задевают. Ручной запуск
     # и push без известной базы гоняют его всегда. Решает scripts/ci/e2e-gate.sh.
@@ -409,9 +396,7 @@ jobs:
       run: npm ci
     - name: Install Playwright (Chromium — проект Mobile Chrome)
       if: steps.gate.outputs.run == 'true'
-      # Без --with-deps, как в build: на VPS нет sudo, системные библиотеки там уже
-      # стоят (build гоняет e2e в том же chromium).
-      run: npx playwright install chromium
+      run: npx playwright install --with-deps chromium
     - name: Mobile e2e discovery check
       if: steps.gate.outputs.run == 'true'
       # Тот же guarding шаг, что «E2E test discovery check» выше: --list ловит и

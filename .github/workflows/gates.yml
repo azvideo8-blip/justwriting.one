@@ -1,10 +1,8 @@
 name: Testability Gates (Mutations, Proofs, Live DB)
 
 # TB-04: Ворота проверяемости. Запускаются по требованию (workflow_dispatch),
-# при пуше тега релиза (v*) и по расписанию — один джоб. Расписание только на
-# своём раннере (VPS): платные минуты GitHub для этого не расходуются.
-# R4-065: параллельные запуски на одном self-hosted раннере воюют за порты
-# 5439/5440 и каталоги /tmp — один прогон за раз.
+# при пуше тега релиза (v*) и по расписанию — один джоб. С 2026-11-20 — на
+# машинах GitHub (свой раннер с прода снят, решение владельца).
 concurrency:
   group: gates
   cancel-in-progress: false
@@ -45,7 +43,7 @@ jobs:
   # ворота не превращаются в «зелёное ничего».
   tag_on_main:
     name: Релизный тег — на main? (R7Q-029)
-    runs-on: [self-hosted, justwriting-vps]
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       run_gates: ${{ steps.decide.outputs.run_gates }}
@@ -91,7 +89,7 @@ jobs:
     # fingerprint’ом конкретного коммита и строки. Путь в allowlist заглушил бы
     # и будущий настоящий ключ. Красный прогон = в истории появилось то, чего
     # там быть не должно.
-    runs-on: [self-hosted, justwriting-vps]
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     if: github.event_name == 'workflow_dispatch' || github.event.schedule == '17 3 * * *'
 
@@ -111,14 +109,13 @@ jobs:
     # прогон мутаций и живых БД ежедневно — это и ресурсы раннера, и шум в
     # отчётах вместо сигнала. Раз в неделю — да (см. второй cron).
     # R7Q-029: и только с коммита, который реально лежит на main (см. tag_on_main)
-    # — тег, поставленный вне main, не должен выпускать на прод-раннер код,
+    # — тег, поставленный вне main, не должен гонять код,
     # который на main не проверялся.
     needs: tag_on_main
     if: needs.tag_on_main.outputs.run_gates == 'true' && (github.event_name != 'schedule' || github.event.schedule == '47 21 * * 0')
-    runs-on: [self-hosted, justwriting-vps]
+    runs-on: ubuntu-latest
     # Шаг 5 (стенд двух устройств, R7Q-035) добавляет до 25 минут к прогону,
-    # который раньше умещался в сорок. Раннер свой и постоянный — лишние минуты
-    # это очередь следующих прогонов, а не платные минуты GitHub.
+    # который раньше умещался в сорок.
     timeout-minutes: 65
 
     steps:
@@ -227,19 +224,14 @@ jobs:
 
       # F-3: живой сквозной сценарий смены аккаунта на локальном стенде
       # (Postgres + GoTrue + PostgREST в docker, Vite и прокси на :3000).
-      # Порты стенда не пересекаются с шагом 3 (5439) и с продом на этом же VPS:
-      # прод-сервисы слушают 127.0.0.1 (API — :3000!), а стенд — свои
-      # 3100/3010/9999/3003/5440. Если что-то из них занято — переопределить
-      # STAND_*_PORT ниже. Раннер свой и постоянный: chromium остаётся в
-      # ~/.cache/ms-playwright между прогонами, install — холостой после первого.
+      # Порты стенда не пересекаются с шагом 3 (5439): свои
+      # 3100/3010/9999/3003/5440 (с тех времён, когда на раннере жил прод).
       - name: 4. Account switch e2e (stand)
-        # :3000 на этом VPS занят продовым API (justwriting.service) — стенд
-        # на своём порту, иначе проверки и браузер ушли бы в прод.
         env:
           STAND_PORT: "3100"
           STAND_URL: "http://localhost:3100"
         run: |
-          npx playwright install chromium
+          npx playwright install --with-deps chromium
           trap 'bash scripts/stand/down.sh' EXIT
           bash scripts/stand/up.sh
           npx playwright test -c playwright.stand.config.ts
@@ -249,8 +241,7 @@ jobs:
       # не запускался ни разу, и регресс выгрузки/CAS ловился уже на проде.
       # Обёртка поднимает свой стенд (порты 3600/3610/8699/3016/5443/3604/3605 —
       # не шаг 3 и не шаг 4), стартует API с заглушкой ИИ и гасит всё по trap'у.
-      # Chromium ставить не нужно: шаг 4 принёс его в ~/.cache/ms-playwright этого
-      # же раннера, повторный install был бы холостым.
+      # Chromium ставить не нужно: шаг 4 уже поставил его на этой машине.
       - name: 5. Стендовый набор двух устройств (s38)
         timeout-minutes: 25
         run: bash scripts/ci/s38-e2e.sh

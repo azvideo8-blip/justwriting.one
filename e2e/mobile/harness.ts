@@ -267,6 +267,10 @@ export async function dismissFirstLoginDialogs(page: Page, syncOn = true, budget
     let open = false;
     // MC-6: сначала степпер — на мобильном макете окон первого входа нет вовсе.
     if (await walkFirstRunStepper(page, syncOn, forgetDevice, seen)) acted = true;
+    // Степпер на экране, но жать нечего (шаг ждёт сохранения согласия, кнопка
+    // выключена) — это не «тихо»: на машине GitHub ожидание длиннее 1,2 с, и
+    // обработчик уходил, оставляя шаг «Облако» висеть (CI 20.11, TR-7 390×844).
+    if (await page.locator('[data-testid="first-run-stepper"]').isVisible().catch(() => false)) open = true;
     for (const dialog of await page.locator(`[role="dialog"]${NOT_TOUR}`).all()) {
       if (!(await dialog.isVisible().catch(() => false))) continue;
       open = true;

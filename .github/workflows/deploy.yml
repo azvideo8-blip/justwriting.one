@@ -24,12 +24,11 @@ permissions:
 
 jobs:
   deploy:
-    # Свой раннер прямо на проде: только этот workflow — ручной
-    # (workflow_dispatch), запускается человеком по требованию, а не
-    # автоматически на каждый push. CI (автоматический, на каждый push/PR/
-    # dependabot) остаётся на github-хостинге — вешать его туда же означало
-    # бы непредсказуемую конкуренцию за память с живой базой.
-    runs-on: [self-hosted, justwriting-vps]
+    # 2026-11-20 (решение владельца): машина GitHub, на сервер — по SSH под
+    # пользователем deploy. Его sudo — только /usr/local/sbin/jw-deploy
+    # (deploy/jw-deploy.sh, ставится руками, принадлежит root): ключ из
+    # секретов меняет бандл и службу, но root не даёт.
+    runs-on: ubuntu-latest
     # R7Q-030: workflow_dispatch выбирает ветку в форме запуска, и с любой другой
     # ветки прогон получил бы те же секреты выкатки (SSH-ключ прода, JWT, адрес
     # и логин служебного аккаунта) и те же права на `sudo` на прод-машине.
@@ -49,9 +48,8 @@ jobs:
           cache: npm
 
       # R3-017: 0.9.18 уехал при красном E2E — выкатка стартовала через секунду
-      # после push и CI этого коммита не смотрела. Ждать CI здесь нельзя: он
-      # идёт на том же раннере и стоял бы в очереди за выкаткой. Порядок —
-      # сначала зелёный CI, потом кнопка.
+      # после push и CI этого коммита не смотрела. Порядок — сначала зелёный CI,
+      # потом кнопка.
       # R5-034: флага force больше нет — кнопка выкатки не обходит CI ни при
       # каких входах. Аварийный обход — руками на сервере, не из Actions.
       - name: CI этого коммита зелёный
@@ -86,13 +84,7 @@ jobs:
       - run: npm ci
 
       - name: Браузер для предрендера и проверки
-        # R7F-024: `--with-deps` ставит системные пакеты через apt и требует sudo.
-        # Раннер живёт на проде и состоит в sudo (это отдельный шаг владельца),
-        # а прогон выкатки sudo не должен ни запрашивать, ни тем более что-то
-        # доустанавливать в систему между шагами. Системные зависимости браузера
-        # уже стоят (тот же chromium гоняется в gates.yml без --with-deps);
-        # если их действительно нет — шаг падает здесь, а не после выкатки.
-        run: npx playwright install chromium
+        run: npx playwright install --with-deps chromium
 
       # Типы и тесты здесь больше не гоняются (решение владельца 2026-10-20): шаг
       # «CI этого коммита зелёный» выше пускает дальше только sha, у которого
@@ -179,8 +171,7 @@ jobs:
       # пропускается, а службе ключ нужен сразу следующим шагом.
       - name: Ключ доступа
         run: |
-          # EA-11: раннер живёт на проде — ключ во временном каталоге прогона,
-          # а не в ~/.ssh пользователя, и удаляется в конце при любом исходе.
+          # EA-11: ключ во временном каталоге прогона, удаляется в конце при любом исходе.
           umask 077
           echo "${{ secrets.DEPLOY_SSH_KEY }}" > "$RUNNER_TEMP/deploy_key"
           # Отпечаток хоста заранее, а не TOFU: иначе первый же перехват
@@ -234,28 +225,10 @@ jobs:
           # R5-049: метаданные Finder в публичный корень не едут.
           rsync -az --delete --exclude .DS_Store -e "$DEPLOY_SSH" dist/ \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:$REMOTE_DIR/
-          # Без --delete: страница, открытая до выкатки, продолжает подгружать
-          # куски своего бандла. Удаление ломает приложение у того, кто в этот
-          # момент пишет. Имена кусков содержат хэш, поэтому старые и новые не
-          # мешают друг другу; лишнее подчищается по возрасту.
-          # Перед копированием сохраняем index.html и sw.js для полного отката.
-          $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "REMOTE_DIR=$REMOTE_DIR bash -s" <<'REMOTE'
-            set -euo pipefail
-            # Падение шага не должно оставлять каталог в /tmp на сервере.
-            trap 'rm -rf "$REMOTE_DIR"' EXIT
-            if [ -f /var/www/justwriting/index.html ]; then
-              sudo cp /var/www/justwriting/index.html /var/www/justwriting/index.html.prev
-            fi
-            if [ -f /var/www/justwriting/sw.js ]; then
-              sudo cp /var/www/justwriting/sw.js /var/www/justwriting/sw.js.prev
-            fi
-            # Шаблоны писем едут в dist из public/email. Прежняя подмена из
-            # /opt/justwriting/email-templates (каталога там нет) предупреждала
-            # на каждой выкатке и могла бы молча вернуть устаревшие шаблоны.
-            sudo rsync -a "$REMOTE_DIR"/ /var/www/justwriting/
-            sudo chown -R www-data:www-data /var/www/justwriting
-            rm -rf "$REMOTE_DIR"
-          REMOTE
+          # jw-deploy client-publish: снимок index.html/sw.js для отката, копия без
+          # --delete (открытая страница догружает куски старого бандла; лишнее
+          # подчищается по возрасту), владелец www-data. Каталог убирает trap выше.
+          $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "sudo /usr/local/sbin/jw-deploy client-publish $REMOTE_DIR"
 
       - name: Сборка и выкатка службы
         id: deploy_api
@@ -310,9 +283,7 @@ jobs:
           # R5-009: и свежий server.mjs.prev снимаем ДО отметки swapped, отдельным
           # вызовом. Внутри удалённого блока сбой копии (ENOSPC) при уже
           # выставленной отметке откатывал на .prev прошлой выкатки — релиз назад.
-          $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
-            sudo rm -rf /opt/justwriting/api/node_modules.prev /opt/justwriting/api/package.json.prev /opt/justwriting/api/package-lock.json.prev &&
-            sudo cp /opt/justwriting/api/server.mjs /opt/justwriting/api/server.mjs.prev'
+          $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} 'sudo /usr/local/sbin/jw-deploy api-snapshot'
           # M-4: откат ниже только после этой отметки. Сбой раньше (сборка, scp,
           # снимок) не трогал прод, а server.mjs.prev там мог быть старше живой.
           echo "swapped=1" >> "$GITHUB_OUTPUT"
@@ -333,21 +304,9 @@ jobs:
             # Кэш — у пользователя выкатки: в /opt/justwriting/api ему писать нельзя.
             env npm_config_cache="$HOME/.npm-cache-jw-api" \
               npm ci --prefix "$REMOTE_DIR"/stage --omit=dev --no-audit --no-fund &&
-            # L-9 (R4-064): снимок старого дерева перед подменой (жёсткие
-            # ссылки, тот же том). Откат ниже восстанавливает и зависимости:
-            # rsync --delete уже снёс прежние, а server.mjs без своих пакетов
-            # не поднимется.
-            sudo cp -al /opt/justwriting/api/node_modules /opt/justwriting/api/node_modules.prev &&
-            sudo cp /opt/justwriting/api/package.json /opt/justwriting/api/package.json.prev &&
-            sudo cp /opt/justwriting/api/package-lock.json /opt/justwriting/api/package-lock.json.prev &&
-            sudo rsync -a --delete "$REMOTE_DIR"/stage/node_modules/ /opt/justwriting/api/node_modules/ &&
-            sudo cp "$REMOTE_DIR"/stage/package.json "$REMOTE_DIR"/stage/package-lock.json /opt/justwriting/api/ &&
-            sudo chown -R justwriting:justwriting /opt/justwriting/api/node_modules /opt/justwriting/api/package.json /opt/justwriting/api/package-lock.json &&
-            sudo cp "$REMOTE_DIR"/server.mjs /opt/justwriting/api/server.mjs &&
-            sudo chown justwriting:justwriting /opt/justwriting/api/server.mjs &&
-            rm -rf "$REMOTE_DIR" &&
-            sudo systemctl restart justwriting && sleep 5 &&
-            systemctl is-active --quiet justwriting
+            # L-9 (R4-064): снимок старого дерева, подмена, владелец, перезапуск и
+            # проверка службы — в jw-deploy api-install (от root, по списку).
+            sudo /usr/local/sbin/jw-deploy api-install "$REMOTE_DIR"
           REMOTE
 
       - name: Проверка после выкатки
@@ -375,8 +334,7 @@ jobs:
       - name: Очистка снимка службы
         if: success() && inputs.what != 'client'
         run: |
-          $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
-            sudo rm -rf /opt/justwriting/api/node_modules.prev /opt/justwriting/api/package.json.prev /opt/justwriting/api/package-lock.json.prev'
+          $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} 'sudo /usr/local/sbin/jw-deploy api-cleanup'
 
       # F-047: старые ассеты удаляются только после того, как релиз прошёл проверку входа.
       # Если проверка упадёт и сработает откат к index.html.prev, его бандлы старше 14 дней
@@ -384,8 +342,7 @@ jobs:
       - name: Очистка устаревших ассетов клиента
         if: success() && inputs.what != 'api'
         run: |
-          $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
-            sudo find /var/www/justwriting/assets -type f -mtime +14 -delete'
+          $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} 'sudo /usr/local/sbin/jw-deploy client-cleanup'
 
       # Объявление в теме «Новости» группы в Telegram — только после проверок.
       # Сбой объявления выкатку не роняет: скрипт выходит с 0, а на случай
@@ -408,18 +365,7 @@ jobs:
       - name: Откат службы при сбое
         if: failure() && inputs.what != 'client' && steps.deploy_api.outputs.swapped == '1'
         run: |
-          $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
-            if [ -f /opt/justwriting/api/server.mjs.prev ]; then
-              sudo cp /opt/justwriting/api/server.mjs.prev /opt/justwriting/api/server.mjs;
-            fi;
-            if [ -d /opt/justwriting/api/node_modules.prev ]; then
-              sudo rsync -a --delete /opt/justwriting/api/node_modules.prev/ /opt/justwriting/api/node_modules/ &&
-              sudo cp /opt/justwriting/api/package.json.prev /opt/justwriting/api/package.json &&
-              sudo cp /opt/justwriting/api/package-lock.json.prev /opt/justwriting/api/package-lock.json &&
-              sudo rm -rf /opt/justwriting/api/node_modules.prev /opt/justwriting/api/package.json.prev /opt/justwriting/api/package-lock.json.prev &&
-              echo "откат зависимостей выполнен";
-            fi;
-            sudo systemctl restart justwriting && echo "откат службы выполнен"'
+          $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} 'sudo /usr/local/sbin/jw-deploy api-rollback'
 
       # Если проверка после выкатки клиента упала — возвращаем index.html и sw.js.
       # Старые бандлы в assets сохранены благодаря ротации по возрасту, поэтому
@@ -427,15 +373,7 @@ jobs:
       - name: Откат клиента при сбое
         if: failure() && inputs.what != 'api' && steps.deploy_client.outcome != 'skipped' && steps.deploy_client.outcome != ''
         run: |
-          $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
-            if [ -f /var/www/justwriting/index.html.prev ]; then
-              sudo cp /var/www/justwriting/index.html.prev /var/www/justwriting/index.html;
-            fi &&
-            if [ -f /var/www/justwriting/sw.js.prev ]; then
-              sudo cp /var/www/justwriting/sw.js.prev /var/www/justwriting/sw.js;
-            fi &&
-            sudo chown www-data:www-data /var/www/justwriting/index.html /var/www/justwriting/sw.js 2>/dev/null || true;
-            echo "откат клиента выполнен: восстановлены index.html.prev и sw.js.prev"'
+          $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} 'sudo /usr/local/sbin/jw-deploy client-rollback'
 
       - name: Убрать ключ доступа
         if: always()
