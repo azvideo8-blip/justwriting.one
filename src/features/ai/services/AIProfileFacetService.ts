@@ -85,11 +85,11 @@ export const AIProfileFacetService = {
     return AIProfileFacetBuilder.build(onProgress);
   },
 
-  async resummarizeDirty(onProgress?: (p: FacetBuildProgress) => void, opts?: CallAiOptions): Promise<{ count: number }> {
+  async resummarizeDirty(onProgress?: (p: FacetBuildProgress) => void, opts?: CallAiOptions): Promise<{ count: number; failed: number }> {
     return AIProfileFacetSummarizer.resummarizeDirty(onProgress, opts);
   },
 
-  async summarizePending(onProgress?: (p: FacetBuildProgress) => void, opts?: CallAiOptions): Promise<{ done: number }> {
+  async summarizePending(onProgress?: (p: FacetBuildProgress) => void, opts?: CallAiOptions): Promise<{ done: number; failed: number }> {
     return AIProfileFacetSummarizer.summarizePending(onProgress, opts);
   },
 };

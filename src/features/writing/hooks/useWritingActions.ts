@@ -215,7 +215,8 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
         cloudSynced = saveResult.cloudSynced;
         if (saveResult.forked) {
           const forkTitle = saveResult.forkTitle || '';
-          showToast(t('sync_version_saved_as_copy', { title: forkTitle }));
+          // Не «сохранено» зелёным: в облаке своя версия, твоя лежит копией — это повод посмотреть.
+          showToast(t('sync_version_saved_as_copy', { title: forkTitle }), 'warning');
         }
       } else {
         const result = await StorageService.saveNew(userId, saveData);

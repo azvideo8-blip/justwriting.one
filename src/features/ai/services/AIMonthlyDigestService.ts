@@ -14,11 +14,13 @@ import type { CallAiOptions } from '../../../core/ai/callAi';
 const inFlightMonths = new Set<string>();
 
 export const AIMonthlyDigestService = {
-  async generateForMonth(month: string, opts?: CallAiOptions): Promise<void> {
-    if (inFlightMonths.has(month)) return;
+  // false — сводка месяца не собрана (бюджет, отказ поставщика); true — собрана
+  // или пересобирать не нужно. Фоновые вызовы итог не читают, «Обновить профиль» — читает.
+  async generateForMonth(month: string, opts?: CallAiOptions): Promise<boolean> {
+    if (inFlightMonths.has(month)) return true;
     inFlightMonths.add(month);
     try {
-      await generateForMonthInner(month, opts);
+      return await generateForMonthInner(month, opts);
     } finally {
       inFlightMonths.delete(month);
     }
@@ -49,7 +51,7 @@ export const AIMonthlyDigestService = {
   },
 };
 
-async function generateForMonthInner(month: string, opts?: CallAiOptions): Promise<void> {
+async function generateForMonthInner(month: string, opts?: CallAiOptions): Promise<boolean> {
     const db = await getLocalDb();
     const existing = await db.get('aiMonthlyDigest', month);
 
@@ -59,7 +61,7 @@ async function generateForMonthInner(month: string, opts?: CallAiOptions): Promi
     // удаляем дайджест, иначе он продолжает пересказывать скрытое.
     if (entries.length < 2) {
       if (existing) await AIMonthlyDigestService.deleteMonth(month);
-      return;
+      return true;
     }
 
     // 24-часовой страж бережёт от второй платной пересборки, но не от
@@ -67,7 +69,7 @@ async function generateForMonthInner(month: string, opts?: CallAiOptions): Promi
     // заметки скрыли или удалили, — тогда пересобираем, не дожидаясь суток.
     const staleCount = existing ? !(await coversOnlyLiveNotes(existing)) : false;
     if (existing && !staleCount && Date.now() - existing.generatedAt < 24 * 60 * 60 * 1000) {
-      return;
+      return true;
     }
 
     // Call summarizeFacet
@@ -78,7 +80,7 @@ async function generateForMonthInner(month: string, opts?: CallAiOptions): Promi
 
     if (!AIBackgroundBudget.canSpend(1)) {
       console.warn(`[AIMonthlyDigestService] Skipping monthly digest for ${month}: background budget exhausted`);
-      return;
+      return false;
     }
 
     const result = await AIService.summarizeFacet({
@@ -88,7 +90,7 @@ async function generateForMonthInner(month: string, opts?: CallAiOptions): Promi
 
     if (!result.ok) {
       console.warn(`[AIMonthlyDigestService] Failed to summarize facet for month ${month}:`, result.error);
-      return;
+      return false;
     }
 
     AIBackgroundBudget.spend(1);
@@ -138,6 +140,7 @@ async function generateForMonthInner(month: string, opts?: CallAiOptions): Promi
 
     await db.put('aiMonthlyDigest', digest);
     LocalStoreSyncService.scheduleStoreSync('aiMonthlyDigest', digest.month);
+    return true;
 }
 
 /**

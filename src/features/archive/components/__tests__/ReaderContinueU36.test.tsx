@@ -39,15 +39,16 @@ function renderReader(extra: Record<string, unknown> = {}) {
   cleanup();
   layoutMode = 'mobile';
   const onContinue = vi.fn();
+  const onRetryContent = vi.fn();
   const session = { ...base, ...extra } as unknown as ArchiveSession;
   renderWithProviders(
     <MemoryRouter>
       <ToastProvider>
-        <MobileNoteReader session={session} onClose={vi.fn()} onContinue={onContinue} summary={null} />
+        <MobileNoteReader session={session} onClose={vi.fn()} onContinue={onContinue} onRetryContent={onRetryContent} summary={null} />
       </ToastProvider>
     </MemoryRouter>,
   );
-  return { onContinue, session };
+  return { onContinue, onRetryContent, session };
 }
 
 describe('U-36: «Продолжить писать» — кнопкой внизу читалки', () => {
@@ -76,5 +77,16 @@ describe('U-36: «Продолжить писать» — кнопкой вни�
     fireEvent.click(screen.getByRole('button', { name: 'Действия с заметкой' }));
     const sheet = screen.getByRole('dialog', { name: 'Действия с заметкой' });
     expect(sheet.textContent).toContain('Продолжить писать');
+  });
+});
+
+// 0.11.22: «текст не прочитался» в читалке — общая панель LoadNotice; повтор
+// обязателен по типу. Мутация: onRetry={() => {}} в MobileNoteReader — красный.
+describe('читалка: текст не прочитался', () => {
+  it('ошибка названа, «Повторить» перечитывает', () => {
+    const { onRetryContent } = renderReader({ content: '', _contentError: true });
+    expect(screen.getByRole('alert').textContent).toContain('Текст заметки не прочитался.');
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    expect(onRetryContent).toHaveBeenCalledTimes(1);
   });
 });

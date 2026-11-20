@@ -10,10 +10,9 @@ import { z } from 'zod';
 import { AdaptiveContainer } from '../../shared/components/Layout/AdaptiveContainer';
 import { useLanguage } from '../../shared/i18n';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '../../shared/components/Button';
 import { EmptyState } from '../../shared/components/EmptyState';
 import { LoadStateView, LoadNotice } from '../../shared/components/LoadStateView';
-import { loadStateFromFlags } from '../../shared/loadState';
+import { mapLoadState } from '../../shared/loadState';
 import { useConfirmDialog } from '../../shared/components/ConfirmDialog';
 import { useUserId } from '../../shared/hooks/useUserId';
 import { ArchiveHeader, type SortMode } from '../../features/archive/components/ArchiveHeader';
@@ -88,7 +87,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
   const [activeTab, setActiveTab] = useState<'notes' | 'trash'>('notes');
 
   const {
-    loading, error, cloudLoadFailed, fetchSessions, sessions, trashedSessions,
+    listState, fetchSessions, sessions, trashedSessions,
     handleTrashSession, handleRestoreSession, handlePermanentDeleteSession, handleEmptyTrash,
     handleTagsChange, handleTitleChange, handleDateChange, handleLabelChange,
     previewSession, setPreviewSession, openPreview,
@@ -440,11 +439,8 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                 )
               )
             )}
-            {cloudLoadFailed && (
-              <div className="px-4 py-3 rounded-2xl text-sm bg-accent-danger/10 border border-accent-danger/30 text-accent-danger flex items-center justify-between mt-4">
-                <span>{t('archive_cloud_load_error')}</span>
-                <Button onClick={() => void fetchSessions()} className="underline text-accent-danger/70 hover:text-accent-danger">{t('retry')}</Button>
-              </div>
+            {listState.status === 'partial' && (
+              <LoadNotice variant="row" className="mt-4" text={t('archive_cloud_load_error')} onRetry={listState.retry} />
             )}
             {activeTab === 'notes' && !searchQuery && <OnThisDayCard sessions={filteredByFilters} userId={userId} onOpen={s => void openPreview(s)} />}
             </div>
@@ -454,9 +450,10 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                     не «пуста». Ветки разбирает LoadStateView; плашка об облаке — общая
                     для вкладок, выше, поэтому при частичном отказе здесь просто нет «пусто». */}
                 <LoadStateView
-                  state={loadStateFromFlags({ loading, failed: !!error, partial: cloudLoadFailed, retry: () => void fetchSessions() }, filteredTrashedSessions)}
+                  state={mapLoadState(listState, () => filteredTrashedSessions, list => list.length === 0)}
                   loading={null}
-                  error={retry => <LoadNotice variant="panel" className="rounded-3xl border-accent-danger/30" text={error ?? ''} onRetry={retry} />}
+                  error={retry => <LoadNotice variant="panel" className="rounded-3xl border-accent-danger/30" text={t('archive_load_error')} onRetry={retry} />}
+                  errorWithData={retry => <LoadNotice variant="row" className="mb-3" text={t('archive_load_error')} onRetry={retry} />}
                   partial={() => null}
                   empty={
                     <div className="py-12">
@@ -485,9 +482,10 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
             ) : (
               <div className={cn("mt-4 pr-1", isMobile && calendarOpen ? "h-[70dvh] shrink-0" : "flex-1 min-h-0")}>
                 <ArchiveNoteList
-                  viewMode={viewMode} loading={loading} error={error} filteredSessions={sortedSessions}
+                  viewMode={viewMode} state={mapLoadState(listState, () => sortedSessions, list => list.length === 0)}
                   groupedSessions={groupedSessions} sortedDates={sortedDates} dateLocale={dateLocale}
                   labels={profileLabels} userId={userId} searchQuery={searchQuery}
+                  hasActiveFilter={hasActiveFilter}
                   isGroupedByDate={isGroupedByDate}
                   onOpen={s => void openPreview(s)} onDelete={s => void requestTrash(s)}
                   onTagsChange={(s, tags) => void handleTagsChange(s, tags)} onTitleChange={(s, title) => void handleTitleChange(s, title)}
@@ -495,7 +493,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                   onStorageChange={() => void fetchSessions()} t={t} language={language}
                   allTags={allTags} onClearSearch={() => setSearchQuery('')}
                   onAnalyzeNote={id => NoteAnalysisService.analyze(id)}
-                  onClearAnalysis={id => NoteAnalysisService.clear(id)}
+                  onClearAnalysis={id => NoteAnalysisService.clearAnalysis(id)}
                   loadAiProcessedMap={() => AISummaryService.hasAll()}
                 />
               </div>
@@ -540,7 +538,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                 onTitleChange={(s, title) => void handleTitleChange(s, title)}
                 onDelete={s => void requestTrash(s)} onStorageChange={() => void fetchSessions()}
                 onAnalyzeNote={id => NoteAnalysisService.analyze(id)}
-                onClearAnalysis={id => NoteAnalysisService.clear(id)}
+                onClearAnalysis={id => NoteAnalysisService.clearAnalysis(id)}
                 fetchSummary={async id => (await AISummaryService.get(id)) ?? null}
                 fetchRelatedNotes={id => findRelatedNotes({ docId: id }, { maxResults: 4 })}
               />

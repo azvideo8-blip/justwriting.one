@@ -41,7 +41,7 @@ describe('уборка производных заметки', () => {
     await db.put('aiMonthlyDigest', digest('2026-09'));
     await db.put('aiMonthlyDigest', digest('2026-10', { noteIds: [NOTE] }));
 
-    await NoteAnalysisService.clear(NOTE);
+    await NoteAnalysisService.clearAnalysis(NOTE);
 
     expect(await db.get('aiMonthlyDigest', '2026-09'), 'месяц разбора').toBeUndefined();
     expect(await db.get('aiMonthlyDigest', '2026-10'), 'дайджест, собранный по заметке').toBeUndefined();

@@ -34,7 +34,7 @@ describe('AdminUsersTable', () => {
   ];
 
   it('renders user emails, roles, registration statuses and activity counts', () => {
-    renderWithProviders(<AdminUsersTable users={sampleUsers} />);
+    renderWithProviders(<AdminUsersTable onRetry={vi.fn()} users={sampleUsers} />);
 
     expect(screen.getByText('invited@example.com')).toBeInTheDocument();
     expect(screen.getByText('active@example.com')).toBeInTheDocument();
@@ -53,6 +53,7 @@ describe('AdminUsersTable', () => {
     const handleSendPasswordReset = vi.fn();
     renderWithProviders(
       <AdminUsersTable
+        onRetry={vi.fn()}
         users={sampleUsers}
         onSendPasswordReset={handleSendPasswordReset}
       />,
@@ -69,6 +70,7 @@ describe('AdminUsersTable', () => {
     const handleResetLimit = vi.fn();
     renderWithProviders(
       <AdminUsersTable
+        onRetry={vi.fn()}
         users={sampleUsers}
         onResetLimit={handleResetLimit}
       />,
@@ -83,7 +85,7 @@ describe('AdminUsersTable', () => {
 
   it('offers «Удалить» for ordinary users only — not for admins and not for the current admin', () => {
     const onDeleteUser = vi.fn();
-    renderWithProviders(<AdminUsersTable users={sampleUsers} onDeleteUser={onDeleteUser} currentUid="uid-3" />);
+    renderWithProviders(<AdminUsersTable onRetry={vi.fn()} users={sampleUsers} onDeleteUser={onDeleteUser} currentUid="uid-3" />);
     const buttons = screen.getAllByRole('button', { name: /Удалить/ });
     // uid-1 — обычный пользователь; uid-2 — админ; uid-3 — сам смотрящий.
     expect(buttons).toHaveLength(1);
@@ -96,7 +98,7 @@ describe('AdminUsersTable', () => {
       ...sampleUsers,
       { uid: 'uid-svc', email: 'svc@example.com', nickname: '', role: 'user', pending: false, noteCount: 0, service: true },
     ];
-    renderWithProviders(<AdminUsersTable users={users} onDeleteUser={vi.fn()} currentUid="uid-3" />);
+    renderWithProviders(<AdminUsersTable onRetry={vi.fn()} users={users} onDeleteUser={vi.fn()} currentUid="uid-3" />);
     expect(screen.getAllByRole('button', { name: /Удалить/ })).toHaveLength(1);
     expect(screen.getByText('служебный')).toBeInTheDocument();
   });

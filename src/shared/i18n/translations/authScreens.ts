@@ -246,6 +246,10 @@ export const authScreensTranslations: Translations = {
     ru: 'Записи без входа: ',
     en: 'Guest entries: ',
   },
+  signout_unsynced_unknown_desc: {
+    ru: 'Не удалось проверить, всё ли отправлено в облако. Если стереть данные с устройства, неотправленное пропадёт.',
+    en: 'Could not check whether everything reached the cloud. Wiping this device would lose anything not yet sent.',
+  },
   signout_inv_unknown: {
     ru: 'не удалось посчитать',
     en: 'could not count',

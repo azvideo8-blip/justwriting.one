@@ -12,6 +12,7 @@ import { Label } from '../../../types';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { Button } from '../../../shared/components/Button';
+import { LoadNotice } from '../../../shared/components/LoadStateView';
 import { IconButton } from '../../../shared/components/IconButton';
 import { ModalShell, SECTION_LABEL, SheetTitle } from '../../../shared/components/ModalShell';
 import { cn } from '../../../core/utils/utils';
@@ -35,7 +36,8 @@ import { sessionContentState } from '../../../core/services/sessionContent';
 interface MobileNoteReaderProps {
   session: ArchiveSession;
   /** Дейлик 19.11: текст не прочитался — повторить чтение. */
-  onRetryContent?: (() => void) | undefined;
+  /** Обязателен: «текст не прочитался» без выхода не собирается. */
+  onRetryContent: () => void;
   onClose: () => void;
   onContinue: (session: ArchiveSession) => void;
   onTagsChange?: ((session: ArchiveSession, tags: string[]) => void) | undefined;
@@ -194,12 +196,7 @@ export function MobileNoteReader({
         ) : body.kind === 'undecryptable' ? (
           <p className="mt-4 text-[17px] text-accent-danger">{t('archive_decryption_error')}</p>
         ) : body.kind === 'error' ? (
-          <div role="alert" className="mt-4">
-            <p className="text-[17px] text-accent-danger">{t('archive_content_load_error')}</p>
-            {onRetryContent && (
-              <Button onClick={onRetryContent} className="mt-3 rounded-xl bg-accent-danger/10 px-4 py-2 text-[15px] text-accent-danger">{t('retry')}</Button>
-            )}
-          </div>
+          <LoadNotice variant="panel" className="mt-4 p-6" text={t('archive_content_load_error')} onRetry={onRetryContent} />
         ) : body.kind === 'loading' ? (
           <p className="mt-4 text-[17px] text-text-main/60">{t('common_loading')}</p>
         ) : (

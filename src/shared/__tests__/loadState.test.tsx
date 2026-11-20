@@ -3,15 +3,15 @@
 // Мутации (прогнаны, каждая красит хотя бы один тест этого файла):
 //  М1 — loadState.settled: убрать ветку cloudFailed            → «частичный отказ ≠ пусто»;
 //  М2 — LoadStateView: в ветке error вернуть `empty`            → «сбой ≠ пусто»;
-//  М3 — loadStateFromFlags: поменять местами failed и loading   → «сбой старше загрузки»;
 //  М4 — LoadStateView: error с прошлыми данными без notice      → «сбой перечитывания назван»;
 //  М5 — mapLoadState: partial → settled(fn(data), isEmpty)      → «срез частичного не пуст».
 // Чего мутацией не покрасить, потому что не компилируется (это и есть гарантия типа):
 //  ошибка без retry; чтение data у error/loading; LoadStateView без ветки error или partial.
 import { describe, it, expect, vi } from 'vitest';
+import type { ReactNode } from 'react';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { LoadStateView } from '../components/LoadStateView';
-import { knownData, loadState, loadStateFromFlags, mapLoadState, type LoadState } from '../loadState';
+import { knownData, loadState, mapLoadState, type LoadState } from '../loadState';
 
 const noRows = (rows: string[]) => rows.length === 0;
 const retry = vi.fn();
@@ -82,12 +82,22 @@ describe('loadState: помощники', () => {
     expect(knownData(loadState.loading<string>())).toBeUndefined();
     expect(knownData<string>({ status: 'empty' })).toBeUndefined();
   });
-  it('loadStateFromFlags: сбой старше загрузки; пустые данные — не «прошлые»; частичный отказ не «пусто»', () => {
-    expect(loadStateFromFlags({ loading: true, failed: true, partial: false, retry }, [])).toEqual({ status: 'error', retry, stale: undefined });
-    expect(loadStateFromFlags({ loading: true, failed: false, partial: false, retry }, [])).toEqual({ status: 'loading', stale: undefined });
-    expect(loadStateFromFlags({ loading: true, failed: false, partial: false, retry }, ['x'])).toEqual({ status: 'loading', stale: ['x'] });
-    expect(loadStateFromFlags({ loading: false, failed: false, partial: true, retry }, [])).toEqual({ status: 'partial', data: [], retry });
-    expect(loadStateFromFlags({ loading: false, failed: false, partial: false, retry }, [])).toEqual({ status: 'empty' });
+});
+
+// 0.11.22: ошибка перечитывания над прошлыми данными — своим видом (строка), если
+// задан errorWithData. Мутация: всегда error(retry) — красный.
+describe('LoadStateView: errorWithData', () => {
+  it('ошибка при прошлых данных — errorWithData, без прошлых — error', () => {
+    cleanup();
+    const props = {
+      loading: 'L', partial: () => 'P', empty: 'E',
+      error: () => 'BIG', errorWithData: () => 'ROW',
+      children: (rows: string[], notice: ReactNode) => <div>{notice}{rows.join(',')}</div>,
+    };
+    const { rerender } = render(<LoadStateView<string[]> {...props} state={loadState.error(retry, ['a'])} />);
+    expect(screen.getByText('ROWa')).toBeTruthy();
+    rerender(<LoadStateView<string[]> {...props} state={loadState.error(retry)} />);
+    expect(screen.getByText('BIG')).toBeTruthy();
   });
 });
 

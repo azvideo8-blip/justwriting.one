@@ -311,7 +311,7 @@ describe('AIProfileService', () => {
         `## Стиль общения\nGenerated portrait markdown text\n`;
 
       const res = await AIProfileService.generate();
-      expect(res).toEqual({ ok: true, markdown: expectedMarkdown });
+      expect(res).toEqual({ ok: true, markdown: expectedMarkdown, partial: false });
       expect(AIService.chat).toHaveBeenCalledWith(expect.objectContaining({
         personaId: 'custom',
       }));

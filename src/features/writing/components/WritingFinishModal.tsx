@@ -648,11 +648,16 @@ function WritingFinishModalBody({
           // телефоне заменяется тихой строкой в шапке письма, а три случая
           // «ещё не в облаке» обязаны остаться видимыми — теми же словами, но
           // предупреждением и дольше (3 с вместо 1,2 с).
+          const deviceOnly = !cloudSynced && !isTooLarge && (currentUid.startsWith('guest_') || !cloudSyncEnabled(currentUid));
+          // «Отправится позже» и «слишком большая для облака» — предупреждение, не
+          // зелёный успех; «сохранено на устройстве» у гостя и при выключенном
+          // синке — обычный успех: облака там не обещали.
+          const warningType = deviceOnly ? 'success' : 'warning';
           const warningText = cloudSynced
             ? null
             : isTooLarge
               ? t('save_too_large_cloud_warning')
-              : (currentUid.startsWith('guest_') || !cloudSyncEnabled(currentUid))
+              : deviceOnly
                 // D-12 / D-22: у гостя облака нет вовсе, а при выключенной
                 // автосинхронизации в облако не уходит ничего — обещать
                 // «отправится позже» нельзя.
@@ -668,13 +673,11 @@ function WritingFinishModalBody({
             navigator.vibrate?.(12);
             // Ревью 0.9.40: «Обсудить с ИИ» уводит на /ai, и строка экрана письма
             // не видна — предупреждение «не в облаке» уходит обычным тостом.
-            if (discuss && warningText !== null) showToast(warningText, isTooLarge ? 'warning' : undefined);
+            if (discuss && warningText !== null) showToast(warningText, warningType);
           } else if (warningText === null) {
             showToast(t('save_success'), 'success');
-          } else if (isTooLarge) {
-            showToast(warningText, 'warning');
           } else {
-            showToast(warningText);
+            showToast(warningText, warningType);
           }
           if (discuss && docId) void navigate(`/ai?doc=${docId}`);
         },

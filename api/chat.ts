@@ -14,6 +14,7 @@ import { needsEnglishNudge, questionPart } from '../src/shared/ai/languageNudge.
 import { validateInternalCallRestrictions, getMaxTokens, REASONING_MAX_TOKENS, estimateInputTokens, assertNoSystemPromptInjection, createCallReservation, acquireChatReservation, answerCutNote, type CallReservation, type SettleReason, type CallReservationUsage } from '../src/shared/ai/aiPolicy.js';
 import { AiError, type GlobalReservation } from '../src/shared/ai/context.js';
 import { MAX_REQUEST_BODY_BYTES, DAILY_LIMIT, ADMIN_DAILY_LIMIT } from './ai/pure';
+import { makeSlowFallbackFetch } from './chatSlowFallback';
 
 // AUDIT-part3 2: все ответы ошибок ушли через sendError (единая форма
 // {error:{code,message}}); локальный json-хелпер удалён как неиспользуемый.
@@ -89,6 +90,17 @@ const ruOnlyFetch: typeof fetch = async (input, init) => {
   return fetch(input, init);
 };
 
+// Владелец 19.11: медленная основная модель диалога (v4.1-flash, проба — 30 с до
+// первого слова) — через 12 с тот же запрос уходит к модели служебных вызовов.
+// Строка журнала — только модели и время, без содержимого.
+const CHAT_FIRST_TOKEN_MS = 12_000;
+const chatFetch = makeSlowFallbackFetch(ruOnlyFetch, {
+  primaryModel: ACTIVE_CHAT_MODEL,
+  fallbackModel: SERVICE_MODEL,
+  firstTokenMs: CHAT_FIRST_TOKEN_MS,
+  onFallback: ({ from, to, waitedMs }) => console.warn(`[chat-fallback] from=${from} to=${to} waited_ms=${waitedMs}`),
+});
+
 async function getActiveModel(isInternalCall = false): Promise<string> {
   return isInternalCall ? SERVICE_MODEL : ACTIVE_CHAT_MODEL;
 }
@@ -119,7 +131,7 @@ async function getChatModel(isInternalCall = false) {
   return createOpenAI({
     baseURL: AI_BASE_URL,
     ...(process.env.OPENROUTER_API_KEY ? { apiKey: process.env.OPENROUTER_API_KEY } : {}),
-    fetch: ruOnlyFetch,
+    fetch: isInternalCall ? ruOnlyFetch : chatFetch,
   }).chat(isInternalCall ? SERVICE_MODEL : ACTIVE_CHAT_MODEL);
 }
 

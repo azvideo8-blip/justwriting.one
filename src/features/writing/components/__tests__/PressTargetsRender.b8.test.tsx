@@ -72,6 +72,7 @@ function renderReader() {
         <MobileNoteReader
           session={session}
           onClose={vi.fn()}
+          onRetryContent={vi.fn()}
           onContinue={vi.fn()}
           summary={null}
           relatedNotes={[{ documentId: 'd_b8_2', title: 'Про печь', date: '2026-10-12', score: 3 }]}

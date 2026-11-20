@@ -36,7 +36,7 @@ export function initAiDomainEvents(): () => void {
         // чистка произведена и строки разбора уже удалены.
         AILexiconService.clearCache();
         invalidateMiniSearchCache();
-        await NoteAnalysisService.clear(e.documentId);
+        await NoteAnalysisService.clearAnalysis(e.documentId); // намеренно: фон — отказ облака уже в очереди повтора (persistPendingAnalysisDelete)
         break;
       }
       case 'note.excludedFromAI': {
@@ -48,7 +48,7 @@ export function initAiDomainEvents(): () => void {
             import('./services/AILexiconService'),
           ]);
           AILexiconService.clearCache();
-          await NoteAnalysisService.clear(e.documentId);
+          await NoteAnalysisService.clearAnalysis(e.documentId); // намеренно: фон — отказ облака уже в очереди повтора (persistPendingAnalysisDelete)
         }
         await refreshing;
         break;

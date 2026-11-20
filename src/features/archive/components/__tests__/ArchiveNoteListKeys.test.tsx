@@ -37,8 +37,6 @@ describe("DEEP-15: ArchiveNoteList item keys", () => {
   ];
 
   const defaultProps = {
-    loading: false,
-    error: null,
     groupedSessions: {},
     sortedDates: [],
     dateLocale: enUS,
@@ -63,7 +61,7 @@ describe("DEEP-15: ArchiveNoteList item keys", () => {
         <ArchiveNoteList
           {...defaultProps}
           viewMode="list"
-          filteredSessions={mockSessions}
+          state={{ status: 'data', data: mockSessions }}
         />
       </ToastProvider>
     );
@@ -79,7 +77,7 @@ describe("DEEP-15: ArchiveNoteList item keys", () => {
         <ArchiveNoteList
           {...defaultProps}
           viewMode="grid"
-          filteredSessions={mockSessions}
+          state={{ status: 'data', data: mockSessions }}
         />
       </ToastProvider>
     );
@@ -96,7 +94,7 @@ describe("DEEP-15: ArchiveNoteList item keys", () => {
         <ArchiveNoteList
           {...defaultProps}
           viewMode="list"
-          filteredSessions={[]}
+          state={{ status: 'empty' }}
         />
       </ToastProvider>
     );
@@ -107,4 +105,17 @@ describe("DEEP-15: ArchiveNoteList item keys", () => {
     fireEvent.click(actionBtn);
     expect(mockNavigate).toHaveBeenCalledWith("/");
   });
+
+  // 0.11.22: отбор по меткам/тегам/дате без совпадений — «Ничего не найдено», а не
+  // «Пока нет записей» с призывом начать писать. Мутация: sliceEmpty без hasActiveFilter — красный.
+  it('фильтр без совпадений — «ничего не найдено», а не «пока нет записей»', () => {
+    renderWithProviders(
+      <ToastProvider>
+        <ArchiveNoteList {...defaultProps} viewMode="list" hasActiveFilter state={{ status: 'empty' }} />
+      </ToastProvider>
+    );
+    expect(screen.getByText('archive_empty_filtered')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'archive_empty_action' })).toBeNull();
+  });
 });
+

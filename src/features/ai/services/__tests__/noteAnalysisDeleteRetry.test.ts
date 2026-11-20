@@ -59,7 +59,7 @@ describe('A-3.3 (F-008): note analysis delete retry and restore suppression', ()
     // 1. Clear analysis when cloud delete fails
     vi.mocked(DataProvider.deleteSummary).mockRejectedValueOnce(new Error('Network error on deleteSummary'));
 
-    await NoteAnalysisService.clear(DOC_ID);
+    await expect(NoteAnalysisService.clearAnalysis(DOC_ID)).resolves.toEqual({ cloudSynced: false });
 
     // Assert 1: Marker exists
     const markers = readPersistedAnalysisDeletes();

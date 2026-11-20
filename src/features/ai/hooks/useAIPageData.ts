@@ -425,8 +425,9 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
 
   const handleFeedback = async (value: 'up' | 'down') => {
     if (value === 'up') {
-      await AIChatMemoryService.addManual('preference', 'Пользователю понравился такой ответ (тон/подход) — продолжать в этом духе.', activeDialogueId ?? undefined);
-      showToast('Учту — продолжу в этом стиле', 'success');
+      const saved = await AIChatMemoryService.addManual('preference', 'Пользователю понравился такой ответ (тон/подход) — продолжать в этом духе.', activeDialogueId ?? undefined);
+      if (saved) showToast('Учту — продолжу в этом стиле', 'success');
+      else showToast(t('error_generic_action'), 'error');
     } else {
       const reason = (await promptDialog({
         title: t('ai_feedback_prompt_title'),
@@ -436,8 +437,9 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
       const text = reason
         ? `Пользователю не нравится в ответе: ${reason}. Скорректировать стиль.`
         : 'Пользователю не понравился такой ответ (тон/подход) — скорректировать стиль.';
-      await AIChatMemoryService.addManual('preference', text, activeDialogueId ?? undefined);
-      showToast(reason ? `Учту: меньше «${reason}»` : 'Учту — скорректирую стиль', 'success');
+      const saved = await AIChatMemoryService.addManual('preference', text, activeDialogueId ?? undefined);
+      if (saved) showToast(reason ? `Учту: меньше «${reason}»` : 'Учту — скорректирую стиль', 'success');
+      else showToast(t('error_generic_action'), 'error');
     }
   };
 

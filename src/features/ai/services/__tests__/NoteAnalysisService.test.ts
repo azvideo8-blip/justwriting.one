@@ -87,7 +87,7 @@ describe('NoteAnalysisService', () => {
    * мало: сводка и вектор остались бы лежать в базе, и кнопка врала бы.
    */
   it('clears the cloud copies, not only the local ones', async () => {
-    await NoteAnalysisService.clear('doc_1');
+    await NoteAnalysisService.clearAnalysis('doc_1');
 
     expect(deleteSummary).toHaveBeenCalledWith('user_1', 'doc_1');
     expect(deleteEmbedding).toHaveBeenCalledWith('user_1', 'doc_1');

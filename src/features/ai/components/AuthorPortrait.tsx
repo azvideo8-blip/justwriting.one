@@ -8,6 +8,7 @@ import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../shared/errors/reportError';
 import { isDayLimitError } from '../types/aiErrors';
 import { useLanguage } from '../../../shared/i18n';
+import { LoadNotice } from '../../../shared/components/LoadStateView';
 
 interface AuthorPortraitProps {
   readOnly?: boolean;
@@ -22,9 +23,11 @@ export function AuthorPortrait({ readOnly = false }: AuthorPortraitProps = {}) {
   // PX-3: портрет собран по прежним правилам. Флаг читается из локальной записи:
   // при открытии Профила к ИИ не обращаются, пересборка — только по нажатию.
   const [stalePortrait, setStalePortrait] = useState(false);
-  const [loading, setLoading] = useState(true);
+  // Не прочиталось ≠ «портрет не создан»: сбой чтения назван и перечитывается.
+  const [read, setRead] = useState<'loading' | 'error' | 'done'>('loading');
 
   const loadData = async () => {
+    setRead('loading');
     try {
       const portrait = await AIProfileService.getPortrait();
       setPortraitText(portrait);
@@ -33,10 +36,10 @@ export function AuthorPortrait({ readOnly = false }: AuthorPortraitProps = {}) {
       const db = await getLocalDb();
       const summaries = await db.getAll('aiSummaries');
       setSummariesCount(summaries.length);
+      setRead('done');
     } catch (e) {
-      console.error('[AuthorPortrait] failed to load data:', e);
-    } finally {
-      setLoading(false);
+      reportError(e, { action: 'author_portrait_load' });
+      setRead('error');
     }
   };
 
@@ -58,7 +61,8 @@ export function AuthorPortrait({ readOnly = false }: AuthorPortraitProps = {}) {
         // Строка «собран по прежним правилам» — по сохранённой версии: пересборка,
         // взявшая раздел из старого кэша, её оставляет (ревью 0.9.39).
         setStalePortrait(await AIProfileService.isPortraitStale());
-        showToast('Психологический портрет обновлён', 'success');
+        if (result.partial) showToast(t('ai_portrait_partial'), 'warning');
+        else showToast('Психологический портрет обновлён', 'success');
         // Refresh summariesCount
         const db = await getLocalDb();
         const summaries = await db.getAll('aiSummaries');
@@ -83,12 +87,15 @@ export function AuthorPortrait({ readOnly = false }: AuthorPortraitProps = {}) {
     if (!result) showToast(t('ai_portrait_not_created_short'), 'error');
   };
 
-  if (loading) {
+  if (read === 'loading') {
     return (
       <div className="rounded-2xl bg-surface-base/5 border border-border-subtle overflow-hidden p-8 flex justify-center items-center">
         <Loader2 size={16} className="animate-spin text-text-main/60" />
       </div>
     );
+  }
+  if (read === 'error') {
+    return <LoadNotice variant="panel" className="p-6" text={`${t('ai_portrait_title')}: ${t('load_failed_retry')}`} onRetry={() => void loadData()} />;
   }
 
   return (

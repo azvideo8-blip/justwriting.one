@@ -139,9 +139,8 @@ describe('MC-4: конец сохранения на телефоне', () => {
     const onSave = vi.fn().mockResolvedValue({ docId: 'doc_1', cloudSynced: false, isTooLarge: false });
     render(<WritingFinishModal isOpen onCancel={vi.fn()} onSave={onSave} />);
     fireEvent.click(screen.getAllByRole('button', { name: /finish_discuss_ai/ })[0]!);
-    await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith(
-      expect.stringMatching(/save_local_device_only|save_local_only_queued/), undefined,
-    ));
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalled());
+    expectHonestLocalToast();
   });
 
   it('слишком большая заметка — предупреждение, а не «Записано»', async () => {
@@ -168,11 +167,17 @@ describe('MC-4: десктоп по-прежнему тостит', () => {
     vi.clearAllMocks();
     seedStore();
     saveWith({ docId: 'doc_2', cloudSynced: false, isTooLarge: false });
-    await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith(
-      expect.stringMatching(/save_local_device_only|save_local_only_queued/),
-    ));
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalled());
+    expectHonestLocalToast();
   });
 });
+
+// 0.11.22: тип тоста — часть итога. «Отправится позже» шёл без типа (= зелёный успех).
+function expectHonestLocalToast() {
+  const [text, type] = mockShowToast.mock.calls.at(-1) ?? [];
+  if (text === 'save_local_only_queued') expect(type).toBe('warning');
+  else expect([text, type]).toEqual(['save_local_device_only', 'success']);
+}
 
 describe('MC-4: строка в шапке письма', () => {
   beforeEach(() => {

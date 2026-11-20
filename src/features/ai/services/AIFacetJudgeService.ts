@@ -100,10 +100,12 @@ export const AIFacetJudgeService = {
     } catch { /* намеренно: хранилище недоступно — и журнала в нём нет */ }
   },
 
-  async review(opts?: CallAiOptions): Promise<{ judged: number; corrected: number; log: JudgeLogEntry[] }> {
+  // unchecked — грани, до которых проверка не дошла (отказ сервиса, проход встал):
+  // «проверено N — всё верно» по ним было бы неправдой.
+  async review(opts?: CallAiOptions): Promise<{ judged: number; corrected: number; unchecked: number; log: JudgeLogEntry[] }> {
     return writeFacetStore(async (facetStore) => {
     const facets = await AIProfileFacetService.getAll();
-    if (facets.length === 0) return { judged: 0, corrected: 0, log: [] };
+    if (facets.length === 0) return { judged: 0, corrected: 0, unchecked: 0, log: [] };
 
     const db = await getLocalDb();
     const summaries = (await db.getAll('aiSummaries')) as SummaryRow[];
@@ -151,8 +153,9 @@ export const AIFacetJudgeService = {
       if (!r.ok && (r.error === 'SERVER_ERROR' || r.error === 'RATE_LIMIT' || isDayLimitError(r.error) || r.error === 'NETWORK' || r.error === 'UPSTREAM')) break;
     }
     const verdicts = results.flatMap(r => (r.ok ? r.verdicts : []));
+    const unchecked = Math.max(0, facets.length - verdicts.length);
     if (verdicts.length === 0 && results.every(r => !r.ok)) {
-      return { judged: 0, corrected: 0, log: [] };
+      return { judged: 0, corrected: 0, unchecked, log: [] };
     }
 
     let corrected = 0;
@@ -198,7 +201,7 @@ export const AIFacetJudgeService = {
       localStorage.setItem(key, JSON.stringify({ at: Date.now(), entries: log } satisfies JudgeLog));
       localStorage.removeItem(JUDGE_LOG_KEY);
     } catch { /* quota — non-critical */ }
-    return { judged: verdicts.length, corrected, log };
+    return { judged: verdicts.length, corrected, unchecked, log };
     });
   },
 };

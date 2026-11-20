@@ -80,7 +80,7 @@ describe('AP2-3: анализ не восстанавливает скрытые
     await vi.waitFor(() => expect(summarize).toHaveBeenCalledOnce());
     await db.put('documents', doc(hidden, field === 'trashedAt' ? { trashedAt: now } : { excludedFromAI: true }));
     await markAllAnalysed(db);
-    await NoteAnalysisService.clear(hidden);
+    await NoteAnalysisService.clearAnalysis(hidden);
     release({ ok: true, summary: summary(hidden) });
     expect(await analyzing).toEqual({ ok: false, error: 'EXCLUDED' });
     expect(await db.get('aiSummaries', hidden)).toBeUndefined();

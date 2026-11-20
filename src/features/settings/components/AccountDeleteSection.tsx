@@ -80,7 +80,7 @@ export function AccountDeleteSection({ userId }: AccountDeleteSectionProps) {
       await ProfileService.resetAchievements(userId);
       localStorage.removeItem(`unlocked_achievements_${userId}`);
       window.dispatchEvent(new Event('achievements-reset'));
-      showToast(t('save_success'), 'success');
+      showToast(t('profile_achievements_reset_done'), 'success');
       setConfirmReset(false);
     } catch (err) {
       reportError(err, { action: 'resetAchievements', userId });

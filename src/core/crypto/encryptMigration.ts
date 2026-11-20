@@ -146,6 +146,8 @@ async function _encryptAllExistingNotesInner(
 
   const checkpoint = loadCheckpoint(userId);
 
+  // Каждый сбой — и строки, и чтения целого набора — идёт в progress.errors: по
+  // нему вызывающие решают «зашифровано» или «не всё». hadErrors — только чекпоинт.
   let hadErrors = false;
 
   // Documents & Versions
@@ -245,6 +247,7 @@ async function _encryptAllExistingNotesInner(
       } catch (e) {
         if (e instanceof DOMException && e.name === 'AbortError') throw e;
         if (e instanceof VaultLockedError) throw e;
+        progress.errors++;
         hadErrors = true;
         reportError(e, { action: 'encryptAllExistingNotes_documentVersions', documentId });
       }
@@ -252,6 +255,7 @@ async function _encryptAllExistingNotesInner(
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') throw e;
     if (e instanceof VaultLockedError) throw e;
+    progress.errors++;
     hadErrors = true;
     reportError(e, { action: 'encryptAllExistingNotes_documentsQuery', userId });
   }
@@ -300,6 +304,7 @@ async function _encryptAllExistingNotesInner(
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') throw e;
     if (e instanceof VaultLockedError) throw e;
+    progress.errors++;
     hadErrors = true;
     reportError(e, { action: 'encryptAllExistingNotes_draftsQuery', userId });
   }
@@ -371,6 +376,7 @@ async function _encryptAllExistingNotesInner(
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') throw e;
     if (e instanceof VaultLockedError) throw e;
+    progress.errors++;
     hadErrors = true;
     reportError(e, { action: 'encryptAllExistingNotes_summariesQuery', userId });
   }
@@ -435,6 +441,7 @@ async function _encryptAllExistingNotesInner(
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') throw e;
     if (e instanceof VaultLockedError) throw e;
+    progress.errors++;
     hadErrors = true;
     reportError(e, { action: 'encryptAllExistingNotes_embeddingsQuery', userId });
   }
@@ -486,12 +493,16 @@ async function _encryptAllExistingNotesInner(
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') throw e;
     if (e instanceof VaultLockedError) throw e;
+    progress.errors++;
     hadErrors = true;
     reportError(e, { action: 'encryptAllExistingNotes_localStoreRecordsQuery', userId });
   }
 
   // Чекпойнт — память о проделанной работе. Снести его после завершения без ошибок.
   if (!hadErrors) clearCheckpoint(userId);
+  // Итог подписчику всегда: сбой чтения целого набора в report() не попадал, и
+  // экран сейфа показывал «зашифровано» по последнему (безошибочному) снимку.
+  report();
   return progress;
 }
 

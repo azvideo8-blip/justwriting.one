@@ -130,8 +130,8 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
                   </div>
                 ) : inventory ? (
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-text-main/60 text-[11px] pt-1">
-                    <div>{t('signout_inv_notes')}<strong className="text-text-main">{inventory.notesCount}</strong></div>
-                    <div>{t('signout_inv_versions')}<strong className="text-text-main">{inventory.versionsCount}</strong></div>
+                    <div>{t('signout_inv_notes')}<strong className="text-text-main">{inventory.notesCount ?? t('signout_inv_unknown')}</strong></div>
+                    <div>{t('signout_inv_versions')}<strong className="text-text-main">{inventory.versionsCount ?? t('signout_inv_unknown')}</strong></div>
                     <div>{t('signout_inv_dialogues')}<strong className="text-text-main">{inventory.dialoguesCount}</strong></div>
                     <div>{t('signout_inv_facets')}<strong className="text-text-main">{inventory.facetsCount}</strong></div>
                     <div>{t('signout_inv_life_story')}<strong className="text-text-main">{inventory.lifeStoryCount}</strong></div>
@@ -145,14 +145,18 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
                 ) : null}
               </div>
 
-              {inventory && inventory.unsyncedNotesCount > 0 && (
+              {/* Не удалось проверить, всё ли отправлено, — то же предупреждение и та же
+                  галочка, что при найденных неотправленных: не «всё в облаке». */}
+              {inventory && (inventory.unsyncedNotesCount === null || inventory.unsyncedNotesCount > 0) && (
                 <div className="p-3 bg-accent-warning/10 border border-accent-warning/20 rounded-xl text-xs space-y-2">
                   <div className="flex items-center gap-1.5 font-medium text-accent-warning">
                     <AlertTriangle className="w-4 h-4" />
                     {t('signout_unsynced_warning_title')}
                   </div>
                   <p className="text-text-main/70 text-[11px] leading-relaxed">
-                    {t('signout_unsynced_warning_desc_before')}<strong>{inventory.unsyncedNotesCount}</strong>{t('signout_unsynced_warning_desc_after')}
+                    {inventory.unsyncedNotesCount === null
+                      ? t('signout_unsynced_unknown_desc')
+                      : <>{t('signout_unsynced_warning_desc_before')}<strong>{inventory.unsyncedNotesCount}</strong>{t('signout_unsynced_warning_desc_after')}</>}
                   </p>
                   <label className="flex items-center gap-2 pt-1 cursor-pointer">
                     <input
@@ -184,7 +188,7 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
           </Button>
           <Button
             onClick={() => void handleSignOut()}
-            disabled={signingOut || (clearLocalData && (inventory?.unsyncedNotesCount ?? 0) > 0 && !forceWipe)}
+            disabled={signingOut || (clearLocalData && inventory !== null && inventory.unsyncedNotesCount !== 0 && !forceWipe)}
             className={`px-4 py-2 text-xs font-semibold flex items-center gap-1.5 ${
               clearLocalData
                 ? 'bg-accent-danger/20 text-accent-danger border border-accent-danger/30 hover:bg-accent-danger/30'

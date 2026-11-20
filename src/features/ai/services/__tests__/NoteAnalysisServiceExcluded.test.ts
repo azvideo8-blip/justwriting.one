@@ -107,7 +107,7 @@ describe("D4.18 NoteAnalysisService & ArchiveCrud Exclusion", () => {
   });
 
   it("clear() deletes local summary, embedding and clears doc.aiProcessed", async () => {
-    await NoteAnalysisService.clear(EXCLUDED_ID);
+    await NoteAnalysisService.clearAnalysis(EXCLUDED_ID);
 
     const summary = await AISummaryService.get(EXCLUDED_ID);
     const embedding = await AIEmbeddingService.get(EXCLUDED_ID);

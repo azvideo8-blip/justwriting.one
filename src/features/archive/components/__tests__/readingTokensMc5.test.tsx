@@ -55,7 +55,7 @@ describe('MC-5: читалка на телефоне', () => {
   // U-1 (2026-10-18): заголовок — Inter 24, как на десктопе (был serif 26).
   it('тело использует токены, заголовок — Inter 24', () => {
     render(
-      <MobileNoteReader session={session} onClose={vi.fn()} onContinue={vi.fn()} />,
+      <MobileNoteReader session={session} onClose={vi.fn()} onContinue={vi.fn()} onRetryContent={vi.fn()} />,
     );
     const body = screen.getByText(BODY);
     expect(body.className).toContain('var(--reading-size)');
@@ -102,7 +102,7 @@ describe('SA-17: дата в читалке', () => {
   beforeEach(() => { cleanup(); layoutMode = 'mobile'; });
 
   it('под заголовком — строка даты 13 px', () => {
-    render(<MobileNoteReader session={session} onClose={vi.fn()} onContinue={vi.fn()} />);
+    render(<MobileNoteReader session={session} onClose={vi.fn()} onContinue={vi.fn()} onRetryContent={vi.fn()} />);
     const date = screen.getByTestId('reader-date');
     expect(date.textContent).toMatch(/14 октября/);
     expect(date.textContent).toMatch(/20:15/);

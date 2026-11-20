@@ -707,7 +707,14 @@ export async function importMigrationManifest(
     } else {
       try {
         const syncRes = await SyncService.syncAllUnlinked(targetUserId);
-        upload = {
+        upload = syncRes.inProgress ? {
+          // Уже шла другая синхронизация — ничего не отправлено; не «completed: 0».
+          status: "failed",
+          attempted: 0,
+          uploaded: 0,
+          queued: 0,
+          reason: "Sync already running — use «Upload all notes to cloud» once it finishes.",
+        } : {
           status: "completed",
           attempted: importedDocIds.length,
           uploaded: syncRes.synced,

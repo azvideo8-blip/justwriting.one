@@ -112,6 +112,9 @@ describe('AIFacetJudgeService.review', () => {
     // The loop must stop after the first failure — one call, not two.
     expect(judgeMock).toHaveBeenCalledTimes(1);
     expect(res.judged).toBe(0);
+    // 0.11.22: не дошли — названо (иначе «Профиль обновлён»). Мутация:
+    // unchecked = 0 — красный.
+    expect(res.unchecked).toBe(4);
   });
 
   // TR-9: при пересказе грани по замечанию судьи модели уходят фрагменты заметок.

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { LoadNotice } from '../../../shared/components/LoadStateView';
 import { Database, Loader2, Trash2 } from 'lucide-react';
 import { getLocalDb, isSyncRevCursorKey } from '../../../core/storage/localDb';
 import { DocumentService } from '../../../core/services/DocumentService';
@@ -45,6 +46,8 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
   const [selectedTable, setSelectedTable] = useState<string>('documents');
   const [records, setRecords] = useState<RecordType[]>([]);
   const [loading, setLoading] = useState(false);
+  // Не прочиталось ≠ пустая таблица.
+  const [loadFailed, setLoadFailed] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<RecordType | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const { showToast } = useToast();
@@ -61,6 +64,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setLoadFailed(false);
     try {
       if (source === 'local') {
         const db = await getLocalDb();
@@ -75,8 +79,9 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
           const { users } = await AdminUserService.getUsers(150);
           setRecords(users as unknown as RecordType[]);
         } else if (selectedTable === 'user_documents') {
-          // R-2: битый ряд — показываем прочитанные, а не пустую таблицу.
-          const data = (await readCloudDocumentsPartial(userId)).docs;
+          // R-2: битый ряд — показываем прочитанные, а не пустую таблицу; но неполноту называем.
+          const { docs: data, unreadable } = await readCloudDocumentsPartial(userId);
+          if (unreadable.length > 0) showToast(t('admin_db_partial', { count: unreadable.length }), 'warning');
           setRecords(data as unknown as RecordType[]);
         } else if (selectedTable === 'user_versions') {
           const [{ docs }, versions] = await Promise.all([
@@ -98,10 +103,11 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
       reportError(e, { action: 'database_explorer_load' });
       showToast('Не удалось загрузить данные таблиц', 'error');
       setRecords([]);
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
-  }, [source, selectedTable, userId, showToast]);
+  }, [source, selectedTable, userId, showToast, t]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetch on table/source selection change
@@ -281,6 +287,8 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
               <Loader2 size={16} className="animate-spin mx-auto mb-2 text-brand-soft" />
               {t('admin_db_loading')}
             </div>
+          ) : loadFailed ? (
+            <LoadNotice variant="row" className="m-3" text={t('load_failed_retry')} onRetry={() => void loadData()} />
           ) : filteredRecords.length === 0 ? (
             <div className="p-8 text-center text-xs text-text-main/60">{t('admin_db_empty')}</div>
           ) : (

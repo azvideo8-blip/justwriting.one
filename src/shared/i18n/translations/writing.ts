@@ -225,6 +225,7 @@ export const writingTranslations: Translations = {
   ai_note_clear: { ru: 'Удалить разбор ИИ', en: 'Delete AI analysis' },
   ai_note_analyzed: { ru: 'Заметка разобрана', en: 'Note analysed' },
   ai_note_cleared: { ru: 'Разбор удалён', en: 'Analysis deleted' },
+  ai_note_cleared_local_only: { ru: 'Разбор удалён на этом устройстве — из облака удалится позже', en: 'Analysis deleted on this device — the cloud copy will be removed later' },
   ai_note_clear_confirm: { ru: 'Удалить разбор этой заметки?', en: 'Delete the analysis of this note?' },
   ai_note_clear_confirm_hint: { ru: 'Сводка и вектор поиска будут удалены — и на устройстве, и в облаке. Сама заметка останется', en: 'The summary and the search vector will be removed, both on the device and in the cloud. The note itself stays' },
   ai_note_exclude: { ru: 'Не показывать ИИ', en: 'Hide from AI' },

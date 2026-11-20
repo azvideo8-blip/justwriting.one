@@ -6,6 +6,7 @@ import { analyzeDoors, aggregateDoors, type AggregatedDoors } from '../utils/con
 import { Button } from '../../../shared/components/Button';
 import { reportError } from '../../../shared/errors/reportError';
 import { useLanguage } from '../../../shared/i18n';
+import { LoadNotice } from '../../../shared/components/LoadStateView';
 
 const DOORS_CACHE_KEY = 'contact_doors_cache';
 
@@ -16,7 +17,6 @@ interface ContactDoorsProps {
 export function ContactDoors({ readOnly = false }: ContactDoorsProps = {}) {
   const { t } = useLanguage();
   const [data, setData] = useState<AggregatedDoors | null>(null);
-  const [loading, setLoading] = useState(false);
   const uid = getCurrentUser()?.uid ?? 'guest';
   const cacheKey = `${DOORS_CACHE_KEY}_${uid}`;
 
@@ -27,9 +27,13 @@ export function ContactDoors({ readOnly = false }: ContactDoorsProps = {}) {
     } catch { /* ignore */ }
     return null;
   });
+  // Сбой разбора ≠ «пока пусто»; в профиле (readOnly) кнопки нет — повтор в плашке.
+  // Без кэша профиль разбирает сразу: первый кадр — «считаю», а не «пусто».
+  const [run, setRun] = useState<'idle' | 'running' | 'error'>(() => (readOnly && !cache ? 'running' : 'idle'));
+  const loading = run === 'running';
 
   const handleAnalyze = async () => {
-    setLoading(true);
+    setRun('running');
     try {
       const db = await getLocalDb();
       const docs = await db.getAllFromIndex('documents', 'by-guest', uid);
@@ -49,10 +53,10 @@ export function ContactDoors({ readOnly = false }: ContactDoorsProps = {}) {
       try {
         localStorage.setItem(cacheKey, JSON.stringify(result));
       } catch { /* ignore quota */ }
+      setRun('idle');
     } catch (e) {
       reportError(e, { action: 'contact_doors_analysis' });
-    } finally {
-      setLoading(false);
+      setRun('error');
     }
   };
 
@@ -83,7 +87,10 @@ export function ContactDoors({ readOnly = false }: ContactDoorsProps = {}) {
       </div>
 
       <div className="p-5">
-        {!display && !loading && (
+        {run === 'error' && (
+          <LoadNotice variant="row" className="mb-3" text={t('load_failed_retry')} onRetry={() => void handleAnalyze()} />
+        )}
+        {!display && run === 'idle' && (
           <p className="text-xs text-text-main/60">{t('ai_doors_empty')}</p>
         )}
 

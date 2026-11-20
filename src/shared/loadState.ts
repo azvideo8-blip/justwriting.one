@@ -55,18 +55,3 @@ export function mapLoadState<T, U>(state: LoadState<T>, fn: (data: T) => U, isEm
     case 'error': return { status: 'error', retry: state.retry, stale: state.stale === undefined ? undefined : fn(state.stale) };
   }
 }
-
-/**
- * Переходник для хуков, которые ещё отдают `loading` / `error` / частичный
- * отказ отдельными полями. Только на время перевода: место, где флаги можно
- * перепутать, одно и под тестом. `stale` — уже прочитанные непустые данные.
- */
-export function loadStateFromFlags<T extends readonly unknown[]>(
-  flags: { loading: boolean; failed: boolean; partial: boolean; retry: () => void },
-  data: T,
-): LoadState<T> {
-  const stale = data.length > 0 ? data : undefined;
-  if (flags.failed) return { status: 'error', retry: flags.retry, stale };
-  if (flags.loading) return { status: 'loading', stale };
-  return loadState.settled(data, d => d.length === 0, flags.partial ? { retry: flags.retry } : null);
-}

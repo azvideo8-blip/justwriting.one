@@ -220,7 +220,9 @@ export const AIProfileService = {
     return !!local;
   },
 
-  async generate(opts?: CallAiOptions): Promise<{ ok: true; markdown: string } | { ok: false; error: string }> {
+  // partial — хоть один раздел взят из кэша по прежним данным или остался заглушкой
+  // «в процессе анализа»: это не «портрет обновлён» без оговорок.
+  async generate(opts?: CallAiOptions): Promise<{ ok: true; markdown: string; partial: boolean } | { ok: false; error: string }> {
     const startEpoch = getPortraitEpoch();
     try {
       const db = await getLocalDb();
@@ -368,6 +370,7 @@ export const AIProfileService = {
 
       const activeSections: Record<string, string> = {};
       let staleSections = false;
+      let placeholderSections = false;
       const generated = new Set<string>();
 
       for (const sec of sections) {
@@ -414,6 +417,7 @@ export const AIProfileService = {
                 if (cached.hash !== hash) staleSections = true;
               } else {
                 activeSections[sec.key] = 'Раздел находится в процессе анализа…';
+                placeholderSections = true;
               }
             }
           } else {
@@ -424,6 +428,7 @@ export const AIProfileService = {
               if (cached.hash !== hash) staleSections = true;
             } else {
               activeSections[sec.key] = 'Раздел находится в процессе анализа…';
+              placeholderSections = true;
             }
           }
         }
@@ -464,7 +469,7 @@ ${activeSections.communication_prefs}
 `;
 
       await this.savePortrait(finalMarkdown, { staleSections });
-      return { ok: true, markdown: finalMarkdown };
+      return { ok: true, markdown: finalMarkdown, partial: staleSections || placeholderSections };
     } catch (e) {
       reportError(e, { action: 'ai_profile_generate' });
       return { ok: false, error: String(e) };

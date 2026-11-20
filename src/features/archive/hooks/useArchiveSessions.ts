@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { AppUser } from '../../../core/auth/types';
 import { loadAllSessions, loadSessionContent } from '../../../core/services/UnifiedSessionLoader';
 import { ArchiveSession } from '../types';
@@ -15,12 +15,19 @@ import { logger } from '../../../shared/errors/logger';
 import { useToast } from '../../../shared/components/Toast';
 import { rebuildWordCloud } from './useArchiveWordCloud';
 import { reportMutationResult } from '../../../shared/mutationResult';
+import { loadState, type LoadState } from '../../../shared/loadState';
 
 export function useArchiveSessions(user: AppUser | null, userId: string, t: (key: string) => string) {
   const [sessions, setSessions] = useState<ArchiveSession[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [cloudLoadFailed, setCloudLoadFailed] = useState(false);
+  // Итог последнего чтения отдельно от списка: список правят обработчики ниже,
+  // а «не прочиталось» / «облако не ответило» / «читаем» живут здесь. Начало —
+  // «читаем»: до первого чтения пустой список — не «архив пуст».
+  // Повтор из состояния (error.retry, partial.retry) — перечитать через этот
+  // счётчик, как в useProfileStats: замыкание на fetchSessions в рендере линтер
+  // справедливо считает чтением ref.
+  const [readKey, setReadKey] = useState(0);
+  const retryRead = useCallback(() => setReadKey(k => k + 1), []);
+  const [read, setRead] = useState<{ status: 'loading' } | { status: 'error' } | { status: 'done'; cloudFailed: boolean }>({ status: 'loading' });
   const [previewSession, setPreviewSession] = useState<ArchiveSession | null>(null);
   const mountedRef = useRef(true);
   const isVaultUnlocked = useEncryptionStore(s => s.isVaultUnlocked);
@@ -28,8 +35,7 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
   const { showToast } = useToast();
 
   const fetchSessions = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+    setRead(prev => (prev.status === 'loading' ? prev : { status: 'loading' }));
 
     try {
       const result = await loadAllSessions(userId, user, { withContent: true });
@@ -37,7 +43,7 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
       const { remainingSessions } = await pruneExpiredTrash(result.sessions as ArchiveSession[], userId);
       if (!mountedRef.current) return;
       setSessions(remainingSessions);
-      setCloudLoadFailed(result.cloudLoadFailed);
+      setRead({ status: 'done', cloudFailed: result.cloudLoadFailed });
 
       if (user) {
         const untitledCloudNotes = remainingSessions.filter(s =>
@@ -64,11 +70,9 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
     } catch (err) {
       if (!mountedRef.current) return;
       logger.error('archive', 'Archive load error', { error: String(err) });
-      setError(t('archive_load_error'));
-    } finally {
-      if (mountedRef.current) setLoading(false);
+      setRead({ status: 'error' });
     }
-  }, [userId, user, t]);
+  }, [userId, user]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -78,7 +82,7 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetching when user/credentials change
     void fetchSessions();
-  }, [fetchSessions]);
+  }, [fetchSessions, readKey]);
 
   useEffect(() => {
     if (isVaultUnlocked && !prevVaultUnlockedRef.current) {
@@ -125,10 +129,13 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
 
   const handleRestoreSession = async (s: ArchiveSession) => {
     try {
-      await restoreArchiveSession(s, userId); // намеренно: локальная заметка восстановлена, при сбое облака задача встаёт в очередь
+      // Локальная копия восстановлена; облако не ответило — задача в очереди, и это
+      // предупреждение, а не «восстановлено» (как у корзины выше).
+      const res = await restoreArchiveSession(s, userId);
       setSessions(prev => prev.map(x => x.id === s.id ? { ...x, trashedAt: undefined } : x));
       if (previewSession?.id === s.id) setPreviewSession(null);
-      showToast(t('archive_trash_restored'), 'success');
+      if (res.cloudSynced) showToast(t('archive_trash_restored'), 'success');
+      else showToast(t('archive_trash_restored_local_only'), 'warning');
       void rebuildWordCloud(userId).catch(() => { /* non-critical */ });
     } catch (e) {
       logger.error('archive', 'Failed to restore session', { error: String(e) });
@@ -212,11 +219,22 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
   const handleLabelChange = (session: ArchiveSession, labelId: string | undefined) =>
     handleFieldUpdate(session, 'labelId', labelId);
 
+  // Весь архив (и заметки, и корзина) одним состоянием; вкладки берут срез
+  // через mapLoadState. Перечитывание держит прошлый список (stale), а не
+  // меняет его на скелет при каждой правке.
+  const listState = useMemo<LoadState<ArchiveSession[]>>(() => {
+    const retry = retryRead;
+    const stale = sessions.length > 0 ? sessions : undefined;
+    if (read.status === 'loading') return loadState.loading(stale);
+    if (read.status === 'error') return loadState.error(retry, stale);
+    return loadState.settled(sessions, list => list.length === 0, read.cloudFailed ? { retry } : null);
+  }, [read, sessions, retryRead]);
+
   const activeSessions = sessions.filter(s => !s.trashedAt);
   const trashedSessions = sessions.filter(s => !!s.trashedAt);
 
   return {
-    sessions, activeSessions, trashedSessions, loading, error, cloudLoadFailed, fetchSessions,
+    sessions, activeSessions, trashedSessions, listState, fetchSessions,
     handleDeleteSession, handleTrashSession, handleRestoreSession, handlePermanentDeleteSession, handleEmptyTrash,
     handleTagsChange, handleTitleChange, handleDateChange, handleLabelChange,
     previewSession, setPreviewSession, openPreview,

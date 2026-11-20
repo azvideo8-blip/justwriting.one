@@ -276,8 +276,9 @@ export const AIChatMemoryService = {
   // surfaces in future turns via getRelevant — feeds the preference layer directly.
   // Dedups: same kind + (identical trimmed text OR cosine>0.92) bumps updatedAt
   // instead of stacking a duplicate row.
-  async addManual(kind: MemoryKind, text: string, sourceDialogueId?: string): Promise<void> {
-    if (!text.trim()) return;
+  // `false` — не записано (сбой уже в отчёте): «Учту» после 👍/👎 без записи было неправдой.
+  async addManual(kind: MemoryKind, text: string, sourceDialogueId?: string): Promise<boolean> {
+    if (!text.trim()) return false;
     try {
       const db = await getLocalDb();
       const now = Date.now();
@@ -301,7 +302,7 @@ export const AIChatMemoryService = {
           existingMem.updatedAt = now;
           await db.put('aiChatMemory', existingMem);
           LocalStoreSyncService.scheduleStoreSync('aiChatMemory', existingMem.id);
-          return;
+          return true;
         }
       }
 
@@ -318,8 +319,10 @@ export const AIChatMemoryService = {
       if (vector) entry.vector = vector;
       await db.put('aiChatMemory', entry);
       LocalStoreSyncService.scheduleStoreSync('aiChatMemory', entry.id);
+      return true;
     } catch (e) {
       reportError(e, { action: 'ai_chat_memory_add_manual' });
+      return false;
     }
   },
 

@@ -2,6 +2,7 @@ import { Translations } from '../types';
 
 export const profileTranslations: Translations = {
   profile_reset_achievements: { ru: 'Сбросить все достижения', en: 'Reset all achievements' },
+  profile_achievements_reset_done: { ru: 'Достижения сброшены', en: 'Achievements reset' },
   profile_loading: { ru: 'Загружаем профиль...', en: 'Loading profile...' },
   profile_theme_title: { ru: 'Дизайн', en: 'Design' },
   profile_streak: { ru: 'дн. стрик', en: 'day streak' },

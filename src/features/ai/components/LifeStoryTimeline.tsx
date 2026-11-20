@@ -5,6 +5,7 @@ import { LifeStoryService } from '../services/LifeStoryService';
 import { reportError } from '../../../shared/errors/reportError';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
+import { LoadNotice } from '../../../shared/components/LoadStateView';
 
 interface DayNote {
   documentId: string;
@@ -23,7 +24,8 @@ interface DayItem {
 
 export function LifeStoryTimeline() {
   const { t, language } = useLanguage();
-  const [loading, setLoading] = useState(true);
+  // Не прочиталось ≠ «история пока пуста».
+  const [read, setRead] = useState<'loading' | 'error' | 'done'>('loading');
   const [days, setDays] = useState<DayItem[]>([]);
   const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
 
@@ -32,7 +34,7 @@ export function LifeStoryTimeline() {
   };
 
   const loadData = async () => {
-    setLoading(true);
+    setRead('loading');
     try {
       const db = await getLocalDb();
       const timelineEntries = await db.getAll('aiTimeline');
@@ -107,11 +109,10 @@ export function LifeStoryTimeline() {
       })).sort((a, b) => b.eventDate.localeCompare(a.eventDate));
 
       setDays(compiledDays);
+      setRead('done');
     } catch (e) {
-      console.error('[LifeStoryTimeline] failed to load life story:', e);
       reportError(e, { action: 'life_story_timeline_load' });
-    } finally {
-      setLoading(false);
+      setRead('error');
     }
   };
 
@@ -124,7 +125,10 @@ export function LifeStoryTimeline() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t]);
 
-  if (loading) {
+  if (read === 'error') {
+    return <LoadNotice variant="panel" className="p-6" text={`${t('ai_timeline_title')}: ${t('load_failed_retry')}`} onRetry={() => void loadData()} />;
+  }
+  if (read === 'loading') {
     return (
       <div className="flex justify-center py-8">
         <Loader2 size={16} className="animate-spin text-text-main/60" />

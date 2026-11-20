@@ -19,6 +19,7 @@ import { MobileNoteReader } from './MobileNoteReader';
 
 import type { AIDocumentSummary } from '../../../core/storage/localDb';
 import { Button } from '../../../shared/components/Button';
+import { LoadNotice } from '../../../shared/components/LoadStateView';
 import { IconButton } from '../../../shared/components/IconButton';
 import { readingTimeMinutes } from '../../../shared/utils/readingTime';
 import type { RelatedNote } from '../../../shared/types/common';
@@ -51,7 +52,7 @@ export function DocumentPreview({
   onAttach?: ((documentId: string) => void) | undefined;
   onAnalyzeNote?: ((sessionId: string) => Promise<{ ok: boolean; error?: string }>) | undefined;
   /** MF-12: «Удалить разбор ИИ» из листа действий читалки (телефон). */
-  onClearAnalysis?: ((sessionId: string) => Promise<void>) | undefined;
+  onClearAnalysis?: ((sessionId: string) => Promise<{ cloudSynced: boolean }>) | undefined;
   fetchSummary?: ((sessionId: string) => Promise<AIDocumentSummary | null>) | undefined;
   fetchRelatedNotes?: ((sessionId: string) => Promise<RelatedNote[]>) | undefined;
   context?: string | undefined;
@@ -163,9 +164,10 @@ export function DocumentPreview({
     if (!ok) return;
     setAnalyzing(true);
     try {
-      await onClearAnalysis(session.id);
+      const res = await onClearAnalysis(session.id);
       setSummary(null);
-      showToast(t('ai_note_cleared'), 'success');
+      if (res.cloudSynced) showToast(t('ai_note_cleared'), 'success');
+      else showToast(t('ai_note_cleared_local_only'), 'warning');
     } catch (e) {
       reportError(e, { action: 'reader_clear_analysis', documentId: session.id });
       showToast(t('error_generic_action'), 'error');
@@ -786,11 +788,13 @@ export function DocumentPreview({
             <p className="text-sm text-text-main/80 font-medium mb-1">{t('archive_decryption_error')}</p>
           </div>
         ) : body.kind === 'error' ? (
-          <div role="alert" className="flex flex-col items-center justify-center text-center p-8 border border-accent-danger/20 bg-accent-danger/5 rounded-2xl my-auto">
-            <AlertCircle size={32} className="text-accent-danger/80 mb-3" />
-            <p className="text-sm text-text-main/80 font-medium mb-3">{t('archive_content_load_error')}</p>
-            <Button onClick={() => void retryContent()} className="underline text-accent-danger/80">{t('retry')}</Button>
-          </div>
+          <LoadNotice
+            variant="panel"
+            className="my-auto p-8"
+            icon={<AlertCircle size={32} className="mx-auto text-accent-danger/80 mb-3" />}
+            text={t('archive_content_load_error')}
+            onRetry={() => void retryContent()}
+          />
         ) : body.kind === 'loading' ? (
           <div className="flex flex-col items-center justify-center text-center p-8 my-auto text-text-main/60">
             <Loader2 size={24} className="animate-spin mb-2" />

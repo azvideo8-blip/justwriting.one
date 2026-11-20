@@ -2,8 +2,9 @@ import { getLocalDb, isSyncRevCursorKey, syncRevCursorKey, countGuestEntriesInSh
 import { countUnsyncedLocalData } from './unsyncedLocalData';
 
 export interface LocalDataInventory {
-  notesCount: number;
-  versionsCount: number;
+  /** null — не удалось посчитать; это не ноль (выход с галочкой всё равно сотрёт). */
+  notesCount: number | null;
+  versionsCount: number | null;
   hasPortrait: boolean;
   facetsCount: number;
   dialoguesCount: number;
@@ -16,7 +17,8 @@ export interface LocalDataInventory {
   digestsCount: number;
   threadsCount: number;
   personasCount: number;
-  unsyncedNotesCount: number;
+  /** null — не удалось проверить, всё ли отправлено. Окно выхода не должно читать это как «всё в облаке». */
+  unsyncedNotesCount: number | null;
   /** Rows in this browser's shared `justwriting-local` that belong to no account; null — could not count. */
   guestEntriesCount: number | null;
   totalItems: number;
@@ -25,8 +27,8 @@ export interface LocalDataInventory {
 export async function countLocalDataInventory(userId?: string): Promise<LocalDataInventory> {
   const db = await getLocalDb(userId);
 
-  let notesCount = 0;
-  let versionsCount = 0;
+  let notesCount: number | null = 0;
+  let versionsCount: number | null = 0;
 
   try {
     if (userId) {
@@ -39,7 +41,8 @@ export async function countLocalDataInventory(userId?: string): Promise<LocalDat
       versionsCount = await db.count('versions');
     }
   } catch {
-    /* fallback to 0 */
+    notesCount = null;
+    versionsCount = null;
   }
 
   let hasPortrait = false;
@@ -98,12 +101,12 @@ export async function countLocalDataInventory(userId?: string): Promise<LocalDat
     safeCount('aiPersonas'),
   ]);
 
-  let unsyncedNotesCount = 0;
+  let unsyncedNotesCount: number | null = 0;
   try {
     const unsynced = await countUnsyncedLocalData(userId);
     unsyncedNotesCount = unsynced.total;
   } catch {
-    /* ignore */
+    unsyncedNotesCount = null;
   }
 
   // N1-1: выход с галочкой стирает из общей базы и гостевые строки — человек
@@ -116,8 +119,8 @@ export async function countLocalDataInventory(userId?: string): Promise<LocalDat
   }
 
   const totalItems =
-    notesCount +
-    versionsCount +
+    (notesCount ?? 0) +
+    (versionsCount ?? 0) +
     (hasPortrait ? 1 : 0) +
     facetsCount +
     dialoguesCount +

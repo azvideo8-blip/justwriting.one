@@ -57,9 +57,15 @@ vi.mock('react-router-dom', () => ({
   useNavigate: () => vi.fn(),
 }));
 
+// 0.11.22: вошедший человек с включённым синком — облако не приняло, задача в очереди.
+const authUser = vi.hoisted(() => ({ current: null as { uid: string } | null }));
+vi.mock('../../../../core/auth', async (orig) => ({ ...(await orig<object>()), getCurrentUser: () => authUser.current }));
+vi.mock('../../../../core/sync/cloudSyncEnabled', async (orig) => ({ ...(await orig<object>()), cloudSyncEnabled: () => true }));
+
 describe('F-2: WritingFinishModal toast on too large note save', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    authUser.current = null;
     useContentStore.setState({ content: 'Test content', wordCount: 10, initialWordCount: 0, wpm: 20 });
     useTimerStore.setState({
       seconds: 60,
@@ -119,10 +125,22 @@ describe('F-2: WritingFinishModal toast on too large note save', () => {
 
     await waitFor(() => {
       expect(onSave).toHaveBeenCalled();
-      expect(mockShowToast).toHaveBeenCalledWith('save_local_device_only');
+      // У гостя облака нет — «сохранено на устройстве» и есть успех.
+      expect(mockShowToast).toHaveBeenCalledWith('save_local_device_only', 'success');
       expect(mockShowToast).not.toHaveBeenCalledWith('save_local_only_queued');
       expect(onCancel).toHaveBeenCalled();
     });
+  });
+
+  // 0.11.22: «в облако отправится позже» шло зелёным успехом (тост без типа), хотя
+  // заметки в облаке нет. Мутация: warningType всегда 'success' — красный.
+  it('облако не приняло у вошедшего — предупреждение «отправится позже», не успех', async () => {
+    authUser.current = { uid: 'u_real' };
+    const onSave = vi.fn().mockResolvedValue({ docId: 'doc_q', cloudSynced: false, isTooLarge: false });
+    render(<WritingFinishModal isOpen={true} onCancel={vi.fn()} onSave={onSave} />);
+    fireEvent.click(screen.getByText('common_save'));
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith('save_local_only_queued', 'warning'));
+    expect(mockShowToast).not.toHaveBeenCalledWith('save_success', 'success');
   });
 
   // DC-W3: настроение — необязательная строка в том же шаге, «Сохранить» отдаёт

@@ -448,9 +448,10 @@ describe('GROUP C — Concurrent scenarios', () => {
     // Launch second immediately — should detect _syncInProgress = true
     const second = SyncService.syncAllUnlinked(USER_ID);
 
-    // Second should resolve immediately with zeros
+    // Second should resolve immediately with zeros — и с пометкой «уже идёт»
+    // (0.11.22): ноль здесь — «не делали», а не «всё отправлено».
     const secondResult = await second;
-    expect(secondResult).toEqual({ synced: 0, failed: 0 });
+    expect(secondResult).toEqual({ synced: 0, failed: 0, inProgress: true });
 
     // Unblock first
     resolveSlow();

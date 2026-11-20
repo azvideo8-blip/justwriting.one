@@ -164,6 +164,7 @@ export const settingsTranslations: Translations = {
   settings_encryption_locked_desc: { ru: 'Введи пароль от аккаунта, чтобы открыть зашифрованные заметки.', en: 'Enter your account password to open your encrypted notes.' },
   settings_unlock_submit: { ru: 'Разблокировать сейф', en: 'Unlock Vault' },
   settings_lock_vault: { ru: 'Заблокировать сейф', en: 'Lock Vault' },
+  settings_vault_locked_done: { ru: 'Сейф заперт', en: 'Vault locked' },
   settings_vault_unlocked: { ru: 'Сейф разблокирован', en: 'Vault Unlocked' },
   settings_vault_unlocked_desc: { ru: 'Ты можешь расшифровать и редактировать зашифрованные заметки. Также можно зашифровать все существующие незашифрованные заметки.', en: 'You can decrypt and edit encrypted notes. You can also encrypt all existing unencrypted notes.' },
   // R7F-006: молчащий сейф на прежнем пароле — самая дорогая из находок: обратная
@@ -315,6 +316,7 @@ export const settingsTranslations: Translations = {
   sync_queue_processed: { ru: 'Обработано задач: {drained}', en: 'Processed tasks: {drained}' },
   sync_queue_partial: { ru: 'Обработано: {drained}, ошибок: {failed}', en: 'Processed: {drained}, failed: {failed}' },
   sync_queue_empty: { ru: 'Очередь пуста', en: 'Queue is empty' },
+  sync_already_running: { ru: 'Синхронизация уже идёт — попробуй, когда она закончится', en: 'Sync is already running — try again once it finishes' },
   sync_queue_disabled: { ru: 'Автосинхронизация отключена в настройках', en: 'Auto-sync is disabled in settings' },
   sync_quarantined_count: { ru: 'Ошибки синхронизации (задачи в карантине): {count}', en: 'Sync errors (quarantined tasks): {count}' },
   sync_quarantined_retry: { ru: 'Повторить', en: 'Retry' },

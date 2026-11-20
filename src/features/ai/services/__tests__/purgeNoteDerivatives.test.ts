@@ -31,7 +31,7 @@ describe('N-4: a note leaves no derivatives behind', () => {
     await db.put('lifeStory', { eventDate: '2026-09-01', text: 'пересказ', sourceDocumentIds: [D], generatedAt: 1 });
     await db.put('aiBeliefs', { id: 'b1', belief: 'я устал', evidence: [{ id: `timeline-${D}-0` }, { id: 'mem1' }], unitIds: [`timeline-${D}-0`, 'mem1'] });
 
-    await NoteAnalysisService.clear(D);
+    await NoteAnalysisService.clearAnalysis(D);
 
     expect(await db.get('aiTimeline', D)).toBeUndefined();
     expect((await db.getAll('aiCommitments')).map(c => c.id)).toEqual(['c2']);

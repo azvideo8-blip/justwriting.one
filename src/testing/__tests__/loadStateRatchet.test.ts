@@ -5,9 +5,8 @@
 //  Р3 — нарисовать <EmptyState> в ArchiveTrashView мимо LoadStateView;
 //  Р4 — добавить в MobileNoteReader `showToast(t('ai_note_excluded'), 'success')`.
 // Синтетические деревья ниже держат те же четыре правила красными навсегда.
-// С 19.11 Р2 и Р4 — в наблюдении (OBSERVE_ONLY): попадают в `observed`, тест на
-// настоящем дереве их печатает и не падает. Мутация Р5 — убрать ключ из
-// OBSERVE_ONLY: красный тест «наблюдение не блокирует».
+// 19.11 вечером владелец включил блокировку всех четырёх (OBSERVE_ONLY пуст).
+// Мутация Р5 — вернуть ключ в OBSERVE_ONLY: красный тест «все четыре блокируют».
 import { describe, it, expect } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -37,9 +36,9 @@ describe('load-state: храповик на настоящем дереве', ()
   });
 });
 
-describe('load-state: наблюдение не блокирует', () => {
-  it('своё loading и сырой тост успеха — в observed, «Повторить» и EmptyState — в blocking', () => {
-    expect([...OBSERVE_ONLY].sort()).toEqual(['ownLoadingState', 'rawSuccessToasts']);
+describe('load-state: все четыре блокируют', () => {
+  it('своё loading, сырой тост успеха, «Повторить» и EmptyState — в blocking', () => {
+    expect([...OBSERVE_ONLY]).toEqual([]);
     const root = tree({
       'src/a/useThing.ts': 'const [loading, setLoading] = useState(true);',
       'src/a/Save.tsx': "showToast(t('saved'), 'success');",
@@ -47,14 +46,14 @@ describe('load-state: наблюдение не блокирует', () => {
       'src/a/Bad.tsx': 'export const B = () => <EmptyState title="x" />;',
     });
     const result = compareWithBaseline(scanLoadState(root), EMPTY_BASE);
-    expect(result.observed).toEqual([
+    expect(result.observed).toEqual([]);
+    expect(result.blocking).toEqual(expect.arrayContaining([
       expect.stringContaining('src/a/useThing.ts: своё состояние loading'),
       expect.stringContaining('src/a/Save.tsx: тостов успеха 1, в базе 0'),
-    ]);
-    expect(result.blocking).toEqual([
       expect.stringContaining('src/a/Panel.tsx: самодельное «Повторить»'),
       expect.stringContaining('src/a/Bad.tsx: EmptyState мимо LoadStateView'),
-    ]);
+    ]));
+    expect(result.blocking).toHaveLength(4);
   });
 });
 

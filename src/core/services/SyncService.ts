@@ -278,10 +278,12 @@ export const SyncService = {
     }
   },
 
-  async syncAllUnlinked(userId: string): Promise<{ synced: number; failed: number }> {
+  async syncAllUnlinked(userId: string): Promise<{ synced: number; failed: number; inProgress?: true }> {
     // SEC-8: Ручное действие пользователя («Отправить все заметки в облако»)
     // намеренно выполняется независимо от switch-настройки автосинка.
-    if (_syncInProgress.get(userId)) return { synced: 0, failed: 0 };
+    // inProgress — уже идёт другая синхронизация, этот вызов ничего не сделал:
+    // не «0 ошибок» и не «всё отправлено».
+    if (_syncInProgress.get(userId)) return { synced: 0, failed: 0, inProgress: true };
     _syncInProgress.set(userId, true);
 
     try {

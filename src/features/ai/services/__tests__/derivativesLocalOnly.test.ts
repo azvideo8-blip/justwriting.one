@@ -110,7 +110,7 @@ describe('derivatives of notes unlinked from the cloud stay local', () => {
 
     saveEmbedding.mockClear();
     const res = await AIEmbeddingService.syncPendingToCloud();
-    expect(res).toEqual({ synced: 0, pending: 0, locked: false });
+    expect(res).toEqual({ synced: 0, pending: 0, locked: false, failed: 0, waiting: 0 });
     expect(saveEmbedding).not.toHaveBeenCalled();
 
     // Запись на месте и без пометок: вернётся заметка в облако — уедет.

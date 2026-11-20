@@ -117,6 +117,9 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
     try {
       // S-1: Run sequentially rather than in Promise.all to avoid racing relink and downloads
       const res = await SyncService.syncAllUnlinked(userId);
+      // Отправку уже ведёт фоновый проход — об этом скажем, но забор из облака
+      // делаем всё равно: он от замка отправки не зависит (ревью 0.11.22).
+      if (res.inProgress) showToast(t('sync_already_running'), 'info');
       const dlRes = await SyncService.downloadAllFromCloud(userId);
 
       if (dlRes.locked) {
@@ -125,7 +128,9 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
 
       const totalSynced = res.synced + dlRes.downloaded;
       const totalFailed = res.failed + dlRes.failed;
-      if (!dlRes.locked || totalSynced > 0) {
+      // Всё упало или облако прочиталось не целиком — «Синхронизировано: 0» зелёным
+      // было бы неправдой; ошибку и предупреждение ниже показывают отдельно.
+      if (totalSynced > 0 || (!res.inProgress && !dlRes.locked && totalFailed === 0 && !dlRes.incomplete)) {
         showToast(
           t('settings_sync_all_unlinked_done', { synced: String(totalSynced) }),
           'success'
@@ -214,7 +219,7 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
         showToast(t('settings_sync_derived_locked'), 'error');
         return;
       }
-      showToast(
+      if (res.totalSynced > 0 || res.totalFailed === 0) showToast(
         t('settings_sync_derived_done', {
           summaries: String(res.summaries.synced),
           embeddings: String(res.embeddings.synced),
@@ -226,6 +231,7 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
       if (orphaned) {
         showToast(
           t('settings_sync_derived_orphaned', { orphaned: String(orphaned) }),
+          'info',
         );
       }
       if (res.totalFailed > 0) {

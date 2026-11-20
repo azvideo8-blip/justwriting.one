@@ -212,6 +212,31 @@ describe('encryptAllExistingNotes', () => {
     expect(progress.errors).toBe(0);
   });
 
+  // 0.11.22: список заметок не прочитался — раньше errors оставался 0, и
+  // вызывающие показывали «зашифровано» зелёным. Мутация: убрать progress.errors++
+  // в catch запроса документов — красный.
+  it('сбой чтения списка заметок — это ошибка в итоге, а не «всё зашифровано»', async () => {
+    mockGetUserDocuments.mockRejectedValue(new Error('network'));
+    mockGetMigrationDrafts.mockResolvedValue([]);
+    const onProgress = vi.fn();
+    const progress = await encryptAllExistingNotes(userId, onProgress);
+    expect(progress.errors).toBeGreaterThan(0);
+    // Экран сейфа видит итог только через onProgress — последний снимок обязан
+    // нести ошибку. Мутация: убрать финальный report() — красный.
+    expect(onProgress).toHaveBeenLastCalledWith(expect.objectContaining({ errors: progress.errors }));
+  });
+
+  it('сбой последнего набора (локальные сторы) — итог с ошибкой доходит до экрана', async () => {
+    mockGetUserDocuments.mockResolvedValue([]);
+    mockGetMigrationDrafts.mockResolvedValue([]);
+    mockGetLocalStoreRecords.mockRejectedValueOnce(new Error('network'));
+    const onProgress = vi.fn();
+    const progress = await encryptAllExistingNotes(userId, onProgress);
+    expect(progress.errors).toBeGreaterThan(0);
+    // Мутация: убрать финальный report() — последний снимок без ошибки, красный.
+    expect(onProgress).toHaveBeenLastCalledWith(expect.objectContaining({ errors: progress.errors }));
+  });
+
   it('handles corrupted checkpoint data gracefully', async () => {
     localStorage.setItem(`encryptionMigration_${userId}_checkpoint`, 'not-valid-json{{{');
 

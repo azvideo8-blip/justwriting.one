@@ -142,18 +142,26 @@ export const AIProfileRefreshService = {
     try {
       await withUserRun(async () => {
         const chargeOpt = { charge: 'user' as const };
+        // Шаги, которые отказывают возвратом (а не броском), проверяются здесь:
+        // иначе «Профиль обновлён» при отказе поставщика на любом из них.
         await step('facets', async () => {
-          await AIProfileFacetService.resummarizeDirty(undefined, chargeOpt);
-          await AIProfileFacetService.summarizePending(undefined, chargeOpt);
+          const dirty = await AIProfileFacetService.resummarizeDirty(undefined, chargeOpt);
+          const pending = await AIProfileFacetService.summarizePending(undefined, chargeOpt);
+          if (dirty.failed + pending.failed > 0) throw new Error(`facets refresh incomplete: ${dirty.failed + pending.failed}`);
         });
-        await step('judge', () => AIFacetJudgeService.review(chargeOpt));
+        await step('judge', async () => {
+          const res = await AIFacetJudgeService.review(chargeOpt);
+          if (res.unchecked > 0) throw new Error(`judge incomplete: ${res.unchecked} unchecked`);
+        });
         await step('digests', async () => {
           const db = await getLocalDb();
           const timeline = await db.getAll('aiTimeline');
           const months = [...new Set(timeline.map(e => e.month).filter(Boolean))].sort();
+          let missed = 0;
           for (const month of months) {
-            await AIMonthlyDigestService.generateForMonth(month, chargeOpt);
+            if (!(await AIMonthlyDigestService.generateForMonth(month, chargeOpt))) missed++;
           }
+          if (missed > 0) throw new Error(`digests incomplete: ${missed}`);
         });
         // Портрет последним: он читает уже пересчитанные и проверенные грани.
         // Н-3 (дейлик 17.11): generate отказывает возвратом { ok:false }, а не
@@ -161,6 +169,7 @@ export const AIProfileRefreshService = {
         await step('portrait', async () => {
           const res = await AIProfileService.generate(chargeOpt);
           if (!res.ok) throw new Error(`portrait refresh refused: ${res.error}`);
+          if (res.partial) throw new Error('portrait refresh partial: stale or placeholder sections');
         });
       });
     } finally {

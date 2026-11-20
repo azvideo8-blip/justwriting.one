@@ -50,7 +50,7 @@ function openInfo() {
         <MobileNoteReader
           session={session}
           onClose={vi.fn()}
-          onContinue={vi.fn()}
+          onContinue={vi.fn()} onRetryContent={vi.fn()}
           labels={labels}
           onLabelChange={onLabelChange}
           summary={null}

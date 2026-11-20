@@ -11,8 +11,8 @@
 // убывает: новое место — красный, исправленное место, оставшееся в списке, —
 // тоже красный (убери из списка).
 // Блокируют: «Повторить» и EmptyState мимо разбора. Своё loading и сырые тосты
-// успеха — с 19.11 неделю в наблюдении (OBSERVE_ONLY): пишут, что заблокировали
-// бы, но не роняют. Включить блокировку — убрать ключ из OBSERVE_ONLY.
+// успеха — с 19.11 были в наблюдении (OBSERVE_ONLY); 19.11 вечером владелец:
+// «включай» — блокируют все четыре. Вернуть правило в наблюдение — ключ в OBSERVE_ONLY.
 // Запуск: node scripts/check-load-state.mjs [корень]; выход 1 при блокирующей находке.
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -77,7 +77,8 @@ export function scanLoadState(root = process.cwd()) {
   return found;
 }
 
-export const OBSERVE_ONLY = new Set(['ownLoadingState', 'rawSuccessToasts']);
+/** @type {Set<string>} */
+export const OBSERVE_ONLY = new Set();
 
 /**
  * Сравнить находки с базой: `blocking` роняет ворота, `observed` — только

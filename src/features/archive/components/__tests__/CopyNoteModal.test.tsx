@@ -29,7 +29,7 @@ describe('CopyNoteModal (UI-07)', () => {
     });
   });
 
-  it('renders with Markdown tab active by default and switches to Text tab', () => {
+  it('renders with Markdown tab active by default and switches to Text tab', async () => {
     const onClose = vi.fn();
 
     renderWithProviders(
@@ -71,6 +71,21 @@ describe('CopyNoteModal (UI-07)', () => {
     fireEvent.click(copyBtn);
 
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('Plain body text without headers');
-    expect(screen.getByRole('button', { name: /скопировано|copied/i })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /скопировано|copied/i })).toBeInTheDocument();
+  });
+
+  // 0.11.22: буфер обмена отказал — не «Скопировано». Мутация: вернуть
+  // `void navigator.clipboard.writeText(...)` без ожидания — красный.
+  it('буфер обмена отказал — ошибка, а не «Скопировано»', async () => {
+    vi.mocked(navigator.clipboard.writeText).mockRejectedValueOnce(new Error('NotAllowedError'));
+    renderWithProviders(
+      <ToastProvider>
+        <CopyNoteModal open={true} onClose={vi.fn()} session={dummySession} />
+      </ToastProvider>
+    );
+    fireEvent.click(screen.getByRole('button', { name: /скопировать|copy/i }));
+    expect(await screen.findByText(/Не удалось скопировать|Couldn’t copy/)).toBeInTheDocument();
+    expect(screen.queryByText(/Скопировано в буфер|Copied to clipboard/)).toBeNull();
+    expect(screen.queryByRole('button', { name: /скопировано|copied/i })).toBeNull();
   });
 });

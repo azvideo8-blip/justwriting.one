@@ -48,7 +48,7 @@ function openInfo(summary: unknown, onAnalyze = vi.fn()) {
   renderWithProviders(
     <MemoryRouter>
       <ToastProvider>
-        <MobileNoteReader session={session} onClose={vi.fn()} onContinue={vi.fn()} labels={labels}
+        <MobileNoteReader session={session} onClose={vi.fn()} onContinue={vi.fn()} onRetryContent={vi.fn()} labels={labels}
           summary={summary as never} onAnalyze={onAnalyze} />
       </ToastProvider>
     </MemoryRouter>,

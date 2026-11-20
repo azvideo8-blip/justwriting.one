@@ -166,5 +166,15 @@ describe('D-2: экспорт при сбое облака', () => {
     await waitFor(() => expect(mocks.exportAllAsZip).toHaveBeenCalled());
     expect(mocks.exportAllAsZip.mock.calls[0]![2]).toEqual({ suffix: 'только-это-устройство', note: expect.stringContaining('Облако было недоступно') });
   });
-});
 
+  // 0.11.22: ни одна заметка не выгрузилась (все заперты) — было «Экспортировано
+  // заметок: 0» зелёным рядом с ошибкой. Мутация: снять `exported > 0` — красный.
+  it('ZIP: ничего не выгружено — нет зелёного «Экспортировано: 0», есть ошибка пропуска', async () => {
+    mocks.getDocuments.mockResolvedValue([CLOUD_DOC]);
+    mocks.exportAllAsZip.mockResolvedValue({ exported: 0, skipped: 1 });
+    renderWithProviders(<AccountExportSection userId="u1" />);
+    fireEvent.click(screen.getByRole('button', { name: /Экспортировать всё в ZIP/ }));
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith(expect.stringMatching(/Пропущено/), 'error'));
+    expect(mocks.showToast).not.toHaveBeenCalledWith(expect.stringMatching(/Экспортировано/), 'success');
+  });
+});

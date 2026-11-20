@@ -10,7 +10,6 @@ src/app/pages/DiagnosticsPage.tsx:showToast:Ошибка реконсиляци�
 src/app/pages/DiagnosticsPage.tsx:showToast:Пакетный анализ завершён
 src/app/pages/DiagnosticsPage.tsx:showToast:Превышен лимит запросов к ИИ
 src/app/pages/DiagnosticsPage.tsx:showToast:Хронология ИИ успешно перестроена. Записей: ${…}
-src/app/pages/MobileMePage.tsx:showToast:Не удалось выйти из аккаунта
 src/core/storage/localDb.ts:showDbOverlay:Закройте другие вкладки justwriting и обновите страницу — база данных ожидает об
 src/core/storage/localDb.ts:showDbOverlay:Приложение обновилось в другой вкладке. Обновите страницу — данные на месте.
 src/core/storage/localDb.ts:showDbOverlay:Приложение обновилось в другой вкладке. Обновите страницу — сохранённое на месте
@@ -19,7 +18,6 @@ src/features/ai/components/ArchiveAnalysisButton.tsx:showToast:Не удалос
 src/features/ai/components/ArchiveAnalysisButton.tsx:showToast:Разбирать было нечего
 src/features/ai/components/ArchiveAnalysisButton.tsx:showToast:Разбор не удался
 src/features/ai/components/ArchiveAnalysisButton.tsx:showToast:Разобрано ${…}, проход остановлен: ${…}
-src/features/ai/components/ArchiveAnalysisButton.tsx:showToast:Разобрано заметок: ${…}${…}. Теперь можно обновить профиль
 src/features/ai/components/AuthorPortrait.tsx:showToast:Данная функция работает только при подключении к сети
 src/features/ai/components/AuthorPortrait.tsx:showToast:Достигнут дневной лимит ИИ — сбросьте счётчик и попробуйте снова
 src/features/ai/components/AuthorPortrait.tsx:showToast:Не удалось создать портрет: ${…}
@@ -49,12 +47,8 @@ src/features/ai/components/ProfileRefreshButton.tsx:showToast:Не удалос�
 src/features/ai/components/ProfileRefreshButton.tsx:showToast:Обновление не удалось
 src/features/ai/components/ProfileRefreshButton.tsx:showToast:Обновлено частично: не вышло — ${…}
 src/features/ai/components/ProfileRefreshButton.tsx:showToast:Профиль обновлён
-src/features/ai/components/chat/noteActions.ts:showToast:Заметка не найдена
-src/features/ai/components/chat/noteActions.ts:showToast:Заметка обновлена новым вариантом
 src/features/ai/components/chat/noteActions.ts:showToast:Заметка успешно создана
-src/features/ai/components/chat/noteActions.ts:showToast:Не удалось обновить заметку
 src/features/ai/components/chat/noteActions.ts:showToast:Не удалось создать заметку
-src/features/ai/components/chat/noteActions.ts:showToast:Нет связанной заметки
 src/features/ai/hooks/useAIChat.ts:setError:Лимит рассуждений исчерпан | Дневной лимит достигнут
 src/features/ai/hooks/useAIChat.ts:setError:Слишком частые запросы. Подождите ${…} сек. перед следующей отправкой.
 src/features/ai/hooks/useAIChat.ts:setError:Слишком частые запросы. Подождите немного перед следующей отправкой.

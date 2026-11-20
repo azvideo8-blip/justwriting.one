@@ -91,6 +91,8 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
 
   const [stats, setStats] = useState({ localDocs: 0, cloudDocs: 0, aiProcessed: 0, dialogues: 0, summaries: 0, embeddings: 0, customPersonas: 0, memories: 0 });
   const [statsLoaded, setStatsLoaded] = useState(false);
+  // Не прочиталось ≠ нули: экран статистики показывает ошибку с «Повторить».
+  const [statsFailed, setStatsFailed] = useState(false);
 
   const [diagnosticsKey, setDiagnosticsKey] = useState(0);
   const [resettingUid, setResettingUid] = useState<string | null>(null);
@@ -202,9 +204,11 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
         customPersonas: personas.length,
         memories: memories.length,
       });
+      setStatsFailed(false);
       setStatsLoaded(true);
     } catch (e) {
       reportError(e, { action: 'Error loading stats' });
+      setStatsFailed(true);
       setStatsLoaded(true);
     }
   }, []);
@@ -284,7 +288,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
           failed++;
         }
       }
-      showToast(`Импорт завершен: скачано ${imported} из ${cloudDocs.length} заметок. Ошибок: ${failed}`, 'success');
+      showToast(`Импорт завершен: скачано ${imported} из ${cloudDocs.length} заметок. Ошибок: ${failed}`, failed > 0 ? 'warning' : 'success');
       // C4: «из N» — только прочитанные; нечитаемые ряды названы отдельно.
       if (unreadable.length > 0) showToast(t('restore_cloud_counts_partial', { count: String(unreadable.length) }), 'warning');
       setDiagnosticsKey(k => k + 1);
@@ -315,7 +319,9 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     setBulkSyncing(true);
     try {
       const result = await SyncService.syncAllUnlinked(user.uid);
-      if (result.failed > 0) {
+      if (result.inProgress) {
+        showToast(t('sync_already_running'), 'info');
+      } else if (result.failed > 0) {
         showToast(`Синхронизация завершена с ошибками: не удалось выгрузить ${result.failed} заметок`, 'error');
       } else {
         showToast('Все локальные заметки выгружены в облако', 'success');
@@ -346,7 +352,8 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       const result = await AIProfileService.generate();
       if (result.ok) {
         setPortraitText(result.markdown);
-        showToast('Психологический портрет обновлён', 'success');
+        if (result.partial) showToast(t('ai_portrait_partial'), 'warning');
+        else showToast('Психологический портрет обновлён', 'success');
       } else if (result.error === 'NOT_ENOUGH_DATA') {
         showToast('Нужно минимум 3 проанализированных заметки', 'error');
       } else if (isDayLimitError(result.error)) {
@@ -607,6 +614,8 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     summaryLogs,
     stats,
     statsLoaded,
+    statsFailed,
+    loadSystemStats,
     diagnosticsKey,
     resettingUid,
     manualResetUid,

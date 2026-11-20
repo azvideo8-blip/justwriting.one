@@ -114,4 +114,15 @@ describe('HelpTree (UI-12)', () => {
       expect(mockShowToast).toHaveBeenCalledWith('Ссылка на шаг скопирована', 'success');
     });
   });
+
+  // 0.11.22: нет буфера обмена (не https, запрет браузера) — было «скопирована»
+  // без копирования. Мутация: вернуть проверку `typeof … === 'function'` без
+  // ошибки — красный.
+  it('буфер обмена отказал — ошибка, а не «скопирована»', async () => {
+    Object.assign(navigator, { clipboard: { writeText: vi.fn().mockRejectedValue(new Error('NotAllowedError')) } });
+    renderWithProviders(<HelpTree />);
+    fireEvent.click(screen.getByLabelText('Скопировать ссылку на этот шаг'));
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith(expect.stringMatching(/Не удалось скопировать/), 'error'));
+    expect(mockShowToast).not.toHaveBeenCalledWith('Ссылка на шаг скопирована', 'success');
+  });
 });

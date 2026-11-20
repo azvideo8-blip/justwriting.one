@@ -46,4 +46,33 @@ describe('C4: неполное облако видно в «синхронизи
     await waitFor(() => expect(h.showToast).toHaveBeenCalled());
     expect(h.showToast).not.toHaveBeenCalledWith('settings_sync_cloud_partial', 'warning');
   });
+
+  // 0.11.22: всё упало — было «Синхронизировано: 0» зелёным рядом с ошибкой.
+  // Мутация: вернуть условие `!dlRes.locked || totalSynced > 0` — красный.
+  it('всё упало — ошибка без зелёного «Синхронизировано: 0»', async () => {
+    const { SyncService } = await import('../../../../core/services/SyncService');
+    vi.mocked(SyncService.syncAllUnlinked).mockResolvedValueOnce({ synced: 0, failed: 2 } as never);
+    h.downloadAll.mockResolvedValue({ downloaded: 0, skipped: 0, failed: 0 });
+    render(<SyncSettingsSection userId="u-c4" />);
+    fireEvent.click(await screen.findByTestId('sync-all-unlinked-btn'));
+    await waitFor(() => expect(h.showToast).toHaveBeenCalledWith('settings_sync_all_unlinked_failed', 'error'));
+    expect(h.showToast).not.toHaveBeenCalledWith('settings_sync_all_unlinked_done', 'success');
+  });
+
+  // 0.11.22: уже шла другая синхронизация — вызов ничего не сделал, а окно
+  // писало «Синхронизировано: 0» зелёным. Мутация: убрать ветку inProgress — красный.
+  it('синхронизация уже идёт — «уже идёт», а не «Синхронизировано: 0»', async () => {
+    const { SyncService } = await import('../../../../core/services/SyncService');
+    vi.mocked(SyncService.syncAllUnlinked).mockResolvedValueOnce({ synced: 0, failed: 0, inProgress: true } as never);
+    h.downloadAll.mockClear();
+    h.downloadAll.mockResolvedValue({ downloaded: 0, skipped: 0, failed: 0 });
+    render(<SyncSettingsSection userId="u-c4" />);
+    fireEvent.click(await screen.findByTestId('sync-all-unlinked-btn'));
+    await waitFor(() => expect(h.showToast).toHaveBeenCalledWith('sync_already_running', 'info'));
+    expect(h.showToast).not.toHaveBeenCalledWith('settings_sync_all_unlinked_done', 'success');
+    // Ревью 0.11.22: забор из облака не пропускается из-за идущей отправки.
+    // Мутация: вернуть `return` после тоста «уже идёт» — красный.
+    expect(h.downloadAll).toHaveBeenCalled();
+  });
 });
+

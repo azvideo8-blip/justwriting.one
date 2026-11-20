@@ -62,7 +62,7 @@ function renderReader() {
   return render(
     h(LanguageProvider, null,
       h(ToastProvider, null,
-        h(MobileNoteReader, { session, onClose: vi.fn(), onContinue: vi.fn() }))),
+        h(MobileNoteReader, { session, onClose: vi.fn(), onContinue: vi.fn(), onRetryContent: vi.fn() }))),
   );
 }
 

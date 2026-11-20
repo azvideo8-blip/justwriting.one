@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { LoadNotice } from '../../shared/components/LoadStateView';
 import { Navigate, useNavigate } from 'react-router-dom';
 import {
   Download, X, RotateCcw, Bug,
@@ -142,6 +143,8 @@ export function DiagnosticsPage() {
     summaryLogs,
     stats,
     statsLoaded,
+    statsFailed,
+    loadSystemStats,
     diagnosticsKey,
     resettingUid,
     manualResetUid,
@@ -250,6 +253,7 @@ export function DiagnosticsPage() {
       URL.revokeObjectURL(url);
     } catch (e) {
       reportError(e, { action: 'download_diagnostics' });
+      showToast(t('admin_diag_download_failed'), 'error');
     }
   };
 
@@ -847,6 +851,8 @@ export function DiagnosticsPage() {
             <h3 className="text-sm font-semibold text-text-main mb-3">{t('admin_system_metrics')}</h3>
             {!statsLoaded ? (
               <div className="flex justify-center py-10"><LoadingSpinner size={8} /></div>
+            ) : statsFailed ? (
+              <LoadNotice variant="row" text={t('load_failed_retry')} onRetry={() => void loadSystemStats()} />
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
@@ -985,10 +991,14 @@ export function MassAnalyzeNotes() {
 
       const runLimit = Math.min(10, pending.length);
       setProgress({ done: 0, total: runLimit, failed: 0 });
+      // Итог прохода: отказы и досрочная остановка — не «завершён» зелёным.
+      let runFailed = 0;
+      let stoppedEarly = false;
 
       for (let i = 0; i < runLimit; i++) {
         if (!AIBackgroundBudget.canSpend(1)) {
           showToast('Достигнут дневной лимит бюджета ИИ (25/25)', 'error');
+          stoppedEarly = true;
           break;
         }
 
@@ -1031,20 +1041,23 @@ export function MassAnalyzeNotes() {
             window.dispatchEvent(new Event('archive-refresh'));
           } else {
             setProgress(p => ({ ...p, failed: p.failed + 1 }));
+            runFailed++;
             if (isDayLimitError(result.error) || result.error === 'RATE_LIMIT') {
               showToast('Превышен лимит запросов к ИИ', 'error');
+              stoppedEarly = true;
               break;
             }
           }
         } catch {
           setProgress(p => ({ ...p, failed: p.failed + 1 }));
+          runFailed++;
         }
         setProgress(p => ({ ...p, done: p.done + 1 }));
         // Small delay between calls
         await new Promise(r => setTimeout(r, 500));
       }
 
-      showToast(`Пакетный анализ завершён`, 'success');
+      showToast(`Пакетный анализ завершён`, runFailed > 0 || stoppedEarly ? 'warning' : 'success');
     } catch (e) {
       reportError(e, { action: 'diagnostics_mass_analyze' });
       showToast('Ошибка массового анализа', 'error');

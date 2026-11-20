@@ -19,8 +19,16 @@ vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }
 const PLAN_TEXT = 'Записаться к стоматологу';
 
 describe('Q-5: строка открытого плана', () => {
+  // Планы старше 60 дней блок не показывает (MB-3), а дата плана в тесте
+  // постоянная — без своих «часов» тест сам истёк 20.11.2026.
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 9, 7, 12, 0, 0));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('план печатается с id и датой заметки, без «создано:»', async () => {

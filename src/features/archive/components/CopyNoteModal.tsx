@@ -44,9 +44,14 @@ export function CopyNoteModal({ open, onClose, session }: CopyNoteModalProps) {
 
   const currentContent = activeTab === 'markdown' ? markdownContent : textContent;
 
-  const handleCopy = () => {
-    if (typeof navigator !== 'undefined' && typeof navigator.clipboard?.writeText === 'function') {
-      void navigator.clipboard.writeText(currentContent);
+  // «Скопировано» — только когда буфер обмена принял текст: нет буфера или
+  // отказ доступа (iOS вне жеста, запрет браузера) — ошибка, а не галочка.
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(currentContent);
+    } catch {
+      showToast(t('archive_copy_failed'), 'error');
+      return;
     }
     setCopied(true);
     showToast(t('archive_copied_toast'), 'success');
@@ -92,7 +97,7 @@ export function CopyNoteModal({ open, onClose, session }: CopyNoteModalProps) {
 
         <div className="flex items-center gap-2">
           <Button
-            onClick={handleCopy}
+            onClick={() => void handleCopy()}
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-150 cursor-pointer",
               copied

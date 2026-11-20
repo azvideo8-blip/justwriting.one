@@ -9,6 +9,7 @@ import { exportAllAsZip } from '../../../core/services/ExportAllService';
 import { ExportStrings } from '../../../shared/types/common';
 import { Section } from './SettingsHelpers';
 import { Button } from '../../../shared/components/Button';
+import { LoadNotice } from '../../../shared/components/LoadStateView';
 import { downloadBlob } from '../../../shared/utils/downloadBlob';
 import { APP_VERSION } from '../../../version';
 import { exportMigrationManifest } from '../services/migrationExport';
@@ -69,7 +70,8 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
         untitledFilename: t('export_filename_default'),
       };
       const { exported, skipped } = await exportAllAsZip(sessions, strings, cloudLoadFailed ? localOnlyMark() : undefined);
-      showToast(t('settings_export_all_done', { count: exported }), 'success');
+      // Ни одной заметки не выгружено — это не «Экспортировано: 0» зелёным.
+      if (exported > 0) showToast(t('settings_export_all_done', { count: exported }), 'success');
       if (skipped > 0) {
         showToast(t('settings_export_all_skipped', { count: skipped }), 'error');
       }
@@ -126,7 +128,7 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
       };
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
       downloadBlob(blob, `justwriting-export-${new Date().toISOString().slice(0, 10)}${mark ? `_${mark.suffix}` : ''}.json`);
-      showToast(t('settings_export_all_done', { count: exportableSessions.length }), 'success');
+      if (exportableSessions.length > 0) showToast(t('settings_export_all_done', { count: exportableSessions.length }), 'success');
       if (skippedCount > 0) {
         showToast(t('settings_export_all_skipped', { count: skippedCount }), 'error');
       }
@@ -254,23 +256,16 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
           )}
         </Button>
         {cloudExportError && (
-          <div role="alert" className="p-3 rounded-xl bg-accent-danger/10 border border-accent-danger/30 text-xs text-accent-danger flex items-center justify-between gap-2">
-            <span>{t('settings_export_cloud_failed')}</span>
-            <span className="shrink-0 flex gap-3">
-              <Button
-                onClick={() => void (cloudExportError === 'zip' ? handleExportAll() : handleExportJson())}
-                className="underline text-accent-danger/70 hover:text-accent-danger"
-              >
-                {t('retry')}
-              </Button>
-              <Button
-                onClick={() => void (cloudExportError === 'zip' ? handleExportAll(true) : handleExportJson(true))}
-                className="underline text-accent-danger/70 hover:text-accent-danger"
-              >
-                {t('settings_export_local_only')}
-              </Button>
-            </span>
-          </div>
+          <LoadNotice
+            variant="row"
+            className="p-3 rounded-xl text-xs"
+            text={t('settings_export_cloud_failed')}
+            onRetry={() => void (cloudExportError === 'zip' ? handleExportAll() : handleExportJson())}
+            extra={{
+              label: t('settings_export_local_only'),
+              onClick: () => void (cloudExportError === 'zip' ? handleExportAll(true) : handleExportJson(true)),
+            }}
+          />
         )}
         <Button
           onClick={() => void handleMigrationExport()}

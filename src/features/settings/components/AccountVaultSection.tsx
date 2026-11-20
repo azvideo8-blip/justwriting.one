@@ -182,7 +182,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
     // Explicit lock cancels "remember on this device" so it won't auto-unlock on reload.
     setRememberDevice(false);
     void clearDeviceKey(userId);
-    showToast(t('settings_lock_vault'), 'success');
+    showToast(t('settings_vault_locked_done'), 'info');
   };
 
   const handleEncryptAll = async () => {
@@ -192,7 +192,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
     setMigrationDone(false);
     setMigrationProgress(null);
     try {
-      await EncryptionService.encryptAll(userId, setMigrationProgress, abortCtrl.signal);
+      setMigrationProgress(await EncryptionService.encryptAll(userId, setMigrationProgress, abortCtrl.signal));
       setMigrationDone(true);
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') {
@@ -440,7 +440,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
             </div>
           ) : (
             <div className="p-4 rounded-xl border border-accent-success/20 bg-accent-success/5">
-              <div className={migrationProgress?.incomplete ? 'text-sm text-text-main' : 'text-sm text-accent-success'}>
+              <div className={migrationProgress?.incomplete || (migrationProgress?.errors ?? 0) > 0 ? 'text-sm text-text-main' : 'text-sm text-accent-success'}>
                 {t('settings_encrypt_done', { count: migrationProgress?.encrypted ?? 0 })}
               </div>
               {migrationProgress?.incomplete && (

@@ -50,6 +50,8 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [items, setItems] = useState<DiagnosticItem[]>([]);
   const [cloudUnavailable, setCloudUnavailable] = useState(false);
+  // Локальное чтение (заметки, очередь, отложенные) упало — не «пусто» и не «0 в очереди».
+  const [localReadFailed, setLocalReadFailed] = useState(false);
   const [queueCount, setQueueCount] = useState(0);
   const [discrepancyCount, setDiscrepancyCount] = useState(0);
   // S1-12: строки облака, которые забор по rev отложил как стойко нечитаемые.
@@ -72,11 +74,13 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
     if (!userId || userId.startsWith('guest_')) return;
     setLoading(true);
     let cloudReadFailed = false;
+    let localFailed = false;
     setCloudUnavailable(false);
     try {
       const [localDocs, cloudDocs, queue, cloudDiscrepancies, deferredRows] = await Promise.all([
         getLocalDb().then(db => db.getAll('documents')).catch(e => {
           reportError(e, { action: '[SyncDiagnostics] Local docs fetch failed' });
+          localFailed = true;
           return [];
         }),
         // A failed read must not look like an empty cloud: every linked note
@@ -91,6 +95,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
         }),
         getLocalDb().then(db => db.getAll('syncQueue')).catch(e => {
           reportError(e, { action: '[SyncDiagnostics] Queue fetch failed' });
+          localFailed = true;
           return [];
         }),
         DocumentService.getCloudVersionDiscrepancyCount(userId).catch(e => {
@@ -101,12 +106,14 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
         }),
         getSyncRevDeferred(userId).catch(e => {
           reportError(e, { action: '[SyncDiagnostics] Deferred rows fetch failed' });
+          localFailed = true;
           return [];
         }),
       ]);
       setDeferredCount(deferredRows.length);
 
       setCloudUnavailable(cloudReadFailed);
+      setLocalReadFailed(localFailed);
       setDiscrepancyCount(cloudDiscrepancies);
 
       const filteredQueue = queue.filter(item => !item.id.startsWith('migrated_') && !item.id.startsWith('lock_cloud_'));
@@ -211,7 +218,9 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
       if (item.status === 'pending' || item.status === 'mismatch') {
         ok = await SyncService.syncDocument(userId, item.localId);
       } else {
-        ok = !!(await StorageService.addCloudCopy(userId, item.localId));
+        // 'LOCAL_ONLY' / 'TOMBSTONE' — отказ, а не id облачной копии.
+        const cloudId = await StorageService.addCloudCopy(userId, item.localId);
+        ok = !!cloudId && cloudId !== 'LOCAL_ONLY' && cloudId !== 'TOMBSTONE';
       }
       if (ok) {
         showToast(t('storage_uploaded_cloud'), 'success');
@@ -282,6 +291,11 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
         return;
       }
       const res = await encryptSingleDocument(userId, item.cloudId);
+      // Ошибки версий не бросают — без проверки «Encrypted N» зеленел над недошифрованной.
+      if (res.errors > 0) {
+        showToast(`Encrypted ${res.encrypted} versions in the cloud`, 'warning');
+        return;
+      }
       showToast(`Encrypted ${res.encrypted} versions in the cloud`, 'success');
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, cloudEncrypted: true } : i));
     } catch (e) {
@@ -320,6 +334,8 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
       } else if (res.skippedReason === 'vault_locked') {
         // Заметки ждут ключа — это не «очередь пуста».
         showToast(t('settings_sync_vault_locked'), 'error');
+      } else if (res.skippedReason === 'in_progress') {
+        showToast(t('sync_already_running'), 'info');
       } else if (res.failed > 0) {
         showToast(t('sync_queue_partial', { drained: String(res.drained), failed: String(res.failed) }), 'error');
       } else if (res.drained === 0) {
@@ -473,7 +489,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
   };
 
   return {
-    loading, syncingId, items, queueCount, discrepancyCount, deferredCount, cloudReadFailed: cloudUnavailable,
+    loading, syncingId, items, queueCount, discrepancyCount, deferredCount, cloudReadFailed: cloudUnavailable, localReadFailed,
     processedDocs, processingDocId, readSummary, setReadSummary,
     hasEncryption,
     fetchData, handleSyncItem, handleDownloadItem, handleUnlinkItem,

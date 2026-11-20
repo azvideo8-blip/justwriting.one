@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { LoadNotice } from '../../../shared/components/LoadStateView';
 import { RefreshCw, AlertTriangle, Upload, Download, Trash2, Loader2, Link2Off, Lock, Sparkles, Eye } from 'lucide-react';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { cn } from '../../../core/utils/utils';
@@ -20,7 +21,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
     loading, syncingId, items, queueCount, discrepancyCount, deferredCount,
     processedDocs, processingDocId, readSummary, setReadSummary,
     hasEncryption,
-    fetchData, handleSyncItem, handleDownloadItem, handleUnlinkItem, cloudReadFailed,
+    fetchData, handleSyncItem, handleDownloadItem, handleUnlinkItem, cloudReadFailed, localReadFailed,
     handleEncryptItem, handleClearQueueItem, handleSyncAllQueue,
     handleProcessDocument, handleReadSummary,
     getStatusBadge,
@@ -129,6 +130,12 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
         />
       )}
 
+      {!loading && localReadFailed && (
+        <LoadNotice variant="row" text={t('load_failed_retry')} onRetry={() => void fetchData()} />
+      )}
+      {!loading && cloudReadFailed && (
+        <LoadNotice variant="row" text={t('admin_sync_cloud_unavailable_title')} onRetry={() => void fetchData()} />
+      )}
       {loading && items.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 gap-2">
           <Loader2 size={24} className="animate-spin text-text-main/60" />

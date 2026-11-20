@@ -135,8 +135,12 @@ export function HelpTree({ tree = NOTES_MISSING_TREE }: HelpTreeProps) {
 
   const handleCopyLink = async () => {
     const url = `${window.location.origin}${window.location.pathname}#${currentNode.id}`;
-    if (typeof navigator.clipboard?.writeText === 'function') {
+    // «Скопирована» — только когда буфер принял ссылку; нет буфера или отказ — ошибка.
+    try {
       await navigator.clipboard.writeText(url);
+    } catch {
+      showToast(t('archive_copy_failed'), 'error');
+      return;
     }
     showToast(t('help_link_copied'), 'success');
   };

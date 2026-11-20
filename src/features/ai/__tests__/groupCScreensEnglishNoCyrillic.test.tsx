@@ -31,7 +31,7 @@ vi.mock('../../../core/auth', () => ({
 vi.mock('../services/AIProfileService', () => ({
   AIProfileService: {
     getPortrait: vi.fn().mockResolvedValue('Psychological portrait content'),
-    generate: vi.fn().mockResolvedValue({ ok: true, markdown: 'Generated' }),
+    generate: vi.fn().mockResolvedValue({ ok: true, markdown: 'Generated', partial: false }),
     exportMarkdown: vi.fn().mockResolvedValue(true),
   },
 }));

@@ -379,8 +379,12 @@ export const NoteAnalysisService = {
     return result;
   },
 
-  /** Удаляет всё, что разбор оставил после себя, — и на устройстве, и в облаке. */
-  async clear(documentId: string): Promise<void> {
+  /**
+   * Удаляет всё, что разбор оставил после себя, — и на устройстве, и в облаке.
+   * `cloudSynced: false` — облако не ответило, удаление встало в очередь: это
+   * не «разбор удалён», а «удалён здесь, из облака позже».
+   */
+  async clearAnalysis(documentId: string): Promise<{ cloudSynced: boolean }> {
     // Общая уборка профиля: грань, портрет и дайджест месяца (AP-1/AP-3) — ПЕРВОЙ:
     // месяц дайджеста находится по строке хронологии, а AISummaryService.delete её
     // удаляет. Раньше уборка шла после, и дайджест месяца, где заметку разобрали до
@@ -410,15 +414,17 @@ export const NoteAnalysisService = {
     // его с documents.uuid. По локальному `local_…` не удалялось бы ничего, и
     // кнопка снова врала бы — только тише, чем раньше.
     const uid = getCurrentUser()?.uid;
-    if (!uid || uid.startsWith('guest_')) return;
+    if (!uid || uid.startsWith('guest_')) return { cloudSynced: true };
     const canonicalId = uuid ?? documentId;
     try {
       await DataProvider.deleteSummary(uid, canonicalId);
       await DataProvider.deleteEmbedding(uid, canonicalId);
       forgetPendingAnalysisDelete(uid, canonicalId);
+      return { cloudSynced: true };
     } catch (e) {
       reportError(e, { action: 'noteAnalysis_clearCloud', documentId });
       persistPendingAnalysisDelete(uid, canonicalId);
+      return { cloudSynced: false };
     }
   },
 };

@@ -1,6 +1,17 @@
 import { Translations } from '../types';
 
 export const aiTranslations: Translations = {
+  ai_facets_resummarize_partial: { ru: 'Обновлено тем: {count}, не удалось: {failed}', en: 'Themes updated: {count}, failed: {failed}' },
+  ai_facets_judge_partial: { ru: 'Проверено тем: {judged}, не проверено: {unchecked} — сервис не ответил', en: 'Themes checked: {judged}, unchecked: {unchecked} — the service did not respond' },
+  ai_portrait_partial: { ru: 'Портрет обновлён не полностью: часть разделов из прошлой сборки или ещё не готова', en: 'Portrait partly updated: some sections are from an earlier build or not ready yet' },
+  admin_embed_toast_sync_failed: { ru: 'Выгружено векторов: {synced}, не удалось: {failed}', en: 'Vectors uploaded: {synced}, failed: {failed}' },
+  admin_embed_toast_sync_waiting: { ru: 'Выгружено векторов: {synced}; ждут заметку в облаке: {waiting}', en: 'Vectors uploaded: {synced}; waiting for the note in the cloud: {waiting}' },
+  admin_diag_download_failed: { ru: 'Не удалось собрать файл диагностики', en: 'Could not build the diagnostics file' },
+  admin_db_partial: { ru: 'Часть строк облака не прочиталась: {count} — таблица неполная', en: 'Some cloud rows could not be read: {count} — the table is incomplete' },
+  ai_archive_analysis_all_failed: { ru: 'Не удалось разобрать заметок: {count}', en: 'Could not analyze notes: {count}' },
+  ai_archive_analysis_done: { ru: 'Разобрано заметок: {count}{tail}. Теперь можно обновить профиль', en: 'Notes analyzed: {count}{tail}. You can now refresh the profile' },
+  ai_archive_analysis_no_vector_tail: { ru: ', без вектора осталось {count}', en: ', {count} left without a vector' },
+  ai_archive_analysis_failed_tail: { ru: ', не удалось: {count}', en: ', failed: {count}' },
   ai_new_dialogue: { ru: 'Новый диалог', en: 'New dialogue' },
   // MR-1: лист диалогов на телефоне.
   ai_dialogues_open: { ru: 'Диалоги', en: 'Dialogues' },

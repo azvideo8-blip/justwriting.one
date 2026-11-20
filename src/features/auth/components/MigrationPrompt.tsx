@@ -33,7 +33,10 @@ export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: Mig
       // если синхронизация включена (иначе — кнопкой «Отправить все заметки в облако»).
       if (moved > 0 && cloudSyncEnabled(userId)) {
         try {
-          const { synced, failed } = await SyncService.syncAllUnlinked(userId);
+          const { synced, failed: failedRaw, inProgress } = await SyncService.syncAllUnlinked(userId);
+          // Уже шла другая синхронизация — этот вызов ничего не отправил: перенесённые
+          // заметки пока не в облаке, и сказать это надо так же, как о неотправленных.
+          const failed = inProgress ? moved : failedRaw;
           if (synced > 0) onCloudSynced?.(synced);
           // Заметки перенесены в аккаунт локально в любом случае; в облако —
           // не все. Молчать об этом нельзя: человек закрывает окно с мыслью,

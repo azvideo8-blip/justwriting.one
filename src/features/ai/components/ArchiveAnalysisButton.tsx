@@ -74,13 +74,17 @@ export function ArchiveAnalysisButton() {
             : `Разобрано ${result.analyzed}, проход остановлен: ${msg}`,
           'error',
         );
+      } else if (result.analyzed === 0 && result.failed > 0) {
+        // Все упали — не «разбирать было нечего».
+        showToast(t('ai_archive_analysis_all_failed', { count: result.failed }), 'error');
       } else if (result.analyzed === 0) {
         showToast('Разбирать было нечего', 'success');
       } else {
         const tail = result.missingVectors > 0
-          ? `, без вектора осталось ${result.missingVectors}`
+          ? t('ai_archive_analysis_no_vector_tail', { count: result.missingVectors })
           : '';
-        showToast(`Разобрано заметок: ${result.analyzed}${tail}. Теперь можно обновить профиль`, 'success');
+        const failTail = result.failed > 0 ? t('ai_archive_analysis_failed_tail', { count: result.failed }) : '';
+        showToast(t('ai_archive_analysis_done', { count: result.analyzed, tail: `${tail}${failTail}` }), result.failed > 0 ? 'warning' : 'success');
       }
     } catch (e) {
       reportError(e, { action: 'archiveAnalysis_run' }, 'warning');

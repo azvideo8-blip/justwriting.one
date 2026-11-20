@@ -44,7 +44,7 @@ vi.mock('@/features/archive/components/MobileArchiveSidebarSheet', () => ({
 vi.mock('@/features/archive/components/MobileInlinePanel', () => ({ MobileInlinePanel: () => null }));
 vi.mock('@/features/archive/components/MobileArchiveMenuSheet', () => ({ MobileArchiveMenuSheet: () => null }));
 vi.mock('@/features/archive/components/MobileArchiveHeader', () => ({ MobileArchiveHeader: () => null }));
-vi.mock('@/features/ai/services/NoteAnalysisService', () => ({ NoteAnalysisService: { analyze: vi.fn(), clear: vi.fn() } }));
+vi.mock('@/features/ai/services/NoteAnalysisService', () => ({ NoteAnalysisService: { analyze: vi.fn(), clearAnalysis: vi.fn() } }));
 vi.mock('@/features/ai/services/AISummaryService', () => ({ AISummaryService: { hasAll: vi.fn(async () => ({})) } }));
 vi.mock('@/features/ai/utils/relatedNotes', () => ({ findRelatedNotes: vi.fn(async () => []) }));
 vi.mock('@/shared/errors/reportError', () => ({ reportError: vi.fn() }));
@@ -55,7 +55,7 @@ import { LanguageProvider } from '@/shared/i18n';
 
 function baseData(overrides: Record<string, unknown> = {}) {
   return {
-    loading: false, error: null, cloudLoadFailed: false,
+    listState: { status: 'empty' },
     fetchSessions: vi.fn(), sessions: [], trashedSessions: [],
     handleTrashSession: vi.fn(), handleRestoreSession: vi.fn(),
     handlePermanentDeleteSession: vi.fn(), handleEmptyTrash: vi.fn(),
@@ -97,7 +97,7 @@ beforeEach(() => {
 
 describe('d39b: сбой чтения архива не выглядит как «Корзина пуста»', () => {
   it('error задан, вкладка Корзина — ошибка названа, а не «пуста»', async () => {
-    archiveData.current = baseData({ error: 'Ошибка при загрузке заметок' });
+    archiveData.current = baseData({ listState: { status: 'error', retry: vi.fn(), stale: undefined } });
     renderPage();
     fireEvent.click(screen.getByText('Корзина'));
     await waitFor(() => {
@@ -111,7 +111,7 @@ describe('d39b: сбой чтения архива не выглядит как 
   });
 
   it('КОНТРОЛЬ: вкладка Заметки при том же error показывает ошибку', async () => {
-    archiveData.current = baseData({ error: 'Ошибка при загрузке заметок' });
+    archiveData.current = baseData({ listState: { status: 'error', retry: vi.fn(), stale: undefined } });
     renderPage();
     await waitFor(() => {
       expect(screen.getByText('Ошибка при загрузке заметок')).toBeTruthy();
@@ -123,5 +123,37 @@ describe('d39b: сбой чтения архива не выглядит как 
     renderPage();
     await openTrashTab();
     expect(screen.getByText('Корзина пуста')).toBeTruthy();
+  });
+});
+
+// 0.11.22: вкладка «Заметки» на общем разборе состояния (LoadStateView).
+// Мутации (прогнаны, каждая красит свой тест):
+//  Н1 — ArchiveNoteList: partial={() => null} → partial={() => empty}   → «облако не ответило — не „Пока нет записей“»;
+//  Н2 — ArchiveNoteList: LoadNotice без onRetry (onRetry={() => {}})     → «ошибка с выходом»;
+//  Н3 — ArchivePage: плашка облака по status !== 'partial'                → «плашка облака с Повторить».
+describe('вкладка «Заметки»: не прочиталось ≠ пусто', () => {
+  it('облако не ответило, на устройстве заметок нет — не «Пока нет записей», а плашка с «Повторить»', async () => {
+    const retry = vi.fn();
+    archiveData.current = baseData({ listState: { status: 'partial', data: [], retry } });
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Не удалось загрузить облачные документы. Показаны только локальные.')).toBeTruthy());
+    expect(screen.queryByText('Пока нет записей'), 'частичный отказ показан как пустой архив').toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it('не прочиталось — ошибка с «Повторить», который перечитывает', async () => {
+    const retry = vi.fn();
+    archiveData.current = baseData({ listState: { status: 'error', retry, stale: undefined } });
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Ошибка при загрузке заметок')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it('КОНТРОЛЬ: прочитано целиком и пусто — «Пока нет записей»', async () => {
+    archiveData.current = baseData();
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Пока нет записей')).toBeTruthy());
   });
 });

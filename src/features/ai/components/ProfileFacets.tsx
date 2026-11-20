@@ -10,6 +10,7 @@ import type { AIProfileFacet, LocalDocument, AIDialogueEvent } from '../../../co
 import { getLocalDb } from '../../../core/storage/localDb';
 import { reportError } from '../../../shared/errors/reportError';
 import { useLanguage } from '../../../shared/i18n';
+import { LoadNotice } from '../../../shared/components/LoadStateView';
 
 const NEW_MS = 14 * 24 * 60 * 60 * 1000;
 const ACTIVE_MS = 30 * 24 * 60 * 60 * 1000;
@@ -36,7 +37,8 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
   const [facets, setFacets] = useState<AIProfileFacet[]>([]);
   const [docMap, setDocMap] = useState<Map<string, LocalDocument>>(new Map());
   const [dialogueEvents, setDialogueEvents] = useState<Map<string, AIDialogueEvent>>(new Map());
-  const [loading, setLoading] = useState(true);
+  // Не прочиталось ≠ «темы не собраны»: «Собрать» пересобирает, а не перечитывает.
+  const [read, setRead] = useState<'loading' | 'error' | 'done'>('loading');
   const [building, setBuilding] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -71,7 +73,7 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
   };
 
   const load = useCallback(async () => {
-    setLoading(true);
+    setRead('loading');
     try {
       const db = await getLocalDb();
       const [f, docs, summaries, dlgEvents] = await Promise.all([
@@ -84,10 +86,10 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
       setDocMap(new Map(docs.map(d => [d.id, d])));
       setDialogueEvents(new Map(dlgEvents.map(e => [e.dialogueId, e])));
       setSummariesCount(summaries.length);
+      setRead('done');
     } catch (e) {
       reportError(e, { action: 'profile_facets_load' });
-    } finally {
-      setLoading(false);
+      setRead('error');
     }
   }, []);
 
@@ -134,8 +136,10 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
     setBuilding(true);
     setProgress(null);
     try {
-      const { count } = await AIProfileFacetService.resummarizeDirty(p => setProgress(p));
-      showToast(count > 0 ? `Обновлено ${count} тем` : 'Нет тем для обновления', count > 0 ? 'success' : 'error');
+      const { count, failed } = await AIProfileFacetService.resummarizeDirty(p => setProgress(p));
+      // Часть тем осталась несвежей (отказ поставщика, бюджет) — не «обновлено» зелёным.
+      if (failed > 0) showToast(t('ai_facets_resummarize_partial', { count, failed }), 'warning');
+      else showToast(count > 0 ? `Обновлено ${count} тем` : 'Нет тем для обновления', count > 0 ? 'success' : 'error');
     } catch (e) {
       reportError(e, { action: 'profile_facets_resummarize' });
       showToast('Ошибка обновления тем', 'error');
@@ -150,10 +154,12 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
     setBuilding(true);
     setProgress(null);
     try {
-      const { judged, corrected } = await AIFacetJudgeService.review();
+      const { judged, corrected, unchecked } = await AIFacetJudgeService.review();
       setJudgeLog(AIFacetJudgeService.getLog());
       setJudgeLogOpen(true);
-      showToast(
+      // До части тем проверка не дошла — не «всё верно» и не «нет тем».
+      if (unchecked > 0) showToast(t('ai_facets_judge_partial', { judged, unchecked }), 'warning');
+      else showToast(
         judged === 0 ? 'Нет тем для проверки'
           : corrected > 0 ? `Проверено ${judged} тем, исправлено ${corrected}`
           : `Проверено ${judged} тем — всё верно`,
@@ -256,8 +262,10 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
       )}
 
       <div className="p-4">
-        {loading ? (
+        {read === 'loading' ? (
           <div className="flex justify-center py-8"><Loader2 size={16} className="animate-spin text-text-main/60" /></div>
+        ) : read === 'error' ? (
+          <LoadNotice variant="panel" className="p-6" text={t('load_failed_retry')} onRetry={() => void load()} />
         ) : facets.length === 0 ? (
           readOnly && summariesCount < 20 ? (
             <p className="text-xs text-text-main/60 italic py-6 text-center">

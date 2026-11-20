@@ -17,6 +17,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.22',
+    date: '2026-11-19',
+    announce: false,
+    items: [
+      { category: 'fix', ru: 'Архив: если список не загрузился или облако не ответило, вы увидите ошибку или предупреждение с кнопкой «Повторить», а не «Пока нет записей»; при правке заметки список больше не мигает.', en: 'Archive: if the list failed to load or the cloud did not respond, you see an error or a warning with a Retry button instead of “No entries yet”; editing a note no longer makes the list flicker.' },
+      { category: 'fix', ru: 'Портрет, темы, «двери», история жизни и память собеседника: сбой чтения теперь назван и его можно повторить, а не выглядит как «пока пусто».', en: 'Portrait, themes, “doors”, life story and the companion’s memory: a read failure is now reported and can be retried instead of looking empty.' },
+      { category: 'fix', ru: 'Сохранение, выгрузка, синхронизация, удаление разбора, шифрование, «Обновить профиль» и «Разобрать заметки» больше не показывают зелёное «Готово», если облако не ответило или сделано не всё.', en: 'Saving, export, sync, deleting an analysis, encryption, “Refresh profile” and “Analyze notes” no longer show a green “Done” when the cloud did not respond or not everything was done.' },
+      { category: 'fix', ru: 'Окно выхода: если не удалось проверить, всё ли отправлено в облако, это сказано прямо, а не показано «0».', en: 'Sign-out dialog: if it could not check whether everything reached the cloud, it says so instead of showing “0”.' },
+      { category: 'fix', ru: 'Если собеседник долго не начинает отвечать, ответ даст запасная модель — без долгого ожидания.', en: 'If the companion takes too long to start replying, a backup model answers instead of keeping you waiting.' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.11.21',
     date: '2026-11-19',
     announce: false,

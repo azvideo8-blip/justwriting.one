@@ -66,9 +66,7 @@ function renderList() {
     <MemoryRouter>
       <ArchiveNoteList
       viewMode="list"
-      loading={false}
-      error={null}
-      filteredSessions={Object.values(grouped).flat()}
+      state={{ status: 'data', data: Object.values(grouped).flat() }}
       groupedSessions={grouped}
       sortedDates={keys.slice().sort((a, b) => new Date(b).getTime() - new Date(a).getTime())}
       dateLocale={ru}

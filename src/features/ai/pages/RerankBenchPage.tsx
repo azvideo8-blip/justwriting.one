@@ -163,7 +163,8 @@ export function RerankBenchPage() {
         // Промежуточное сохранение: длинный прогон не должен пропадать целиком.
         setState({ queriesText, runs: [...runs], startedAt: Date.now() });
       }
-      showToast(`Прогон завершён: ${runs.length} запросов`, 'success');
+      // Реранкер отказал хоть раз — прогон не чистый: не зелёным.
+      showToast(`Прогон завершён: ${runs.length} запросов`, runs.some(r => r.rerankFailed) ? 'warning' : 'success');
     } catch (e) {
       console.error(e);
       showToast('Ошибка при прогоне', 'error');
@@ -265,10 +266,13 @@ export function RerankBenchPage() {
               </span>
               <Button
                 onClick={() => {
-                  void navigator.clipboard.writeText(report);
-                  setCopied(true);
-                  showToast('Сводка скопирована', 'success');
-                  setTimeout(() => setCopied(false), 2000);
+                  // «Скопирована» — только когда буфер принял текст.
+                  // Без буфера (не https) writeText — undefined: ошибка, а не бросок из обработчика.
+                  Promise.resolve().then(() => navigator.clipboard.writeText(report)).then(() => {
+                    setCopied(true);
+                    showToast('Сводка скопирована', 'success');
+                    setTimeout(() => setCopied(false), 2000);
+                  }, () => showToast(t('archive_copy_failed'), 'error'));
                 }}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border-subtle text-xs text-text-main/70 hover:text-text-main"
               >

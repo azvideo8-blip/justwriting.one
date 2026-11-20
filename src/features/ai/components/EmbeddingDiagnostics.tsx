@@ -52,7 +52,7 @@ export function EmbeddingDiagnostics() {
       });
       if (summary.stopped === 'daily') showToast(t('admin_embed_toast_daily_limit'), 'error');
       else if (summary.stopped === 'rate') showToast(t('admin_embed_toast_rate_limit'), 'error');
-      else showToast(t('admin_embed_toast_index_summary', { ok: summary.ok, skipped: summary.skipped, failed: summary.failed }), 'success');
+      else showToast(t('admin_embed_toast_index_summary', { ok: summary.ok, skipped: summary.skipped, failed: summary.failed }), summary.failed > 0 ? 'warning' : 'success');
     } catch (e) {
       reportError(e, { action: 'embedding_diagnostics_index' });
       showToast(t('admin_embed_toast_index_error'), 'error');
@@ -76,7 +76,7 @@ export function EmbeddingDiagnostics() {
       const summary = await reindexAll({ onProgress: (done, t) => setProgress({ done, total: t }) });
       if (summary.stopped === 'daily') showToast(t('admin_embed_toast_reindex_daily'), 'error');
       else if (summary.stopped === 'rate') showToast(t('admin_embed_toast_reindex_rate'), 'error');
-      else showToast(t('admin_embed_toast_reindex_summary', { ok: summary.ok, skipped: summary.skipped, failed: summary.failed }), 'success');
+      else showToast(t('admin_embed_toast_reindex_summary', { ok: summary.ok, skipped: summary.skipped, failed: summary.failed }), summary.failed > 0 ? 'warning' : 'success');
     } catch (e) {
       reportError(e, { action: 'embedding_diagnostics_reindex' });
       showToast(t('admin_embed_toast_reindex_error'), 'error');
@@ -92,6 +92,8 @@ export function EmbeddingDiagnostics() {
     try {
       const r = await AIEmbeddingService.syncPendingToCloud();
       if (r.locked) showToast(t('admin_embed_toast_sync_locked', { synced: r.synced }), 'error');
+      else if (r.failed > 0) showToast(t('admin_embed_toast_sync_failed', { synced: r.synced, failed: r.failed }), 'warning');
+      else if (r.waiting > 0) showToast(t('admin_embed_toast_sync_waiting', { synced: r.synced, waiting: r.waiting }), 'info');
       else if (r.synced > 0) showToast(t('admin_embed_toast_sync_count', { synced: r.synced }), 'success');
       else showToast(t('admin_embed_toast_sync_all_done'), 'success');
     } catch (e) {

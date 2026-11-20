@@ -301,7 +301,9 @@ export const AIEmbeddingService = {
    *  locked, or left behind after an embedding-model change marked everything
    *  stale). Makes NO AI calls; uploads are paced sequentially with SYNC_PACE_MS.
    *  Stops early if E2E is locked; the rest retry on a later pass. */
-  async syncPendingToCloud(): Promise<{ synced: number; pending: number; locked: boolean }> {
+  // failed — отказ выгрузки (в журнале); waiting — ждут, пока сама заметка дойдёт до
+  // облака. Без них «всё уже синхронизировано» при оставшихся (диагностика).
+  async syncPendingToCloud(): Promise<{ synced: number; pending: number; locked: boolean; failed: number; waiting: number }> {
     const uid = getCurrentUser()?.uid;
     const db = await getLocalDb();
     // Полный getAll здесь десериализовал векторы и чанк-тексты ВСЕХ заметок
@@ -320,10 +322,12 @@ export const AIEmbeddingService = {
         pending.push(meta);
       }
     }
-    if (!uid || pending.length === 0) return { synced: 0, pending: pending.length, locked: false };
+    if (!uid || pending.length === 0) return { synced: 0, pending: pending.length, locked: false, failed: 0, waiting: uid ? 0 : pending.length };
 
 
     let synced = 0;
+    let failed = 0;
+    let waiting = 0;
     for (let i = 0; i < pending.length; i++) {
       const emb = pending[i]!;
 
@@ -348,6 +352,7 @@ export const AIEmbeddingService = {
           // «пропущенная», не выгрузилась бы уже никогда. Так она просто ждёт
           // документа — без запроса в сеть и без строки в журнале, то есть без
           // того спама, ради которого всё и чинится.
+          waiting++;
           continue;
         }
       }
@@ -368,20 +373,22 @@ export const AIEmbeddingService = {
           await db.put('aiEmbeddings', { ...emb, cloudSkipped: true });
           markCloudFresh(emb.documentId);
         } else if (msg.includes('ENCRYPT_REQUIRED')) {
-          return { synced, pending: pending.length, locked: true };
+          return { synced, pending: pending.length, locked: true, failed, waiting };
         } else if (isRlsDocumentNotReadyError(e)) {
           // Тот же случай, что и пропуск выше по отсутствию documentUuid —
           // просто пойман после запроса, а не до: сервер ещё не видит
           // документ. Не логируем и не помечаем — само перестанет повторяться,
           // как только сам документ долетит до облака.
+          waiting++;
           continue;
         } else {
+          failed++;
           reportError(e, { action: 'ai_embedding_cloud_sync', docId: emb.documentId });
         }
       }
       if (i < pending.length - 1) await sleep(SYNC_PACE_MS);
     }
-    return { synced, pending: pending.length, locked: false };
+    return { synced, pending: pending.length, locked: false, failed, waiting };
   },
 
   async getAll(): Promise<AIDocumentEmbedding[]> {

@@ -51,7 +51,7 @@ function renderReader({ sessionExtra = {}, summaryValue = null, related, openInf
         <MobileNoteReader
           session={{ ...base, ...sessionExtra } as unknown as ArchiveSession}
           onClose={vi.fn()}
-          onContinue={vi.fn()}
+          onContinue={vi.fn()} onRetryContent={vi.fn()}
           onAnalyze={vi.fn()}
           summary={summaryValue as never}
           relatedNotes={related as never}

@@ -16,17 +16,18 @@ const EXCERPT_CHARS = 2_000;
 const LLM_DELAY_MS = 200;
 
 export const AIProfileFacetSummarizer = {
-  async resummarizeDirty(onProgress?: (p: FacetBuildProgress) => void, opts?: CallAiOptions): Promise<{ count: number }> {
+  async resummarizeDirty(onProgress?: (p: FacetBuildProgress) => void, opts?: CallAiOptions): Promise<{ count: number; failed: number }> {
     return writeFacetStore(async (facetStore) => {
       const db = await getLocalDb();
       const facets = await db.getAll('aiProfileFacets');
       const dirty = facets.filter(f => f.dirty);
-      if (dirty.length === 0) return { count: 0 };
+      if (dirty.length === 0) return { count: 0, failed: 0 };
 
       let visibleKeys = await loadVisibleNoteKeys();
       let allEmb = (await AIEmbeddingService.getAll()).filter(e => visibleKeys.has(e.documentId));
       let done = 0;
       let summarizedCount = 0;
+      let failedCount = 0;
 
       for (const f of dirty) {
         if (!AIBackgroundBudget.canSpend(1)) break;
@@ -39,7 +40,9 @@ export const AIProfileFacetSummarizer = {
           break;
         }
         allEmb = allEmb.filter(e => visibleKeys.has(e.documentId));
-        onProgress?.({ done: ++done, total: dirty.length });
+        // Счёт вне `?.`: без подписчика аргументы не вычисляются и ++done не шёл.
+        done++;
+        onProgress?.({ done, total: dirty.length });
 
         const texts: string[] = [];
         for (const e of allEmb) {
@@ -70,6 +73,7 @@ export const AIProfileFacetSummarizer = {
           }
         }
 
+        if (!resummarized) failedCount++;
         f.dirty = !resummarized;
         f.updatedAt = Date.now();
         await facetStore.put(f);
@@ -77,21 +81,24 @@ export const AIProfileFacetSummarizer = {
         await new Promise(r => setTimeout(r, LLM_DELAY_MS));
       }
 
-      return { count: summarizedCount };
+      // failed — грани, которые остались несвежими: отказ поставщика или проход
+      // встал (бюджет, сбой чтения видимости). «Профиль обновлён» по ним — неправда.
+      return { count: summarizedCount, failed: failedCount + (dirty.length - done) };
     });
   },
 
-  async summarizePending(onProgress?: (p: FacetBuildProgress) => void, opts?: CallAiOptions): Promise<{ done: number }> {
+  async summarizePending(onProgress?: (p: FacetBuildProgress) => void, opts?: CallAiOptions): Promise<{ done: number; failed: number }> {
     return writeFacetStore(async (facetStore) => {
       const db = await getLocalDb();
       const facets = await db.getAll('aiProfileFacets');
       const pending = facets.filter(f => f.pendingSummary === true);
-      if (pending.length === 0) return { done: 0 };
+      if (pending.length === 0) return { done: 0, failed: 0 };
 
       let visibleKeys = await loadVisibleNoteKeys();
       let allEmb = (await AIEmbeddingService.getAll()).filter(e => visibleKeys.has(e.documentId));
       let done = 0;
       let summarizedCount = 0;
+      let failedCount = 0;
 
       for (const f of pending) {
         if (!AIBackgroundBudget.canSpend(1)) break;
@@ -104,7 +111,9 @@ export const AIProfileFacetSummarizer = {
           break;
         }
         allEmb = allEmb.filter(e => visibleKeys.has(e.documentId));
-        onProgress?.({ done: ++done, total: pending.length });
+        // Счёт вне `?.`: без подписчика аргументы не вычисляются и ++done не шёл.
+        done++;
+        onProgress?.({ done, total: pending.length });
 
         let excerpts: { title: string; excerpt: string }[] = [];
         const sourcesVisible = f.noteIds.length > 0 && f.noteIds.every(id => visibleKeys.has(id));
@@ -140,6 +149,9 @@ export const AIProfileFacetSummarizer = {
 
         if (summarized) {
           f.pendingSummary = false;
+        } else if (excerpts.length > 0) {
+          // Отказ поставщика. Грань без выдержек — не отказ: суммировать нечего.
+          failedCount++;
         }
         delete f._excerptSeed;
         f.updatedAt = Date.now();
@@ -148,7 +160,7 @@ export const AIProfileFacetSummarizer = {
         await new Promise(r => setTimeout(r, LLM_DELAY_MS));
       }
 
-      return { done: summarizedCount };
+      return { done: summarizedCount, failed: failedCount + (pending.length - done) };
     });
   },
 };

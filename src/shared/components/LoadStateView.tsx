@@ -10,6 +10,8 @@ interface LoadNoticeProps {
   onRetry: () => void;
   /** `panel` — вместо содержимого; `row` — строка над содержимым, которое осталось на экране. */
   variant: 'panel' | 'row';
+  /** Второй выход рядом с «Повторить» (выгрузка: «только с этого устройства»). */
+  extra?: { label: string; onClick: () => void };
   icon?: ReactNode;
   className?: string;
 }
@@ -18,13 +20,16 @@ interface LoadNoticeProps {
  * Единственная панель «не прочиталось + Повторить». Самодельные копии
  * (`accent-danger/10` + `t('retry')`) считает храповик check-load-state.
  */
-export function LoadNotice({ text, onRetry, variant, icon, className }: LoadNoticeProps) {
+export function LoadNotice({ text, onRetry, variant, extra, icon, className }: LoadNoticeProps) {
   const { t } = useLanguage();
   if (variant === 'row') {
     return (
       <div role="alert" className={cn('px-4 py-3 rounded-2xl text-sm bg-accent-danger/10 border border-accent-danger/30 text-accent-danger flex items-center justify-between gap-3', className)}>
         <span>{text}</span>
-        <Button onClick={onRetry} className="shrink-0 underline text-accent-danger/70 hover:text-accent-danger">{t('retry')}</Button>
+        <span className="shrink-0 flex gap-3">
+          <Button onClick={onRetry} className="underline text-accent-danger/70 hover:text-accent-danger">{t('retry')}</Button>
+          {extra && <Button onClick={extra.onClick} className="underline text-accent-danger/70 hover:text-accent-danger">{extra.label}</Button>}
+        </span>
       </div>
     );
   }
@@ -33,6 +38,7 @@ export function LoadNotice({ text, onRetry, variant, icon, className }: LoadNoti
       {icon}
       <p className="text-accent-danger text-sm mb-4">{text}</p>
       <Button onClick={onRetry} className="px-4 py-2 rounded-xl text-sm font-medium text-accent-danger border border-accent-danger/30 hover:bg-accent-danger/10 transition-colors">{t('retry')}</Button>
+      {extra && <Button onClick={extra.onClick} className="ml-3 px-4 py-2 rounded-xl text-sm font-medium text-accent-danger/80 underline">{extra.label}</Button>}
     </div>
   );
 }
@@ -43,6 +49,8 @@ interface LoadStateViewProps<T> {
   loading: ReactNode;
   /** Чтение не удалось; `retry` приходит из состояния. Без прошлых данных — вместо содержимого, с ними — уходит в `notice`. */
   error: (retry: () => void) => ReactNode;
+  /** Ошибка перечитывания, когда прошлые данные на экране (строка над ними); по умолчанию — `error`. */
+  errorWithData?: (retry: () => void) => ReactNode;
   /** Локальное есть, облако не прочиталось — плашка рядом с данными. */
   partial: (retry: () => void) => ReactNode;
   /** Прочитано целиком, и там ничего нет. */
@@ -60,10 +68,10 @@ interface LoadStateViewProps<T> {
  * Все пять веток обязательны: экран не может «забыть» ошибку или частичный
  * отказ — без них компонент не соберётся.
  */
-export function LoadStateView<T>({ state, loading, error, partial, empty, children }: LoadStateViewProps<T>) {
+export function LoadStateView<T>({ state, loading, error, errorWithData, partial, empty, children }: LoadStateViewProps<T>) {
   switch (state.status) {
     case 'loading': return <>{state.stale === undefined ? loading : children(state.stale, null)}</>;
-    case 'error': return <>{state.stale === undefined ? error(state.retry) : children(state.stale, error(state.retry))}</>;
+    case 'error': return <>{state.stale === undefined ? error(state.retry) : children(state.stale, (errorWithData ?? error)(state.retry))}</>;
     case 'empty': return <>{empty}</>;
     case 'partial': return <>{children(state.data, partial(state.retry))}</>;
     case 'data': return <>{children(state.data, null)}</>;

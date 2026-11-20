@@ -34,6 +34,9 @@ export function useTagEditor(userId: string, fetchSessions: () => Promise<void>)
     } catch (err) {
       reportError(err, { action: 'renameTag', tag, newTag: trimmed });
       showToast(t('error_tag_rename_failed'), 'error');
+      // Устройство могло уже переименовать, а облако — нет: экран перечитывает
+      // правду, а не держит теги до попытки.
+      void fetchSessions();
     } finally {
       setRenamingTag(null);
     }
@@ -61,6 +64,7 @@ export function useTagEditor(userId: string, fetchSessions: () => Promise<void>)
     } catch (err) {
       reportError(err, { action: 'deleteTag', tag });
       showToast(t('error_tag_delete_failed'), 'error');
+      void fetchSessions();
     }
   }, [userId, fetchSessions, showToast, t, confirm]);
 

@@ -281,7 +281,7 @@ describe('AP-3: скрытие чистит грани профиля и пор�
     vi.spyOn(LocalStoreSyncService, 'scheduleStoreSync').mockImplementation(() => {});
     const db = await getLocalDb();
 
-    await NoteAnalysisService.clear(DOC_TO_HIDE);
+    await NoteAnalysisService.clearAnalysis(DOC_TO_HIDE);
 
     expect(await db.get('aiProfileFacets', 'f_only_hidden_ap3')).toBeUndefined();
     const mixed = await db.get('aiProfileFacets', 'f_mixed_ap3');
@@ -306,7 +306,7 @@ describe('AP-3: скрытие чистит грани профиля и пор�
     vi.spyOn(AIEmbeddingService, 'delete').mockResolvedValue(undefined as never);
     vi.spyOn(LocalStoreSyncService, 'scheduleStoreDelete').mockImplementation(() => {});
     vi.spyOn(LocalStoreSyncService, 'scheduleStoreSync').mockImplementation(() => {});
-    await NoteAnalysisService.clear(DOC_TO_HIDE);
+    await NoteAnalysisService.clearAnalysis(DOC_TO_HIDE);
     await writeFacetStore(async store => {
       await store.put(facet('f_2b_ap3', [DOC_KEEP], 'вторая видимая') as never);
       await store.put(facet('f_3b_ap3', [DOC_KEEP], 'третья видимая') as never);

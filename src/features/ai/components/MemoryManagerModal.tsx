@@ -7,6 +7,8 @@ import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ModalShell } from '../../../shared/components/ModalShell';
+import { LoadNotice } from '../../../shared/components/LoadStateView';
+import { reportError } from '../../../shared/errors/reportError';
 
 const KIND_ORDER: AIChatMemory['kind'][] = ['preference', 'fact', 'insight', 'commitment'];
 
@@ -25,15 +27,18 @@ export function MemoryManagerModal({ onClose }: MemoryManagerModalProps) {
   const { t } = useLanguage();
   const { confirm: confirmDialog } = useConfirmDialog();
   const [memories, setMemories] = useState<AIChatMemory[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Не прочиталось ≠ «ИИ ничего не запомнил».
+  const [read, setRead] = useState<'loading' | 'error' | 'done'>('loading');
 
   const loadMemories = useCallback(async () => {
-    setLoading(true);
+    setRead('loading');
     try {
       const all = await AIChatMemoryService.getAll();
       setMemories(all.sort((a, b) => b.createdAt - a.createdAt));
-    } finally {
-      setLoading(false);
+      setRead('done');
+    } catch (e) {
+      reportError(e, { action: 'memory_manager_load' });
+      setRead('error');
     }
   }, []);
 
@@ -96,10 +101,12 @@ export function MemoryManagerModal({ onClose }: MemoryManagerModalProps) {
 
         <div className="px-6 py-4 overflow-y-auto flex-1">
           {
-            loading ? (
+            read === 'loading' ? (
               <div className="py-8 text-center text-xs text-text-main/60">
                 {t('ai_processing')}
               </div>
+            ) : read === 'error' ? (
+              <LoadNotice variant="panel" className="p-6" text={t('load_failed_retry')} onRetry={() => void loadMemories()} />
             ) : grouped.length === 0 ? (
               <div className="py-12 text-center text-sm text-text-main/60">
                 {t('ai_memory_empty')}

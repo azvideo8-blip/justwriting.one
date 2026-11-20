@@ -1,4 +1,5 @@
 import React from 'react';
+import { LoadNotice } from '../../../shared/components/LoadStateView';
 import { RotateCcw, Loader2, KeyRound, Trash2 } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
@@ -22,7 +23,8 @@ interface AdminUsersTableProps {
   currentUid?: string | null;
   /** A-2: сбой чтения — таблица говорит об ошибке, а не рисует шапку без строк. */
   error?: boolean;
-  onRetry?: () => void;
+  /** Обязателен: «не загрузилось» без «Повторить» не собирается. */
+  onRetry: () => void;
   /** A-2: статусы приглашений/заметок не прочитались — список идёт с пометкой. */
   statusesFailed?: boolean;
   /** D-11: список обрезан лимитом — говорим об этом, а не молчим. */
@@ -122,12 +124,7 @@ export function AdminUsersTable({
         {error && (
           <tr>
             <td colSpan={columnCount} className="px-6 py-8 text-center text-sm text-accent-danger">
-              <span role="alert">{t('admin_users_load_error')}</span>
-              {onRetry && (
-                <button type="button" onClick={onRetry} className="ml-2 underline text-accent-danger/70 hover:text-accent-danger">
-                  {t('retry')}
-                </button>
-              )}
+              <LoadNotice variant="row" text={t('admin_users_load_error')} onRetry={onRetry} />
             </td>
           </tr>
         )}

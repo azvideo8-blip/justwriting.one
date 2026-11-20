@@ -33,6 +33,7 @@ export const commonTranslations: Translations = {
   common_close: { ru: 'Закрыть', en: 'Close' },
 
   retry: { ru: 'Повторить', en: 'Retry' },
+  load_failed_retry: { ru: 'Не прочиталось — попробуй ещё раз', en: 'Could not be read — try again' },
   restore_cloud_counts_error: {
     ru: 'Не удалось загрузить количество заметок в облаке',
     en: 'Failed to load cloud note count',
