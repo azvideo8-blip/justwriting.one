@@ -67,12 +67,17 @@ function drop(key: string): void {
  * снимает «догрузка завершена»: повторная просьба после исчерпанного курсора
  * обязана качать заново, а не молчать.
  */
-export function requestEmbeddingRestore(userId: string): void {
-  if (!userId) return;
-  write(`${REQUESTED_PREFIX}${userId}`);
+export function requestEmbeddingRestore(userId: string): boolean {
+  if (!userId) return false;
+  // NB-16: флаг запроса — единственная запись, отказ которой обязан видеть
+  // вызывающий: кнопка не обещает догрузку, которой не будет. Внутренние метки
+  // (старт/курсор/готово) пишет fire-and-forget write() — их отказ не обещание.
+  let ok: boolean;
+  try { localStorage.setItem(`${REQUESTED_PREFIX}${userId}`, '1'); ok = true; } catch { ok = false; }
   drop(LEGACY_REQUESTED);
   clearEmbeddingRestoreDone(userId);
   clearEmbeddingRestoreStarted(userId);
+  return ok;
 }
 
 export function isEmbeddingRestoreRequested(userId: string): boolean {

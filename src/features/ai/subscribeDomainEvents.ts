@@ -1,4 +1,21 @@
 import { onDomainEvent } from '../../core/events/domainEvents';
+import { reportError } from '../../shared/errors/reportError';
+
+// Облачный отказ уборки уже в своём журнале (persistPendingAnalysisDelete). Локальный
+// (дайджест/грань/портрет) — в журнале повтора локальной уборки: без него пересказ
+// скрытой заметки оставался бы до следующего входа, и никто бы не узнал.
+async function clearAnalysisInBackground(documentId: string): Promise<void> {
+  const { NoteAnalysisService } = await import('./services/NoteAnalysisService');
+  const { localFailed, purge } = await NoteAnalysisService.clearAnalysis(documentId);
+  if (!localFailed) return;
+  const { getCurrentUser } = await import('../../core/auth');
+  const uid = getCurrentUser()?.uid;
+  if (uid) {
+    const { persistPendingLocalPurge } = await import('./services/pendingLocalPurges');
+    persistPendingLocalPurge(uid, documentId, purge);
+  }
+  reportError(new Error('Local derivatives purge failed — queued for retry'), { action: 'note_derivatives_purge_failed', documentId }, 'warning');
+}
 
 // Модули ИИ грузятся ДИНАМИЧЕСКИ, внутри обработчика.
 //
@@ -26,8 +43,7 @@ export function initAiDomainEvents(): () => void {
       // положенная в корзину, продолжала поставлять факты и цитаты в подсказки.
       case 'note.deleted':
       case 'note.trashed': {
-        const [{ NoteAnalysisService }, { invalidateMiniSearchCache }, { AILexiconService }] = await Promise.all([
-          import('./services/NoteAnalysisService'),
+        const [{ invalidateMiniSearchCache }, { AILexiconService }] = await Promise.all([
           import('./utils/noteRetriever'),
           import('./services/AILexiconService'),
         ]);
@@ -36,19 +52,25 @@ export function initAiDomainEvents(): () => void {
         // чистка произведена и строки разбора уже удалены.
         AILexiconService.clearCache();
         invalidateMiniSearchCache();
-        await NoteAnalysisService.clearAnalysis(e.documentId); // намеренно: фон — отказ облака уже в очереди повтора (persistPendingAnalysisDelete)
+        await clearAnalysisInBackground(e.documentId);
         break;
       }
       case 'note.excludedFromAI': {
         const { refreshMiniSearchDoc } = await import('./utils/noteRetriever');
         const refreshing = refreshMiniSearchDoc(e.documentId);
         if (e.excluded) {
-          const [{ NoteAnalysisService }, { AILexiconService }] = await Promise.all([
-            import('./services/NoteAnalysisService'),
-            import('./services/AILexiconService'),
-          ]);
+          const { AILexiconService } = await import('./services/AILexiconService');
           AILexiconService.clearCache();
-          await NoteAnalysisService.clearAnalysis(e.documentId); // намеренно: фон — отказ облака уже в очереди повтора (persistPendingAnalysisDelete)
+          await clearAnalysisInBackground(e.documentId);
+        } else {
+          // Заметку вернули в ИИ — отложенная уборка её производных больше не нужна
+          // (ревью 0.11.24: иначе повтор чистил бы вернувшуюся заметку).
+          const { getCurrentUser } = await import('../../core/auth');
+          const uid = getCurrentUser()?.uid;
+          if (uid) {
+            const { forgetIfVisibleToAI } = await import('./services/pendingLocalPurges');
+            await forgetIfVisibleToAI(uid, e.documentId);
+          }
         }
         await refreshing;
         break;

@@ -386,7 +386,7 @@ describe('StorageService.addCloudCopy', () => {
       },
     ]);
 
-    const localId = await StorageService.addLocalCopy(GUEST, cloudId);
+    const { localId } = await StorageService.addLocalCopy(GUEST, cloudId);
 
     const versions = await LocalVersionService.getVersions(localId);
     expect(versions).toHaveLength(1);
@@ -644,7 +644,7 @@ describe('C1.3: uuid in cloud sync', () => {
       savedAt: new Date(2000),
     }]);
 
-    const localId = await StorageService.addLocalCopy(GUEST, cloudId);
+    const { localId } = await StorageService.addLocalCopy(GUEST, cloudId);
     const doc = await LocalDocumentService.getDocument(localId);
     expect(doc!.uuid).toBe(cloudUuid);
   });
@@ -675,7 +675,7 @@ describe('C1.3: uuid in cloud sync', () => {
       savedAt: new Date(2000),
     }]);
 
-    const localId = await StorageService.addLocalCopy(GUEST, cloudId);
+    const { localId } = await StorageService.addLocalCopy(GUEST, cloudId);
     const doc = await LocalDocumentService.getDocument(localId);
     // A uuid was generated locally (createDocument always assigns one now)
     expect(doc!.uuid).toMatch(/^[0-9a-f-]{36}$/i);

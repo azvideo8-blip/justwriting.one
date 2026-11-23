@@ -113,7 +113,7 @@ describe('2.15 tag operations surface per-document failures', () => {
 
   it('all-good updates resolve silently', async () => {
     wireSelectRows(docs, [{ error: null }, { error: null }]);
-    await expect(SupabaseDataProvider.renameTagInAllDocs('u1', 'old', 'new')).resolves.toBeUndefined();
+    await expect(SupabaseDataProvider.renameTagInAllDocs('u1', 'old', 'new')).resolves.toBe(0);
   });
 });
 

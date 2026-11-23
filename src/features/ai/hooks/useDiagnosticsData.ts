@@ -90,6 +90,8 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
   const [portraitText, setPortraitText] = useState<string | null>(null);
   const [portraitGenerating, setPortraitGenerating] = useState(false);
   const [summaryLogs, setSummaryLogs] = useState<{ id: string; title: string; processedAt: number; tone: string }[]>([]);
+  // NB-17 №20: история не прочиталась — не «истории нет».
+  const [summaryLogsFailed, setSummaryLogsFailed] = useState(false);
 
   const [stats, setStats] = useState({ localDocs: 0, cloudDocs: 0, aiProcessed: 0, dialogues: 0, summaries: 0, embeddings: 0, customPersonas: 0, memories: 0 });
   const [statsLoaded, setStatsLoaded] = useState(false);
@@ -182,8 +184,10 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       });
       logs.sort((a, b) => b.processedAt - a.processedAt);
       setSummaryLogs(logs);
+      setSummaryLogsFailed(false);
     } catch (e) {
       reportError(e, { action: 'Error loading AI Profile data' });
+      setSummaryLogsFailed(true);
     }
   }, []);
 
@@ -311,8 +315,10 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
   const handleRequestEmbeddingRestore = () => {
     const user = getCurrentUser();
     if (!user?.uid) return;
-    requestEmbeddingRestore(user.uid);
-    showToast('Индекс будет догружаться частями в фоне, по мере дневного лимита чтений', 'success');
+    const ok = requestEmbeddingRestore(user.uid);
+    // NB-16: флаг не лёг — догрузки не будет; обещание зелёным тут ложь.
+    if (ok) showToast('Индекс будет догружаться частями в фоне, по мере дневного лимита чтений', 'success');
+    else showToast(t('ai_embed_restore_flag_failed'), 'warning');
   };
 
   const handleSyncAllToCloud = async () => {
@@ -621,6 +627,8 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     portraitText,
     portraitGenerating,
     summaryLogs,
+    summaryLogsFailed,
+    loadAIProfileData,
     stats,
     statsLoaded,
     statsFailed,

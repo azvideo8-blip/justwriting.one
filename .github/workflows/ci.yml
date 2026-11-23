@@ -76,6 +76,9 @@ jobs:
       run: node scripts/ci/already-green.mjs
 
   build:
+    # Зависший apt в «Install Playwright --with-deps» держал джоб больше часа
+    # (прогон 44770831429, по умолчанию лимит 6 ч). Обычный прогон ~40 мин.
+    timeout-minutes: 75
     needs: already-green
     # `!cancelled()`: джоб идёт и когда already-green пропущен (не main) или упал
     # (сбой — значит полный прогон, а не пропуск тестов).
@@ -140,7 +143,11 @@ jobs:
     - run: npm ci
     - run: node scripts/prod-audit.mjs  # gate on shipped (prod) deps; fails on any high/critical advisory except the documented N/A exceptions in the script
     - run: npm run typecheck
+    # Машина GitHub даёт Node ~2 ГБ кучи по умолчанию — линт всего дерева в неё не
+    # влезает (OOM, прогон 44782168562). Локально — 8 ГБ, здесь машина 7 ГБ.
     - run: npm run lint
+      env:
+        NODE_OPTIONS: --max-old-space-size=6144
     - run: npm run i18n:audit
     - name: Dead-code ratchet (G-2 / F-050)
       # С T-2 (2026-09-28) baseline пуст: любое новое нарушение knip красит прогон.
@@ -284,7 +291,10 @@ jobs:
         # 2026-11-03 (0.11.5): 100000 → 102000 — решение владельца («поднимай»): на
         # 0.11.4 факт 99683 локально (+~135 в CI), запас ~180 Б — следующий пакет
         # упирался бы в порог. Правило подъёма — AGENTS.md («Бюджет стартового чанка»).
-        MAX_INDEX_GZ=102000
+        # 2026-11-21 (0.11.24): 102000 → 104300 — решение владельца («поднимай»): факт
+        # 102290 в CI 44800924624. Рост — строки интерфейса (переводы), новых модулей в
+        # старте нет; срезать ~300 Б можно только ленивыми переводами — отдельная задача.
+        MAX_INDEX_GZ=104300
         biggest_gz=0
         for f in dist/assets/index-*.js; do
           gz=$(gzip -c "$f" | wc -c)
@@ -368,6 +378,8 @@ jobs:
   # WebKit, а единственная известная WebKit-разница (F-20, чтение `users` после
   # входа) сначала проверяется ревьюером на проде — см. MX-6.
   mobile-e2e:
+    # Обычный прогон ~30 мин.
+    timeout-minutes: 60
     needs: already-green
     if: ${{ !cancelled() && github.actor != 'dependabot[bot]' && needs.already-green.outputs.run == '' }}
     runs-on: ubuntu-latest

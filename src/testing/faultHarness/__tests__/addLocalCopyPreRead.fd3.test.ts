@@ -45,7 +45,7 @@ describe('FD-3: addLocalCopy с переданной строкой не пер�
     const reads = vi.spyOn(DocumentService, 'getDocument');
 
     const row = { id: 'fd3_a', uuid: 'fd3_a', guestId: uid, title: 'Note', content: 'текст' } as unknown as Document;
-    const localId = await CloudSyncService.addLocalCopy(uid, 'fd3_a', row);
+    const { localId } = await CloudSyncService.addLocalCopy(uid, 'fd3_a', row);
 
     expect(reads).not.toHaveBeenCalled();
     const db = await getLocalDb();

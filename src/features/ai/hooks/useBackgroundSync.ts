@@ -199,6 +199,13 @@ export function useBackgroundSync(): void {
       } catch (e) {
         reportError(e, { action: 'backgroundSync_retryPendingAnalysisDeletes' });
       }
+      // EX-1: повторить локальную уборку, которая отказала (дайджест/грань/портрет).
+      try {
+        const { retryPendingLocalPurges } = await import('../services/pendingLocalPurges');
+        await retryPendingLocalPurges(uid);
+      } catch (e) {
+        reportError(e, { action: 'backgroundSync_retryPendingLocalPurges' });
+      }
     } catch (e) {
       reportError(e, { action: 'backgroundSync_pass' });
     } finally {

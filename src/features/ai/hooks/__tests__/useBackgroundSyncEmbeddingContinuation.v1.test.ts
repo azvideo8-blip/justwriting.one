@@ -40,6 +40,9 @@ vi.mock('../../../../core/services/LocalStoreSyncService', () => ({
 vi.mock('../../services/pendingAnalysisDeletes', () => ({
   retryPendingAnalysisDeletes: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock('../../services/pendingLocalPurges', () => ({
+  retryPendingLocalPurges: vi.fn().mockResolvedValue({ purged: 0, failed: 0, forgotten: 0 }),
+}));
 vi.mock('../../../../shared/activity/useActivityLogStore', () => ({
   useActivityLogStore: { getState: () => ({ addActivity: vi.fn() }) },
 }));

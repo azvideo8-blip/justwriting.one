@@ -39,7 +39,7 @@ vi.mock('../../../../core/services/SyncService', () => ({
 
 vi.mock('../../../../core/services/CloudSyncService', () => ({
   CloudSyncService: {
-    addLocalCopy: vi.fn().mockResolvedValue('new_local_id'),
+    addLocalCopy: vi.fn().mockResolvedValue({ localId: 'new_local_id', skippedVersions: 0 }),
   },
 }));
 

@@ -3,6 +3,7 @@ import { countWords } from '../../../shared/utils/countWords';
 import { SyncService } from '../../../core/services/SyncService';
 import { truncateText } from '../../../shared/utils/textLimits';
 import { watchLocalDbStall } from '../../../core/storage/localDbStall';
+import { reportMutationResult } from '../../../shared/mutationResult';
 
 export interface ParsedImportFile {
   title: string;
@@ -141,7 +142,7 @@ export async function importNoteFile(
   file: File,
   userId: string,
   isSignedIn: boolean
-): Promise<{ success: boolean; dateUnreadable?: boolean }> {
+): Promise<{ success: boolean; dateUnreadable?: boolean; queued?: boolean }> {
   const rawContent = await readFileContent(file);
   if (rawContent === null) return { success: false };
 
@@ -179,18 +180,72 @@ export async function importNoteFile(
     mood: parsed.mood,
   }));
 
+  // NB-5: задача очереди не встала — обещание «в облаке» не подтверждено;
+  // вызывающий показывает warning вместо успеха (образец — NB-4).
+  let queued = true;
   if (isSignedIn) {
     try {
       await SyncService.addToQueue(localId, userId);
     } catch (queueErr) {
+      queued = false;
       console.error('Import: failed to enqueue sync task', queueErr);
     }
+    // Прямая выгрузка — и при отказе очереди: второй шанс, как до NB-5 (ревью 0.11.24, Nit 3).
     void SyncService.syncOne(userId, localId).catch((syncErr) => {
       console.warn('Import: cloud sync failed, task remains in syncQueue', syncErr);
     });
   }
 
-  return { success: true, dateUnreadable };
+  return { success: true, dateUnreadable, queued };
+}
+
+export interface ImportFeedbackDeps {
+  userId: string;
+  isSignedIn: boolean;
+  showToast: (message: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
+  t: (key: string, params?: Record<string, string | number>) => string;
+  onImported: () => void;
+}
+
+export async function importFilesWithFeedback(files: FileList | File[], deps: ImportFeedbackDeps): Promise<void> {
+  const { userId, isSignedIn, showToast, t, onImported } = deps;
+  let importedCount = 0;
+  let failedCount = 0;
+  let dateWarningCount = 0;
+  let queueWarningCount = 0;
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    if (!file) continue;
+    try {
+      const res = await importNoteFile(file, userId, isSignedIn);
+      if (res.success) {
+        importedCount++;
+        if (res.dateUnreadable) dateWarningCount++;
+        if (res.queued === false) queueWarningCount++;
+      } else {
+        failedCount++;
+      }
+    } catch (err) {
+      console.error('Failed to import file:', file.name, err);
+      failedCount++;
+    }
+  }
+
+  const cloudQueued = importedCount - queueWarningCount;
+  if (cloudQueued > 0) {
+    reportMutationResult({ showToast, t }, undefined, { successText: t('archive_import_success', { count: cloudQueued }) });
+  }
+  if (importedCount > 0) onImported();
+  if (queueWarningCount > 0) {
+    showToast(t('archive_import_local_only', { count: queueWarningCount }), 'warning');
+  }
+  if (dateWarningCount > 0) {
+    showToast(t('archive_import_date_warning', { count: dateWarningCount }), 'error');
+  }
+  if (failedCount > 0) {
+    showToast(t('archive_import_failed', { count: failedCount }), 'error');
+  }
 }
 
 

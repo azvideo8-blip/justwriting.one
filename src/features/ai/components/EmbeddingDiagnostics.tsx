@@ -11,6 +11,7 @@ import { AIEmbeddingService } from '../services/AIEmbeddingService';
 
 import { reportError } from '../../../shared/errors/reportError';
 import { useLanguage } from '../../../shared/i18n';
+import { LoadNotice } from '../../../shared/components/LoadStateView';
 
 export function EmbeddingDiagnostics() {
   const { t } = useLanguage();
@@ -27,6 +28,7 @@ export function EmbeddingDiagnostics() {
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<RetrievedNote[] | null>(null);
+  const [searchFailed, setSearchFailed] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -110,8 +112,19 @@ export function EmbeddingDiagnostics() {
     if (!q) return;
     setSearching(true);
     setResults(null);
+    setSearchFailed(false);
     try {
-      setResults(await searchNotes(q, 5));
+      // NB-17 №21б: отказ embed searchNotes возвращает пустым списком —
+      // отличие от «ничего не найдено» только в meta.embedFailed. Не rerankFailed:
+      // он ставится и при рабочем векторном поиске с порядком RRF (ревью 0.11.24, N-5).
+      let embedFailed = false;
+      const found = await searchNotes(q, 5, { onRerankMeta: m => { if (m.embedFailed) embedFailed = true; } });
+      if (embedFailed) {
+        setSearchFailed(true);
+        showToast(t('admin_embed_search_failed'), 'error');
+        return;
+      }
+      setResults(found);
     } catch (e) {
       reportError(e, { action: 'embedding_diagnostics_search' });
       showToast(t('admin_embed_toast_search_error'), 'error');
@@ -232,6 +245,9 @@ export function EmbeddingDiagnostics() {
           </Button>
         </div>
 
+        {searchFailed && (
+          <LoadNotice variant="row" text={t('admin_embed_search_failed')} onRetry={() => void handleSearch()} />
+        )}
         {results !== null && (
           results.length === 0 ? (
             <p className="text-xs text-text-main/60 italic py-2">{t('admin_embed_test_search_empty')}</p>

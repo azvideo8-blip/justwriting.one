@@ -118,7 +118,7 @@ export function exportRefusalKey(session: ArchiveSession): 'archive_export_locke
   return null;
 }
 
-export function exportAsTxt(session: ArchiveSession, s: ExportStrings): void {
+export async function exportAsTxt(session: ArchiveSession, s: ExportStrings): Promise<void> {
   const content = [
     buildHeader(session, s),
     '',
@@ -126,12 +126,12 @@ export function exportAsTxt(session: ArchiveSession, s: ExportStrings): void {
     '',
     session.content || '',
   ].join('\n');
-  void downloadBlob(content, 'text/plain;charset=utf-8', getFilename(session, 'txt', s));
+  await downloadBlob(content, 'text/plain;charset=utf-8', getFilename(session, 'txt', s));
 }
 
-export function exportAsMd(session: ArchiveSession, s: ExportStrings): void {
+export async function exportAsMd(session: ArchiveSession, s: ExportStrings): Promise<void> {
   const content = sessionToMarkdown(session, s);
-  void downloadBlob(content, 'text/markdown;charset=utf-8', getFilename(session, 'md', s));
+  await downloadBlob(content, 'text/markdown;charset=utf-8', getFilename(session, 'md', s));
 }
 
 export function stripMarkdown(md: string): string {

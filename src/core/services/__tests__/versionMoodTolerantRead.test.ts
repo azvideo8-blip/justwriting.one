@@ -155,7 +155,7 @@ describe('AG-ENC-1: versions.mood Tolerant Read, Write Encryption & Backfill Tes
     });
 
     // addLocalCopy pulls down the note and its versions
-    const localId = await CloudSyncService.addLocalCopy(userId, cloudDocId);
+    const { localId } = await CloudSyncService.addLocalCopy(userId, cloudDocId);
     expect(localId).toBeDefined();
 
     const localVersions = await LocalVersionService.getVersions(localId);
@@ -204,7 +204,7 @@ describe('AG-ENC-1: versions.mood Tolerant Read, Write Encryption & Backfill Tes
     await localDb.clear('documents');
     await localDb.clear('versions');
 
-    const restoredLocalId = await CloudSyncService.addLocalCopy(userId, cloudId);
+    const { localId: restoredLocalId } = await CloudSyncService.addLocalCopy(userId, cloudId);
     expect(restoredLocalId).toBeTruthy();
 
     const restoredVersions = await LocalVersionService.getVersions(restoredLocalId);
@@ -298,8 +298,8 @@ describe('AG-ENC-1: versions.mood Tolerant Read, Write Encryption & Backfill Tes
     await localDb.clear('documents');
     await localDb.clear('versions');
 
-    const restored1 = await CloudSyncService.addLocalCopy(userId, docLegacyPlain);
-    const restored2 = await CloudSyncService.addLocalCopy(userId, docLegacyEncrypted);
+    const { localId: restored1 } = await CloudSyncService.addLocalCopy(userId, docLegacyPlain);
+    const { localId: restored2 } = await CloudSyncService.addLocalCopy(userId, docLegacyEncrypted);
 
     const v1Restored = await LocalVersionService.getVersions(restored1);
     expect(v1Restored[0]!.mood).toBe('😊');

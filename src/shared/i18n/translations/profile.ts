@@ -50,6 +50,7 @@ export const profileTranslations: Translations = {
   profile_theme_hint: { ru: 'Меняет цвет фона. Логотип и акценты бренда остаются фиолетовыми.', en: 'Changes background color. Logo and brand accents stay purple.' },
   profile_sec_how_write: { ru: 'Как я пишу', en: 'How I write' },
   profile_sec_about_me: { ru: 'Обо мне', en: 'About me' },
+  profile_sec_dialogue_insights: { ru: 'Выводы из разговоров', en: 'Conversation takeaways' },
   profile_sec_life_story: { ru: 'История моей жизни', en: 'My life story' },
 
   profile_quote_1:  { ru: 'Пишу по утрам, до того, как голова наполнится чужими голосами.', en: 'I write in the morning, before my head fills with other voices.' },

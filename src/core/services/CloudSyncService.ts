@@ -807,7 +807,8 @@ export const CloudSyncService = {
           // вторую не создаём — так же, как uuid-страж старого прохода.
           skipped++;
         } else {
-          await withRateLimitRetry(() => downloadLimit(() => CloudSyncService.addLocalCopy(userId, uuid, cloudDoc)));
+          // NB-9 (ревью 0.11.24, N-2): битые версии новой заметки — в тот же счёт, что у связанных.
+          corrupted += (await withRateLimitRetry(() => downloadLimit(() => CloudSyncService.addLocalCopy(userId, uuid, cloudDoc)))).skippedVersions;
           downloaded++;
         }
         handled.add(uuid);
@@ -892,7 +893,7 @@ export const CloudSyncService = {
                 // FD-2: 429 на заметке — общий тормоз и повтор, а не «заметка
                 // не скачалась»; в downloadFailed значение попадает только после
                 // исчерпания повторов.
-                await withRateLimitRetry(() => downloadLimit(() => CloudSyncService.addLocalCopy(userId, uuid, docByUuid.get(uuid))));
+                corrupted += (await withRateLimitRetry(() => downloadLimit(() => CloudSyncService.addLocalCopy(userId, uuid, docByUuid.get(uuid))))).skippedVersions;
                 downloadedOk.add(uuid);
               } catch (e) {
                 downloadFailed.set(uuid, e);
@@ -1193,11 +1194,11 @@ export const CloudSyncService = {
    * Проверки `_locked` / `_decryptionError` / пустых версий — те же, на переданной
    * строке. Надгробие сюда не передаётся: у него нет читаемой головы.
    */
-  async addLocalCopy(userId: string, cloudDocumentId: string, preRead?: Document): Promise<string> {
+  async addLocalCopy(userId: string, cloudDocumentId: string, preRead?: Document): Promise<{ localId: string; skippedVersions: number }> {
     return withDocumentLock(cloudDocumentId, async () => {
       const allLocal = await LocalStorageService.getDocumentsByOwner(userId);
       const existing = allLocal.find(d => d.linkedCloudId === cloudDocumentId);
-      if (existing) return existing.id;
+      if (existing) return { localId: existing.id, skippedVersions: 0 };
 
       const cloudDoc = preRead ?? await DocumentService.getDocument(userId, cloudDocumentId);
       if (!cloudDoc) throw new Error('Cloud document not found');
@@ -1347,7 +1348,7 @@ export const CloudSyncService = {
           'sync'
         );
 
-        return localId;
+        return { localId, skippedVersions: corruptedVersions.length };
       } catch (e) {
         // Ревью FD: 429 — не ошибка заметки, его повторит withRateLimitRetry; в журнал
         // ушло бы до шести строк на заметку со страницей nginx в каждой.

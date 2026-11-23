@@ -150,10 +150,10 @@ export async function initializeEncryption(
   setEncryptionEnabled(userId, true);
 
   if (autoCreated) {
-    try {
-      await saveDeviceKey(userId, dataKey);
-      setRememberDevice(true);
-    } catch { /* намеренно: сохранение ключа устройства опционально (напр. режим инкогнито) */ }
+    // NB-6: намеренно молча — сохранение ключа устройства при автосоздании
+    // сейфа опционально (напр. режим инкогнито), тоста нет. Но флаг
+    // «запомнено» ставим только если ключ действительно лёг.
+    if (await saveDeviceKey(userId, dataKey)) setRememberDevice(true);
   }
 
   return { recoveryCode };

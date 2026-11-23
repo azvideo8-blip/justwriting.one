@@ -64,4 +64,17 @@ describe('A-6: имя профиля', () => {
 
     await waitFor(() => expect(update).toHaveBeenCalledWith('u-a6', 'Мария'));
   });
+
+  it('PIN-1: updateNickname бросил — error-тост error_nickname_failed, не успех', async () => {
+    vi.spyOn(ProfileService, 'updateNickname').mockRejectedValue(new Error('network down'));
+    renderRu(<ProfileHero user={USER} profile={null} isGuest={false} onStartSession={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Изменить имя' }));
+    const field = screen.getByRole('textbox', { name: 'Имя' });
+    fireEvent.change(field, { target: { value: 'Мария' } });
+    fireEvent.blur(field);
+
+    await waitFor(() => expect(screen.getByText('Не удалось обновить никнейм.')).toBeTruthy());
+    expect(screen.queryByText('Заметка сохранена')).toBeNull();
+  });
 });

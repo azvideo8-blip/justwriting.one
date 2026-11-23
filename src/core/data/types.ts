@@ -69,8 +69,8 @@ export interface IDataProvider {
   ): Promise<number | null>;
   deleteDocument(userId: string, documentId: string): Promise<void>;
   clearLabelFromAllDocs(userId: string, labelId: string): Promise<void>;
-  renameTagInAllDocs(userId: string, oldTag: string, newTag: string): Promise<void>;
-  removeTagFromAllDocs(userId: string, tag: string): Promise<void>;
+  renameTagInAllDocs(userId: string, oldTag: string, newTag: string): Promise<number>;
+  removeTagFromAllDocs(userId: string, tag: string): Promise<number>;
   getCloudVersionDiscrepancyCount?(userId: string): Promise<number>;
 
   // --- Version Operations ---

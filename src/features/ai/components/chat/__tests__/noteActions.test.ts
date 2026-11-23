@@ -36,7 +36,7 @@ describe('createNoteActions', () => {
   describe('handleCreateNote', () => {
     it('creates note, notifies user, emits domain event, and enqueues sync for auth user', async () => {
       vi.mocked(StorageService.saveNew).mockResolvedValue({ localId: 'local_abc' });
-      const actions = createNoteActions({ userId: 'u_test_1', showToast });
+      const actions = createNoteActions({ userId: 'u_test_1', showToast, t: (k: string) => k });
 
       await actions.handleCreateNote('<p>Заголовок новой заметки\nВторая строка текста</p>');
 
@@ -60,7 +60,7 @@ describe('createNoteActions', () => {
 
     it('does not enqueue or sync when user is guest', async () => {
       vi.mocked(StorageService.saveNew).mockResolvedValue({ localId: 'local_guest' });
-      const actions = createNoteActions({ userId: 'guest_999', showToast });
+      const actions = createNoteActions({ userId: 'guest_999', showToast, t: (k: string) => k });
 
       await actions.handleCreateNote('Заметка гостя');
 
@@ -77,7 +77,7 @@ describe('createNoteActions', () => {
     it('shows success toast even if cloud sync fails (task remains in queue)', async () => {
       vi.mocked(StorageService.saveNew).mockResolvedValue({ localId: 'local_fail' });
       vi.mocked(SyncService.syncOne).mockRejectedValue(new Error('Network error'));
-      const actions = createNoteActions({ userId: 'u_test_1', showToast });
+      const actions = createNoteActions({ userId: 'u_test_1', showToast, t: (k: string) => k });
 
       await actions.handleCreateNote('Тестовая заметка');
 
@@ -91,7 +91,7 @@ describe('createNoteActions', () => {
     it('PIN-1: saveNew отказал (сейф заперт) — error-тост, без «успешно создана» и без события', async () => {
       vi.mocked(StorageService.saveNew).mockRejectedValue(new Error('LOCKED: vault'));
       const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const actions = createNoteActions({ userId: 'u_test_1', showToast });
+      const actions = createNoteActions({ userId: 'u_test_1', showToast, t: (k: string) => k });
       await actions.handleCreateNote('Текст ответа ИИ для заметки');
       errSpy.mockRestore();
       expect(showToast).toHaveBeenCalledWith('Не удалось создать заметку', 'error');

@@ -341,6 +341,13 @@ export interface AIRestoreResult {
   skippedLocked: boolean;
   sectionFailed?: boolean;
   /**
+   * Журнал удалений разборов не читается: разборы пропущены (вернуть удалённое
+   * хуже), но это не сбой чтения облака — курсор забора и «сделано за сегодня»
+   * от него не стоят, иначе тяжёлый проход шёл бы каждые 30 минут навсегда
+   * (ревью 0.11.24). Окно «Восстановить из облака» называет его как пропуск.
+   */
+  analysisJournalUnreadable?: boolean;
+  /**
    * Наибольшая СЕРВЕРНАЯ отметка строки, реально увидленная в облаке за этот
    * проход (W-5; `payload.updatedAt` — только у строк без неё). Курсор
    * инкрементального забора обязан считаться по ней, а не по `Date.now()` и не по
@@ -417,7 +424,11 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
 
   // Журнал удалений разборов не читается — не знаем, какие разборы удалены:
   // вернуть удалённое хуже, чем не вернуть ничего (как у AI-сторов ниже).
-  const pendingAnalysisDeletes = getPendingAnalysisDeleteKeys(userId) ?? { has: () => true };
+  // Отказ назван отдельным полем (NB-10, ревью 0.11.24): раздел пропущен, но
+  // курсор фонового забора от него не стоит — журнал сам не чинится.
+  const analysisDeleteKeys = getPendingAnalysisDeleteKeys(userId);
+  if (analysisDeleteKeys === null) result.analysisJournalUnreadable = true;
+  const pendingAnalysisDeletes = analysisDeleteKeys ?? { has: () => true };
 
   try {
     const docs = await DataProvider.getUserSummaries(userId, sinceMs);
@@ -951,6 +962,8 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
 export interface ReattachResult {
   summaries: number;
   embeddings: number;
+  /** Журнал удалений не читается — проход отменён (fail-closed), итог не «готово». */
+  failed?: boolean;
 }
 
 /**
@@ -974,7 +987,7 @@ export async function reattachOrphanedAnalysis(): Promise<ReattachResult> {
   // пользователь уже снёс, возвращался. Журнал не читается — проход отменяется
   // (fail-closed), как в restoreAIDataFromCloud.
   const pendingAnalysisDeletes = getPendingAnalysisDeleteKeys(getCurrentUser()?.uid ?? '');
-  if (pendingAnalysisDeletes === null) return out;
+  if (pendingAnalysisDeletes === null) return { ...out, failed: true };
 
   const [docs, summaries, embeddings] = await Promise.all([
     db.getAll('documents'),
@@ -1149,7 +1162,8 @@ async function rebuildTimelineEntry(
  */
 export async function restoreAndReattachAIData(userId: string): Promise<AIRestoreResult> {
   const res = await restoreAIDataFromCloud(userId);
-  await reattachOrphanedAnalysis();
+  const reattached = await reattachOrphanedAnalysis();
+  if (reattached.failed) res.sectionFailed = true;
   return res;
 }
 

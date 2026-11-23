@@ -142,6 +142,8 @@ export function DiagnosticsPage() {
     userEventsLoading,
     fetchUserEvents,
     summaryLogs,
+    summaryLogsFailed,
+    loadAIProfileData,
     stats,
     statsLoaded,
     statsFailed,
@@ -820,6 +822,9 @@ export function DiagnosticsPage() {
 
             <AuthorPortrait />
 
+            {summaryLogsFailed && (
+              <LoadNotice variant="row" text={t('load_failed_retry')} onRetry={() => void loadAIProfileData()} />
+            )}
             {summaryLogs.length > 0 && (
               <div className="rounded-2xl border border-border-subtle overflow-hidden">
                 <div className="px-5 py-3 border-b border-border-subtle bg-surface-base/5">
@@ -929,6 +934,8 @@ export function MassAnalyzeNotes() {
   const { t } = useLanguage();
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0, failed: 0 });
+  // NB-17 №20: статистика не прочиталась — не «0 заметок» и не «Завершено».
+  const [statsError, setStatsError] = useState(false);
   const [stats, setStats] = useState({
     total: 0,
     summarized: 0,
@@ -957,8 +964,10 @@ export function MassAnalyzeNotes() {
         budgetSpent: budget.spent,
         budgetLimit: budget.budget,
       });
+      setStatsError(false);
     } catch (e) {
-      console.error(e);
+      reportError(e, { action: 'diagnostics_mass_stats' });
+      setStatsError(true);
     }
   }, []);
 
@@ -1089,18 +1098,26 @@ export function MassAnalyzeNotes() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 text-xs">
-        <div className="space-y-1">
-          <div className="text-text-main/40 text-[10px] uppercase">{t('admin_mass_coverage_label')}</div>
-          <div className="font-semibold text-text-main">
-            {t('admin_mass_coverage', { summarized: stats.summarized, total: stats.total, pct: stats.total > 0 ? Math.round((stats.summarized / stats.total) * 100) : 0 })}
+        {statsError ? (
+          <div className="col-span-2">
+            <LoadNotice variant="row" text={t('load_failed_retry')} onRetry={() => void loadStats()} />
           </div>
-        </div>
-        <div className="space-y-1">
-          <div className="text-text-main/40 text-[10px] uppercase">{t('admin_mass_eta_label')}</div>
-          <div className="font-semibold text-text-main">
-            {stats.remaining > 0 ? t('admin_mass_eta', { days: stats.daysToComplete, budget: stats.budgetLimit }) : t('admin_mass_done')}
-          </div>
-        </div>
+        ) : (
+          <>
+            <div className="space-y-1">
+              <div className="text-text-main/40 text-[10px] uppercase">{t('admin_mass_coverage_label')}</div>
+              <div className="font-semibold text-text-main">
+                {t('admin_mass_coverage', { summarized: stats.summarized, total: stats.total, pct: stats.total > 0 ? Math.round((stats.summarized / stats.total) * 100) : 0 })}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-text-main/40 text-[10px] uppercase">{t('admin_mass_eta_label')}</div>
+              <div className="font-semibold text-text-main">
+                {stats.remaining > 0 ? t('admin_mass_eta', { days: stats.daysToComplete, budget: stats.budgetLimit }) : t('admin_mass_done')}
+              </div>
+            </div>
+          </>
+        )}
         <div className="space-y-1 col-span-2 border-t border-border-subtle/30 pt-3">
           <div className="text-text-main/40 text-[10px] uppercase">{t('admin_mass_budget_label')}</div>
           <div className="font-semibold text-text-main">

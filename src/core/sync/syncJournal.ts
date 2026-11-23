@@ -42,6 +42,8 @@ export const JOURNAL_BASE_NAMES = [
   'ai_sync_pending_upserts',
   'ai_sync_dead_upserts',
   'ai_sync_pending_analysis_deletes',
+  // EX-1: повтор локальной уборки производных (дайджест/грань/портрет)
+  'ai_sync_pending_local_purges',
   // S2-7: прибавки счётчиков в пути (`pendingDelta.ts`) — сразу на ключе учётки.
   'sync_pending_delta',
 ] as const;

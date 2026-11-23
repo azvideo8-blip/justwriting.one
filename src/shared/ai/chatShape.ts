@@ -6,6 +6,7 @@
 // собран ход» без единого символа пользовательского текста: логи читаются кем
 // угодно, а приложение пишет про людей.
 import type { NoteScope } from './buildChatPrompt.js';
+import { INSIGHT_RECALL_MARK } from './insightRecall.js';
 import type { TurnAudit } from './answerAudit.js';
 
 const PERSONA_IDS = ['group_psychology', 'cbt', 'coach', 'editor', 'parts', 'ta', 'custom'] as const;
@@ -31,6 +32,8 @@ export interface ChatShapeLog {
   memoryChars: number;
   systemChars: number;
   hypo?: HypoStats;
+  /** DI-7: блок прошлого вывода положен в ход (метка в материалах). */
+  recall?: number;
 }
 
 export interface ChatShapeInput {
@@ -67,6 +70,7 @@ export function chatShape(input: ChatShapeInput): ChatShapeLog {
     memoryChars: input.memoryContext?.length ?? 0,
     systemChars: input.system.length,
     ...(input.hypoStats ? { hypo: { cands: input.hypoStats.cands, picked: input.hypoStats.picked, quoted: input.hypoStats.quoted, diverse: input.hypoStats.diverse, shown: input.hypoStats.shown } } : {}),
+    ...(input.documentContent?.includes(INSIGHT_RECALL_MARK) ? { recall: 1 } : {}),
   };
 }
 

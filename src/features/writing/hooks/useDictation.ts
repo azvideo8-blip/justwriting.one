@@ -141,6 +141,9 @@ function readOwner(): symbol | null {
   return ownerToken;
 }
 
+/** N-4: тост с несохранённым сказанным висит, пока его можно выделить руками. */
+export const COPY_FAILED_TOAST_MS = 60_000;
+
 export function useDictation(): DictationApi {
   const [token] = useState(() => Symbol('dictation-host'));
   const { t } = useLanguage();
@@ -181,10 +184,26 @@ export function useDictation(): DictationApi {
   // Текст отдаётся тостом с копированием — нажатие на кнопку и есть жест,
   // который разрешает запись в буфер обмена.
   const offerCopy = useCallback((text: string, messageKey: string) => {
+    // NB-2: отказ буфера обмена не глотается — сказанное отдаётся в самом
+    // error-тосте (его можно выделить и скопировать вручную), кнопка — ещё
+    // одна попытка тем же жестом.
+    const copy = async () => {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        // Ревью 0.11.24, N-4: за 3 с текст не выделить — тост с ним висит минуту.
+        showToast(`${t('voice_copy_failed')}: ${text}`, 'error', {
+          label: t('voice_copy_text'),
+          onClick: () => { void copy(); },
+        }, { durationMs: COPY_FAILED_TOAST_MS });
+      }
+    };
+    // Ревью выпуска 0.11.24: сказанное живёт только в этом тосте — за 3 с его
+    // не заметить и не нажать «Скопировать». Висит, как и тост отказа копирования.
     showToast(t(messageKey), 'warning', {
       label: t('voice_copy_text'),
-      onClick: () => { void navigator.clipboard?.writeText(text).catch(() => undefined); },
-    });
+      onClick: () => { void copy(); },
+    }, { durationMs: COPY_FAILED_TOAST_MS });
   }, [showToast, t]);
 
   // Пунктуация идёт до пятнадцати секунд после Stop, и человек успевает открыть

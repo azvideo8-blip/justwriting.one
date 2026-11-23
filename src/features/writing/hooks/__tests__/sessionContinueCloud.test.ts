@@ -92,7 +92,7 @@ describe('SYNC-D2: Continuing cloud-only notes', () => {
 
     it('downloads cloud-only note and populates store with text', async () => {
       vi.mocked(LocalDocumentService.getDocumentsByOwner).mockResolvedValueOnce([]);
-      vi.mocked(StorageService.addLocalCopy).mockResolvedValueOnce('local_new_1');
+      vi.mocked(StorageService.addLocalCopy).mockResolvedValueOnce({ localId: 'local_new_1', skippedVersions: 0 });
       vi.mocked(LocalVersionService.getLatestContent).mockResolvedValueOnce('Hello from cloud');
 
       const { result } = renderHook(() =>
@@ -206,7 +206,7 @@ describe('SYNC-D2: Continuing cloud-only notes', () => {
     } as any;
 
     it('handleContinueDocument downloads cloud-only note and loads into store', async () => {
-      vi.mocked(StorageService.addLocalCopy).mockResolvedValueOnce('local_downloaded_2');
+      vi.mocked(StorageService.addLocalCopy).mockResolvedValueOnce({ localId: 'local_downloaded_2', skippedVersions: 0 });
       vi.mocked(LocalVersionService.getLatestContent).mockResolvedValueOnce('Continued cloud text');
 
       const { result } = renderHook(() =>
@@ -245,7 +245,7 @@ describe('SYNC-D2: Continuing cloud-only notes', () => {
     });
 
     it('handleContinueSessionOrDoc handles ArchiveSession with _contentNotLoaded', async () => {
-      vi.mocked(StorageService.addLocalCopy).mockResolvedValueOnce('local_downloaded_3');
+      vi.mocked(StorageService.addLocalCopy).mockResolvedValueOnce({ localId: 'local_downloaded_3', skippedVersions: 0 });
       vi.mocked(LocalVersionService.getLatestContent).mockResolvedValueOnce('Loaded text from cloud note');
 
       const { result } = renderHook(() =>
@@ -321,7 +321,7 @@ describe('SYNC-D2: Continuing cloud-only notes', () => {
     });
 
     it('refuses to open blank editor when downloaded text is empty but totalWords > 0', async () => {
-      vi.mocked(StorageService.addLocalCopy).mockResolvedValueOnce('local_corrupt');
+      vi.mocked(StorageService.addLocalCopy).mockResolvedValueOnce({ localId: 'local_corrupt', skippedVersions: 0 });
       vi.mocked(LocalVersionService.getLatestContent).mockResolvedValueOnce(''); // Empty text returned!
 
       const { result } = renderHook(() =>

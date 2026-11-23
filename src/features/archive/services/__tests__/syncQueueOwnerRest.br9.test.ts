@@ -44,7 +44,7 @@ beforeEach(() => { vi.clearAllMocks(); });
 
 describe('BR-9: очередь метаданных и заметка из ответа ИИ — в базе аккаунта', () => {
   it('заметка из ответа ИИ: задача в базе аккаунта, в гостевой — пусто', async () => {
-    const actions = createNoteActions({ userId, showToast: vi.fn() });
+    const actions = createNoteActions({ userId, showToast: vi.fn(), t: (k: string) => k });
     await actions.handleCreateNote('Синтетическая заметка из ответа ассистента');
 
     const guest = await queueDocIds(null);

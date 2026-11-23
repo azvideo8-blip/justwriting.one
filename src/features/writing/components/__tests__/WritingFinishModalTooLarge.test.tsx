@@ -49,6 +49,8 @@ vi.mock('../WpmChart', () => ({
   WpmChart: () => <div data-testid="wpm-chart" />,
 }));
 
+vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
+
 vi.mock('../../../lifeLog/hooks/useCorpusDf', () => ({
   buildCorpusDf: vi.fn().mockResolvedValue({ df: new Map(), N: 0 }),
 }));
@@ -141,6 +143,18 @@ describe('F-2: WritingFinishModal toast on too large note save', () => {
     fireEvent.click(screen.getByText('common_save'));
     await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith('save_local_only_queued', 'warning'));
     expect(mockShowToast).not.toHaveBeenCalledWith('save_success', 'success');
+  });
+
+  // PIN-1 (2026-11-21): бросок сохранения назван. Мутация: убрать
+  // errorMessage у runMutation в WritingFinishModal — красный.
+  it('PIN-1: onSave бросил — error-тост error_save_failed, не успех и не тишина', async () => {
+    const onSave = vi.fn().mockRejectedValue(new Error('SYNTHETIC_SAVE_THROW'));
+    const onCancel = vi.fn();
+    render(<WritingFinishModal isOpen={true} onCancel={onCancel} onSave={onSave} />);
+    fireEvent.click(screen.getByText('common_save'));
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith('error_save_failed', 'error'));
+    expect(mockShowToast).not.toHaveBeenCalledWith('save_success', 'success');
+    expect(onCancel).not.toHaveBeenCalled();
   });
 
   // DC-W3: настроение — необязательная строка в том же шаге, «Сохранить» отдаёт

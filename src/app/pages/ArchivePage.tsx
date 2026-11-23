@@ -166,39 +166,17 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
   const [dragActive, setDragActive] = useState(false);
 
   const handleImportFiles = async (files: FileList) => {
-    let importedCount = 0;
-    let failedCount = 0;
-    let dateWarningCount = 0;
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      if (!file) continue;
-      try {
-        const { importNoteFile } = await import('../../features/archive/services/archiveImport');
-        const res = await importNoteFile(file, userId, !!user);
-        if (res.success) {
-          importedCount++;
-          if (res.dateUnreadable) dateWarningCount++;
-        } else {
-          failedCount++;
-        }
-      } catch (err) {
-        console.error('Failed to import file:', file.name, err);
-        failedCount++;
-      }
-    }
-
-    if (importedCount > 0) {
-      showToast(t('archive_import_success', { count: importedCount }), 'success');
-      void fetchSessions();
-      void rebuildWordCloud(userId).catch(() => {});
-    }
-    if (dateWarningCount > 0) {
-      showToast(t('archive_import_date_warning', { count: dateWarningCount }), 'error');
-    }
-    if (failedCount > 0) {
-      showToast(t('archive_import_failed', { count: failedCount }), 'error');
-    }
+    const { importFilesWithFeedback } = await import('../../features/archive/services/archiveImport');
+    await importFilesWithFeedback(files, {
+      userId,
+      isSignedIn: !!user,
+      showToast,
+      t,
+      onImported: () => {
+        void fetchSessions();
+        void rebuildWordCloud(userId).catch(() => {});
+      },
+    });
   };
 
   const handleDrag = (e: React.DragEvent) => {

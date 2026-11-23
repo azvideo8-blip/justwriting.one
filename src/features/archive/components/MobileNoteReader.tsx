@@ -62,6 +62,8 @@ interface MobileNoteReaderProps {
   /** Подбор связанных сорвался — строка с повтором вместо «связанных нет». */
   relatedFailed?: boolean | undefined;
   onRetryRelated?: (() => void) | undefined;
+  summaryLoadFailed?: boolean | undefined;
+  onRetrySummary?: (() => void) | undefined;
   onSelectRelated?: ((documentId: string) => void) | undefined;
 }
 
@@ -69,6 +71,7 @@ export function MobileNoteReader({
   session, onClose, onContinue, onTagsChange, onLabelChange, labels, allTags,
   onDelete, onStorageChange, summary, analyzing, justFinished, analyzeError, onAnalyze, onClearAnalysis,
   onAddLabel, onTitleChange, relatedNotes, relatedFailed, onRetryRelated, onSelectRelated, onRetryContent,
+  summaryLoadFailed, onRetrySummary,
 }: MobileNoteReaderProps) {
   const { t, tp, language } = useLanguage();
   // MP-1/Safari: читалка — не окно, поэтому прокрутку страницы за собой не
@@ -419,6 +422,8 @@ export function MobileNoteReader({
                   </p>
                 ) : justFinished ? (
                   <p className="mt-2 rounded-xl border border-brand-soft/20 bg-brand-soft/5 px-3 py-2 text-[15px] text-brand-soft">{t('archive_preview_refresh_hint')}</p>
+                ) : summaryLoadFailed && onRetrySummary ? (
+                  <LoadNotice variant="row" className="mt-2" text={t('archive_summary_load_error')} onRetry={onRetrySummary} />
                 ) : (
                   <div className="mt-2 space-y-2">
                     <Button

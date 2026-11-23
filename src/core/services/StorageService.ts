@@ -131,7 +131,7 @@ export const StorageService = {
     return _lockManager.acquire(documentId, () => withTimeout(_doSaveVersion(userId, documentId, data), 60_000, 'Sync timeout'));
   },
 
-  async addLocalCopy(userId: string, cloudDocumentId: string): Promise<string> {
+  async addLocalCopy(userId: string, cloudDocumentId: string): Promise<{ localId: string; skippedVersions: number }> {
     return CloudSyncService.addLocalCopy(userId, cloudDocumentId);
   },
 

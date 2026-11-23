@@ -15,8 +15,13 @@ interface ToastItem {
   action?: ToastAction;
 }
 
+interface ToastOptions {
+  /** Сколько тост висит; по умолчанию 3 с. Дольше — когда текст тоста нужно успеть выделить. */
+  durationMs?: number;
+}
+
 interface ToastContextType {
-  showToast: (message: string, type?: 'success' | 'error' | 'info' | 'warning', action?: ToastAction) => void;
+  showToast: (message: string, type?: 'success' | 'error' | 'info' | 'warning', action?: ToastAction, options?: ToastOptions) => void;
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -26,13 +31,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const nextIdRef = React.useRef(0);
   const timersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
 
-  const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success', action?: ToastAction) => {
+  const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success', action?: ToastAction, options?: ToastOptions) => {
     const id = ++nextIdRef.current;
     setToasts(prev => [...prev, action ? { id, message, type, action } : { id, message, type }]);
     const timer = setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
       timersRef.current.delete(id);
-    }, 3000);
+    }, options?.durationMs ?? 3000);
     timersRef.current.set(id, timer);
   }, []);
 

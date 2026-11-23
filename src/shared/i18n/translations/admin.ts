@@ -239,6 +239,7 @@ export const adminTranslations: Translations = {
   admin_bench_done: { ru: 'оценено', en: 'judged' },
   admin_bench_left: { ru: 'осталось {count}', en: '{count} left' },
   admin_read_full: { ru: 'читать заметку целиком', en: 'read full note' },
+  admin_full_text_load_error: { ru: 'Не удалось прочитать текст заметки', en: 'Could not read the note text' },
   admin_verdict_hit: { ru: 'Попадание', en: 'Hit' },
   admin_verdict_similar: { ru: 'Нашёл похожее', en: 'Found similar' },
   admin_verdict_miss: { ru: 'Не попал', en: 'Miss' },
@@ -302,6 +303,7 @@ export const adminTranslations: Translations = {
   admin_embed_toast_sync_all_done: { ru: 'Всё уже синхронизировано', en: 'Everything is already synced' },
   admin_embed_toast_sync_error: { ru: 'Ошибка синхронизации', en: 'Sync error' },
   admin_embed_toast_search_error: { ru: 'Ошибка поиска', en: 'Search error' },
+  admin_embed_search_failed: { ru: 'Поиск не выполнился: не удалось построить вектор запроса', en: 'Search did not run: could not build the query vector' },
   // FacetDiagnostics
   admin_facet_diag_title: { ru: 'Диагностика доменов (DEV)', en: 'Domain Diagnostics (DEV)' },
   admin_facet_calculating: { ru: 'Расчёт…', en: 'Calculating…' },
@@ -352,6 +354,7 @@ export const adminTranslations: Translations = {
   admin_sync_toast_decrypt_error: { ru: 'Ошибка расшифровки документа', en: 'Document decryption error' },
   admin_sync_toast_too_short: { ru: 'Текст документа слишком короткий для ИИ-анализа (минимум 50 символов)', en: 'Document text too short for AI analysis (min 50 chars)' },
   admin_sync_toast_ai_done: { ru: 'Анализ ИИ завершен успешно', en: 'AI analysis completed successfully' },
+  admin_sync_toast_ai_skipped: { ru: 'Заметка исключена из ИИ или отсутствует на устройстве — разбор не сохранён', en: 'The note is excluded from AI or missing on this device — the analysis was not saved' },
   admin_sync_toast_ai_fail: { ru: 'Не удалось обработать: {error}', en: 'Failed to process: {error}' },
   admin_sync_toast_ai_error: { ru: 'Ошибка при запуске обработки ИИ', en: 'Error starting AI processing' },
   admin_sync_toast_no_summary: { ru: 'Саммари не найдено', en: 'Summary not found' },

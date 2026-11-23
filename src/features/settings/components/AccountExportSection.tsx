@@ -195,13 +195,16 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
       const res = await importMigrationManifest(parsed, user?.uid ?? userId);
       setImportResult(res);
       if (res.success) {
+        // NB-15: повреждённая версия (контрольная сумма не сошлась/отсутствует)
+        // не перенесена — потеря названа панелью, и итог не зелёный.
+        const damaged = res.skipped.details.filter(d => d.reason.startsWith('checksum')).length;
         showToast(
           t('settings_migration_import_done', {
             documents: String(res.imported.documents),
             versions: String(res.imported.versions),
             verbatim: String(Object.values(res.imported.verbatim).reduce((a, b) => a + b, 0)),
           }),
-          'success'
+          damaged > 0 ? 'warning' : 'success'
         );
       } else {
         showToast(

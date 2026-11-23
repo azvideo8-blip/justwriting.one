@@ -102,7 +102,7 @@ export function useSessionContinue({
 
       if (!savedDocumentId || (!sessionContent && (session.wordCount || 0) > 0)) {
         try {
-          savedDocumentId = await StorageService.addLocalCopy(userId, cloudId);
+          savedDocumentId = (await StorageService.addLocalCopy(userId, cloudId)).localId;
           sessionContent = (await LocalVersionService.getLatestContent(savedDocumentId)) || '';
         } catch (e) {
           reportError(e, { action: 'sessionContinue/importCloudDoc', cloudId });

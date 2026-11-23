@@ -13,6 +13,7 @@ import { useDailyLimit } from '../hooks/useDailyLimit';
 import { useAdminStatus } from '../../auth/hooks/useAdminStatus';
 import { personaVisual, usePersonaRole } from '../constants/personaVisuals';
 import { reportError } from '../../../shared/errors/reportError';
+import { runMutation } from '../../../shared/mutationResult';
 
 import { useDialogueManager } from './useDialogueManager';
 import { usePersonaManager } from './usePersonaManager';
@@ -29,6 +30,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { noteMetaFor } from '../utils/noteMeta';
 import { followUpKey } from '../utils/followUpKey';
 import { useChatFollow } from './useChatFollow';
+import { useSaveInsight } from './useSaveInsight';
 
 type ResponseLength = 'short' | 'standard' | 'detailed';
 
@@ -68,6 +70,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     showArchived,
     setShowArchived,
     loadDialogues,
+    openDialogueById,
     handleRenameDialogue,
     handleArchive,
     handleUnarchive,
@@ -443,6 +446,10 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     }
   };
 
+  // DI-5: обработчик в своём файле — итог через useServiceAction, храповик
+  // rawSuccessToasts не растёт.
+  const { handleSaveInsight, busy: saveInsightBusy, visible: insightsButtonVisible } = useSaveInsight(dialogue);
+
   const handleRegenerate = async () => {
     await regenerateLast();
     await loadDialogues();
@@ -468,13 +475,17 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   };
 
   const handleSetResponseLength = useCallback(async (length: ResponseLength) => {
+    const prev = responseLength;
     setResponseLength(length);
     const did = activeDialogueId ?? dialogue?.id;
-    if (did) {
+    if (!did) return;
+    // NB-7: запись не прошла — тумблер возвращается на прежнее значение,
+    // отказ назван error через runMutation (из шапки вызов идёт через void).
+    await runMutation({ showToast, t }, 'ai_update_response_length', async () => {
       await AIDialogueService.updateResponseLength(did, length, reasoning);
       await loadDialogues();
-    }
-  }, [activeDialogueId, dialogue, reasoning, loadDialogues]);
+    }, { successText: null, onFailure: () => setResponseLength(prev) });
+  }, [activeDialogueId, dialogue, reasoning, responseLength, loadDialogues, showToast, t]);
 
   const handleSetReasoning = useCallback(async (value: boolean) => {
     if (value) {
@@ -490,13 +501,16 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
       });
       if (!ok) return;
     }
+    const prev = reasoning;
     setReasoning(value);
     const did = activeDialogueId ?? dialogue?.id;
-    if (did) {
+    if (!did) return;
+    // NB-7: отказ записи — тумблер назад и error через runMutation.
+    await runMutation({ showToast, t }, 'ai_update_reasoning', async () => {
       await AIDialogueService.updateResponseLength(did, responseLength, value);
       await loadDialogues();
-    }
-  }, [activeDialogueId, dialogue, responseLength, loadDialogues, confirmDialog, t]);
+    }, { successText: null, onFailure: () => setReasoning(prev) });
+  }, [activeDialogueId, dialogue, responseLength, reasoning, loadDialogues, confirmDialog, t, showToast]);
 
   const handleCopyMessage = (text: string) => {
     void navigator.clipboard?.writeText(text);
@@ -617,9 +631,10 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     pendingAttachments, removePendingAttachment, handlePasteAsNote,
     lastTurnScope, handleAnalyzeNote, handleRelateNote, handleLookWider,
     handleSuggestion, handleFeedback, handleRegenerate, handleSwitchVariant,
+    handleSaveInsight, saveInsightBusy, insightsButtonVisible,
     crisisActive, dismissCrisis,
     dailyLimit,
-    loadDialogues, loadCustomPersonas,
+    loadDialogues, openDialogueById, loadCustomPersonas,
     handleSendMessage, handleNewDialogue, handleArchive, handleUnarchive, handleDelete, handleExport,
     handleDocSelect, handleCopyMessage, handleDeleteMessage, handleFileUpload,
     triggerForcedSearch: handleTriggerForcedSearch,

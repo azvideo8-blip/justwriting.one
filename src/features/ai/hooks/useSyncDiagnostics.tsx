@@ -397,7 +397,12 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
           extractedFacts: result.summary.extractedFacts ?? [],
           processedAt: Date.now(),
         };
-        await AISummaryService.save(summary);
+        const saved = await AISummaryService.save(summary);
+        // NB-17 №8: заметка исключена из ИИ — разбора нет, зелёное «завершено» ложь.
+        if (saved === 'skipped') {
+          showToast(t('admin_sync_toast_ai_skipped'), 'warning');
+          return;
+        }
 
         const tx = db.transaction('documents', 'readwrite');
         const fresh = await tx.store.get(item.localId);

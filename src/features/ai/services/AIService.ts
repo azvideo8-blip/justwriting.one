@@ -277,6 +277,24 @@ export const AIService = {
     }
   },
 
+  /**
+   * DI-7: служебный вызов «о том же ли» — номер вывода, если оба вызова модели
+   * согласны, иначе 0. Сбой — `ok: false`, «не о том» — `ok: true, match: 0`.
+   */
+  async matchInsight(message: string, insights: { text: string; context: string }[]): Promise<{ ok: true; match: number } | { ok: false; error: string }> {
+    try {
+      const data = await withTimeout(callAi<{ match: number }>('matchInsight', {
+        message: message.slice(0, 1_200),
+        insights: insights.slice(0, 12).map(i => ({ text: i.text.slice(0, 400), context: i.context.slice(0, 400) })),
+      }), 30_000);
+      return { ok: true, match: typeof data.match === 'number' && data.match >= 1 ? Math.floor(data.match) : 0 };
+    } catch (e: unknown) {
+      const error = mapAIError(e);
+      if (error !== 'AI_CONSENT_REQUIRED' && error !== 'INDEXING_CONSENT_REQUIRED') reportError(e, { action: 'matchInsight' }, 'warning');
+      return { ok: false, error };
+    }
+  },
+
   async summarizeFacet(params: {
     notes: { title: string; excerpt: string }[];
     focus?: string | null | undefined;

@@ -164,15 +164,14 @@ export const AIProfileService = {
       localStorage.removeItem(LEGACY_PORTRAIT_LS_KEY);
     } catch { /* ignore */ }
 
-    try {
-      const db = await getLocalDb();
-      const cached = await db.get('aiPortrait', 'singleton');
-      if (cached?.portrait) {
-        localStorage.setItem(cacheKey, cached.portrait);
-        return cached.portrait;
-      }
-    } catch (e) {
-      console.error('[AIProfileService] Failed to load portrait from IDB:', e);
+    // NB-12: отказ чтения — не «портрет не создан»: вызывающий показывает
+    // состояние error (LoadState), а не пустой экран. Отказ летит наружу как есть.
+    const db = await getLocalDb();
+    const cached = await db.get('aiPortrait', 'singleton');
+    if (cached?.portrait) {
+      // Кэш — попутно: полное хранилище не должно ронять чтение портрета (ход чата).
+      try { localStorage.setItem(cacheKey, cached.portrait); } catch { /* намеренно: только кэш */ }
+      return cached.portrait;
     }
 
     const local = localStorage.getItem(cacheKey);
@@ -206,14 +205,10 @@ export const AIProfileService = {
    */
   async isPortraitStale(): Promise<boolean> {
     const current = portraitPromptsVersion();
-    try {
-      const db = await getLocalDb();
-      const cached = await db.get('aiPortrait', 'singleton');
-      if (cached?.portrait) return cached.promptVersion !== current;
-    } catch (e) {
-      console.error('[AIProfileService] Failed to read portrait version:', e);
-      return false;
-    }
+    // NB-12: «не прочиталось» ≠ «свежий»: отказ пробрасывается в LoadState.
+    const db = await getLocalDb();
+    const cached = await db.get('aiPortrait', 'singleton');
+    if (cached?.portrait) return cached.promptVersion !== current;
     // Портрет доехал только в localStorage (после очистки устройства облако
     // отдаёт текст без версии) — предложение обновления честно показываем.
     const local = localStorage.getItem(portraitCacheKey(getCurrentUser()?.uid));

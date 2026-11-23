@@ -55,10 +55,11 @@ export function AIPage() {
     stop, pendingAttachments, removePendingAttachment, handlePasteAsNote,
     lastTurnScope, handleAnalyzeNote, handleRelateNote, handleLookWider,
     handleSuggestion, handleFeedback, handleRegenerate, handleSwitchVariant,
+    handleSaveInsight, saveInsightBusy, insightsButtonVisible,
     crisisActive, dismissCrisis,
     dialogue,
     dailyLimit,
-    loadCustomPersonas,
+    loadCustomPersonas, openDialogueById,
     handleSendMessage, handleNewDialogue, handleArchive, handleUnarchive, handleDelete, handleExport,
     handleDocSelect, handleCopyMessage, handleDeleteMessage, handleFileUpload, triggerForcedSearch,
     indexingModalOpen, handleGrantIndexingConsent, handleRefuseIndexingConsent,
@@ -80,10 +81,24 @@ export function AIPage() {
   const userId = profile?.uid ?? 'guest';
   const { showToast } = useToast();
   const { t } = useLanguage();
-  const { handleCreateNote } = createNoteActions({ userId, showToast });
+  const { handleCreateNote } = createNoteActions({ userId, showToast, t });
   // Ревью 0.10.1: стабильная ссылка — новая стрелка на каждый кусок потока
   // ломала memo у MarkdownRenderer, и все прошлые ответы разбирались заново.
   const onCitationMissing = useCallback(() => showToast(t('ai_cite_not_on_device'), 'info'), [showToast, t]);
+
+  // DI-6: переход из «Выводов из разговоров» — параметр снимаем после чтения,
+  // по образцу draftFacet; архивный открывается как из списка архива.
+  const dialogueParam = searchParams.get('dialogue') ?? undefined;
+  useEffect(() => {
+    if (!dialogueParam) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete('dialogue');
+    setSearchParams(next, { replace: true });
+    void openDialogueById(dialogueParam).then(d => {
+      if (!d) { showToast(t('ai_dialogue_gone'), 'info'); return; }
+      setSelectedPersonaId(d.personaId);
+    });
+  }, [dialogueParam, openDialogueById, searchParams, setSearchParams, showToast, t, setSelectedPersonaId]);
 
   const [memoryOpen, setMemoryOpen] = useState(false);
   // MR-1: на телефоне список диалогов живёт в листе, который открывает ☰ в шапке.
@@ -162,6 +177,8 @@ export function AIPage() {
           onCopyMessage={handleCopyMessage}
           onDeleteMessage={(index) => { void handleDeleteMessage(index); }}
           onFeedback={(v) => { void handleFeedback(v); }}
+          onSaveInsight={insightsButtonVisible ? handleSaveInsight : undefined}
+          saveInsightBusy={saveInsightBusy}
           onRegenerate={() => { void handleRegenerate(); }}
           onSwitchVariant={(delta) => { void handleSwitchVariant(delta); }}
           onCreateNote={(text) => { void handleCreateNote(text); }}

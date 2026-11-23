@@ -60,7 +60,8 @@ export function AuthorPortrait({ readOnly = false }: AuthorPortraitProps = {}) {
         setPortraitText(result.markdown);
         // Строка «собран по прежним правилам» — по сохранённой версии: пересборка,
         // взявшая раздел из старого кэша, её оставляет (ревью 0.9.39).
-        setStalePortrait(await AIProfileService.isPortraitStale());
+        // Портрет уже собран: отказ чтения версии — не провал сборки (NB-12, ревью 0.11.24).
+        setStalePortrait(await AIProfileService.isPortraitStale().catch(() => false));
         if (result.partial) showToast(t('ai_portrait_partial'), 'warning');
         else showToast('Психологический портрет обновлён', 'success');
         // Refresh summariesCount
@@ -83,8 +84,13 @@ export function AuthorPortrait({ readOnly = false }: AuthorPortraitProps = {}) {
   };
 
   const handleExportProfile = async () => {
-    const result = await AIProfileService.exportMarkdown();
-    if (!result) showToast(t('ai_portrait_not_created_short'), 'error');
+    try {
+      const result = await AIProfileService.exportMarkdown();
+      if (!result) showToast(t('ai_portrait_not_created_short'), 'error');
+    } catch (e) {
+      reportError(e, { action: 'authorPortrait_exportProfile' });
+      showToast(t('archive_export_failed'), 'error');
+    }
   };
 
   if (read === 'loading') {

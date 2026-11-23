@@ -65,11 +65,19 @@ export async function searchNotes(
         action: 'Построение вектора для поиска заметок',
         impact: 'Семантический поиск пропущен',
       });
+      // NB-17 №16: отказ embed — не чистый прогон: вызывающий обязан увидеть
+      // rerankFailed, иначе бенч зеленеет «Прогон завершён» без семантики.
+      // embedFailed — сам поиск не выполнился (ревью 0.11.24, N-5): rerankFailed
+      // ставится и при рабочем векторном поиске с порядком RRF.
+      opts?.onRerankMeta?.({ bypassed: false, rerankFailed: true, embedFailed: true });
       return [];
     }
     queryVec = embedResult.vectors[0];
   }
-  if (!queryVec) return [];
+  if (!queryVec) {
+    opts?.onRerankMeta?.({ bypassed: false, rerankFailed: true, embedFailed: true });
+    return [];
+  }
 
   let filteredEmbeddings = opts?.allEmbeddings ?? await AIEmbeddingService.getAll();
   const db = await getLocalDb();

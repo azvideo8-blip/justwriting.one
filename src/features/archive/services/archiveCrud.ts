@@ -61,7 +61,7 @@ export async function toggleAIExclusion(
       reportError(e, { action: 'toggleAIExclusion_cloudOnly', documentId: session.id });
       cloudSyncFailed = true;
       try {
-        const localId = await CloudSyncService.addLocalCopy(user.uid, session.id);
+        const { localId } = await CloudSyncService.addLocalCopy(user.uid, session.id);
         await LocalDocumentService.updateExcludedFromAI(localId, excluded, userId);
         emitDomainEvent({ type: 'note.excludedFromAI', documentId: localId, excluded });
         void queueMetadataRetry(localId, userId, 'excludedFromAI');
@@ -169,7 +169,7 @@ export async function updateArchiveField(
       // empty) and queued the CLOUD id instead of the new local id (the drain
       // expects a local id, so the sync would never actually complete).
       try {
-        const localId = await CloudSyncService.addLocalCopy(user.uid, session.id);
+        const { localId } = await CloudSyncService.addLocalCopy(user.uid, session.id);
         await _applyLocalFieldEdit(localId, field, value, userId);
         void queueMetadataRetry(localId, userId, ARCHIVE_FIELD_TO_META[field]);
       } catch (localErr) {

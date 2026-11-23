@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.11.24 — 2026-11-20
+
+- **[RU]** Диктовка: если сказанное не удалось вставить в заметку или скопировать, сообщение с текстом держится минуту — успеете его скопировать.
+- **[EN]** Dictation: if what you said could not be inserted into the note or copied, the message with the text now stays for a minute so you can copy it.
+- **[RU]** Разбор заметки: «облако не ответило» больше не выглядит как «разбора нет», а в превью разбор прошлой заметки не остаётся под новой.
+- **[EN]** Note analysis: “the cloud did not respond” no longer looks like “no analysis”, and the preview no longer shows the previous note’s analysis under a new one.
+- **[RU]** Скрыли заметку от ИИ или удалили её, а пересказ в темах, портрете или итогах месяца сразу убрать не вышло — приложение повторит само.
+- **[EN]** If you hide a note from the AI or delete it and its retelling in themes, the portrait or the monthly digest could not be removed right away, the app retries on its own.
+- **[RU]** Заметка из ответа ИИ, импорт, скачивание из облака, экспорт в файл, метки, портрет, «Запомнить устройство» и переключатели режима письма больше не показывают «Готово», если сделано не всё: сказано, что именно не вышло.
+- **[EN]** Creating a note from an AI reply, import, downloading from the cloud, export to a file, labels, the portrait, “Remember this device” and the writing-mode switches no longer say “Done” when not everything worked: you are told what failed.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.11.23 — 2026-11-20
 
 - **[RU]** Собеседник держит выбранное обращение на «ты» или «вы» в каждом ответе, а в разборе приложенной заметки не ставит под её ссылкой события из других дней.

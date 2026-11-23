@@ -28,9 +28,12 @@ export function useTagEditor(userId: string, fetchSessions: () => Promise<void>)
       if (userId && !userId.startsWith('guest')) {
         promises.push(DocumentService.renameTagInAllDocs(userId, tag, trimmed));
       }
-      await Promise.all(promises);
+      const results = await Promise.all(promises);
       await fetchSessions();
-      showToast(t('tag_renamed'), 'success');
+      // NB-13: пропущенные ключом заметки названы — итог не зелёный.
+      const skipped = results.reduce<number>((acc, r) => acc + (typeof r === 'number' ? r : 0), 0);
+      if (skipped > 0) showToast(t('tag_update_skipped', { count: skipped }), 'warning');
+      else showToast(t('tag_renamed'), 'success');
     } catch (err) {
       reportError(err, { action: 'renameTag', tag, newTag: trimmed });
       showToast(t('error_tag_rename_failed'), 'error');
@@ -58,9 +61,11 @@ export function useTagEditor(userId: string, fetchSessions: () => Promise<void>)
       if (userId && !userId.startsWith('guest')) {
         promises.push(DocumentService.removeTagFromAllDocs(userId, tag));
       }
-      await Promise.all(promises);
+      const results = await Promise.all(promises);
       await fetchSessions();
-      showToast(t('tag_deleted'), 'success');
+      const skipped = results.reduce<number>((acc, r) => acc + (typeof r === 'number' ? r : 0), 0);
+      if (skipped > 0) showToast(t('tag_update_skipped', { count: skipped }), 'warning');
+      else showToast(t('tag_deleted'), 'success');
     } catch (err) {
       reportError(err, { action: 'deleteTag', tag });
       showToast(t('error_tag_delete_failed'), 'error');

@@ -2185,6 +2185,8 @@ export class LocalStoreSyncManager {
         }
       } catch (err) {
         reportError(err, { action: 'LocalStoreSyncService_syncAll_store', store });
+        // NB-14: стор не прочитан — его записи не выгружены; итог не успех.
+        result.failed++;
       }
     }
 
@@ -2202,7 +2204,10 @@ export class LocalStoreSyncManager {
     // regardless of the background auto-sync toggle.
     this.keepMinePass = true;
     try {
-      return await this.flushPending(true);
+      const flushed = await this.flushPending(true);
+      // NB-14: итог несёт flushPending, а не локальный result — отказ чтения
+      // стора добавляем сюда, иначе счётчик теряется и проход выглядит успехом.
+      return { ...flushed, failed: flushed.failed + result.failed };
     } finally {
       this.keepMinePass = false;
     }

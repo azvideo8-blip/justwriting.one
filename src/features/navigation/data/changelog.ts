@@ -17,6 +17,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.24',
+    date: '2026-11-20',
+    announce: false,
+    items: [
+      { category: 'fix', ru: 'Диктовка: если сказанное не удалось вставить в заметку или скопировать, сообщение с текстом держится минуту — успеете его скопировать.', en: 'Dictation: if what you said could not be inserted into the note or copied, the message with the text now stays for a minute so you can copy it.' },
+      { category: 'fix', ru: 'Разбор заметки: «облако не ответило» больше не выглядит как «разбора нет», а в превью разбор прошлой заметки не остаётся под новой.', en: 'Note analysis: “the cloud did not respond” no longer looks like “no analysis”, and the preview no longer shows the previous note’s analysis under a new one.' },
+      { category: 'fix', ru: 'Скрыли заметку от ИИ или удалили её, а пересказ в темах, портрете или итогах месяца сразу убрать не вышло — приложение повторит само.', en: 'If you hide a note from the AI or delete it and its retelling in themes, the portrait or the monthly digest could not be removed right away, the app retries on its own.' },
+      { category: 'fix', ru: 'Заметка из ответа ИИ, импорт, скачивание из облака, экспорт в файл, метки, портрет, «Запомнить устройство» и переключатели режима письма больше не показывают «Готово», если сделано не всё: сказано, что именно не вышло.', en: 'Creating a note from an AI reply, import, downloading from the cloud, export to a file, labels, the portrait, “Remember this device” and the writing-mode switches no longer say “Done” when not everything worked: you are told what failed.' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.11.23',
     date: '2026-11-20',
     announce: false,

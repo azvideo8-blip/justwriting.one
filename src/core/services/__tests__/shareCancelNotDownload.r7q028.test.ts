@@ -62,21 +62,21 @@ const flush = () => new Promise<void>(resolve => { setTimeout(resolve, 0); });
 describe('R7Q-028: отмена «Поделиться» — не скачивание', () => {
   it('человек закрыл шторку (AbortError) — файл не скачивается', async () => {
     shareImpl = () => Promise.reject(refusal('AbortError'));
-    exportAsMd(session, strings);
+    void exportAsMd(session, strings);
     await flush();
     expect(clicked, 'после отмены шторки ушёл файл в загрузки').toEqual([]);
   });
 
   it('шторка не разрешена браузером (NotAllowedError) — скачивание остаётся запасным путём', async () => {
     shareImpl = () => Promise.reject(refusal('NotAllowedError'));
-    exportAsMd(session, strings);
+    void exportAsMd(session, strings);
     await flush();
     expect(clicked.length, 'браузер не дал шторку, и запасного скачивания нет').toBe(1);
   });
 
   it('успешное «Поделиться» не дублируется скачиванием', async () => {
     shareImpl = () => Promise.resolve();
-    exportAsMd(session, strings);
+    void exportAsMd(session, strings);
     await flush();
     expect(clicked).toEqual([]);
   });

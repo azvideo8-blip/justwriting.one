@@ -61,9 +61,9 @@ export function DocumentPreview({
   labels?: Label[] | undefined;
   allTags?: string[] | undefined;
   onAttach?: ((documentId: string) => void) | undefined;
-  onAnalyzeNote?: ((sessionId: string) => Promise<{ ok: boolean; error?: string }>) | undefined;
+  onAnalyzeNote?: ((sessionId: string) => Promise<{ ok: boolean; error?: string; indexed?: 'ok' | 'skip' | 'rate' | 'daily' | 'error' }>) | undefined;
   /** MF-12: «Удалить разбор ИИ» из листа действий читалки (телефон). */
-  onClearAnalysis?: ((sessionId: string) => Promise<{ cloudSynced: boolean }>) | undefined;
+  onClearAnalysis?: ((sessionId: string) => Promise<{ cloudSynced: boolean; localFailed?: boolean }>) | undefined;
   fetchSummary?: ((sessionId: string) => Promise<AIDocumentSummary | null>) | undefined;
   fetchRelatedNotes?: ((sessionId: string) => Promise<RelatedNote[]>) | undefined;
   context?: string | undefined;
@@ -116,6 +116,9 @@ export function DocumentPreview({
   const [analyzing, setAnalyzing] = useState(false);
   const [justFinished, setJustFinished] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  // NB-3: отказ чтения сводки — отдельное состояние с повтором, не «разбора нет».
+  const [summaryLoadFailed, setSummaryLoadFailed] = useState(false);
+  const [summaryReloadKey, setSummaryReloadKey] = useState(0);
   const aiOff = useAiConsentOff();
 
   const { layoutMode } = useLayoutMode();
@@ -127,6 +130,10 @@ export function DocumentPreview({
     setAnalyzing(false);
     setJustFinished(false);
     setAnalyzeError(null);
+    setSummaryLoadFailed(false);
+    // Разбор прошлой заметки не висит под новой (и не прячет её отказ чтения:
+    // при наличии summary строка сбоя не рисуется) — ревью 0.11.24.
+    setSummary(null);
     if (!session?.id || !fetchSummary) {
       void Promise.resolve().then(() => {
         if (active) setSummary(null);
@@ -139,7 +146,7 @@ export function DocumentPreview({
       if (active) setSummary(s ?? null);
     }).catch(e => {
       reportError(e, { action: 'preview_fetch_summary', documentId: id });
-      if (active) setAnalyzeError(t('archive_summary_load_error'));
+      if (active) setSummaryLoadFailed(true);
     });
     load();
     // Разбор, сделанный на другом устройстве, приезжает фоновым проходом.
@@ -148,7 +155,9 @@ export function DocumentPreview({
       active = false;
       window.removeEventListener('ai-data-pulled', load);
     };
-  }, [session?.id, fetchSummary, t]);
+  // Без `t`: язык догружается позже, и смена `t` перезапускала эффект — строка
+  // сбоя чтения разбора пропадала, кнопка «Разобрать» возвращалась (флейк sus09).
+  }, [session?.id, fetchSummary, summaryReloadKey]);
 
   useEffect(() => {
     let active = true;
@@ -177,7 +186,8 @@ export function DocumentPreview({
     try {
       const res = await onClearAnalysis(session.id);
       setSummary(null);
-      if (res.cloudSynced) showToast(t('ai_note_cleared'), 'success');
+      if (res.localFailed) showToast(t('ai_note_clear_derivatives_failed'), 'error');
+      else if (res.cloudSynced) showToast(t('ai_note_cleared'), 'success');
       else showToast(t('ai_note_cleared_local_only'), 'warning');
     } catch (e) {
       reportError(e, { action: 'reader_clear_analysis', documentId: session.id });
@@ -195,7 +205,10 @@ export function DocumentPreview({
       const res = await onAnalyzeNote(session.id);
       if (res.ok) {
         setJustFinished(true);
-        showToast(t('ai_note_analyzed'), 'success');
+        // NB-8: вектор не построен (лимит/ошибка) — warning, а не «разобрана».
+        if (res.indexed === 'daily' || res.indexed === 'rate') showToast(t('ai_note_analyzed_index_limit'), 'warning');
+        else if (res.indexed === 'error') showToast(t('ai_note_analyzed_index_error'), 'warning');
+        else showToast(t('ai_note_analyzed'), 'success');
         if (fetchSummary) {
           const updated = await fetchSummary(session.id);
           if (updated) setSummary(updated);
@@ -426,13 +439,18 @@ export function DocumentPreview({
   // or storage failure) — otherwise the user silently downloads an empty file.
   // PDF and DOCX exporters are async; typing this as `() => void` made passing
   // them a no-misused-promises error.
-  const runExport = (fn: () => void | Promise<void>) => {
+  const runExport = async (fn: () => void | Promise<void>) => {
     const refusal = exportRefusalKey(session);
     if (refusal) {
       showToast(t(refusal), 'error');
       return;
     }
-    void fn();
+    try {
+      await fn();
+    } catch (e) {
+      reportError(e, { action: 'documentPreview_export', documentId: session.id });
+      showToast(t('archive_export_failed'), 'error');
+    }
   };
 
   const exportFormats = [
@@ -474,6 +492,8 @@ export function DocumentPreview({
         analyzing={analyzing}
         justFinished={justFinished}
         analyzeError={analyzeError}
+        summaryLoadFailed={summaryLoadFailed}
+        onRetrySummary={() => setSummaryReloadKey(k => k + 1)}
         onAnalyze={() => void handleAnalyzeNote()}
         onClearAnalysis={onClearAnalysis ? () => void handleClearAnalysis() : undefined}
         {...(onAddLabel ? { onAddLabel } : {})}
@@ -773,6 +793,8 @@ export function DocumentPreview({
           <div className="flex items-center gap-2 text-xs text-brand-soft px-3 py-2 bg-brand-soft/5 border border-brand-soft/20 rounded-xl">
             <span>{t('archive_preview_refresh_hint')}</span>
           </div>
+        ) : summaryLoadFailed ? (
+          <LoadNotice variant="row" text={t('archive_summary_load_error')} onRetry={() => setSummaryReloadKey(k => k + 1)} />
         ) : (
           <div className="space-y-1.5">
             <Button

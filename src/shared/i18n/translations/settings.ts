@@ -101,6 +101,7 @@ export const settingsTranslations: Translations = {
   storage_confirm_download_local_hint: { ru: 'Текст заметки будет загружен из облака и сохранён локально', en: 'The note text will be downloaded from the cloud and saved locally' },
   storage_download_confirm: { ru: 'Скачать', en: 'Download' },
   storage_downloaded_local: { ru: 'Загружено на устройство', en: 'Downloaded to device' },
+  storage_download_versions_skipped: { ru: 'Загружено на устройство, но версий не прочиталось: {count} — история неполная', en: 'Downloaded to device, but {count} version(s) could not be read — history is incomplete' },
   storage_download_in_progress: { ru: 'Заметка уже загружается', en: 'This note is already being downloaded' },
 
   offline_working_locally: { ru: 'Нет соединения — работаем локально', en: 'Offline — working locally' },

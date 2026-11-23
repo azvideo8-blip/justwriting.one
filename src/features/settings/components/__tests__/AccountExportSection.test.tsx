@@ -11,8 +11,9 @@ vi.mock('../../services/migrationImport', () => ({
   importMigrationManifest: vi.fn(),
 }));
 
+const { showToast } = vi.hoisted(() => ({ showToast: vi.fn() }));
 vi.mock('../../../../shared/components/Toast', () => ({
-  useToast: () => ({ showToast: vi.fn() }),
+  useToast: () => ({ showToast }),
 }));
 
 let mockProfile: { encryptionMeta?: unknown; encryptionSalt?: string; encryptedDataKey?: string } | null = null;
@@ -146,6 +147,31 @@ describe('AccountExportSection — migration export & import', () => {
     await waitFor(() => {
       expect(screen.getByText(/Импортировано: 3 заметок|Imported: 3 documents/)).toBeInTheDocument();
     });
+  });
+
+  it('PIN-1: экспорт JSON бросил — error-тост, не успех и не тишина', async () => {
+    const { loadAllSessions } = await import('../../../../core/services/UnifiedSessionLoader');
+    vi.mocked(loadAllSessions).mockRejectedValueOnce(new Error('cloud down'));
+    renderWithProviders(<AccountExportSection userId="u1" />);
+
+    fireEvent.click(screen.getByText('Скачать заметки в JSON (GDPR)'));
+
+    await waitFor(() => {
+      expect(showToast).toHaveBeenCalledWith('Что-то пошло не так. Попробуй ещё раз.', 'error');
+    });
+    expect(showToast.mock.calls.filter(c => c[1] === 'success')).toHaveLength(0);
+  });
+
+  it('PIN-1: экспорт переноса бросил — error-тост, не молчание', async () => {
+    mockedExport.mockRejectedValueOnce(new Error('disk full'));
+    renderWithProviders(<AccountExportSection userId="u1" />);
+
+    fireEvent.click(screen.getByTestId('migration-export-btn'));
+
+    await waitFor(() => {
+      expect(showToast).toHaveBeenCalledWith('Что-то пошло не так. Попробуй ещё раз.', 'error');
+    });
+    expect(showToast.mock.calls.filter(c => c[1] === 'success')).toHaveLength(0);
   });
 });
 

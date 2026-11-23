@@ -169,8 +169,17 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
         sessionStorage.removeItem(STORAGE_KEYS.VAULT_AUTO_UNLOCK_FAILED(userId));
       } catch { /* ignore */ }
       if (rememberDevice) {
+        // NB-6: ключ не лёг (отказ IndexedDB или ключа сессии нет) — галочка
+        // снята и warning: сейф попросит пароль после перезагрузки.
         const key = getSessionKey();
-        if (key) { await saveDeviceKey(userId, key); setRememberDevice(true); }
+        const saved = key ? await saveDeviceKey(userId, key) : false;
+        if (saved) {
+          setRememberDevice(true);
+        } else {
+          setRememberDeviceChecked(false);
+          setRememberDevice(false);
+          showToast(t('enc_remember_device_failed'), 'warning');
+        }
       } else {
         await clearDeviceKey(userId);
       }

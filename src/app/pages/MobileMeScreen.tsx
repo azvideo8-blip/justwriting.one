@@ -15,6 +15,7 @@ import { MoodTrend } from '../../features/profile/components/MoodTrend';
 import { useNavigate } from 'react-router-dom';
 import { MobilePageHeader } from '../../shared/components/MobilePageHeader';
 import { MeAccountSection } from './MeAccountSection';
+import { DialogueInsights } from '../../features/ai/components/DialogueInsights';
 import { useLoginModal } from '../useLoginModal';
 import { LoadingSkeleton } from '../../shared/components/LoadingSkeleton';
 import { LoadStateView, LoadNotice } from '../../shared/components/LoadStateView';
@@ -211,6 +212,9 @@ export function MobileMeScreen({ user, profile }: MobileMeScreenProps) {
               идёт сразу за статусами; язык и выход при этом доступны и в
               /settings#account. */}
               <MeAccountSection user={user} onSignOut={() => setSignOutOpen(true)} onSignIn={openLoginModal} />
+
+              {/* DI-6: тот же раздел, что на десктопе, группой экрана «Я». */}
+              <DialogueInsights section={content => <MeGroup title={t('profile_sec_dialogue_insights')}>{content}</MeGroup>} />
 
               {/* Дейлик 19.11 Н-1: сбой чтения — не «0 слов». Разбор веток общий
                   с десктопом (ProfilePage) — LoadStateView. */}

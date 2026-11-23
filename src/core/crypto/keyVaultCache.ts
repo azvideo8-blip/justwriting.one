@@ -21,7 +21,9 @@ function secureClear(buf: Uint8Array): void {
   buf.fill(0);
 }
 
-export async function saveDeviceKey(userId: string, key: CryptoKey): Promise<void> {
+// NB-6: отказ сохранения — false, а не молчаливый void: вызывающий обязан
+// отличить «ключ лёг» от «сейф попросит пароль после перезагрузки».
+export async function saveDeviceKey(userId: string, key: CryptoKey): Promise<boolean> {
   let db: IDBDatabase | null = null;
   try {
     let keyToStore = key;
@@ -46,7 +48,10 @@ export async function saveDeviceKey(userId: string, key: CryptoKey): Promise<voi
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
-  } catch { /* non-critical */ } finally {
+    return true;
+  } catch {
+    return false;
+  } finally {
     db?.close();
   }
 }

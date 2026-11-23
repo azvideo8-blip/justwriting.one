@@ -39,6 +39,7 @@ export const commonTranslations: Translations = {
     en: 'Failed to load cloud note count',
   },
   // R-2: битый ряд в облаке — показано прочитанное, неполнота названа.
+  ai_embed_restore_flag_failed: { ru: 'Не удалось сохранить флаг догрузки: хранилище устройства недоступно. Индекс может не догрузиться — освободите место и попробуйте снова', en: 'Could not save the download flag: device storage is unavailable. The index may not finish downloading — free up space and try again' },
   restore_cloud_counts_partial: {
     ru: 'Часть записей в облаке не прочиталась ({count}); показано только то, что удалось прочитать',
     en: 'Some cloud rows could not be read ({count}); only readable notes are counted',
@@ -175,6 +176,7 @@ export const commonTranslations: Translations = {
   enc_previous_or_current_password_placeholder: { ru: 'Прежний пароль', en: 'Previous password' },
   enc_unlock_submit: { ru: 'Разблокировать', en: 'Unlock' },
   enc_remember_device: { ru: 'Запомнить на этом устройстве (не спрашивать при перезагрузке; автоблокировка через 1 час бездействия)', en: "Remember on this device (don't ask on reload; auto-locks after 1h inactivity)" },
+  enc_remember_device_failed: { ru: 'Не удалось запомнить устройство — сейф попросит пароль после перезагрузки', en: 'Could not remember this device — the vault will ask for the password after a reload' },
   enc_setup_title: { ru: 'Настрой шифрование', en: 'Set Up Encryption' },
   local_db_stalled: { ru: 'База на этом устройстве не отвечает. Закрой другие вкладки с сайтом и перезагрузи страницу — сохранённое не пропадёт.', en: 'Storage on this device is not responding. Close other tabs with the site and reload the page — nothing saved will be lost.' },
   enc_password_converged: { ru: 'Готово: заметки теперь открываются твоим новым паролем — он один для входа и для заметок.', en: 'Done: your notes now open with your new password — one password for signing in and for your notes.' },

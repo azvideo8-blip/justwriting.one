@@ -19,9 +19,11 @@ vi.mock('../useArchiveWordCloud', () => ({ rebuildWordCloud: vi.fn().mockResolve
 const loadAllSessions = vi.hoisted(() => vi.fn());
 vi.mock('../../../../core/services/UnifiedSessionLoader', () => ({ loadAllSessions, loadSessionContent: vi.fn() }));
 const restoreArchiveSession = vi.hoisted(() => vi.fn());
+const updateArchiveField = vi.hoisted(() => vi.fn());
 vi.mock('../../services/archiveCrud', async (orig) => ({
   ...(await orig<typeof import('../../services/archiveCrud')>()),
   restoreArchiveSession,
+  updateArchiveField,
   pruneExpiredTrash: vi.fn(async (sessions: ArchiveSession[]) => ({ prunedCount: 0, remainingSessions: sessions })),
 }));
 
@@ -93,5 +95,29 @@ describe('useArchiveSessions: состояние чтения', () => {
     restoreArchiveSession.mockResolvedValueOnce({ cloudSynced: true });
     await act(async () => { await result.current.handleRestoreSession(note('t', { trashedAt: 1 })); });
     expect(showToast).toHaveBeenCalledWith('archive_trash_restored', 'success');
+  });
+});
+
+// PIN-1 (2026-11-21): правка поля при отказе облака названа. Мутация: убрать
+// reportMutationResult в handleFieldUpdate (игнорировать result) — красный.
+describe('PIN-1: правка поля — отказ облака не молчит', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('cloudSyncFailed — error «облачная копия не синхронизирована»', async () => {
+    loadAllSessions.mockResolvedValue({ sessions: [note('n_f')], cloudLoadFailed: false });
+    updateArchiveField.mockResolvedValue({ success: true, cloudSyncFailed: true });
+    const { result } = renderHook(() => useArchiveSessions(null, 'u_ls', k => k));
+    await waitFor(() => expect(result.current.listState.status).toBe('data'));
+    await act(async () => { await result.current.handleTitleChange(note('n_f'), 'новое имя'); });
+    expect(showToast).toHaveBeenCalledWith('archive_cloud_sync_failed', 'error');
+  });
+
+  it('контроль: облако приняло — успех молчит (правка видна в списке)', async () => {
+    loadAllSessions.mockResolvedValue({ sessions: [note('n_f')], cloudLoadFailed: false });
+    updateArchiveField.mockResolvedValue({ success: true });
+    const { result } = renderHook(() => useArchiveSessions(null, 'u_ls', k => k));
+    await waitFor(() => expect(result.current.listState.status).toBe('data'));
+    await act(async () => { await result.current.handleTitleChange(note('n_f'), 'новое имя'); });
+    expect(showToast).not.toHaveBeenCalled();
   });
 });

@@ -230,7 +230,7 @@ describe('D-4: useDictation', () => {
     await act(async () => { resolvePunct?.({ text: 'Сказано вслух.', punctuated: true }); });
 
     expect(append, 'в чужой новый черновик текст класть нельзя').not.toHaveBeenCalled();
-    expect(showToast).toHaveBeenCalledWith('voice_not_inserted_note_changed', 'warning', expect.anything());
+    expect(showToast).toHaveBeenCalledWith('voice_not_inserted_note_changed', 'warning', expect.anything(), { durationMs: 60_000 });
     started.unmount();
   });
 
@@ -248,7 +248,7 @@ describe('D-4: useDictation', () => {
     await act(async () => { await Promise.resolve(); });
 
     expect(append).toHaveBeenCalledWith('Сказано вслух.');
-    expect(showToast).not.toHaveBeenCalledWith('voice_not_inserted_note_changed', 'warning', expect.anything());
+    expect(showToast).not.toHaveBeenCalledWith('voice_not_inserted_note_changed', 'warning', expect.anything(), { durationMs: 60_000 });
     started.unmount();
   });
 

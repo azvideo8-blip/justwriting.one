@@ -73,7 +73,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
         content = await LocalVersionService.getLatestContent(localId);
       } else if (doc.cloudId) {
         try {
-          localId = await StorageService.addLocalCopy(userId, doc.cloudId);
+          localId = (await StorageService.addLocalCopy(userId, doc.cloudId)).localId;
           content = await LocalVersionService.getLatestContent(localId);
         } catch (e) {
           reportError(e, { action: 'writingActions/importCloudDoc' });

@@ -14,8 +14,26 @@ import { reportError } from '../../shared/errors/reportError';
  * грани (id убирается, грань помечается dirty) и портрет с его кэшами.
  * Пересборка — только по действию человека: никаких вызовов ИИ отсюда.
  */
-export async function purgeNoteDerivatives(noteId: string, ownerId?: string): Promise<void> {
+export interface PurgeDerivativesResult {
+  digestFailed: boolean;
+  facetsFailed: boolean;
+  portraitFailed: boolean;
+  /** Были ли у заметки производные (повтор после отказа помнит это, EX-1). */
+  hadDerivatives: boolean;
+}
+
+export async function purgeNoteDerivatives(
+  noteId: string,
+  ownerId?: string,
+  /** Повтор после отказа (EX-1): разбор и хронологию первая попытка уже снесла,
+   *  и «производных нет» тут — не ответ. assumeDerivatives — только если первая
+   *  попытка их нашла; only — переделать лишь упавшие части (ревью 0.11.24:
+   *  иначе портрет стирался бы на каждом проходе, пока падает другая часть). */
+  opts?: { assumeDerivatives?: boolean; only?: { digest?: boolean; facets?: boolean; portrait?: boolean } },
+): Promise<PurgeDerivativesResult> {
   const db = await getLocalDb(ownerId);
+  const result: PurgeDerivativesResult = { digestFailed: false, facetsFailed: false, portraitFailed: false, hadDerivatives: false };
+  const part = (k: 'digest' | 'facets' | 'portrait') => !opts?.only || opts.only[k] === true;
 
   // Месяц дайджеста читается ДО удаления хронологии: на полном удалении это
   // единственный оставшийся след того, в каком месяце лежала заметка.
@@ -25,7 +43,7 @@ export async function purgeNoteDerivatives(noteId: string, ownerId?: string): Pr
   // только если у заметки были производные; иначе каждый проход синка стирал бы
   // портрет на всех устройствах. Не прочиталось — считаем, что были: «нет
   // ответа» не значит «не было».
-  let hadDerivatives = false;
+  let hadDerivatives = opts?.assumeDerivatives === true;
   const months = new Set<string>();
   try {
     const entry = await db.get('aiTimeline', noteId);
@@ -48,7 +66,7 @@ export async function purgeNoteDerivatives(noteId: string, ownerId?: string): Pr
   }
   // Дайджест, собранный по этой заметке (noteIds), — удаляется в любом месяце;
   // старый дайджест без номеров — в месяцах заметки, если у неё были производные.
-  try {
+  if (part('digest')) try {
     for (const d of await db.getAll('aiMonthlyDigest')) {
       const byIds = d.noteIds?.includes(noteId) === true;
       const legacyHere = d.noteIds === undefined && hadDerivatives && months.has(d.month);
@@ -57,10 +75,11 @@ export async function purgeNoteDerivatives(noteId: string, ownerId?: string): Pr
       LocalStoreSyncService.scheduleStoreDelete('aiMonthlyDigest', d.month);
     }
   } catch (e) {
+    result.digestFailed = true;
     reportError(e, { action: 'purgeNoteDerivatives_digest', noteId });
   }
 
-  try {
+  if (part('facets')) try {
     await writeFacetStore(async (store) => {
       const facets = await store.getAll();
       const tx = store.transaction();
@@ -97,12 +116,16 @@ export async function purgeNoteDerivatives(noteId: string, ownerId?: string): Pr
       await tx.done;
     });
   } catch (e) {
+    result.facetsFailed = true;
+    // Грани не прочитались — не знаем, была ли в них заметка: считаем, что были
+    // (как при сбое чтения месяцев выше), иначе портрет по ним остаётся.
+    hadDerivatives = true;
     reportError(e, { action: 'purgeNoteDerivatives_facets', noteId });
   }
 
   // Портрет — если у заметки были производные (разбор, хронология, грань): он мог
   // быть собран по сводкам, даже если заметка не попала ни в одну грань.
-  if (hadDerivatives) try {
+  if (part('portrait') && hadDerivatives) try {
     invalidatePortrait();
     await db.delete('aiPortrait', 'singleton');
     LocalStoreSyncService.scheduleStoreDelete('aiPortrait', 'singleton');
@@ -115,6 +138,9 @@ export async function purgeNoteDerivatives(noteId: string, ownerId?: string): Pr
       }
     }
   } catch (e) {
+    result.portraitFailed = true;
     reportError(e, { action: 'purgeNoteDerivatives_portrait', noteId });
   }
+  result.hadDerivatives = hadDerivatives;
+  return result;
 }

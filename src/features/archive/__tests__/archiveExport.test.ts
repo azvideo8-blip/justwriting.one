@@ -82,17 +82,17 @@ function makeSession(overrides: Partial<ArchiveSession> = {}): ArchiveSession {
 
 describe('exportAsMd', () => {
   it('output starts with front matter fence and title', () => {
-    exportAsMd(makeSession({ title: 'My Story' }), STRINGS);
+    void exportAsMd(makeSession({ title: 'My Story' }), STRINGS);
     expect(capturedContent).toMatch(/^---\r?\ntitle: "My Story"/);
   });
 
   it('uses untitled fallback when title is missing', () => {
-    exportAsMd(makeSession({ title: undefined }), STRINGS);
+    void exportAsMd(makeSession({ title: undefined }), STRINGS);
     expect(capturedContent).toMatch(/^---\r?\ntitle: "Untitled"/);
   });
 
   it('contains session content after closing --- fence', () => {
-    exportAsMd(makeSession({ content: 'Hello world content' }), STRINGS);
+    void exportAsMd(makeSession({ content: 'Hello world content' }), STRINGS);
     expect(capturedContent).toContain('---');
     const parts = capturedContent.split('---');
     expect(parts.length).toBeGreaterThanOrEqual(3);
@@ -100,27 +100,27 @@ describe('exportAsMd', () => {
   });
 
   it('includes tags in front matter', () => {
-    exportAsMd(makeSession({ tags: ['fiction', 'draft'] }), STRINGS);
+    void exportAsMd(makeSession({ tags: ['fiction', 'draft'] }), STRINGS);
     expect(capturedContent).toContain('tags: ["fiction", "draft"]');
   });
 
   it('omits tags line when no tags', () => {
-    exportAsMd(makeSession({ tags: [] }), STRINGS);
+    void exportAsMd(makeSession({ tags: [] }), STRINGS);
     expect(capturedContent).not.toContain('tags:');
   });
 
   it('filename uses title with .md extension', () => {
-    exportAsMd(makeSession({ title: 'My Story' }), STRINGS);
+    void exportAsMd(makeSession({ title: 'My Story' }), STRINGS);
     expect(capturedFilename).toMatch(/My Story.*\.md$/);
   });
 
   it('filename uses untitledFilename when title is missing', () => {
-    exportAsMd(makeSession({ title: undefined }), STRINGS);
+    void exportAsMd(makeSession({ title: undefined }), STRINGS);
     expect(capturedFilename).toMatch(/untitled.*\.md$/);
   });
 
   it('contains formatted date in front matter', () => {
-    exportAsMd(makeSession({ createdAt: new Date('2024-01-15') }), STRINGS);
+    void exportAsMd(makeSession({ createdAt: new Date('2024-01-15') }), STRINGS);
     expect(capturedContent).toContain('2024-01-15');
   });
 });

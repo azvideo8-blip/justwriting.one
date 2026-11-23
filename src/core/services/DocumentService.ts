@@ -419,11 +419,11 @@ export const DocumentService = {
     await DataProvider.clearLabelFromAllDocs(userId, labelId);
   },
 
-  async renameTagInAllDocs(userId: string, oldTag: string, newTag: string): Promise<void> {
-    await DataProvider.renameTagInAllDocs(userId, oldTag, newTag);
+  async renameTagInAllDocs(userId: string, oldTag: string, newTag: string): Promise<number> {
+    return DataProvider.renameTagInAllDocs(userId, oldTag, newTag);
   },
 
-  async removeTagFromAllDocs(userId: string, tag: string): Promise<void> {
-    await DataProvider.removeTagFromAllDocs(userId, tag);
+  async removeTagFromAllDocs(userId: string, tag: string): Promise<number> {
+    return DataProvider.removeTagFromAllDocs(userId, tag);
   },
 };

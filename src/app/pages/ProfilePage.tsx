@@ -22,6 +22,7 @@ import { useAdminStatus } from '../../features/auth/hooks/useAdminStatus';
 import { Button } from '../../shared/components/Button';
 import { LoadStateView, LoadNotice } from '../../shared/components/LoadStateView';
 import { CollapsibleSection } from '../../features/profile/components/CollapsibleSection';
+import { DialogueInsights } from '../../features/ai/components/DialogueInsights';
 import { ProfileFacets } from '../../features/ai/components/ProfileFacets';
 import { ContactDoors } from '../../features/ai/components/ContactDoors';
 import { AuthorPortrait } from '../../features/ai/components/AuthorPortrait';
@@ -182,6 +183,14 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
             </div>
           </CollapsibleSection>
         )}
+
+        {/* DI-6: выводы видны всем, у кого включён флаг; с сохранёнными выводами
+            раздел остаётся и при выключенном — их можно удалить. */}
+        <DialogueInsights section={content => (
+          <CollapsibleSection title={t('profile_sec_dialogue_insights')} storageKey="profile_sec_dialogue_insights_v1" defaultOpen={false}>
+            {content}
+          </CollapsibleSection>
+        )} />
 
         <CollapsibleSection title={t('profile_sec_life_story')} storageKey="profile_sec_life_story_v3" defaultOpen={false}>
           <LifeStoryTimeline />

@@ -13,6 +13,7 @@ import { useAiLimitStore } from '../store/useAiLimitStore';
 import type { AIMessage } from '../services/AIService';
 import { AIService } from '../services/AIService';
 import { AIChatMemoryService } from '../services/AIChatMemoryService';
+import { captureConfirmedInsight } from '../services/insightCapture';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { reportError } from '../../../shared/errors/reportError';
 import { reportAIDegradation } from '../utils/aiDegradationReporter';
@@ -927,6 +928,24 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             : { ...m, content };
         });
         void AIChatMemoryService.extractFromDialogue(currentDialogue.id, memMessages, parseOpts);
+      }
+      // DI-4: человек согласился с выводом прошлого ответа — захват отдельным
+      // путём (правила по тексту, флаг, модель), не дожидаясь извлечения памяти.
+      if (prevAssistant) {
+        const prevAssistantIdx = baseMessages.indexOf(prevAssistant);
+        const prevUserMsg = [...baseMessages.slice(0, prevAssistantIdx)].reverse().find(m => m.role === 'user');
+        void captureConfirmedInsight({
+          uid: getCurrentUser()?.uid,
+          dialogueId: currentDialogue.id,
+          personaId,
+          userText: text,
+          prevAssistant: { id: prevAssistant.id ?? '', content: prevAssistant.content, type: prevAssistant.type },
+          prevUser: prevUserMsg?.content ?? '',
+          hiddenCiteIds,
+          parseOpts,
+          docs: allDocs,
+          t,
+        });
       }
       const updated = await AIDialogueService.get(currentDialogue.id);
       setDialogue(updated ?? null);

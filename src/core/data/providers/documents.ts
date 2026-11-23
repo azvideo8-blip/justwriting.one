@@ -297,11 +297,13 @@ async function readAllDocTags(userId: string): Promise<{ uuid: string | null; ta
     .range(from, to)), userId);
 }
 
-export async function renameTagInAllDocs(userId: string, oldTag: string, newTag: string): Promise<void> {
+export async function renameTagInAllDocs(userId: string, oldTag: string, newTag: string): Promise<number> {
   // R4-7: постранично и с честной ошибкой — раньше обрывалось на 1000 заметках,
   // а сбой чтения молча считался успехом.
   const data = await readAllDocTags(userId);
   const failedUuids: string[] = [];
+  // NB-13: не прочиталось ключом — не «обновлено»: считаем пропуск для итога.
+  let skipped = 0;
 
   for (const doc of data) {
     if (!doc.uuid) continue;
@@ -315,6 +317,7 @@ export async function renameTagInAllDocs(userId: string, oldTag: string, newTag:
       tags = Array.isArray(decrypted.tags) ? (decrypted.tags as string[]) : [];
     } catch (e) {
       reportError(e, { action: 'renameTagInAllDocs_decrypt', docUuid: doc.uuid });
+      skipped++;
       continue;
     }
 
@@ -332,13 +335,16 @@ export async function renameTagInAllDocs(userId: string, oldTag: string, newTag:
   if (failedUuids.length > 0) {
     throw new Error(`TAG_OP_PARTIAL:${failedUuids.length}`);
   }
+  return skipped;
 }
 
-export async function removeTagFromAllDocs(userId: string, tag: string): Promise<void> {
+export async function removeTagFromAllDocs(userId: string, tag: string): Promise<number> {
   // R4-7: постранично и с честной ошибкой — раньше обрывалось на 1000 заметках,
   // а сбой чтения молча считался успехом.
   const data = await readAllDocTags(userId);
   const failedUuids: string[] = [];
+  // NB-13: не прочиталось ключом — не «обновлено»: считаем пропуск для итога.
+  let skipped = 0;
 
   for (const doc of data) {
     if (!doc.uuid) continue;
@@ -352,6 +358,7 @@ export async function removeTagFromAllDocs(userId: string, tag: string): Promise
       tags = Array.isArray(decrypted.tags) ? (decrypted.tags as string[]) : [];
     } catch (e) {
       reportError(e, { action: 'removeTagFromAllDocs_decrypt', docUuid: doc.uuid });
+      skipped++;
       continue;
     }
 
@@ -371,6 +378,7 @@ export async function removeTagFromAllDocs(userId: string, tag: string): Promise
   if (failedUuids.length > 0) {
     throw new Error(`TAG_OP_PARTIAL:${failedUuids.length}`);
   }
+  return skipped;
 }
 
 /**

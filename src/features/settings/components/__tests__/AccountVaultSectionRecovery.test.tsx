@@ -140,4 +140,48 @@ describe('AccountVaultSection: замена кода восстановлени�
       expect(mockShowToast).toHaveBeenCalledWith('settings_encrypt_done', 'success');
     });
   });
+
+  it('PIN-1: настройка сейфа с ошибками шифрования — error settings_encrypt_partial, не успех', async () => {
+    hasVaultMock.mockReturnValue(false);
+    initializeEncryption.mockResolvedValueOnce({ recoveryCode: 'INIT-RECV-CODE-5678' });
+    migrateNotesAfterSetup.mockResolvedValueOnce({ encrypted: 3, total: 5, errors: 2, success: false });
+
+    render(<AccountVaultSection userId="u1" />);
+    const inputs = screen.getAllByPlaceholderText(/settings_initialize_password|settings_initialize_confirm/);
+    fireEvent.change(inputs[0]!, { target: { value: 'password123' } });
+    fireEvent.change(inputs[1]!, { target: { value: 'password123' } });
+    fireEvent.click(screen.getByText('settings_initialize_submit'));
+
+    await waitFor(() => {
+      expect(mockShowToast).toHaveBeenCalledWith('settings_encrypt_partial', 'error');
+    });
+    expect(mockShowToast).not.toHaveBeenCalledWith('settings_encrypt_done', 'success');
+    expect(mockShowToast).not.toHaveBeenCalledWith('unlock_success', 'success');
+  });
+
+  it('PIN-1: encryptAll с ошибками — итог не зелёный, строка остановки видна', async () => {
+    hasVaultMock.mockReturnValue(true);
+    const { EncryptionService } = await import('../../../../core/services/EncryptionService');
+    vi.mocked(EncryptionService.encryptAll).mockResolvedValueOnce({ total: 5, processed: 5, encrypted: 3, errors: 2, incomplete: true });
+
+    render(<AccountVaultSection userId="u1" />);
+    fireEvent.click(screen.getByText('settings_encrypt_all'));
+
+    const done = await screen.findByText('settings_encrypt_done');
+    expect(done.className).not.toContain('text-accent-success');
+    expect(screen.getByText('settings_encrypt_budget_stop')).toBeTruthy();
+  });
+
+  it('PIN-1 контроль: encryptAll без ошибок — зелёный итог как раньше', async () => {
+    hasVaultMock.mockReturnValue(true);
+    const { EncryptionService } = await import('../../../../core/services/EncryptionService');
+    vi.mocked(EncryptionService.encryptAll).mockResolvedValueOnce({ total: 4, processed: 4, encrypted: 4, errors: 0 });
+
+    render(<AccountVaultSection userId="u1" />);
+    fireEvent.click(screen.getByText('settings_encrypt_all'));
+
+    const done = await screen.findByText('settings_encrypt_done');
+    expect(done.className).toContain('text-accent-success');
+    expect(screen.queryByText('settings_encrypt_budget_stop')).toBeNull();
+  });
 });

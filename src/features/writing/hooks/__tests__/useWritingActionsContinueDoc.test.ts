@@ -134,7 +134,7 @@ describe('useWritingActions.handleContinueDocument (S-8)', () => {
   });
 
   it('страховка на месте: локально текста нет, а заметка из облака — пустой редактор не открывается', async () => {
-    vi.spyOn(StorageService, 'addLocalCopy').mockResolvedValue('local-from-cloud');
+    vi.spyOn(StorageService, 'addLocalCopy').mockResolvedValue({ localId: 'local-from-cloud', skippedVersions: 0 });
     vi.spyOn(LocalVersionService, 'getLatestContent').mockResolvedValue('');
     vi.spyOn(LocalVersionService, 'hasVersion').mockResolvedValue(false);
 

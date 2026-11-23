@@ -15,7 +15,7 @@ import { setRestoreDismissed } from '../../core/sync/useEmptyDeviceDetection';
 import { CloudDownload, CheckCircle, AlertTriangle } from 'lucide-react';
 
 export interface RestoreFromCloudModalProps {
-  onRestoreAIData?: ((userId: string) => Promise<{ summaries: number; embeddings?: number; localStoreRecords: number; failed: number; oversized?: number; skippedLocked?: boolean; sectionFailed?: boolean }>) | undefined;
+  onRestoreAIData?: ((userId: string) => Promise<{ summaries: number; embeddings?: number; localStoreRecords: number; failed: number; oversized?: number; skippedLocked?: boolean; sectionFailed?: boolean; analysisJournalUnreadable?: boolean }>) | undefined;
   open: boolean;
   onClose: () => void;
   initialLocalCount?: number | undefined;
@@ -215,7 +215,7 @@ export function RestoreFromCloudModal({
           resultSummary.failedCount += aiRes.failed;
           resultSummary.oversizedCount = (aiRes as { oversized?: number }).oversized ?? 0;
           if (aiRes.skippedLocked) resultSummary.locked = true;
-          if (aiRes.skippedLocked || aiRes.sectionFailed) resultSummary.aiSectionsSkipped = true;
+          if (aiRes.skippedLocked || aiRes.sectionFailed || aiRes.analysisJournalUnreadable) resultSummary.aiSectionsSkipped = true;
         } else {
           emitDomainEvent({ type: 'sync.restoredFromCloud', userId: user.uid });
         }

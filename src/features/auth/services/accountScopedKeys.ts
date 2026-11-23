@@ -121,6 +121,7 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
     `ai_sync_pending_upserts:${uid}`,
     `ai_sync_dead_upserts:${uid}`,
     `ai_sync_pending_analysis_deletes:${uid}`,
+    `ai_sync_pending_local_purges:${uid}`,
     // отметка сознательного выхода — гасит ложное «сессия оборвалась» (N-60)
     `jw_voluntary_signout_at_${uid}`,
     // R7F-020: очередь theme-касалок. Прежний общий ключ подметание сносило
@@ -222,6 +223,7 @@ const UID_JOURNAL_KEYS = [
   'ai_sync_pending_upserts',
   'ai_sync_dead_upserts',
   'ai_sync_pending_analysis_deletes',
+  'ai_sync_pending_local_purges',
 ] as const;
 
 function dropOwnJournalEntries(uid: string, key: string): void {

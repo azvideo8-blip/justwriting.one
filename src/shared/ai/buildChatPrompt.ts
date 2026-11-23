@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { PERSONA_PROMPTS, TOPIC_GUARD, NOTES_GUARD_BASE, NOTES_GUARD_STRICT, NOTES_SEARCH_GUARD, OPEN_QUESTION_POOL, REFLECTION_GUIDE, REFLECTION_GUIDE_NOTE, leanReflectionGuide, SAFETY_GUIDE, EDITOR_PROMPT_BODY, EDITOR_EVAL_TAIL, EDITOR_LIST_TAIL } from './prompts.js';
 import { ARCHIVE_TURN_MARK, archiveAnswerRule } from './archiveAnswerRule.js';
 import { HYPOTHESIS_PERSONAS, HYPOTHESIS_TURN_MARK, HYPOTHESIS_RULE, HYPOTHESIS_DIRECT_MARK, HYPOTHESIS_RULE_DIRECT, HYPOTHESIS_BODY_LINE, HYPOTHESIS_BODY_RE } from './hypothesisRule.js';
+import { INSIGHT_RECALL_MARK, INSIGHT_RECALL_RULE } from './insightRecall.js';
 import { TA_STEP_LINES, taStepOf, type TaStep } from './taRule.js';
 import { ADDRESS_FORM_LINES, addressFormOf, type AddressForm } from './addressForm.js';
 import { SUMMARY_TURN_LINE, summaryTurnDue } from './summaryTurn.js';
@@ -306,6 +307,13 @@ export function buildChatSystemPrompt(params: ChatPromptParams): string {
   // повторены здесь: метка — строка в данных, а не разрешение.
   // К26-1: прямая просьба о гипотезах — правило нескольких версий, и в строгом
   // ходе по приложенной заметке тоже (метку ставит клиент только на такой просьбе).
+  // DI-7: прошлый вывод (флаг chat_insights): метку ставит клиент, когда служебный
+  // вызов решил, что реплика о том же. Правило — вне оград данных и ПЕРЕД правилом
+  // гипотезы (гипотеза остаётся последней). Без метки промпт побайтно прежний.
+  if (documentContent && !strictNote && crisis !== true && HYPOTHESIS_PERSONAS.includes(personaId) && documentContent.includes(INSIGHT_RECALL_MARK)) {
+    base += `\n\n---\n${INSIGHT_RECALL_RULE}`;
+  }
+
   const directHypothesis = Boolean(documentContent?.includes(HYPOTHESIS_DIRECT_MARK));
   if (documentContent && (!strictNote || directHypothesis) && crisis !== true && HYPOTHESIS_PERSONAS.includes(personaId) && documentContent.includes(HYPOTHESIS_TURN_MARK)) {
     base += `\n\n---\n${directHypothesis ? HYPOTHESIS_RULE_DIRECT : HYPOTHESIS_RULE}`;

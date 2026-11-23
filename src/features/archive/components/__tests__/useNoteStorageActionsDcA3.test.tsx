@@ -97,7 +97,7 @@ describe('DC-A3 useNoteStorageActions: скачивание', () => {
   });
 
   it('облачная заметка: подтверждение, затем addLocalCopy и тост', async () => {
-    vi.mocked(StorageService.addLocalCopy).mockResolvedValueOnce('local_new_1');
+    vi.mocked(StorageService.addLocalCopy).mockResolvedValueOnce({ localId: 'local_new_1', skippedVersions: 0 });
     render(<Harness doc={{ cloudId: 'cloud_note_1', hasLocal: false, hasCloud: true }} userId={userId} onStorageChange={onChange} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'request-local' }));

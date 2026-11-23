@@ -102,8 +102,12 @@ export function useNoteStorageActions({
     if (!doc.cloudId || !userId || userId.startsWith('guest_')) return;
     setDownloadBusy(true);
     try {
-      await StorageService.addLocalCopy(userId, doc.cloudId);
-      showToast(t('storage_downloaded_local'), 'success');
+      const { skippedVersions } = await StorageService.addLocalCopy(userId, doc.cloudId);
+      if (skippedVersions > 0) {
+        showToast(t('storage_download_versions_skipped', { count: skippedVersions }), 'warning');
+      } else {
+        showToast(t('storage_downloaded_local'), 'success');
+      }
       onStorageChange();
     } catch (e) {
       const errStr = String((e as { message?: string })?.message || e);

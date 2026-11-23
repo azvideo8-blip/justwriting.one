@@ -208,13 +208,13 @@ describe('DocumentService', () => {
     });
 
     it('renameTagInAllDocs calls DataProvider', async () => {
-      vi.mocked(DataProvider.renameTagInAllDocs).mockResolvedValue();
+      vi.mocked(DataProvider.renameTagInAllDocs).mockResolvedValue(0);
       await DocumentService.renameTagInAllDocs('u1', 'old', 'new');
       expect(DataProvider.renameTagInAllDocs).toHaveBeenCalledWith('u1', 'old', 'new');
     });
 
     it('removeTagFromAllDocs calls DataProvider', async () => {
-      vi.mocked(DataProvider.removeTagFromAllDocs).mockResolvedValue();
+      vi.mocked(DataProvider.removeTagFromAllDocs).mockResolvedValue(0);
       await DocumentService.removeTagFromAllDocs('u1', 'tag');
       expect(DataProvider.removeTagFromAllDocs).toHaveBeenCalledWith('u1', 'tag');
     });

@@ -32,7 +32,10 @@ import { buildProactiveBlock } from './chatContext/proactive';
 import { buildTemporalBlocks } from './chatContext/temporalBlocks';
 import { buildLiteRetrievalBlock } from './chatContext/liteRetrieval';
 import { buildTopicChronicleBlock } from './chatContext/topicChronicle';
-import { answerChronicleV2Enabled, chatHypothesesEnabled } from '../../../core/sync/syncFlags';
+import { answerChronicleV2Enabled, chatHypothesesEnabled, chatInsightsEnabled } from '../../../core/sync/syncFlags';
+import { getChatExtrasEnabled } from '../../../core/ai/chatExtrasPreference';
+import { HYPOTHESIS_PERSONAS } from '../../../shared/ai/hypothesisRule';
+import { insightRecallBlock } from '../../../shared/ai/insightRecall';
 import { ARCHIVE_TURN_MARK } from '../../../shared/ai/archiveAnswerRule';
 import { buildHypothesisBlock, directHypothesisAsk, hypothesisAskOf } from './chatContext/hypothesisTurn';
 import type { HypoStats } from '../../../shared/ai/chatShape';
@@ -297,6 +300,10 @@ export function useAIChatContext(personaId: string): {
     mode?: 'summary' | 'insights' | 'facts' | undefined;
   } | null>(null);
   const recentContextInjectedRef = useRef(false);
+  // DI-7: спрашивали ли уже «о том ли» в этой сессии разговора — один вызов на
+  // сессию, с попаданием или без (пул фона общий с разбором; ревью 0.11.24, N-6).
+  // Сброс в resetSession.
+  const insightRecalledRef = useRef(false);
   // DLG-Q9: блок слов человека кэшируется на сессию по (люди, набор id заметок).
   const personQuotesCacheRef = useRef<{ key: string; block: string | undefined; ids: string[] } | null>(null);
 
@@ -310,6 +317,7 @@ export function useAIChatContext(personaId: string): {
     doorsCacheRef.current = null;
     messageCountRef.current = 0;
     recentContextInjectedRef.current = false;
+    insightRecalledRef.current = false;
     personQuotesCacheRef.current = null;
     lastTurnHypothesisRef.current = false;
     // Заметка-тема принадлежит диалогу: без сброса она ехала в «Новый диалог»
@@ -495,7 +503,18 @@ export function useAIChatContext(personaId: string): {
     const isPreset = PRESET_PERSONAS.some(p => p.id === personaId);
     const portraitPromise = portraitCacheRef.current !== undefined
       ? Promise.resolve(portraitCacheRef.current)
-      : AIProfileService.getPortrait().then(p => { portraitCacheRef.current = p; return p; });
+      : AIProfileService.getPortrait().then(p => { portraitCacheRef.current = p; return p; }, (e: unknown) => {
+        // NB-12 сделал отказ чтения громким для экрана портрета; ход чата из-за
+        // него не падает — идёт без портрета, сбой записан (ревью 0.11.24). В кэш
+        // сессии не кладём: следующий ход прочитает снова.
+        reportAIDegradation({
+          feature: 'chat_portrait_read',
+          cause: e,
+          action: 'Чтение портрета для хода чата',
+          impact: 'Ход без портрета',
+        });
+        return null;
+      });
     const personaPromise = isPreset
       ? Promise.resolve(undefined)
       : AIPersonaService.getCustom(personaId);
@@ -1348,6 +1367,34 @@ export function useAIChatContext(personaId: string): {
               ? `${(searchContext as string).slice(0, at)}${personBlock}\n\n${(searchContext as string).slice(at)}`
               : `${searchContext ?? ''}\n\n${personBlock}`.trim();
           }
+        }
+      }
+
+      // DI-7: вспомнить прошлый вывод к месту — только в начале разговора (до
+      // текущей не больше одной реплики человека) и один вызов за сессию. «О том
+      // ли» решает служебный вызов; сбой или 0 — не вспоминать. Дата — кодом.
+      if (!attached && !noteIntentNoText && !crisis && !smallTalk
+        && HYPOTHESIS_PERSONAS.includes(effectivePersonaId)
+        && getChatExtrasEnabled(uid)
+        && priorUserTurns.length <= 1
+        && !insightRecalledRef.current) {
+        try {
+          if (await chatInsightsEnabled(uid)) {
+            const recallDocs = await (docsSnap ??= loadDocumentSnapshot());
+            const usable = await AIChatMemoryService.getUsableConclusions([...recallDocs.values()]);
+            const candidates = usable.filter(m => m.sourceDialogueId !== params.dialogueId).slice(0, 12);
+            if (candidates.length > 0) {
+              insightRecalledRef.current = true;
+              const res = await AIService.matchInsight(text, candidates.map(m => ({ text: m.text, context: m.context ?? '' })));
+              const hit = res.ok && res.match >= 1 ? candidates[res.match - 1] : undefined;
+              if (hit) {
+                const block = insightRecallBlock({ date: formatDateYYYYMMDD(hit.confirmedAt ?? hit.createdAt), text: hit.text });
+                searchContext = searchContext ? `${block}\n\n${searchContext}` : block;
+              }
+            }
+          }
+        } catch (e) {
+          reportError(e, { action: 'insight_recall' });
         }
       }
 

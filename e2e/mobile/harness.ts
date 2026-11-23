@@ -98,6 +98,24 @@ set session_replication_role = origin;`);
 }
 
 /**
+ * DI-6: флаг chat_insights в базе стенда. Подмена ответа rpc через page.route
+ * на webkit не перехватывается (маршрут не вызывается, запрос уходит к стенду),
+ * поэтому флаг включается строкой в feature_flags — тем же путём, что согласие
+ * (grantAiConsent). Это гоняет РЕАЛЬНЫЙ rpc → feature_enabled → БД, а не мок.
+ * Аккаунт спека уже admin (grantMobileLayoutAccess), 'owner' включает флаг
+ * только для него. После спека строку убрать (revokeChatInsightsFlag), чтобы
+ * остальные видели флаг выключенным, как до запуска.
+ */
+export function grantChatInsightsFlag(): void {
+  psql(`insert into public.feature_flags (name, enabled_for) values ('chat_insights', 'owner')
+on conflict (name) do update set enabled_for = 'owner', updated_at = now();`);
+}
+
+export function revokeChatInsightsFlag(): void {
+  psql(`delete from public.feature_flags where name = 'chat_insights';`);
+}
+
+/**
  * Клик с запасным dispatchEvent: на 320 px часть целей онбординга перекрывают
  * нижняя панель и чипы (F-18, F-27 — правки следующего batches), и обычный клик
  * висит до таймаута. Для харнесса это не подмена продукта: событие то же,

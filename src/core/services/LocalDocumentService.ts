@@ -257,8 +257,9 @@ export const LocalDocumentService = {
 
       // AP-3: грани, портрет и дайджест чистит та же уборка, что и на скрытии.
       // Здесь она идёт ДО шага 1: хронология ещё на месте, и по ней находится
-      // месяц дайджеста.
-      await purgeNoteDerivatives(documentId, effectiveOwnerId);
+      // месяц дайджеста. Отказ уборки — тоже сбой удаления производных (N-51).
+      const purge = await purgeNoteDerivatives(documentId, effectiveOwnerId);
+      if (purge.digestFailed || purge.facetsFailed || purge.portraitFailed) fail();
 
       // 1. Delete aiSummaries, aiEmbeddings, aiTimeline
       await Promise.all([

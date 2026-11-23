@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, ChevronDown, ChevronUp, File, Paperclip, Copy, Trash2, RefreshCw, ThumbsUp, ThumbsDown, ChevronLeft, ChevronRight, FilePlus, MoreHorizontal } from 'lucide-react';
+import { Sparkles, ChevronDown, ChevronUp, File, Paperclip, Copy, Trash2, RefreshCw, ThumbsUp, ThumbsDown, ChevronLeft, ChevronRight, FilePlus, MoreHorizontal, Bookmark } from 'lucide-react';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { ModalShell, SheetTitle } from '../../../shared/components/ModalShell';
@@ -153,6 +153,8 @@ export const AssistantTurn = React.memo(
     onDelete,
     onRegenerate,
     onFeedback,
+    onSaveInsight,
+    saveInsightBusy,
     variants,
     variantIndex,
     onSwitchVariant,
@@ -172,6 +174,9 @@ export const AssistantTurn = React.memo(
     onDelete?: () => void;
     onRegenerate?: (() => void) | undefined;
     onFeedback?: ((value: 'up' | 'down') => void) | undefined;
+    /** DI-5: «Сохранить вывод» — передаётся только при включённом флаге и персоне гипотез. */
+    onSaveInsight?: (() => void) | undefined;
+    saveInsightBusy?: boolean | undefined;
     variants?: string[] | undefined;
     variantIndex?: number | undefined;
     onSwitchVariant?: ((delta: number) => void) | undefined;
@@ -205,7 +210,7 @@ export const AssistantTurn = React.memo(
         >
           {children}
         </div>
-        {isMobile && (onCopy || onCreateNote || onFeedback || onRegenerate || onDelete) && (
+        {isMobile && (onCopy || onCreateNote || onFeedback || onRegenerate || onDelete || onSaveInsight) && (
           <div className="mt-1 flex items-center gap-1">
             {onCopy && (
               <IconButton onClick={onCopy} label={t('ai_action_copy')} className={iconAction} icon={<Copy size={18} aria-hidden="true" />} />
@@ -216,12 +221,15 @@ export const AssistantTurn = React.memo(
             {onFeedback && (
               <IconButton onClick={() => onFeedback('up')} label={t('ai_action_thumbs_up')} className={iconAction} icon={<ThumbsUp size={18} aria-hidden="true" />} />
             )}
+            {onSaveInsight && (
+              <IconButton onClick={onSaveInsight} disabled={saveInsightBusy} label={t('ai_action_save_insight')} className={iconAction} icon={<Bookmark size={18} aria-hidden="true" />} />
+            )}
             {moreActions && (
               <IconButton onClick={() => setMoreOpen(true)} label={t('ai_action_more')} className={iconAction} icon={<MoreHorizontal size={18} aria-hidden="true" />} />
             )}
           </div>
         )}
-        {!isMobile && (onCopy || onDelete || onRegenerate || onFeedback || onCreateNote) && (
+        {!isMobile && (onCopy || onDelete || onRegenerate || onFeedback || onCreateNote || onSaveInsight) && (
           <div className="flex gap-1 mt-3 -ml-2 flex-wrap">
             {onCopy && (
               <Button
@@ -288,6 +296,17 @@ export const AssistantTurn = React.memo(
                   <ThumbsDown size={11} aria-hidden="true" />
                 </Button>
               </>
+            )}
+            {onSaveInsight && (
+              <Button
+                onClick={onSaveInsight}
+                disabled={saveInsightBusy}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-text-main/35 hover:text-text-main/70 hover:bg-text-main/5 transition-colors font-mono text-[10px] tracking-wide"
+                aria-label={t('ai_action_save_insight')}
+              >
+                <Bookmark size={11} aria-hidden="true" />
+                {t('ai_action_save_insight')}
+              </Button>
             )}
             {onDelete && (
               <Button

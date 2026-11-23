@@ -31,7 +31,7 @@ describe('SYNC-D1: downloadAllFromCloud', () => {
 
     vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue(cloudDocs);
     vi.spyOn(LocalDocumentService, 'getDocumentsByOwner').mockResolvedValue(localDocs);
-    const addLocalCopySpy = vi.spyOn(CloudSyncService, 'addLocalCopy').mockResolvedValue('local_new');
+    const addLocalCopySpy = vi.spyOn(CloudSyncService, 'addLocalCopy').mockResolvedValue({ localId: 'local_new', skippedVersions: 0 });
     const addCloudCopySpy = vi.spyOn(StorageService, 'addCloudCopy');
     const addActivitySpy = vi.spyOn(useActivityLogStore.getState(), 'addActivity');
 
@@ -62,7 +62,7 @@ describe('SYNC-D1: downloadAllFromCloud', () => {
 
     vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue(cloudDocs);
     vi.spyOn(LocalDocumentService, 'getDocumentsByOwner').mockResolvedValue(localDocs);
-    const addLocalCopySpy = vi.spyOn(CloudSyncService, 'addLocalCopy').mockResolvedValue('loc_2');
+    const addLocalCopySpy = vi.spyOn(CloudSyncService, 'addLocalCopy').mockResolvedValue({ localId: 'loc_2', skippedVersions: 0 });
     const addCloudCopySpy = vi.spyOn(StorageService, 'addCloudCopy');
 
     const result = await SyncService.downloadAllFromCloud(userId);
@@ -111,7 +111,7 @@ describe('SYNC-D1: downloadAllFromCloud', () => {
     vi.spyOn(LocalDocumentService, 'getDocumentsByOwner').mockResolvedValue([]);
     const addLocalCopySpy = vi.spyOn(CloudSyncService, 'addLocalCopy').mockImplementation(async () => {
       await new Promise(r => setTimeout(r, 10));
-      return 'local_1';
+      return { localId: 'local_1', skippedVersions: 0 };
     });
 
     const [res1, res2] = await Promise.all([
@@ -148,7 +148,7 @@ describe('SYNC-D1: downloadAllFromCloud', () => {
       if (cloudId === 'cloud_2') {
         throw new Error('LOCK_HELD: Document cloud_2 is currently locked');
       }
-      return `local_${cloudId}`;
+      return { localId: `local_${cloudId}`, skippedVersions: 0 };
     });
 
     const result = await SyncService.downloadAllFromCloud(userId);

@@ -68,7 +68,8 @@ describe('превью: отказы чтения названы', () => {
 
   it('5: разбор не прочитался — сказано, а не молча «Разобрать»', async () => {
     renderPreview({ ...base, content: 'Текст.' }, { fetchSummary: () => Promise.reject(new Error('IDB down')) });
-    expect(await screen.findByText('Разбор не прочитался — открой заметку ещё раз.')).toBeTruthy();
+    expect(await screen.findByText('Разбор не прочитался — облако не ответило.')).toBeTruthy();
+    expect(screen.queryByText('Разобрать заметку через ИИ')).toBeNull();
   });
 
   it('4: связанной заметки нет на устройстве — тост, а не тишина', async () => {
@@ -133,5 +134,32 @@ describe('превью: отказы чтения названы', () => {
     await screen.findByText('Другой текст.');
     expect(screen.queryByText(/Не прочиталось — попробуй ещё раз/)).toBeNull();
   });
-});
 
+  // Ревью 0.11.24: разбор заметки A не остаётся под заметкой B, и отказ чтения
+  // разбора B виден. Мутация: не сбрасывать summary в начале эффекта — красный.
+  it('другая заметка — разбор прошлой снят, отказ чтения новой назван', async () => {
+    const a = { ...base, id: 'doc-a', content: 'Текст A.' };
+    const b = { ...base, id: 'doc-b', content: 'Текст B.' };
+    function Switcher() {
+      const [current, setCurrent] = useState<ArchiveSession>(a);
+      return (
+        <>
+          <button onClick={() => setCurrent(b)}>switch</button>
+          <DocumentPreview
+            session={current} onClose={vi.fn()} onContinue={vi.fn()} onAnalyzeNote={vi.fn()}
+            fetchSummary={(id: string) => (id === 'doc-a'
+              ? Promise.resolve({ summary: 'synthetic summary A', themes: [], insights: [], extractedFacts: [] } as never)
+              : Promise.reject(new Error('cloud down')))}
+            fetchRelatedNotes={async () => [] as never}
+          />
+        </>
+      );
+    }
+    renderWithProviders(<MemoryRouter><ToastProvider><Switcher /></ToastProvider></MemoryRouter>);
+    // Блок разбора свёрнут — его заголовок и есть признак «разбор показан».
+    expect(await screen.findByText('Что заметил ИИ')).toBeTruthy();
+    fireEvent.click(screen.getByText('switch'));
+    expect(await screen.findByText('Разбор не прочитался — облако не ответило.')).toBeTruthy();
+    expect(screen.queryByText('Что заметил ИИ')).toBeNull();
+  });
+});

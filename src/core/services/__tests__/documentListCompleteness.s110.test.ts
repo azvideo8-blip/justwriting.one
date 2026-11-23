@@ -174,7 +174,7 @@ describe('S1-10: полнота списочного читателя', () => {
     await seedLocal([LINKED, linkedToMissing]);
     const newRow = cloudRow('cloud_new_s110', { uuid: 'uuid-cloud-new-s110' });
     getUserDocuments.mockResolvedValue([GOOD_ROW, newRow, BAD_ROW]);
-    const addLocalCopy = vi.spyOn(CloudSyncService, 'addLocalCopy').mockResolvedValue('local_new');
+    const addLocalCopy = vi.spyOn(CloudSyncService, 'addLocalCopy').mockResolvedValue({ localId: 'local_new', skippedVersions: 0 });
 
     const res = await CloudSyncService.downloadAllFromCloud(USER);
 

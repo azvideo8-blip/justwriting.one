@@ -61,6 +61,16 @@ export async function chatHypothesesEnabled(uid: string | undefined): Promise<bo
 }
 
 /**
+ * DI-4…DI-8: выводы из разговоров (согласие репликой, кнопка, список в
+ * профиле, вспоминание). Нет строки в `feature_flags`, гость или сбой чтения —
+ * выключено: ход и экраны как в 0.11.22.
+ */
+export async function chatInsightsEnabled(uid: string | undefined): Promise<boolean> {
+  if (!uid) return false;
+  return flagEnabled('chat_insights', uid, false, 'featureFlag_chatInsights');
+}
+
+/**
  * Флаг `chat_persona_ta`: собеседник «Транзактный аналитик» виден в списке.
  * Нет строки, гость или сбой чтения — не виден; уже начатый с ним разговор
  * продолжается (собеседник встроенный, сервер его знает).

@@ -12,7 +12,7 @@ import { isExcludedFromAI } from '../utils/isExcludedFromAI';
 import { localDayKey } from '../../../core/utils/dateUtils';
 import { persistPendingAnalysisDelete, forgetPendingAnalysisDelete } from './pendingAnalysisDeletes';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
-import { purgeNoteDerivatives } from '../../../core/services/noteDerivativePurge';
+import { purgeNoteDerivatives, type PurgeDerivativesResult } from '../../../core/services/noteDerivativePurge';
 
 /**
  * Разбор одной заметки — по явному нажатию, и только по нему.
@@ -383,13 +383,16 @@ export const NoteAnalysisService = {
    * Удаляет всё, что разбор оставил после себя, — и на устройстве, и в облаке.
    * `cloudSynced: false` — облако не ответило, удаление встало в очередь: это
    * не «разбор удалён», а «удалён здесь, из облака позже».
+   * `localFailed: true` — производная (дайджест/грань/портрет) не удалилась:
+   * пересказ остался на устройстве и попадёт в подсказки ИИ — итог не успех.
    */
-  async clearAnalysis(documentId: string): Promise<{ cloudSynced: boolean }> {
+  async clearAnalysis(documentId: string): Promise<{ cloudSynced: boolean; localFailed: boolean; purge?: PurgeDerivativesResult }> {
     // Общая уборка профиля: грань, портрет и дайджест месяца (AP-1/AP-3) — ПЕРВОЙ:
     // месяц дайджеста находится по строке хронологии, а AISummaryService.delete её
     // удаляет. Раньше уборка шла после, и дайджест месяца, где заметку разобрали до
     // продолжения в другом месяце, оставался (приёмка ai-privacy, I-2).
-    await purgeNoteDerivatives(documentId);
+    const purge = await purgeNoteDerivatives(documentId);
+    const localFailed = purge.digestFailed || purge.facetsFailed || purge.portraitFailed;
     await AISummaryService.delete(documentId);
     await AIEmbeddingService.delete(documentId);
 
@@ -414,17 +417,17 @@ export const NoteAnalysisService = {
     // его с documents.uuid. По локальному `local_…` не удалялось бы ничего, и
     // кнопка снова врала бы — только тише, чем раньше.
     const uid = getCurrentUser()?.uid;
-    if (!uid || uid.startsWith('guest_')) return { cloudSynced: true };
+    if (!uid || uid.startsWith('guest_')) return { cloudSynced: true, localFailed, purge };
     const canonicalId = uuid ?? documentId;
     try {
       await DataProvider.deleteSummary(uid, canonicalId);
       await DataProvider.deleteEmbedding(uid, canonicalId);
       forgetPendingAnalysisDelete(uid, canonicalId);
-      return { cloudSynced: true };
+      return { cloudSynced: true, localFailed, purge };
     } catch (e) {
       reportError(e, { action: 'noteAnalysis_clearCloud', documentId });
       persistPendingAnalysisDelete(uid, canonicalId);
-      return { cloudSynced: false };
+      return { cloudSynced: false, localFailed, purge };
     }
   },
 };

@@ -56,8 +56,8 @@ interface ArchiveNoteListProps {
   language: string;
   allTags?: string[];
   onClearSearch?: () => void;
-  onAnalyzeNote?: (sessionId: string) => Promise<{ ok: boolean; error?: string }>;
-  onClearAnalysis?: (sessionId: string) => Promise<{ cloudSynced: boolean }>;
+  onAnalyzeNote?: (sessionId: string) => Promise<{ ok: boolean; error?: string; indexed?: 'ok' | 'skip' | 'rate' | 'daily' | 'error' }>;
+  onClearAnalysis?: (sessionId: string) => Promise<{ cloudSynced: boolean; localFailed?: boolean }>;
   loadAiProcessedMap?: () => Promise<Record<string, boolean>>;
 }
 
@@ -120,12 +120,18 @@ export function ArchiveNoteList({
   const [aiProcessedMap, setAiProcessedMap] = useState<Record<string, boolean>>({});
   const [aiBusyMap, setAiBusyMap] = useState<Record<string, boolean>>({});
   const [aiExclusionBusyMap, setAiExclusionBusyMap] = useState<Record<string, boolean>>({});
+  // NB-8: отказ чтения карты разобранности — не «все не разобраны».
+  const [aiMapLoadFailed, setAiMapLoadFailed] = useState(false);
+  const [aiMapReloadKey, setAiMapReloadKey] = useState(0);
 
   useEffect(() => {
-    if (loadAiProcessedMap) {
-      void loadAiProcessedMap().then(setAiProcessedMap);
-    }
-  }, [loadAiProcessedMap]);
+    if (!loadAiProcessedMap) return;
+    let active = true;
+    loadAiProcessedMap()
+      .then(map => { if (active) { setAiProcessedMap(map); setAiMapLoadFailed(false); } })
+      .catch(() => { if (active) setAiMapLoadFailed(true); });
+    return () => { active = false; };
+  }, [loadAiProcessedMap, aiMapReloadKey]);
 
   const handleAIExclusionClick = async (session: ArchiveSession) => {
     if (!session.id || aiExclusionBusyMap[session.id]) return;
@@ -158,7 +164,10 @@ export function ArchiveNoteList({
       try {
         const res = onClearAnalysis ? await onClearAnalysis(session.id) : { cloudSynced: true };
         setAiProcessedMap(m => ({ ...m, [session.id]: false }));
-        if (res.cloudSynced) showToast(t('ai_note_cleared'), 'success');
+        // NB-1: оставшийся пересказ (дайджест/грань/портрет) попадёт в подсказки
+        // ИИ — это ошибка, а не «удалено здесь, из облака позже».
+        if (res.localFailed) showToast(t('ai_note_clear_derivatives_failed'), 'error');
+        else if (res.cloudSynced) showToast(t('ai_note_cleared'), 'success');
         else showToast(t('ai_note_cleared_local_only'), 'warning');
       } catch (e) {
         reportError(e, { action: 'archive_clear_analysis', documentId: session.id });
@@ -176,7 +185,11 @@ export function ArchiveNoteList({
       const res = await onAnalyzeNote(session.id);
       if (res.ok) {
         setAiProcessedMap(m => ({ ...m, [session.id]: true }));
-        showToast(t('ai_note_analyzed'), 'success');
+        // NB-8: сводка есть, а вектор не построен — поиск по смыслу заметку
+        // не увидит; это warning с причиной, а не зелёное «разобрана».
+        if (res.indexed === 'daily' || res.indexed === 'rate') showToast(t('ai_note_analyzed_index_limit'), 'warning');
+        else if (res.indexed === 'error') showToast(t('ai_note_analyzed_index_error'), 'warning');
+        else showToast(t('ai_note_analyzed'), 'success');
       } else {
         const isConsentRequired = res.error === 'AI_CONSENT_REQUIRED';
         showToast(
@@ -266,6 +279,9 @@ export function ArchiveNoteList({
     >
       {(list, notice) => (<>
         {notice}
+        {aiMapLoadFailed && (
+          <LoadNotice variant="row" className="mb-3" text={t('archive_ai_map_load_error')} onRetry={() => setAiMapReloadKey(k => k + 1)} />
+        )}
         {/* Пустой срез при прошлых данных (перечитываем) или частичном отказе: поиск
             и фильтр называют себя; без них — при перечитывании то же «пусто», что было,
             а при отказе облака — ничего (плашка облака выше). */}

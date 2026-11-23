@@ -202,4 +202,26 @@ describe('GuestMigrationGate', () => {
       migrationOverride.result = null;
     }
   });
+
+  // PIN-1 (2026-11-21): перенесено не всё — гейт не обещает успехом.
+  // Мутация: убрать условие result.left === 0 — красный.
+  it('PIN-1: left > 0 — гейт не показывает success «перенесено»', async () => {
+    const guestId = getOrCreateGuestId();
+    await LocalDocumentService.createDocument(guestId, { title: 'Раз' });
+    await LocalDocumentService.createDocument(guestId, { title: 'Два' });
+    migrationOverride.result = { moved: 2, left: 3 };
+    try {
+      const { rerender } = render(<GuestMigrationGate />);
+      mockAuth = { user: { uid: 'user_new_123' }, isGuest: false };
+      rerender(<GuestMigrationGate />);
+      fireEvent.click(await screen.findByText('Перенести в аккаунт'));
+      await waitFor(() => {
+        expect(screen.queryByText('Перенести в аккаунт')).toBeNull();
+      });
+      const successCalls = mockShowToast.mock.calls.filter(c => String(c[0]).startsWith('migration_success_local'));
+      expect(successCalls).toHaveLength(0);
+    } finally {
+      migrationOverride.result = null;
+    }
+  });
 });

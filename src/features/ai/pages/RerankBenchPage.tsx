@@ -7,6 +7,7 @@ import { useToast } from '../../../shared/components/Toast';
 import { getIndexingConsent } from '../../../core/ai/indexingConsent';
 import { getCurrentUser } from '../../../core/auth';
 import { useLanguage } from '../../../shared/i18n';
+import { reportError } from '../../../shared/errors/reportError';
 
 // Оценка сохраняется после каждого нажатия. В прошлый заход случайный жест
 // «назад» на тачпаде стёр час работы — здесь этого не повторится.
@@ -108,10 +109,16 @@ export function RerankBenchPage() {
     });
     const already = expanded[docId];
     if (already === undefined) {
-      const text = await LocalVersionService.getLatestContent(docId);
-      setExpanded(prev => (docId in prev ? { ...prev, [docId]: text || '(текст не найден)' } : prev));
+      // NB-17 №17: отказ чтения назван строкой, а не необработанным промисом.
+      try {
+        const text = await LocalVersionService.getLatestContent(docId);
+        setExpanded(prev => (docId in prev ? { ...prev, [docId]: text || '(текст не найден)' } : prev));
+      } catch (e) {
+        reportError(e, { action: 'rerank_bench_full_text', docId });
+        setExpanded(prev => (docId in prev ? { ...prev, [docId]: t('admin_full_text_load_error') } : prev));
+      }
     }
-  }, [expanded]);
+  }, [expanded, t]);
 
   const run = async () => {
     const list = queriesText.split('\n').map(s => s.trim()).filter(Boolean);
@@ -355,7 +362,7 @@ export function RerankBenchPage() {
 
                         <button
                           type="button"
-                          onClick={() => void toggleFull(docId)}
+                          onClick={() => { void toggleFull(docId); }}
                           className="flex items-center gap-1 text-[11px] text-text-main/50 hover:text-text-main"
                         >
                           {isOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}

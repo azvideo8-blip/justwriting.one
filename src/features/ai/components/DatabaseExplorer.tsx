@@ -76,7 +76,10 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
         setRecords(visible as unknown as RecordType[]);
       } else {
         if (selectedTable === 'users') {
-          const { users } = await AdminUserService.getUsers(150);
+          const { users, statusesFailed, truncated } = await AdminUserService.getUsers(150);
+          // NB-17 №7: неполнота названа — статусы не прочитались / есть ещё rows.
+          if (statusesFailed) showToast(t('admin_users_statuses_failed'), 'warning');
+          if (truncated) showToast(t('admin_users_truncated', { count: users.length }), 'warning');
           setRecords(users as unknown as RecordType[]);
         } else if (selectedTable === 'user_documents') {
           // R-2: битый ряд — показываем прочитанные, а не пустую таблицу; но неполноту называем.
@@ -84,10 +87,12 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
           if (unreadable.length > 0) showToast(t('admin_db_partial', { count: unreadable.length }), 'warning');
           setRecords(data as unknown as RecordType[]);
         } else if (selectedTable === 'user_versions') {
-          const [{ docs }, versions] = await Promise.all([
+          const [{ docs, unreadable }, versions] = await Promise.all([
             readCloudDocumentsPartial(userId),
             VersionService.getAllVersionsForUser(userId),
           ]);
+          // NB-17 №7: нечитаемые заметки не дают полных версий — как в user_documents.
+          if (unreadable.length > 0) showToast(t('admin_db_partial', { count: unreadable.length }), 'warning');
           const docTitleMap = new Map<string, string>();
           for (const doc of docs) {
             docTitleMap.set(doc.id, doc.title || '');

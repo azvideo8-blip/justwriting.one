@@ -17,6 +17,8 @@ vi.mock("../../../../core/data", () => ({
     deleteSummary: vi.fn().mockResolvedValue(undefined),
     deleteEmbedding: vi.fn().mockResolvedValue(undefined),
     updateDocument: vi.fn().mockResolvedValue(undefined),
+    // NB-3: get() больше не глотает отказ облака — мок края обязан быть полным.
+    getSummary: vi.fn().mockResolvedValue(null),
   },
 }));
 

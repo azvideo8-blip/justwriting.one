@@ -160,7 +160,7 @@ describe('CloudSyncService (csc-*)', () => {
     const getDocSpy = vi.spyOn(DocumentService, 'getDocument');
 
     const result = await CloudSyncService.addLocalCopy(USER, 'cloud_csc05');
-    expect(result).toBe('d_csc05');
+    expect(result).toEqual({ localId: 'd_csc05', skippedVersions: 0 });
     expect(getDocSpy).not.toHaveBeenCalled();
   });
 
@@ -178,7 +178,7 @@ describe('CloudSyncService (csc-*)', () => {
       { id: 'v1', version: 1, content: 'Text', savedAt: new Date().toISOString() } as never,
     ]);
 
-    const localId = await CloudSyncService.addLocalCopy(USER, 'cloud_csc06');
+    const { localId } = await CloudSyncService.addLocalCopy(USER, 'cloud_csc06');
     const db = await getLocalDb(USER);
     const doc = await db.get('documents', localId);
     expect(doc?.uuid).toBe('canonical_uuid_csc06');
@@ -349,7 +349,7 @@ describe('CloudSyncService (csc-*)', () => {
       { id: 'v1', version: 1, content: 'Text', savedAt: new Date().toISOString() } as never,
     ]);
 
-    const localId = await CloudSyncService.addLocalCopy(USER, 'cloud_csc09');
+    const { localId } = await CloudSyncService.addLocalCopy(USER, 'cloud_csc09');
     const db = await getLocalDb(USER);
     const doc = await db.get('documents', localId);
     expect(doc?.linkedCloudId).toBe('cloud_csc09');

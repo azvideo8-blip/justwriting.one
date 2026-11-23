@@ -25,7 +25,7 @@ describe('CloudSyncService', () => {
         { id: 'cloud_2' } as any,
       ]);
       vi.spyOn(LocalStorageService, 'getDocumentsByOwner').mockResolvedValue([]);
-      const addLocalCopySpy = vi.spyOn(CloudSyncService, 'addLocalCopy').mockResolvedValue('local_1');
+      const addLocalCopySpy = vi.spyOn(CloudSyncService, 'addLocalCopy').mockResolvedValue({ localId: 'local_1', skippedVersions: 0 });
 
       const result = await CloudSyncService.restoreMissingDocuments('user_1');
       expect(result).toEqual({ restored: 2, failed: 0, hasMore: false });
@@ -41,7 +41,7 @@ describe('CloudSyncService', () => {
         { id: 'local_1', guestId: 'user_1', firstSessionAt: 1000 } as any,
       ]);
       const updateLink = vi.spyOn(LocalStorageService, 'updateLinkedCloudId').mockResolvedValue(undefined);
-      const addLocalCopySpy = vi.spyOn(CloudSyncService, 'addLocalCopy').mockResolvedValue('local_9');
+      const addLocalCopySpy = vi.spyOn(CloudSyncService, 'addLocalCopy').mockResolvedValue({ localId: 'local_9', skippedVersions: 0 });
 
       const result = await CloudSyncService.restoreMissingDocuments('user_1');
 

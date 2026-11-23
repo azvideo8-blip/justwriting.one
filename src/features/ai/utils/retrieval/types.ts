@@ -34,7 +34,7 @@ export interface SearchNotesOptions {
   minTime?: number | undefined;
   maxTime?: number | undefined;
   skipRerank?: boolean | undefined;
-  onRerankMeta?: ((meta: { bypassed: boolean; bypassReason?: string; rerankLatencyMs?: number; cardCount?: number; rerankFailed?: boolean }) => void) | undefined;
+  onRerankMeta?: ((meta: { bypassed: boolean; bypassReason?: string; rerankLatencyMs?: number; cardCount?: number; rerankFailed?: boolean; embedFailed?: boolean }) => void) | undefined;
 }
 
 export interface CacheResultEntry {

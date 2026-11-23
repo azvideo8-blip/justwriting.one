@@ -29,7 +29,7 @@ describe('R3-5: a trashed cloud note arrives in the trash', () => {
       { version: 1, content: 'текст', wordCount: 1, duration: 0, wpm: 0, sessionStartedAt: trashedAt, savedAt: trashedAt },
     ] as never);
 
-    const localId = await CloudSyncService.addLocalCopy(userId, 'cloud_t');
+    const { localId } = await CloudSyncService.addLocalCopy(userId, 'cloud_t');
     const doc = await LocalStorageService.getDocument(localId, userId);
     expect(doc?.trashedAt).toBe(trashedAt.getTime());
   });

@@ -1,0 +1,86 @@
+// EX-4 (PIN-1, диагностика): флаги отказа, не закреплённые ранее — ИИ-использование
+// и статистика. Хук настоящий (useDiagnosticsData), моки только края: callAi (сервер),
+// IndexedDB на чтении стора (отказ), тост, i18n, auth. Харнесс — из sus20.
+// Мутация на флаг: убрать setAiUsageFailed(true) / setStatsFailed(true) — красный.
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, cleanup } from '@testing-library/react';
+import 'fake-indexeddb/auto';
+
+const mocks = vi.hoisted(() => ({
+  getUsers: vi.fn(),
+  callAi: vi.fn(),
+  showToast: vi.fn(),
+}));
+
+vi.mock('../../../../core/data', () => ({ DataProvider: { getUsers: (...a: unknown[]) => mocks.getUsers(...a) } }));
+vi.mock('../../../../core/ai/callAi', async importOriginal => {
+  const actual = await importOriginal<typeof import('../../../../core/ai/callAi')>();
+  return { ...actual, callAi: (...a: unknown[]) => mocks.callAi(...a) };
+});
+vi.mock('../../../../core/auth', () => ({
+  getCurrentUser: () => ({ uid: 'admin-1', email: 'admin@example.com' }),
+  reauthenticate: vi.fn(),
+  sendPasswordResetEmail: vi.fn(),
+}));
+vi.mock('../../../../shared/components/Toast', () => ({ useToast: () => ({ showToast: mocks.showToast }) }));
+vi.mock('../../../../shared/components/ConfirmDialog', () => ({ useConfirmDialog: () => ({ confirm: vi.fn() }) }));
+vi.mock('../../../../shared/i18n', () => ({ useLanguage: () => ({ t: (k: string) => k }) }));
+vi.mock('../../../auth/hooks/useAdminStatus', () => ({
+  useAdminStatus: () => ({ isAdmin: true, isStaleToken: false, error: null }),
+}));
+vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
+vi.mock('../../services/AIProfileService', () => ({
+  AIProfileService: { getPortrait: vi.fn().mockResolvedValue(null) },
+  portraitCacheKey: () => 'portrait_cache_ex4',
+}));
+
+import { useDiagnosticsData } from '../useDiagnosticsData';
+import { getLocalDb, resetDbInstance } from '../../../../core/storage/localDb';
+
+function Harness({ tab }: { tab: 'ai_usage' | 'stats' }) {
+  const data = useDiagnosticsData(null, false, tab);
+  return <div>{`usage:${String(data.aiUsageFailed)} stats:${String(data.statsFailed)}`}</div>;
+}
+
+beforeEach(async () => {
+  vi.clearAllMocks();
+  localStorage.clear();
+  resetDbInstance();
+  mocks.getUsers.mockResolvedValue([]);
+  mocks.callAi.mockImplementation(async (endpoint: unknown) => {
+    if (endpoint === 'listUsersWithStatus') return [];
+    if (endpoint === 'getAIUsageStats') return { stats: [], totals: null, limits: null };
+    return {};
+  });
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  cleanup();
+});
+
+describe('EX-4: отказ ИИ-использования и статистики назван, а не «пусто»', () => {
+  it('сервер не отдал статистику ИИ — aiUsageFailed', async () => {
+    mocks.callAi.mockImplementation(async (endpoint: unknown) => {
+      if (endpoint === 'getAIUsageStats') throw new Error('SYNTHETIC_AI_USAGE_DOWN');
+      if (endpoint === 'listUsersWithStatus') return [];
+      return {};
+    });
+    render(<Harness tab="ai_usage" />);
+    expect(await screen.findByText('usage:true stats:false')).toBeTruthy();
+  });
+
+  it('контроль: статистика ИИ пришла — отказа нет', async () => {
+    render(<Harness tab="ai_usage" />);
+    expect(await screen.findByText('usage:false stats:false')).toBeTruthy();
+  });
+
+  it('чтение локальных сторов упало — statsFailed', async () => {
+    const db = await getLocalDb();
+    const orig = db.getAll.bind(db) as (store: string) => Promise<unknown[]>;
+    (db as unknown as { getAll: (store: string) => Promise<unknown[]> }).getAll = (store: string) =>
+      store === 'aiSummaries' ? Promise.reject(new Error('SYNTHETIC_IDB_READ')) : orig(store);
+    render(<Harness tab="stats" />);
+    expect(await screen.findByText('usage:false stats:true')).toBeTruthy();
+  });
+});

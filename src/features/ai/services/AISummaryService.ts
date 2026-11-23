@@ -131,18 +131,22 @@ export const AISummaryService = {
         }
       } catch (e) {
         reportError(e, { action: 'ai_summary_cloud_fetch', documentId });
+        // NB-3: «облако не ответило» — не «разбора нет»: вызывающий обязан
+        // показать отказ чтения, а не кнопку «Разобрать» (трата ИИ повторно).
+        throw e;
       }
     }
     return undefined;
   },
 
-  async save(summary: AIDocumentSummary): Promise<void> {
+  async save(summary: AIDocumentSummary): Promise<'saved' | 'skipped'> {
     const db = await getLocalDb();
     const tx = db.transaction(['documents', 'aiSummaries', 'aiTimeline'], 'readwrite');
     const doc = await tx.objectStore('documents').get(summary.documentId);
     if (!doc || isExcludedFromAI(doc)) {
       await tx.done;
-      return;
+      // NB-17 №8: пропуск назван — вызывающий не ставит aiProcessed и не зеленеет.
+      return 'skipped';
     }
     const withUuid = doc.uuid ? { ...summary, documentUuid: doc.uuid } : summary;
     await tx.objectStore('aiSummaries').put(withUuid);
@@ -196,7 +200,7 @@ export const AISummaryService = {
 
     await tx.done;
     const fresh = await db.get('documents', summary.documentId);
-    if (!fresh || isExcludedFromAI(fresh)) return;
+    if (!fresh || isExcludedFromAI(fresh)) return 'saved';
     const uid = getCurrentUser()?.uid;
     // SEC-8: Background write-time upload respects cloudSyncEnabled switch
     if (uid && cloudSyncEnabled(uid)) {
@@ -206,6 +210,7 @@ export const AISummaryService = {
         reportError(e, { action: 'ai_summary_cloud_save' });
       });
     }
+    return 'saved';
   },
 
   async delete(documentId: string): Promise<void> {

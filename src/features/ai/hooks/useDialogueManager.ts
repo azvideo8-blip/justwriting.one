@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { AIDialogueService } from '../services/AIDialogueService';
+import { AIChatMemoryService } from '../services/AIChatMemoryService';
 import type { AIDialogue } from '../../../core/storage/localDb';
 import { useLanguage } from '../../../shared/i18n';
 import { localDayKey } from '../../../core/utils/dateUtils';
@@ -45,6 +46,14 @@ export function useDialogueManager({ confirmDialog }: DialogueManagerParams) {
     }
   }, []);
 
+  // DI-6: переход из «Выводов из разговоров». Архивный открывается тем же
+  // setActiveDialogueId, что и строка списка архива; удалённый — отказ на экране.
+  const openDialogueById = useCallback(async (id: string): Promise<AIDialogue | null> => {
+    const d = await AIDialogueService.get(id);
+    if (d) setActiveDialogueId(d.id);
+    return d ?? null;
+  }, []);
+
   // Дейлик 19.11, подозрение 2: вызовы — `void` из листа, который уже закрылся;
   // отказ базы был необработанным промисом без тоста. Общий runMutation называет
   // отказ; список перечитан (строка осталась на месте — так и показываем).
@@ -76,9 +85,19 @@ export function useDialogueManager({ confirmDialog }: DialogueManagerParams) {
   const handleDelete = useCallback(async (id?: string) => guarded('dialogue_delete', async () => {
     const target = id ?? activeDialogueId;
     if (target) {
+      // DI-8: выводы удаляются вместе с разговором — человек узнаёт об этом до
+      // нажатия. Сбой подсчёта удаление не блокирует: обычный текст, сбой в журнал.
+      let message = t('ai_delete_dialogue_confirm_message');
+      try {
+        const conclusions = await AIChatMemoryService.getConclusions();
+        const n = conclusions.filter(m => m.sourceDialogueId === target).length;
+        if (n > 0) message = t('ai_delete_dialogue_confirm_message_insights', { count: n });
+      } catch (e) {
+        reportError(e, { action: 'dialogue_delete_insight_count' });
+      }
       const ok = await confirmDialog({
         title: t('ai_delete_dialogue_confirm_title'),
-        message: t('ai_delete_dialogue_confirm_message'),
+        message,
       });
       if (!ok) return;
       await AIDialogueService.delete(target);
@@ -112,6 +131,7 @@ export function useDialogueManager({ confirmDialog }: DialogueManagerParams) {
     showArchived,
     setShowArchived,
     loadDialogues,
+    openDialogueById,
     handleRenameDialogue,
     handleArchive,
     handleUnarchive,

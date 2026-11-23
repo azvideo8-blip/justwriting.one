@@ -534,9 +534,9 @@ describe('AIProfileService', () => {
       expect(await AIProfileService.isPortraitStale()).toBe(false);
     });
 
-    it('чтение записи упало — подсказку не показываем', async () => {
+    it('чтение записи упало — отказ пробрасывается, а не «свежий» (NB-12)', async () => {
       mockGet.mockRejectedValueOnce(new Error('db'));
-      expect(await AIProfileService.isPortraitStale()).toBe(false);
+      await expect(AIProfileService.isPortraitStale()).rejects.toThrow('db');
     });
 
     it('isPortraitStale не обращается к ИИ', async () => {
