@@ -9,7 +9,7 @@
 $ErrorActionPreference = 'Stop'
 $Dest = 'C:\jw-backup\copies'
 $Key = 'C:\jw-backup\backup-pull_ed25519'
-$Remote = 'backup-pull@203.0.113.10'
+$Remote = 'backup-pull@justwriting.ru'
 $Keep = 30
 $MaxAgeHours = 48
 $Log = 'C:\jw-backup\offsite-pull.log'
