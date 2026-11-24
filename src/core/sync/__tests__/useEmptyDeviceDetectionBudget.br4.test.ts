@@ -154,4 +154,24 @@ describe('Ревью 26.10: копия баннера не читает обла
     await waitFor(() => expect(result.current.showCloudBanner).toBe(true));
     expect(result.current.cloudCount).toBe(3);
   });
+
+  // Н-3 (дейлик 21.11): все заметки облака нечитаемы — это не «облако пусто».
+  // Мутация: считать только docs.length — красный.
+  it('пустое устройство и только нечитаемые заметки в облаке — вопрос показан', async () => {
+    mockLocal.mockResolvedValue([]);
+    mockCloud.mockRejectedValue(Object.assign(new Error('unreadable'), { name: 'UnreadableCloudListError', docs: [], ids: ['a', 'b', 'c'], uuids: [] }));
+    const { result } = renderHook(() => useEmptyDeviceDetection());
+    await waitFor(() => expect(result.current.shouldPrompt).toBe(true));
+    expect(result.current.cloudCount).toBe(3);
+    // Окно восстановления по этому признаку читает облако само и называет нечитаемые.
+    expect(result.current.cloudUnreadable).toBe(3);
+  });
+
+  it('контроль: на устройстве заметки есть — нечитаемые не навязывают вопрос', async () => {
+    mockLocal.mockResolvedValue(docs(2));
+    mockCloud.mockRejectedValue(Object.assign(new Error('unreadable'), { name: 'UnreadableCloudListError', docs: docs(2), ids: ['a', 'b', 'c'], uuids: [] }));
+    const { result } = renderHook(() => useEmptyDeviceDetection());
+    await waitFor(() => expect(result.current.cloudCount).toBe(2));
+    expect(result.current.shouldPrompt).toBe(false);
+  });
 });

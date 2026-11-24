@@ -37,8 +37,6 @@ export interface MigrationProgress {
   processed: number;
   encrypted: number;
   errors: number;
-  /** Прервано дневным лимитом записей, а не доведено до конца. */
-  incomplete?: boolean;
 }
 
 const BATCH_SIZE = 400;

@@ -4,6 +4,8 @@ import { waitFor } from '@testing-library/react';
 import { getLocalDb, resetDbInstance, hasLocalDatabase } from '../../../core/storage/localDb';
 import { offerLostSessionWipe } from '../services/lostSessionWipe';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
+// Счёт неотправленного грузит этот модуль по требованию; холодная загрузка съедает секунду waitFor.
+import '../../../core/services/LocalStoreSyncService';
 
 // S-28: устройство, где вход оборвался не по воле человека, получает предложение
 // стереть данные — а не молчаливый разлогин с сохранённой базой.
@@ -70,6 +72,23 @@ describe('S-28: the lost-session wipe offer', () => {
       message: expect.stringContaining('auth_lost_session_wipe_confirm_message'),
       destructive: true,
     }));
+  });
+
+  // Ревью 0.11.25: журнал ИИ не читается — стирание не запирается: предложение одноразовое,
+  // а войти и стереть иначе уже нельзя (аккаунт мог быть удалён). База не читается — S-33 ниже.
+  // Мутации: бросать на нечитаемом журнале — красный; убрать фразу «не удалось проверить» — красный.
+  it('AI journal unreadable — the confirmation says so and the wipe still goes', async () => {
+    await seedUserDb();
+    localStorage.setItem(STORAGE_KEYS.LOST_SESSION_UID, USER);
+    localStorage.setItem(`ai_sync_pending_upserts:${USER}`, '{broken');
+    const showToast = vi.fn();
+
+    await offerLostSessionWipe(showToast, t, confirm);
+    (showToast.mock.calls[0]![2] as { onClick: () => void }).onClick();
+
+    const { AuthService } = await import('../services/AuthService');
+    await waitFor(() => expect(AuthService.wipeDeviceDataForUid).toHaveBeenCalledWith(USER));
+    expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('signout_unsynced_unknown_desc') }));
   });
 
   it('S-33: a declined confirmation wipes nothing', async () => {

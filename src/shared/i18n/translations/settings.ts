@@ -155,7 +155,6 @@ export const settingsTranslations: Translations = {
   settings_encrypt_done:       { ru: 'Зашифровано заметок: {count}', en: 'Encrypted notes: {count}' },
   settings_encrypt_partial:    { ru: 'Зашифровано {done} из {total}. Оставшиеся можно зашифровать в Настройках → Шифрование.', en: 'Encrypted {done} of {total}. The rest can be encrypted in Settings → Encryption.' },
   settings_encrypt_errors:     { ru: 'Ошибок: {count}', en: 'Errors: {count}' },
-  settings_encrypt_budget_stop:{ ru: 'Дневной лимит записей исчерпан — зашифровано не всё. Продолжится завтра с того же места.', en: 'Daily write limit reached — not everything was encrypted. It will resume tomorrow where it stopped.' },
   settings_encryption_not_set: { ru: 'Шифрование не настроено', en: 'Encryption not configured' },
   settings_encryption_not_set_desc: { ru: 'Шифрование не настроено — пока его нет, заметки не отправляются в облако. Настрой его паролем от аккаунта.', en: 'Encryption is not set up — until it is, notes are not uploaded to the cloud. Set it up with your account password.' },
   settings_initialize_password: { ru: 'Пароль от аккаунта', en: 'Account password' },

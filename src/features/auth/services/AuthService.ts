@@ -96,7 +96,7 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean; isAcc
     if (!opts?.force) {
       const { countUnsyncedLocalData, UnsyncedLocalDataError } = await import('./unsyncedLocalData');
       const unsynced = await countUnsyncedLocalData(currentUid);
-      if (unsynced.total > 0) throw new UnsyncedLocalDataError(unsynced);
+      if (unsynced.total > 0 || unsynced.ai === null) throw new UnsyncedLocalDataError(unsynced);
     }
     // Н-4: метка «идёт выход со стиранием» — ДО стирания: соседние вкладки
     // узнают о выходе только после ответа сервера ниже, а их таймеры черновика

@@ -72,7 +72,7 @@ describe('PIN-1: пересборка портрета — partial и отказ
   });
 
   it('PIN-1: partial — warning с причиной, не зелёный успех', async () => {
-    mockProfile.generate.mockResolvedValue({ ok: true, partial: true, markdown: PORTRAIT });
+    mockProfile.generate.mockResolvedValue({ ok: true, saved: true, partial: true, markdown: PORTRAIT });
     render(<AuthorPortrait />);
     fireEvent.click(await screen.findByText('Обновить'));
 
@@ -90,7 +90,7 @@ describe('PIN-1: пересборка портрета — partial и отказ
   });
 
   it('PIN-1 контроль: полный успех — зелёный тост как раньше', async () => {
-    mockProfile.generate.mockResolvedValue({ ok: true, partial: false, markdown: PORTRAIT });
+    mockProfile.generate.mockResolvedValue({ ok: true, saved: true, partial: false, markdown: PORTRAIT });
     render(<AuthorPortrait />);
     fireEvent.click(await screen.findByText('Обновить'));
 

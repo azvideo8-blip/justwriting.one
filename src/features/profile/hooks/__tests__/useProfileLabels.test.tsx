@@ -192,4 +192,58 @@ describe('SEC-7b: useProfileLabels end-to-end decryption and edit cycle', () => 
     renderHook(() => useProfileLabels('user_retry'));
     await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
   });
+
+  // Н-4 (дейлик 21.11): список меток не прочитан — добавление записало бы в облако
+  // список из одной новой метки и стёрло остальные.
+  // Мутация: убрать перечитывание в addLabel — красный.
+  it('не прочитали метки → добавление отказано, облако не тронуто', async () => {
+    const { DataProvider } = await import('../../../../core/data');
+    vi.mocked(DataProvider.getProfile).mockRejectedValue(new Error('429'));
+    const { result } = renderHook(() => useProfileLabels(userId));
+    let ok: boolean | undefined;
+    await act(async () => { ok = await result.current.addLabel({ name: 'Книга', color: '#0088FF' }); });
+    expect(ok).toBe(false);
+    expect(DataProvider.updateProfile).not.toHaveBeenCalled();
+    vi.mocked(DataProvider.getProfile).mockImplementation(async () => mockProfileStore);
+  });
+
+  it('первое чтение не удалось, второе удалось → новая метка добавлена к прочитанным', async () => {
+    const { DataProvider } = await import('../../../../core/data');
+    vi.mocked(DataProvider.getProfile).mockRejectedValueOnce(new Error('429'));
+    const { result } = renderHook(() => useProfileLabels(userId));
+    await act(async () => { await Promise.resolve(); });
+    let ok: boolean | undefined;
+    await act(async () => { ok = await result.current.addLabel({ name: 'Книга', color: '#0088FF' }); });
+    expect(ok).toBe(true);
+    const stored = await decryptLabels(mockProfileStore.labels as Record<string, unknown>[]);
+    expect(stored.map(l => l.name)).toEqual(['Практика6', 'Терапия', 'Книга']);
+  });
+
+  // Ревью 0.11.25 I-1: перечитали, но запись не прошла; повтор «Сохранить» затирал список.
+  // Мутация: прежний код (условие по fetchedSet, прочитанное — в локальной переменной) — красный.
+  it('перечитали, запись отказала, повторили — прежние метки на месте', async () => {
+    const { DataProvider } = await import('../../../../core/data');
+    vi.mocked(DataProvider.getProfile).mockRejectedValueOnce(new Error('429'));
+    const { result } = renderHook(() => useProfileLabels(userId));
+    await act(async () => { await Promise.resolve(); });
+    vi.mocked(DataProvider.updateProfile).mockRejectedValueOnce(new Error('429'));
+    await act(async () => { expect(await result.current.addLabel({ name: 'Книга', color: '#0088FF' })).toBe(false); });
+    await act(async () => { expect(await result.current.addLabel({ name: 'Книга', color: '#0088FF' })).toBe(true); });
+    const stored = await decryptLabels(mockProfileStore.labels as Record<string, unknown>[]);
+    expect(stored.map(l => l.name)).toEqual(['Практика6', 'Терапия', 'Книга']);
+  });
+
+  // Та же потеря: поздний ответ после размонтирования оставлял отметку «прочитано».
+  it('ответ чтения пришёл после ухода с экрана — следующий заход не пишет поверх', async () => {
+    const { DataProvider } = await import('../../../../core/data');
+    let late!: (v: Record<string, unknown>) => void;
+    vi.mocked(DataProvider.getProfile).mockReturnValueOnce(new Promise(r => { late = r; }) as never);
+    const first = renderHook(() => useProfileLabels(userId));
+    first.unmount();
+    await act(async () => { late({ uid: userId }); await Promise.resolve(); });
+    const { result } = renderHook(() => useProfileLabels(userId));
+    await act(async () => { expect(await result.current.addLabel({ name: 'Книга', color: '#0088FF' })).toBe(true); });
+    const stored = await decryptLabels(mockProfileStore.labels as Record<string, unknown>[]);
+    expect(stored.map(l => l.name)).toEqual(['Практика6', 'Терапия', 'Книга']);
+  });
 });

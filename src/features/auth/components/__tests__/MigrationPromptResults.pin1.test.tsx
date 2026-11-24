@@ -84,4 +84,35 @@ describe('PIN-1: MigrationPrompt — итог переноса', () => {
     expect(h.showToast).not.toHaveBeenCalled();
     expect(onDone).toHaveBeenCalledWith({ moved: 3, left: 0 });
   });
+
+  // Н-1 (дейлик 21.11): пропущенные выгрузкой (заперты, не читаются, только на устройстве).
+  // Мутация: не читать skipped — красный.
+  it('выгрузка часть пропустила (skipped>0) — предупреждение с числом', async () => {
+    h.migrateDocuments.mockResolvedValue({ moved: 3, left: 0 });
+    h.syncAllUnlinked.mockResolvedValue({ synced: 2, failed: 0, skipped: 2, skippedIds: ['g1', 'acc'] });
+    const { LocalDocumentService } = await import('../../../../core/services/LocalDocumentService');
+    vi.mocked(LocalDocumentService.getDocumentsByOwner).mockResolvedValueOnce([{ id: 'g1' }] as never);
+    await migrate();
+    expect(h.showToast).toHaveBeenCalledWith('migration_cloud_skipped:{"count":1}', 'warning');
+  });
+
+  // Ревью 0.11.25 N-8/R2-N4: счёт выгрузки — по всему аккаунту, а назвать надо перенесённые.
+  // Мутация: не отбирать по id — красный (и выше: 2 вместо 1).
+  it('пропущены только прежние заметки аккаунта — о переносе не говорим', async () => {
+    const { LocalDocumentService } = await import('../../../../core/services/LocalDocumentService');
+    vi.mocked(LocalDocumentService.getDocumentsByOwner).mockResolvedValueOnce([{ id: 'g1' }] as never);
+    h.migrateDocuments.mockResolvedValue({ moved: 3, left: 0 });
+    h.syncAllUnlinked.mockResolvedValue({ synced: 3, failed: 0, skipped: 2, skippedIds: ['a', 'b'] });
+    await migrate();
+    expect(h.showToast).not.toHaveBeenCalled();
+  });
+
+  it('гостевые id не прочитались — названы все пропущенные, а не «ничего»', async () => {
+    const { LocalDocumentService } = await import('../../../../core/services/LocalDocumentService');
+    vi.mocked(LocalDocumentService.getDocumentsByOwner).mockRejectedValueOnce(new Error('idb'));
+    h.migrateDocuments.mockResolvedValue({ moved: 3, left: 0 });
+    h.syncAllUnlinked.mockResolvedValue({ synced: 3, failed: 0, skipped: 1, skippedIds: ['a'] });
+    await migrate();
+    expect(h.showToast).toHaveBeenCalledWith('migration_cloud_skipped:{"count":1}', 'warning');
+  });
 });

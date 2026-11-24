@@ -5,6 +5,7 @@ export const aiTranslations: Translations = {
   ai_facets_built_summary_failed: { ru: 'Темы профиля построены: {count}, но сводки не составлены — «Обновить» повторит', en: 'Profile themes built: {count}, but summaries were not written — «Refresh» will retry' },
   ai_facets_judge_partial: { ru: 'Проверено тем: {judged}, не проверено: {unchecked} — сервис не ответил', en: 'Themes checked: {judged}, unchecked: {unchecked} — the service did not respond' },
   ai_portrait_partial: { ru: 'Портрет обновлён не полностью: часть разделов из прошлой сборки или ещё не готова', en: 'Portrait partly updated: some sections are from an earlier build or not ready yet' },
+  ai_portrait_not_saved: { ru: 'Портрет собран, но не сохранился — на устройстве нет места или хранилище не отвечает', en: 'The portrait was built but not saved — no space on this device or storage is not responding' },
   admin_embed_toast_sync_failed: { ru: 'Выгружено векторов: {synced}, не удалось: {failed}', en: 'Vectors uploaded: {synced}, failed: {failed}' },
   admin_embed_toast_sync_waiting: { ru: 'Выгружено векторов: {synced}; ждут заметку в облаке: {waiting}', en: 'Vectors uploaded: {synced}; waiting for the note in the cloud: {waiting}' },
   admin_diag_download_failed: { ru: 'Не удалось собрать файл диагностики', en: 'Could not build the diagnostics file' },

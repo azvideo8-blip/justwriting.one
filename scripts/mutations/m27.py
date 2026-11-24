@@ -1,6 +1,5 @@
 import sys
 p=sys.argv[1]; s=open(p).read()
-s=s.replace("""          const isGuest = user.uid.startsWith('guest');
-          const key = isGuest ? STORAGE_KEYS.GUEST_DRAFT : `draft-${user.uid}`;""","""          const key = `draft-${user.uid}`;""")
-s=s.replace("          if (!isGuest && getEncryptionEnabled(user.uid)) {","          if (getEncryptionEnabled(user.uid)) {")
+# DW-4: ключ копии при уходе выбирает мутатор черновика, а не хук.
+s=s.replace("    const key = uid.startsWith('guest') ? STORAGE_KEYS.GUEST_DRAFT : STORAGE_KEYS.DRAFT(uid);\n    if (!uid.startsWith('guest') &&","    const key = STORAGE_KEYS.DRAFT(uid);\n    if (!uid.startsWith('guest') &&")
 open(p,'w').write(s)

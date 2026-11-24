@@ -51,6 +51,8 @@ export interface MigrationImportResult {
     attempted: number;
     uploaded: number;
     queued: number;
+    /** Не вошли в выгрузку: заперты, не читаются, «только на устройстве». */
+    skipped?: number;
     reason?: string;
   };
   error?: string;
@@ -707,6 +709,8 @@ export async function importMigrationManifest(
     } else {
       try {
         const syncRes = await SyncService.syncAllUnlinked(targetUserId);
+        const imported = new Set(importedDocIds);
+        const importedSkipped = (syncRes.skippedIds ?? []).filter(id => imported.has(id)).length;
         upload = syncRes.inProgress ? {
           // Уже шла другая синхронизация — ничего не отправлено; не «completed: 0».
           status: "failed",
@@ -721,6 +725,7 @@ export async function importMigrationManifest(
           attempted: importedDocIds.length,
           uploaded: syncRes.synced,
           queued: syncRes.queued ?? 0,
+          ...(importedSkipped > 0 ? { skipped: importedSkipped } : {}),
           ...(syncRes.failed > (syncRes.queued ?? 0)
             ? { reason: `${syncRes.failed - (syncRes.queued ?? 0)} note(s) could not be queued — saved only on this device.` }
             : {}),

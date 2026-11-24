@@ -15,6 +15,9 @@ vi.mock('../../../../core/services/LocalDocumentService', () => ({
   LocalDocumentService: { getDocumentsByOwner: mocks.getDocumentsByOwner },
 }));
 
+const getVersions = vi.hoisted(() => vi.fn());
+vi.mock('../../../../core/services/LocalVersionService', () => ({ LocalVersionService: { getVersions } }));
+
 const stableT = (key: string) => key;
 vi.mock('../../../../shared/i18n', () => ({
   useLanguage: () => ({ t: stableT, language: 'ru', setLanguage: () => {}, tp: (key: string) => key }),
@@ -68,5 +71,18 @@ describe('useLifeLog — unknown is not empty', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.cloudUnknown).toBe(false);
     expect(result.current.unifiedDocuments).toEqual([]);
+  });
+
+  // Мутация: убрать catch версий — красный (записи нет). «Облако недоступно» не показываем.
+  it('versions of a today note could not be read — the note is still shown, the cloud is not blamed', async () => {
+    mocks.getUserDocuments.mockResolvedValue([]);
+    mocks.getDocumentsByOwner.mockResolvedValue([{ id: 'l1', guestId: 'user_1', title: 'ok', currentVersion: 1, totalWords: 1, totalDuration: 0, sessionsCount: 1, firstSessionAt: Date.now(), lastSessionAt: Date.now(), tags: [] }]);
+    getVersions.mockRejectedValue(new Error('idb down'));
+
+    const { result } = renderHook(() => useLifeLog('user_1', false));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.unifiedDocuments).toHaveLength(1);
+    expect(result.current.cloudUnknown).toBe(false);
   });
 });

@@ -169,6 +169,7 @@ export const AIProfileRefreshService = {
         await step('portrait', async () => {
           const res = await AIProfileService.generate(chargeOpt);
           if (!res.ok) throw new Error(`portrait refresh refused: ${res.error}`);
+          if (!res.saved) throw new Error('portrait built but not saved');
           if (res.partial) throw new Error('portrait refresh partial: stale or placeholder sections');
         });
       });

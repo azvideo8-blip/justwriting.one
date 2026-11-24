@@ -24,7 +24,7 @@ const RestoreFromCloudModal = React.lazy(() =>
  */
 export function FirstEntryModals() {
   const { user } = useAuthStatus();
-  const { shouldPrompt: shouldPromptEmptyDevice, localCount, cloudCount, dismiss: dismissEmptyDevice } = useEmptyDeviceDetection();
+  const { shouldPrompt: shouldPromptEmptyDevice, localCount, cloudCount, cloudUnreadable, dismiss: dismissEmptyDevice } = useEmptyDeviceDetection();
   const [manualRestoreOpen, setManualRestoreOpen] = React.useState(false);
   const { hasOtherData, dismiss: dismissOtherData, clear: clearOtherData } = useOtherUserDetection();
   const queued = useContext(EarlierQuestionOpenContext);
@@ -50,6 +50,7 @@ export function FirstEntryModals() {
               }}
               initialLocalCount={localCount}
               initialCloudCount={cloudCount}
+              initialCloudUnreadable={cloudUnreadable}
               onRestoreAIData={(uid) =>
                 import('../features/ai/services/AIRestoreService').then(m => m.restoreAndReattachAIData(uid))
               }

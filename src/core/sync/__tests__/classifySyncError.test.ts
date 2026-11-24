@@ -51,6 +51,17 @@ describe('DUP-4 / FU-2 / FU-6: classifySyncError, isPoisonSyncError, and isReviv
       expect(isPoisonSyncError(new TypeError('Failed to fetch'))).toBe(false);
     });
 
+    // Н-2 (дейлик 21.11): 429 — «притормози», пауза без попытки. Форма ошибки — стенд FD
+    // (supabase-js отдаёт только message со страницей nginx). Мутация: 'transient' → красный.
+    it('429 — пауза, а не попытка; номер 429 в чужом тексте — не 429', () => {
+      expect(classifySyncError({ message: '<html><h1>429 Too Many Requests</h1></html>' })).toBe('network');
+      expect(classifySyncError(new Error('<h1>429 Too Many Requests</h1>'))).toBe('network');
+      expect(classifySyncError({ code: '429', message: 'x' })).toBe('network');
+      expect(classifySyncError('429 Too Many Requests')).toBe('network');
+      expect(classifySyncError(new Error('DECRYPT_FAILED_LATEST: cloud document c1 version 429'))).toBe('blocked-until-unlock');
+      expect(classifySyncError(new Error('row 429 refused'))).toBe('transient');
+    });
+
     it('identifies poison pill errors (quarantined on attempt 1)', () => {
       expect(isPoisonSyncError('LOCKED: vault locked')).toBe(true);
       expect(isPoisonSyncError('ENCRYPT_REQUIRED: key needed')).toBe(true);

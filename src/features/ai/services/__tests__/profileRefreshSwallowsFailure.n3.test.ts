@@ -36,7 +36,7 @@ describe('run(): отказ портрета без throw обязан попа�
     expect(failed).toContain('portrait');
   });
   it('КОНТРОЛЬ: generate вернул { ok:true } — failed пуст', async () => {
-    generate.mockResolvedValue({ ok: true, markdown: 'MARKER_DAILY_PORTRAIT', partial: false });
+    generate.mockResolvedValue({ ok: true, markdown: 'MARKER_DAILY_PORTRAIT', partial: false, saved: true });
     const { failed } = await AIProfileRefreshService.run();
     expect(failed).toEqual([]);
   });
@@ -46,7 +46,7 @@ describe('run(): отказ портрета без throw обязан попа�
 // и «Профиль обновлён» шёл при отказе поставщика. Мутации: убрать throw в шаге
 // facets / judge / digests в AIProfileRefreshService — красный соответствующий тест.
 describe('run(): недоделанный шаг назван, а не «обновлён»', () => {
-  beforeEach(() => { generate.mockResolvedValue({ ok: true, markdown: 'x', partial: false }); });
+  beforeEach(() => { generate.mockResolvedValue({ ok: true, markdown: 'x', partial: false, saved: true }); });
   it('темы: грань осталась несвежей — facets в failed', async () => {
     steps.resummarizeDirty.mockResolvedValue({ count: 1, failed: 2 });
     expect((await AIProfileRefreshService.run()).failed).toContain('facets');
@@ -65,7 +65,13 @@ describe('run(): недоделанный шаг назван, а не «обн�
 // раньше ok:true и «Профиль обновлён». Мутация: убрать throw на res.partial — красный.
 describe('run(): частичный портрет назван', () => {
   it('generate вернул partial — portrait в failed', async () => {
-    generate.mockResolvedValue({ ok: true, markdown: 'x', partial: true });
+    generate.mockResolvedValue({ ok: true, markdown: 'x', partial: true, saved: true });
+    expect((await AIProfileRefreshService.run()).failed).toContain('portrait');
+  });
+
+  // Ревью 0.11.25 N-1: главный вход («Обновить профиль»). Мутация: убрать throw на saved — красный.
+  it('портрет собран, но не сохранился — portrait в failed', async () => {
+    generate.mockResolvedValue({ ok: true, markdown: 'x', partial: false, saved: false });
     expect((await AIProfileRefreshService.run()).failed).toContain('portrait');
   });
 });

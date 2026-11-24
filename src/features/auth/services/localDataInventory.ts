@@ -1,22 +1,23 @@
 import { getLocalDb, isSyncRevCursorKey, syncRevCursorKey, countGuestEntriesInSharedDb } from '../../../core/storage/localDb';
+import { reportError } from '../../../shared/errors/reportError';
 import { countUnsyncedLocalData } from './unsyncedLocalData';
 
 export interface LocalDataInventory {
-  /** null — не удалось посчитать; это не ноль (выход с галочкой всё равно сотрёт). */
+  /** Счётчики: null — не удалось посчитать; это не ноль (выход с галочкой всё равно сотрёт). */
   notesCount: number | null;
   versionsCount: number | null;
   hasPortrait: boolean;
-  facetsCount: number;
-  dialoguesCount: number;
-  dialogueEventsCount: number;
-  chatMemoriesCount: number;
-  lifeStoryCount: number;
-  themeCount: number;
-  beliefsCount: number;
-  commitmentsCount: number;
-  digestsCount: number;
-  threadsCount: number;
-  personasCount: number;
+  facetsCount: number | null;
+  dialoguesCount: number | null;
+  dialogueEventsCount: number | null;
+  chatMemoriesCount: number | null;
+  lifeStoryCount: number | null;
+  themeCount: number | null;
+  beliefsCount: number | null;
+  commitmentsCount: number | null;
+  digestsCount: number | null;
+  threadsCount: number | null;
+  personasCount: number | null;
   /** null — не удалось проверить, всё ли отправлено. Окно выхода не должно читать это как «всё в облаке». */
   unsyncedNotesCount: number | null;
   /** Rows in this browser's shared `justwriting-local` that belong to no account; null — could not count. */
@@ -56,22 +57,22 @@ export async function countLocalDataInventory(userId?: string): Promise<LocalDat
   // M-4: удалённый диалог лежит в базе надгробием (S-58) — в инвентаре выхода
   // из аккаунта он больше не считается диалогом. Читаем стор целиком, как это
   // уже делает диагностика: индекса под deletedAt нет, а надгробий не много.
-  const countLiveDialogues = async (): Promise<number> => {
+  const countLiveDialogues = async (): Promise<number | null> => {
     try {
       if (!db.objectStoreNames.contains('aiDialogues')) return 0;
       const rows = await db.getAll('aiDialogues');
       return rows.filter(d => !d.deletedAt).length;
     } catch {
-      return 0;
+      return null;
     }
   };
 
-  const safeCount = async (storeName: Parameters<typeof db.count>[0]): Promise<number> => {
+  const safeCount = async (storeName: Parameters<typeof db.count>[0]): Promise<number | null> => {
     try {
       if (!db.objectStoreNames.contains(storeName)) return 0;
       return await db.count(storeName);
     } catch {
-      return 0;
+      return null;
     }
   };
 
@@ -104,7 +105,7 @@ export async function countLocalDataInventory(userId?: string): Promise<LocalDat
   let unsyncedNotesCount: number | null = 0;
   try {
     const unsynced = await countUnsyncedLocalData(userId);
-    unsyncedNotesCount = unsynced.total;
+    unsyncedNotesCount = unsynced.ai === null ? null : unsynced.total;
   } catch {
     unsyncedNotesCount = null;
   }
@@ -122,17 +123,17 @@ export async function countLocalDataInventory(userId?: string): Promise<LocalDat
     (notesCount ?? 0) +
     (versionsCount ?? 0) +
     (hasPortrait ? 1 : 0) +
-    facetsCount +
-    dialoguesCount +
-    dialogueEventsCount +
-    chatMemoriesCount +
-    lifeStoryCount +
-    themeCount +
-    beliefsCount +
-    commitmentsCount +
-    digestsCount +
-    threadsCount +
-    personasCount;
+    (facetsCount ?? 0) +
+    (dialoguesCount ?? 0) +
+    (dialogueEventsCount ?? 0) +
+    (chatMemoriesCount ?? 0) +
+    (lifeStoryCount ?? 0) +
+    (themeCount ?? 0) +
+    (beliefsCount ?? 0) +
+    (commitmentsCount ?? 0) +
+    (digestsCount ?? 0) +
+    (threadsCount ?? 0) +
+    (personasCount ?? 0);
 
   return {
     notesCount,
@@ -160,7 +161,9 @@ export async function hasOtherUserData(currentUserId: string): Promise<boolean> 
     const db = await getLocalDb();
     const allDocs = await db.getAll('documents');
     return allDocs.some(d => Boolean(d.guestId) && d.guestId !== currentUserId && d.guestId !== 'guest');
-  } catch {
+  } catch (e) {
+    // Вопрос не показан: спросит следующая загрузка страницы. Отказ виден в журнале.
+    reportError(e, { action: 'hasOtherUserData' }, 'warning');
     return false;
   }
 }

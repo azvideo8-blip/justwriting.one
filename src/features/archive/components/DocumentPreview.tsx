@@ -41,7 +41,8 @@ const relatedNotesCache = new Map<string, RelatedNote[]>();
 // ponytail: сброс целиком, а не по id — связь хранится у соседа, не у удалённой.
 onDomainEvent(e => {
   if (e.type === 'note.deleted' || e.type === 'note.trashed' || e.type === 'note.restored'
-    || e.type === 'note.excludedFromAI' || e.type === 'note.saved' || e.type === 'account.reset') {
+    || e.type === 'note.excludedFromAI' || e.type === 'note.saved' || e.type === 'account.reset'
+    || e.type === 'sync.restoredFromCloud') {
     relatedNotesCache.clear();
   }
 });

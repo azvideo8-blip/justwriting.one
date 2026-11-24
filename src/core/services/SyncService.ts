@@ -100,6 +100,8 @@ export interface SyncAllResult {
   failed: number;
   inProgress?: true;
   skipped?: number;
+  /** Их id — чтобы назвать только перенесённые или импортированные. */
+  skippedIds?: string[];
   /** Задачи, оставшиеся ждать в очереди (из `failed` — те, что встали в очередь). */
   queued?: number;
   skippedReason?: SyncPendingResult['skippedReason'];
@@ -319,10 +321,10 @@ export const SyncService = {
       // must NOT be uploaded as an unlinked note on this pass. Doing so creates
       // a second cloud copy and splits history. Exclude skippedIds from toUpload.
       const localDocs = await LocalDocumentService.getDocumentsByOwner(userId);
-      let skipped = 0;
+      const notUploaded: string[] = [];
       const toUpload = localDocs.filter(d => {
         const status = syncStatusOf(d);
-        if (status === 'local-only' || status === 'locked' || status === 'unreadable') { skipped++; return false; }
+        if (status === 'local-only' || status === 'locked' || status === 'unreadable') { notUploaded.push(d.id); return false; }
         if (skippedSet.has(d.id)) return false;
         if (status === 'unlinked-new') return true;
         return (d.currentVersion ?? 0) > (d.lastSyncedCloudVersion ?? 0);
@@ -392,7 +394,8 @@ export const SyncService = {
       return {
         synced: synced + drained,
         failed: notQueued + waiting + otherLeft,
-        skipped,
+        skipped: notUploaded.length,
+        skippedIds: notUploaded,
         queued: waiting,
         ...(drain.skippedReason ? { skippedReason: drain.skippedReason } : {}),
       };

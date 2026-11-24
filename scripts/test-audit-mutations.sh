@@ -265,7 +265,7 @@ apply_mutation "1.3 recovery detection" src/features/auth/pages/ResetPasswordPag
 cat > scripts/mutations/m16.py <<'EOF'
 import sys
 p=sys.argv[1]; s=open(p).read()
-s=s.replace("    if (setupInFlightRef.current || loading) return;","    if (loading) return;")
+s=s.replace("    if (setupInFlightRef.current || busy) return;","    if (busy) return;")
 open(p,'w').write(s)
 EOF
 apply_mutation "1.6 vault setup ref-guard" src/features/encryption/components/EncryptionPasswordModal.tsx m16.py \
@@ -294,22 +294,20 @@ apply_mutation "2.6 doc-version-saved dispatch" src/core/services/StorageService
 cat > scripts/mutations/m27.py <<'EOF'
 import sys
 p=sys.argv[1]; s=open(p).read()
-s=s.replace("""          const isGuest = user.uid.startsWith('guest');
-          const key = isGuest ? STORAGE_KEYS.GUEST_DRAFT : `draft-${user.uid}`;""","""          const key = `draft-${user.uid}`;""")
-s=s.replace("          if (!isGuest && getEncryptionEnabled(user.uid)) {","          if (getEncryptionEnabled(user.uid)) {")
+# DW-4: ключ копии при уходе выбирает мутатор черновика, а не хук.
+s=s.replace("    const key = uid.startsWith('guest') ? STORAGE_KEYS.GUEST_DRAFT : STORAGE_KEYS.DRAFT(uid);\n    if (!uid.startsWith('guest') &&","    const key = STORAGE_KEYS.DRAFT(uid);\n    if (!uid.startsWith('guest') &&")
 open(p,'w').write(s)
 EOF
-apply_mutation "2.7 guest unload key" src/features/writing/hooks/useDraftCore.ts m27.py \
-  src/features/writing/hooks/__tests__/guestUnloadKey.test.ts "writes to STORAGE_KEYS.GUEST_DRAFT"
+apply_mutation "2.7 guest unload key" src/features/writing/services/draftWriter.ts m27.py \
+  src/features/writing/hooks/__tests__/guestUnloadKey.test.tsx "writes to STORAGE_KEYS.GUEST_DRAFT"
 
 cat > scripts/mutations/m28.py <<'EOF'
 import sys
 p=sys.argv[1]; s=open(p).read()
-# AG-5 (2026-09-27): удаление источника переехало внутрь ветки «записано в аккаунт».
-# 0.10.3: отступ 6 пробелов, у localStorage — 4.
-s=s.replace("""      await guestDb.delete('drafts', 'guest_draft');
-      if (userDb !== guestDb) {""","""      if (userDb !== guestDb) {""")
-s=s.replace("""    try { localStorage.removeItem(STORAGE_KEYS.GUEST_DRAFT); } catch { /* ignore */ }""","")
+# D13: стирание гостевых копий — одна функция consumeGuestDraftCopies.
+s=s.replace("""    await guestDb.delete('drafts', 'guest_draft');
+    if (userDb !== guestDb) {""","""    if (userDb !== guestDb) {""")
+s=s.replace("""  try { localStorage.removeItem(STORAGE_KEYS.GUEST_DRAFT); } catch { /* ignore */ }""","")
 open(p,'w').write(s)
 EOF
 apply_mutation "2.8 guest draft consumed" src/features/auth/services/migrateDocuments.ts m28.py \

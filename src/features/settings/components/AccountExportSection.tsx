@@ -461,6 +461,11 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
                           })}
                         </div>
                       )}
+                      {!!importResult.upload.skipped && (
+                        <div className="text-accent-warning">
+                          {t('settings_sync_all_skipped', { count: String(importResult.upload.skipped) })}
+                        </div>
+                      )}
                     </div>
                   )}
                 </>

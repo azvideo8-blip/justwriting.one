@@ -123,26 +123,6 @@ describe('VersionService', () => {
     });
   });
 
-  describe('getLatestContent', () => {
-    it('returns content of the latest version', async () => {
-      vi.mocked(DataProvider.getLatestVersion).mockResolvedValue({ id: 'v2', version: 2, content: 'latest', wordCount: 2, duration: 2, wpm: 2, wordsAdded: 2, charsAdded: 2, goalReached: false, savedAt: 2000, sessionStartedAt: 2000, documentId: 'doc1' });
-      const content = await VersionService.getLatestContent('u1', 'doc1');
-      expect(content).toBe('latest');
-    });
-
-    it('returns empty string if no latest version', async () => {
-      vi.mocked(DataProvider.getLatestVersion).mockResolvedValue(null);
-      const content = await VersionService.getLatestContent('u1', 'doc1');
-      expect(content).toBe('');
-    });
-
-    it('returns empty string if parsing fails', async () => {
-      vi.mocked(DataProvider.getLatestVersion).mockResolvedValue({ id: 'ver_invalid', version: 'invalid' as unknown as number, content: 'invalid content', wordCount: 2, duration: 2, wpm: 2, wordsAdded: 2, charsAdded: 2, goalReached: false, savedAt: 2000, sessionStartedAt: 2000, documentId: 'doc1' });
-      const content = await VersionService.getLatestContent('u1', 'doc1');
-      expect(content).toBe('');
-    });
-  });
-
   describe('getLatestVersion', () => {
     it('returns latest version object', async () => {
       vi.mocked(DataProvider.getLatestVersion).mockResolvedValue({ id: 'v2', version: 2, content: 'latest', wordCount: 2, duration: 2, wpm: 2, wordsAdded: 2, charsAdded: 2, goalReached: false, savedAt: 2000, sessionStartedAt: 2000, documentId: 'doc1' });

@@ -159,17 +159,17 @@ describe('AccountVaultSection: замена кода восстановлени�
     expect(mockShowToast).not.toHaveBeenCalledWith('unlock_success', 'success');
   });
 
-  it('PIN-1: encryptAll с ошибками — итог не зелёный, строка остановки видна', async () => {
+  it('PIN-1: encryptAll с ошибками — итог не зелёный, число ошибок видно', async () => {
     hasVaultMock.mockReturnValue(true);
     const { EncryptionService } = await import('../../../../core/services/EncryptionService');
-    vi.mocked(EncryptionService.encryptAll).mockResolvedValueOnce({ total: 5, processed: 5, encrypted: 3, errors: 2, incomplete: true });
+    vi.mocked(EncryptionService.encryptAll).mockResolvedValueOnce({ total: 5, processed: 5, encrypted: 3, errors: 2 });
 
     render(<AccountVaultSection userId="u1" />);
     fireEvent.click(screen.getByText('settings_encrypt_all'));
 
     const done = await screen.findByText('settings_encrypt_done');
     expect(done.className).not.toContain('text-accent-success');
-    expect(screen.getByText('settings_encrypt_budget_stop')).toBeTruthy();
+    expect(screen.getByText('settings_encrypt_errors')).toBeTruthy();
   });
 
   it('PIN-1 контроль: encryptAll без ошибок — зелёный итог как раньше', async () => {
@@ -182,6 +182,6 @@ describe('AccountVaultSection: замена кода восстановлени�
 
     const done = await screen.findByText('settings_encrypt_done');
     expect(done.className).toContain('text-accent-success');
-    expect(screen.queryByText('settings_encrypt_budget_stop')).toBeNull();
+    expect(screen.queryByText('settings_encrypt_errors')).toBeNull();
   });
 });

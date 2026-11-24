@@ -507,6 +507,8 @@ export function useAIChatContext(personaId: string): {
         // NB-12 сделал отказ чтения громким для экрана портрета; ход чата из-за
         // него не падает — идёт без портрета, сбой записан (ревью 0.11.24). В кэш
         // сессии не кладём: следующий ход прочитает снова.
+        // Запертый сейф — ожидаемо, не сбой (после открытия следующий ход прочитает).
+        if (/LOCKED|session key not available/.test(String(e))) return null;
         reportAIDegradation({
           feature: 'chat_portrait_read',
           cause: e,

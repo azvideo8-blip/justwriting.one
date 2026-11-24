@@ -77,6 +77,7 @@ describe('FN-6: итог syncAllUnlinked', () => {
     addCloudCopy.mockResolvedValue('cloud_ok');
     const res = await SyncService.syncAllUnlinked(USER);
     expect(res.skipped).toBe(3);
+    expect(res.skippedIds).toHaveLength(3);
     expect(addCloudCopy).toHaveBeenCalledTimes(1);
     expect(res.synced).toBe(1);
   });

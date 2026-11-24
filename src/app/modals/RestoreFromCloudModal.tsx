@@ -20,6 +20,8 @@ export interface RestoreFromCloudModalProps {
   onClose: () => void;
   initialLocalCount?: number | undefined;
   initialCloudCount?: number | undefined;
+  /** Сколько из `initialCloudCount` не читаются — окно называет их отдельно. */
+  initialCloudUnreadable?: number | undefined;
 }
 
 type RestoreStep = 'idle' | 'restoring' | 'completed' | 'failed';
@@ -54,6 +56,7 @@ export function RestoreFromCloudModal({
   onClose,
   initialLocalCount,
   initialCloudCount,
+  initialCloudUnreadable,
   onRestoreAIData,
 }: RestoreFromCloudModalProps) {
   const { user } = useAuthStatus();
@@ -71,7 +74,7 @@ export function RestoreFromCloudModal({
   ));
   const [countsError, setCountsError] = useState<string | null>(null);
   // R-2: сколько облачных рядов не прочиталось — счётчик показывает прочитанное с пометкой.
-  const [cloudUnreadable, setCloudUnreadable] = useState(0);
+  const [cloudUnreadable, setCloudUnreadable] = useState(initialCloudUnreadable ?? 0);
   // Битый ряд не делает список пустым: прочитанные считаем, нечитаемые — отдельно.
   const readCloudDocs = useCallback(async (uid: string) => {
     try {

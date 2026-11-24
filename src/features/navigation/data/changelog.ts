@@ -17,6 +17,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.25',
+    date: '2026-11-24',
+    announce: false,
+    items: [
+      { category: 'fix', ru: '«Выйти и удалить всё» теперь видит, что ещё не ушло в облако из диалогов, памяти и портрета, и предупреждает. Если проверить не удалось, об этом сказано, и без подтверждения ничего не стирается.', en: '“Sign out and delete all” now sees which dialogues, memories and the portrait have not reached the cloud yet, and warns you. If that could not be checked, you are told so and nothing is wiped without your confirmation.' },
+      { category: 'fix', ru: 'Новая метка и достижения больше не затирают прежние, если список не прочитался из облака.', en: 'A new label and achievements no longer overwrite the existing ones when the list could not be read from the cloud.' },
+      { category: 'fix', ru: 'Если сервер просит притормозить, запись ждёт и отправляется позже, а не помечается отвергнутой.', en: 'When the server asks to slow down, a record waits and is sent later instead of being marked as rejected.' },
+      { category: 'fix', ru: 'При переносе заметок в аккаунт и импорте названы те, что в облако не ушли: заперты, не читаются или остаются только на устройстве. На пустом устройстве нечитаемые заметки облака больше не выглядят как пустое облако.', en: 'Moving notes to an account and importing now name the notes that were not uploaded: locked, unreadable or kept on this device only. On an empty device, unreadable cloud notes no longer look like an empty cloud.' },
+      { category: 'fix', ru: 'Портрет: если он собран, но не сохранился или сейф заперт, об этом сказано. При выборе заметки для разговора сбой чтения больше не выглядит как «ничего не найдено», есть повтор.', en: 'Portrait: you are told when it was built but not saved, or when the vault is locked. When picking a note for a chat, a read failure no longer looks like “nothing found”, and you can retry.' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.11.24',
     date: '2026-11-20',
     announce: false,

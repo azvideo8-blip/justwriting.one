@@ -95,18 +95,23 @@ describe('превью: отказы чтения названы', () => {
 
   // Дейлик 20.11: кэш связанных переживал удаление заметки. Мутация: убрать
   // подписку на события заметок — красный (второй подбор не случается).
-  it('после удаления заметки связанные подбираются заново, без события — из кэша', async () => {
+  // Н-2 (дейлик 22.11): то же после восстановления из облака и импорта. Мутация: убрать
+  // sync.restoredFromCloud из условия — красный.
+  it.each([
+    ['удаления заметки', { type: 'note.trashed', documentId: 'doc-x' }, 'doc-cache'],
+    ['восстановления из облака', { type: 'sync.restoredFromCloud', userId: 'user-1' }, 'doc-cache-2'],
+  ] as const)('после %s связанные подбираются заново, без события — из кэша', async (_name, event, id) => {
     const { emitDomainEvent } = await import('../../../../core/events/domainEvents');
     const fetchRelated = vi.fn(async () => [{ documentId: 'doc-x', title: 'Связь', date: '2026-11-01', score: 0.9 }] as never);
-    const first = renderPreview({ ...base, id: 'doc-cache', content: 'Текст.' }, { fetchRelated });
+    const first = renderPreview({ ...base, id, content: 'Текст.' }, { fetchRelated });
     await screen.findByText('Связь');
     first.unmount();
-    const again = renderPreview({ ...base, id: 'doc-cache', content: 'Текст.' }, { fetchRelated });
+    const again = renderPreview({ ...base, id, content: 'Текст.' }, { fetchRelated });
     await screen.findByText('Связь');
     expect(fetchRelated).toHaveBeenCalledTimes(1);
     again.unmount();
-    emitDomainEvent({ type: 'note.trashed', documentId: 'doc-x' });
-    renderPreview({ ...base, id: 'doc-cache', content: 'Текст.' }, { fetchRelated });
+    emitDomainEvent(event);
+    renderPreview({ ...base, id, content: 'Текст.' }, { fetchRelated });
     await waitFor(() => expect(fetchRelated).toHaveBeenCalledTimes(2));
   });
 

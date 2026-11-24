@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.11.25 — 2026-11-24
+
+- **[RU]** «Выйти и удалить всё» теперь видит, что ещё не ушло в облако из диалогов, памяти и портрета, и предупреждает. Если проверить не удалось, об этом сказано, и без подтверждения ничего не стирается.
+- **[EN]** “Sign out and delete all” now sees which dialogues, memories and the portrait have not reached the cloud yet, and warns you. If that could not be checked, you are told so and nothing is wiped without your confirmation.
+- **[RU]** Новая метка и достижения больше не затирают прежние, если список не прочитался из облака.
+- **[EN]** A new label and achievements no longer overwrite the existing ones when the list could not be read from the cloud.
+- **[RU]** Если сервер просит притормозить, запись ждёт и отправляется позже, а не помечается отвергнутой.
+- **[EN]** When the server asks to slow down, a record waits and is sent later instead of being marked as rejected.
+- **[RU]** При переносе заметок в аккаунт и импорте названы те, что в облако не ушли: заперты, не читаются или остаются только на устройстве. На пустом устройстве нечитаемые заметки облака больше не выглядят как пустое облако.
+- **[EN]** Moving notes to an account and importing now name the notes that were not uploaded: locked, unreadable or kept on this device only. On an empty device, unreadable cloud notes no longer look like an empty cloud.
+- **[RU]** Портрет: если он собран, но не сохранился или сейф заперт, об этом сказано. При выборе заметки для разговора сбой чтения больше не выглядит как «ничего не найдено», есть повтор.
+- **[EN]** Portrait: you are told when it was built but not saved, or when the vault is locked. When picking a note for a chat, a read failure no longer looks like “nothing found”, and you can retry.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.11.24 — 2026-11-20
 
 - **[RU]** Диктовка: если сказанное не удалось вставить в заметку или скопировать, сообщение с текстом держится минуту — успеете его скопировать.

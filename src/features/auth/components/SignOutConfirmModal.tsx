@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuthStatus } from '../hooks/useAuthStatus';
 import { countLocalDataInventory, type LocalDataInventory } from '../services/localDataInventory';
+import { reportError } from '../../../shared/errors/reportError';
 import { ModalShell } from '../../../shared/components/ModalShell';
 import { Button } from '../../../shared/components/Button';
 import { LogOut, Trash2, AlertTriangle, ShieldCheck, Database, Loader2 } from 'lucide-react';
@@ -15,6 +16,7 @@ export interface SignOutConfirmModalProps {
 export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirmModalProps) {
   const { t } = useLanguage();
   const { user } = useAuthStatus();
+  const uid = user?.uid;
 
   const [clearLocalData, setClearLocalData] = useState(false);
   const [inventory, setInventory] = useState<LocalDataInventory | null>(null);
@@ -23,21 +25,30 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
   const [forceWipe, setForceWipe] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const loadInventory = useCallback(() => {
+    setInventory(null);
+    setLoading(true);
+    void countLocalDataInventory(uid).then((inv) => {
+      setInventory(inv);
+      setLoading(false);
+    }).catch((e: unknown) => {
+      reportError(e, { action: 'signOut_inventory' }, 'warning');
+      setLoading(false);
+    });
+  }, [uid]);
+
   useEffect(() => {
     if (open) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- НЕ производное: поля диалога пишет пользователь (галочки clearLocalData/forceWipe), здесь только сброс при открытии; плюс асинхронный подсчёт локальных данных за границей await
       setClearLocalData(false);
       setForceWipe(false);
       setErrorMsg(null);
-      setLoading(true);
-      void countLocalDataInventory(user?.uid).then((inv) => {
-        setInventory(inv);
-        setLoading(false);
-      }).catch(() => {
-        setLoading(false);
-      });
+      loadInventory();
     }
-  }, [open, user]);
+  }, [open, loadInventory]);
+
+  // null — не удалось проверить (упала вся опись или её часть): не «всё в облаке».
+  const unsynced = inventory ? inventory.unsyncedNotesCount : null;
 
   const handleSignOut = async () => {
     setSigningOut(true);
@@ -53,11 +64,13 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
         onClose();
         return;
       }
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes('Unsynced') || msg.includes('несинхронизирован')) {
-        setErrorMsg(t('signout_unsynced_error'));
+      if ((err as { name?: string }).name === 'UnsyncedLocalDataError') {
+        // Появилось после подсчёта — считаем заново, чтобы была видна галочка.
+        const found = (err as { data?: { total?: number } }).data?.total !== 0;
+        setErrorMsg(t(found ? 'signout_unsynced_error' : 'signout_unsynced_unknown_desc'));
+        loadInventory();
       } else {
-        setErrorMsg(msg);
+        setErrorMsg(err instanceof Error ? err.message : String(err));
       }
     } finally {
       setSigningOut(false);
@@ -132,31 +145,33 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-text-main/60 text-[11px] pt-1">
                     <div>{t('signout_inv_notes')}<strong className="text-text-main">{inventory.notesCount ?? t('signout_inv_unknown')}</strong></div>
                     <div>{t('signout_inv_versions')}<strong className="text-text-main">{inventory.versionsCount ?? t('signout_inv_unknown')}</strong></div>
-                    <div>{t('signout_inv_dialogues')}<strong className="text-text-main">{inventory.dialoguesCount}</strong></div>
-                    <div>{t('signout_inv_facets')}<strong className="text-text-main">{inventory.facetsCount}</strong></div>
-                    <div>{t('signout_inv_life_story')}<strong className="text-text-main">{inventory.lifeStoryCount}</strong></div>
-                    <div>{t('signout_inv_themes')}<strong className="text-text-main">{inventory.themeCount}</strong></div>
-                    <div>{t('signout_inv_beliefs')}<strong className="text-text-main">{inventory.beliefsCount}</strong></div>
+                    <div>{t('signout_inv_dialogues')}<strong className="text-text-main">{inventory.dialoguesCount ?? t('signout_inv_unknown')}</strong></div>
+                    <div>{t('signout_inv_facets')}<strong className="text-text-main">{inventory.facetsCount ?? t('signout_inv_unknown')}</strong></div>
+                    <div>{t('signout_inv_life_story')}<strong className="text-text-main">{inventory.lifeStoryCount ?? t('signout_inv_unknown')}</strong></div>
+                    <div>{t('signout_inv_themes')}<strong className="text-text-main">{inventory.themeCount ?? t('signout_inv_unknown')}</strong></div>
+                    <div>{t('signout_inv_beliefs')}<strong className="text-text-main">{inventory.beliefsCount ?? t('signout_inv_unknown')}</strong></div>
                     <div>{t('signout_inv_portrait')}<strong className="text-text-main">{inventory.hasPortrait ? t('signout_yes') : t('signout_no')}</strong></div>
                     {inventory.guestEntriesCount !== 0 && (
                       <div>{t('signout_inv_guest')}<strong className="text-text-main">{inventory.guestEntriesCount ?? t('signout_inv_unknown')}</strong></div>
                     )}
                   </div>
-                ) : null}
+                ) : (
+                  <div className="text-text-main/60 text-[11px] pt-1">{t('signout_inv_unknown')}</div>
+                )}
               </div>
 
               {/* Не удалось проверить, всё ли отправлено, — то же предупреждение и та же
                   галочка, что при найденных неотправленных: не «всё в облаке». */}
-              {inventory && (inventory.unsyncedNotesCount === null || inventory.unsyncedNotesCount > 0) && (
+              {!loading && unsynced !== 0 && (
                 <div className="p-3 bg-accent-warning/10 border border-accent-warning/20 rounded-xl text-xs space-y-2">
                   <div className="flex items-center gap-1.5 font-medium text-accent-warning">
                     <AlertTriangle className="w-4 h-4" />
                     {t('signout_unsynced_warning_title')}
                   </div>
                   <p className="text-text-main/70 text-[11px] leading-relaxed">
-                    {inventory.unsyncedNotesCount === null
+                    {unsynced === null
                       ? t('signout_unsynced_unknown_desc')
-                      : <>{t('signout_unsynced_warning_desc_before')}<strong>{inventory.unsyncedNotesCount}</strong>{t('signout_unsynced_warning_desc_after')}</>}
+                      : <>{t('signout_unsynced_warning_desc_before')}<strong>{unsynced}</strong>{t('signout_unsynced_warning_desc_after')}</>}
                   </p>
                   <label className="flex items-center gap-2 pt-1 cursor-pointer">
                     <input
@@ -188,7 +203,7 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
           </Button>
           <Button
             onClick={() => void handleSignOut()}
-            disabled={signingOut || (clearLocalData && inventory !== null && inventory.unsyncedNotesCount !== 0 && !forceWipe)}
+            disabled={signingOut || (clearLocalData && unsynced !== 0 && !forceWipe)}
             className={`px-4 py-2 text-xs font-semibold flex items-center gap-1.5 ${
               clearLocalData
                 ? 'bg-accent-danger/20 text-accent-danger border border-accent-danger/30 hover:bg-accent-danger/30'

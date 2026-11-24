@@ -50,6 +50,7 @@ export const authTranslations: Translations = {
   migration_success_local:      { ru: 'Перемещено записей: {count}',         en: 'Records moved: {count}' },
   migration_synced_cloud:       { ru: 'Синхронизировано с облаком: {count}', en: 'Synced to cloud: {count}' },
   migration_cloud_pending:      { ru: 'В облако пока не ушло: {count}. Заметки сохранены на устройстве, попробуем позже.', en: 'Not yet uploaded: {count}. Saved on this device, we will retry later.' },
+  migration_cloud_skipped:      { ru: 'Не ушло в облако: {count}. Эти заметки заперты, не читаются или остаются только на устройстве.', en: 'Not uploaded: {count}. These notes are locked, unreadable or kept on this device only.' },
   migration_partial:            { ru: 'Перенесено {moved}, осталось {left}', en: 'Moved {moved}, left {left}' },
   migration_found_draft_hint:   { ru: 'У тебя есть незаконченный черновик. Перенести его в аккаунт?', en: 'You have an unfinished draft. Move it to your account?' },
 

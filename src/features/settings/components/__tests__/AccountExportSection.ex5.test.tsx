@@ -61,4 +61,11 @@ describe('EX-5: итог импорта — статусы выгрузки ви
     expect(screen.queryByText(/Сейф заперт/)).toBeNull();
     expect(screen.queryByText(/Ошибка отправки в облако/)).toBeNull();
   });
+
+  // Н-1 (дейлик 21.11). Мутация: не показывать строку пропущенных — красный.
+  it('выгрузка часть пропустила: строка предупреждения с числом рядом с «загружено»', async () => {
+    await runImport({ status: 'completed', attempted: 3, uploaded: 2, queued: 0, skipped: 1 });
+    const row = await screen.findByText(/В выгрузку не вошло заметок: 1/);
+    expect(row.className).toContain('text-accent-warning');
+  });
 });

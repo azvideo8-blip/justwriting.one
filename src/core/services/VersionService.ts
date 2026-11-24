@@ -150,17 +150,6 @@ export const VersionService = {
     return versions;
   },
 
-  async getLatestContent(userId: string, documentId: string): Promise<string> {
-    const raw = await DataProvider.getLatestVersion(userId, documentId);
-    if (!raw) return '';
-    const parsed = versionDbSchema.safeParse({ id: raw.id, ...raw });
-    if (!parsed.success) {
-      reportError(parsed.error, { action: 'getLatestContent_parse', docId: documentId });
-      return '';
-    }
-    return parsed.data.content || '';
-  },
-
   /** null = версии нет; PARSE_FAILED = версия есть, но не читается. Слитно эти
    *  два случая путал «заметка пуста» с «заметка нечитаема»: экспорт писал
    *  пустой файл и рапортовал об успехе (AUD-5). */

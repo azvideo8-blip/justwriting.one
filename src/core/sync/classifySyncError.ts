@@ -19,6 +19,7 @@
  * | Failed to fetch          | false  | false               | network              |
  * | Load failed              | false  | false               | network              |
  * | NetworkError when attempting to fetch resource | false | false | network     |
+ * | 429 (isRateLimitedError) | false  | false               | network              |
  *
  * DE-7: `network` — fetch не дошёл до сервера (Chrome / Safari / Firefox пишут
  * это по-разному). `navigator.onLine` на captive portal и в сети без интернета
@@ -35,6 +36,8 @@
  * Matching uses word boundaries so substring false-positives (e.g. `UNLOCKED` vs `LOCKED`)
  * are prevented.
  */
+
+import { isRateLimitedError } from '../services/rateGate';
 
 export type SyncErrorCategory = 'transient' | 'permanent' | 'blocked-until-unlock' | 'network';
 
@@ -128,8 +131,10 @@ export function isRevivableOnUnlock(error: unknown): boolean {
   return matchRule(error)?.revivableOnUnlock ?? false;
 }
 
-function fallbackCategory(_error: unknown): SyncErrorCategory {
-  return 'transient';
+function fallbackCategory(error: unknown): SyncErrorCategory {
+  // Н-2 (дейлик 21.11): 429 — «притормози», как сеть: пауза без попытки. Правило
+  // распознавания одно на весь синк — rateGate.
+  return isRateLimitedError(typeof error === 'string' ? { message: error } : error) ? 'network' : 'transient';
 }
 
 /**

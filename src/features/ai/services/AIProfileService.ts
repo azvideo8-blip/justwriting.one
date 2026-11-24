@@ -90,8 +90,12 @@ export const AIProfileService = {
    * текущей версией — иначе строка «собран по прежним правилам» пропала бы, а
    * старый текст остался (ревью 0.9.39).
    */
-  async savePortrait(portraitMarkdown: string, opts: { staleSections?: boolean } = {}): Promise<void> {
-    localStorage.setItem(portraitCacheKey(getCurrentUser()?.uid), portraitMarkdown);
+  // true — лёг на устройство. Только в облаке — false: читатель берёт копию устройства
+  // первой, и после перезагрузки виден прежний портрет.
+  async savePortrait(portraitMarkdown: string, opts: { staleSections?: boolean } = {}): Promise<boolean> {
+    let saved = false;
+    // Полное хранилище не должно ронять собранный (платный) портрет: это только кэш.
+    try { localStorage.setItem(portraitCacheKey(getCurrentUser()?.uid), portraitMarkdown); } catch { /* намеренно: кэш */ }
 
     try {
       const db = await getLocalDb();
@@ -107,9 +111,10 @@ export const AIProfileService = {
         // только по нажатию человека.
         ...(opts.staleSections ? {} : { promptVersion: portraitPromptsVersion() }),
       });
+      saved = true;
       LocalStoreSyncService.scheduleStoreSync('aiPortrait', 'singleton');
     } catch (e) {
-      console.error('[AIProfileService] Failed to save portrait to IDB:', e);
+      reportError(e, { action: 'ai_portrait_save_local' });
     }
 
     const uid = getCurrentUser()?.uid;
@@ -127,7 +132,7 @@ export const AIProfileService = {
         const msg = e instanceof Error ? e.message : String(e);
         if (msg.includes('ENCRYPT_REQUIRED')) {
           if (import.meta.env.DEV) console.warn('[AIProfileService] Cloud save skipped: E2E locked. Portrait saved locally.');
-          return;
+          return saved;
         }
         
         try {
@@ -148,6 +153,7 @@ export const AIProfileService = {
         }
       }
     }
+    return saved;
   },
 
   async syncPortraitToCloud(userId: string): Promise<void> {
@@ -183,14 +189,14 @@ export const AIProfileService = {
         if (profile && profile.aiPortrait) {
           const decrypted = await maybeDecrypt(profile, ['aiPortrait'], []);
           const portrait = typeof decrypted.aiPortrait === 'string' ? decrypted.aiPortrait : '';
-          localStorage.setItem(cacheKey, portrait);
+          try { localStorage.setItem(cacheKey, portrait); } catch { /* намеренно: только кэш */ }
           return portrait;
         }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         if (msg.includes('LOCKED') || msg.includes('session key not available')) {
+          // Сейф заперт — «не прочитали», а не «портрета нет».
           if (import.meta.env.DEV) console.warn('[AIProfileService] Cloud fetch skipped: E2E locked.');
-          return null;
         }
         throw e;
       }
@@ -217,7 +223,7 @@ export const AIProfileService = {
 
   // partial — хоть один раздел взят из кэша по прежним данным или остался заглушкой
   // «в процессе анализа»: это не «портрет обновлён» без оговорок.
-  async generate(opts?: CallAiOptions): Promise<{ ok: true; markdown: string; partial: boolean } | { ok: false; error: string }> {
+  async generate(opts?: CallAiOptions): Promise<{ ok: true; markdown: string; partial: boolean; saved: boolean } | { ok: false; error: string }> {
     const startEpoch = getPortraitEpoch();
     try {
       const db = await getLocalDb();
@@ -463,8 +469,8 @@ ${activeSections.growth}
 ${activeSections.communication_prefs}
 `;
 
-      await this.savePortrait(finalMarkdown, { staleSections });
-      return { ok: true, markdown: finalMarkdown, partial: staleSections || placeholderSections };
+      const saved = await this.savePortrait(finalMarkdown, { staleSections });
+      return { ok: true, markdown: finalMarkdown, saved, partial: staleSections || placeholderSections };
     } catch (e) {
       reportError(e, { action: 'ai_profile_generate' });
       return { ok: false, error: String(e) };

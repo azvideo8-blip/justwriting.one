@@ -10,6 +10,7 @@ import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { ModalShell } from '../../../shared/components/ModalShell';
 import { Input } from '../../../shared/components/Input';
+import { reportError } from '../../../shared/errors/reportError';
 import { isExcludedFromAI } from '../utils/isExcludedFromAI';
 
 interface DocumentPickerModalProps {
@@ -31,6 +32,7 @@ export function DocumentPickerModal({ isOpen, onClose, onSelect }: DocumentPicke
   const [docs, setDocs] = useState<DocEntry[]>([]);
   const [search, setSearch] = useState('');
   const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
@@ -58,7 +60,10 @@ export function DocumentPickerModal({ isOpen, onClose, onSelect }: DocumentPicke
           )
         );
         setDocs(entries);
-      } catch { /* ignore */ }
+      } catch (e) {
+        reportError(e, { action: 'documentPicker_load' });
+        setFailed(true);
+      }
     })();
   }
 
@@ -107,7 +112,9 @@ export function DocumentPickerModal({ isOpen, onClose, onSelect }: DocumentPicke
               <p className="text-xs text-text-main/60 mt-1 line-clamp-2">{doc.preview}</p>
             </Button>
           ))}
-          {filtered.length === 0 && (
+          {failed ? (
+            <Button onClick={() => { setFailed(false); setLoaded(false); }} className="w-full py-8 text-center text-sm text-accent-warning">{t('load_failed_retry')}</Button>
+          ) : filtered.length === 0 && (
             <div className="py-8 text-center text-sm text-text-main/60">{t('ai_doc_picker_empty')}</div>
           )}
         </div>

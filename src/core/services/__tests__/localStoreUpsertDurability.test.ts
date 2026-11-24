@@ -87,6 +87,16 @@ describe('SA-1: pending AI-store upserts survive the tab closing', () => {
     expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 0, dead: 0, oversized: 0, unknown: false });
   });
 
+  // Н-2 (дейлик 21.11): сервер просит паузу (429) — запись не «отвергнута».
+  it('a 429 does not spend attempts either', async () => {
+    save.mockRejectedValue({ message: '<html><h1>429 Too Many Requests</h1></html>' });
+    const tab = new LocalStoreSyncManager();
+    tab.scheduleStoreSync('aiPortrait', 'p1');
+    for (let i = 0; i < 6; i++) await tab.flushPending(true);
+    expect(getDeadStoreUpserts(USER)).toEqual([]);
+    expect(getLocalStoreSyncSummary(USER).pending).toBe(1);
+  });
+
   it('a rejected record stays visible as dead after a reload, not silently dropped', async () => {
     save.mockRejectedValue(new Error('413 too large'));
     const tab = new LocalStoreSyncManager();

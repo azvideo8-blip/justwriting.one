@@ -337,6 +337,8 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
         showToast(t('settings_sync_vault_locked'), 'error');
       } else if (result.failed > 0) {
         showToast(`Синхронизация завершена с ошибками: не удалось выгрузить ${result.failed} заметок`, 'error');
+      } else if (result.skipped) {
+        showToast(t('settings_sync_all_skipped', { count: String(result.skipped) }), 'warning');
       } else {
         showToast('Все локальные заметки выгружены в облако', 'success');
       }
@@ -366,7 +368,8 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       const result = await AIProfileService.generate();
       if (result.ok) {
         setPortraitText(result.markdown);
-        if (result.partial) showToast(t('ai_portrait_partial'), 'warning');
+        if (!result.saved) showToast(t('ai_portrait_not_saved'), 'warning');
+        else if (result.partial) showToast(t('ai_portrait_partial'), 'warning');
         else showToast('Психологический портрет обновлён', 'success');
       } else if (result.error === 'NOT_ENOUGH_DATA') {
         showToast('Нужно минимум 3 проанализированных заметки', 'error');

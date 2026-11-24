@@ -136,9 +136,11 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
   const { user } = useAuthStatus();
   const reducedMotion = useReducedMotion();
   const abortRef = useRef<AbortController | null>(null);
-  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const userId = user?.uid ?? 'guest';
   const storageKey = `unlocked_achievements_${userId}`;
+
+  // Н-4: чей облачный список прочитан и слит. Пока не прочитан — в облако не пишем.
+  const [cloudReadUid, setCloudReadUid] = useState<string | null>(null);
 
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(() => {
     try {
@@ -165,7 +167,8 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
 
     ProfileService.loadEarnedAchievements(user.uid).then(result => {
       if (ac.signal.aborted) return;
-      if (result.ids.length > 0 && !result.error) {
+      if (result.error) return;
+      if (result.ids.length > 0) {
         setUnlockedIds(prev => {
           const resetAt = result.resetAt?.getTime() ?? readResetAt(userId);
           const earnedMap = readEarnedAtMap(userId);
@@ -179,6 +182,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
           return merged;
         });
       }
+      setCloudReadUid(user.uid);
     }).catch(e => { reportError(e, { action: 'loadCloudAchievements', userId: user.uid }); });
 
     return () => ac.abort();
@@ -214,29 +218,19 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
         return updated;
       });
     });
+  }, [stats, sessions, userId, storageKey]);
 
-    // Debounced cloud sync — reads latest from localStorage
-    if (user) {
-      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
-      syncTimerRef.current = setTimeout(() => {
-        try {
-          const saved = localStorage.getItem(storageKey);
-          if (saved) {
-            ProfileService.updateEarnedAchievements(user.uid, JSON.parse(saved)).catch(e => {
-              reportError(e, { action: 'syncAchievementsToCloud', userId: user.uid });
-            });
-          }
-        } catch { /* ignore */ }
-      }, 2000);
-    }
-
-    return () => {
-      if (syncTimerRef.current) {
-        clearTimeout(syncTimerRef.current);
-        syncTimerRef.current = null;
-      }
-    };
-  }, [stats, sessions, user, userId, storageKey]);
+  // Debounced cloud sync: слитый список из состояния, а не localStorage — переполненное
+  // хранилище держит прежний, меньший. Пустой не пишем: сброс чистит облако сам.
+  useEffect(() => {
+    if (!user || cloudReadUid !== user.uid || unlockedIds.size === 0) return;
+    const timer = setTimeout(() => {
+      ProfileService.updateEarnedAchievements(user.uid, [...unlockedIds]).catch(e => {
+        reportError(e, { action: 'syncAchievementsToCloud', userId: user.uid });
+      });
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [unlockedIds, cloudReadUid, user]);
 
   const totalAchievements = GROUPS.reduce((s, g) => s + g.achievements.length, 0);
   const unlockedCount = GROUPS.reduce((s, g) =>

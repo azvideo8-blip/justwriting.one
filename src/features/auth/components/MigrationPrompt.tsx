@@ -23,6 +23,9 @@ export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: Mig
 
   const handleMigrate = async () => {
     try {
+      // Перенос сохраняет id заметок. Не прочитались — о пропущенных скажем по всему аккаунту.
+      const guestIds = await LocalDocumentService.getDocumentsByOwner(getOrCreateGuestId())
+        .then(docs => new Set(docs.map(d => d.id)), (e: unknown) => { reportError(e, { action: 'migrateGuestIds', userId }, 'warning'); return null; });
       const { moved, left } = await migrateDocuments(userId);
       if (left > 0) {
         showToast(t('migration_partial', { moved, left }), 'warning');
@@ -33,7 +36,7 @@ export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: Mig
       // если синхронизация включена (иначе — кнопкой «Отправить все заметки в облако»).
       if (moved > 0 && cloudSyncEnabled(userId)) {
         try {
-          const { synced, failed: failedRaw, inProgress } = await SyncService.syncAllUnlinked(userId);
+          const { synced, failed: failedRaw, inProgress, skippedIds = [] } = await SyncService.syncAllUnlinked(userId);
           // Уже шла другая синхронизация — этот вызов ничего не отправил: перенесённые
           // заметки пока не в облаке, и сказать это надо так же, как о неотправленных.
           const failed = inProgress ? moved : failedRaw;
@@ -44,6 +47,8 @@ export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: Mig
           if (failed > 0) {
             showToast(t('migration_cloud_pending', { count: failed }), 'error');
           }
+          const skipped = guestIds ? skippedIds.filter(id => guestIds.has(id)).length : skippedIds.length;
+          if (skipped > 0) showToast(t('migration_cloud_skipped', { count: skipped }), 'warning');
         } catch (e) {
           reportError(e, { action: 'migrateCloudSync', userId });
           showToast(t('error_generic_action'), 'error');

@@ -79,7 +79,8 @@ export const ProfileService = {
         const parsed = userProfileDbSchema.safeParse({ uid: userId, ...snapData });
         if (!parsed.success) {
           reportError(parsed.error, { action: 'loadEarnedAchievements_parse', docId: userId });
-          return { ids: [], error: false, resetAt: null };
+          // Н-4: строка есть, но не разобралась — «не прочитали», а не «пусто».
+          return { ids: [], error: true, resetAt: null };
         }
         const resetRaw: unknown = parsed.data.achievementsResetAt;
         const resetMs = resetRaw == null ? NaN : new Date(resetRaw as string | number).getTime();
@@ -105,7 +106,9 @@ export const ProfileService = {
       const parsed = userProfileDbSchema.safeParse({ uid: userId, ...snapData });
       if (!parsed.success) {
         reportError(parsed.error, { action: 'getProfile_parse', docId: userId });
-        return { data: null, error: false };
+        // Н-4: строка есть, но не разобралась — «не прочитали», а не «профиля нет»:
+        // иначе контекст создаёт профиль заново и затирает ник.
+        return { data: null, error: true };
       }
 
       let profileData: UserProfile = parsed.data;

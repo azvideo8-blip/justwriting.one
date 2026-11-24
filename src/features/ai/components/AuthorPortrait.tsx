@@ -62,7 +62,8 @@ export function AuthorPortrait({ readOnly = false }: AuthorPortraitProps = {}) {
         // взявшая раздел из старого кэша, её оставляет (ревью 0.9.39).
         // Портрет уже собран: отказ чтения версии — не провал сборки (NB-12, ревью 0.11.24).
         setStalePortrait(await AIProfileService.isPortraitStale().catch(() => false));
-        if (result.partial) showToast(t('ai_portrait_partial'), 'warning');
+        if (!result.saved) showToast(t('ai_portrait_not_saved'), 'warning');
+        else if (result.partial) showToast(t('ai_portrait_partial'), 'warning');
         else showToast('Психологический портрет обновлён', 'success');
         // Refresh summariesCount
         const db = await getLocalDb();

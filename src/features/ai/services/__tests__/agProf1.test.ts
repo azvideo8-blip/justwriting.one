@@ -110,7 +110,7 @@ describe('AG-PROF-1: Portrait Integrity & Service Guards', () => {
 
     vi.spyOn(AIProfileService, 'generate').mockImplementation(async () => {
       await firstPromise;
-      return { ok: true, markdown: 'Портрет', partial: false };
+      return { ok: true, markdown: 'Портрет', partial: false, saved: true };
     });
 
     // Start first run

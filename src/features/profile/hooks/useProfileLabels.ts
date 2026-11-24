@@ -88,9 +88,21 @@ export function useProfileLabels(userId: string, initialLabels: Label[] = []) {
     }
   };
 
-  const addLabel = (label: Omit<Label, 'id'>): Promise<boolean> => {
+  const addLabel = async (label: Omit<Label, 'id'>): Promise<boolean> => {
     const newLabel: Label = { ...label, id: randomUUID() };
-    return updateLabels([...labels, newLabel]);
+    // Кэш новее замыкания: в нём и прочитанное, и только что сохранённое.
+    let current = labelCache.get(userId) ?? labels;
+    // Н-4: пустой список, который так и не прочитали, — не «меток нет». Запись
+    // заменяет весь список, и новая метка стёрла бы остальные. Условие — по кэшу,
+    // а не по отметке «прочитано»: она ставится и поздним ответом после ухода с экрана.
+    if (current.length === 0 && !labelCache.has(userId) && userId && !userId.startsWith('guest')) {
+      const res = await ProfileService.getProfile(userId);
+      if (res.error) return false; // отказ уже в журнале (getProfile)
+      current = res.data?.labels ?? [];
+      labelCache.set(userId, current);
+      setLabels(current);
+    }
+    return updateLabels([...current, newLabel]);
   };
 
   const updateLabel = (labelId: string, updates: Partial<Omit<Label, 'id'>>): Promise<boolean> => {

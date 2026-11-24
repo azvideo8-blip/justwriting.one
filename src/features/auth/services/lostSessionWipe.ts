@@ -74,6 +74,8 @@ export async function offerLostSessionWipe(showToast: ShowToast, t: Translate, c
           const message = [
             t('auth_lost_session_wipe_confirm_message'),
             unsynced.total > 0 ? t('auth_lost_session_wipe_confirm_unsynced', { count: unsynced.total }) : '',
+            // Журнал ИИ не читается: предупреждаем и даём стереть — предложение одноразовое.
+            unsynced.ai === null ? t('signout_unsynced_unknown_desc') : '',
           ].filter(Boolean).join(' ');
           const ok = await confirm({
             title: t('auth_lost_session_wipe_confirm_title'),

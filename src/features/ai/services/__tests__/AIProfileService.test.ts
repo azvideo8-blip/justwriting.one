@@ -105,6 +105,19 @@ describe('AIProfileService', () => {
   });
 
   describe('savePortrait', () => {
+    // Подозрение дейлика 22.11: «портрет обновлён» при несохранённом. Мутация: return true — красный.
+    it('ни устройство, ни облако не приняли → false', async () => {
+      mockPut.mockRejectedValue(new Error('QuotaExceededError'));
+      mockSyncOn = false;
+      expect(await AIProfileService.savePortrait('синтетика')).toBe(false);
+      mockSyncOn = true;
+      // Ревью 0.11.25 N-2: облако приняло, а устройство нет — после перезагрузки виден прежний.
+      // Мутация: saved = true после облака — красный.
+      expect(await AIProfileService.savePortrait('синтетика')).toBe(false);
+      mockPut.mockReset();
+      expect(await AIProfileService.savePortrait('синтетика')).toBe(true);
+    });
+
     it('saves to localStorage and encrypts + syncs to Firestore', async () => {
       mockSetDoc.mockResolvedValue(undefined);
 
@@ -200,15 +213,13 @@ describe('AIProfileService', () => {
       expect(res).toBeNull();
     });
 
-    it('returns null and logs warning if cloud fetch throws LOCKED error', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({ aiPortrait: 'encrypted-portrait' }),
-      });
+    // Подозрение дейлика 22.11: запертый сейф — «не прочитали», а не «портрета нет».
+    // Мутация: вернуть `return null` — красный.
+    it('LOCKED: отказ чтения, а не «портрета нет»', async () => {
+      mockGetDoc.mockResolvedValue({ aiPortrait: 'шифротекст' });
       mockMaybeDecrypt.mockRejectedValueOnce(new Error('LOCKED: session key not available'));
 
-      const res = await AIProfileService.getPortrait();
-      expect(res).toBeNull();
+      await expect(AIProfileService.getPortrait()).rejects.toThrow(/LOCKED/);
     });
   });
 
@@ -311,7 +322,7 @@ describe('AIProfileService', () => {
         `## Стиль общения\nGenerated portrait markdown text\n`;
 
       const res = await AIProfileService.generate();
-      expect(res).toEqual({ ok: true, markdown: expectedMarkdown, partial: false });
+      expect(res).toEqual({ ok: true, markdown: expectedMarkdown, partial: false, saved: true });
       expect(AIService.chat).toHaveBeenCalledWith(expect.objectContaining({
         personaId: 'custom',
       }));

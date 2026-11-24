@@ -107,8 +107,10 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
                 })),
               };
             }
-          } catch {
-            // fallback gracefully without versions
+          } catch (e) {
+            // Запись остаётся без разбивки по версиям. «Облако недоступно» сюда не годится:
+            // чтение обычно локальное — только журнал.
+            reportError(e, { action: 'lifeLog/fetchVersions' }, 'warning');
           }
           return doc;
         })

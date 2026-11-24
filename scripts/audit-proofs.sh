@@ -106,16 +106,23 @@ done
 [ "$OG_COUNT" -ge 1 ] || fail "no og-image found in index.html"
 
 echo ""
-echo "### 3.8 deploy.yml rollback restores node_modules (L-9 / R4-064)"
+echo "### 3.8 jw-deploy rollback restores node_modules (L-9 / R4-064)"
 # rsync --delete заменяет зависимости до запуска службы; откат, возвращающий
 # только server.mjs, оставляет службу без её пакетов. Ищем сами строки снимка
 # и восстановления, а не имя где угодно: удалённый блок отката красит гейт.
-code_lines .github/workflows/deploy.yml | grep -qF 'cp -al /opt/justwriting/api/node_modules /opt/justwriting/api/node_modules.prev' \
+# 20.11: оба шага живут в помощнике jw-deploy.sh, deploy.yml их только зовёт.
+code_lines deploy/jw-deploy.sh | grep -qF 'cp -al "$API/node_modules" "$API/node_modules.prev"' \
   && echo "  OK: node_modules snapshot present in deploy" \
-  || fail "deploy.yml has no node_modules snapshot"
-code_lines .github/workflows/deploy.yml | grep -qF 'rsync -a --delete /opt/justwriting/api/node_modules.prev/ /opt/justwriting/api/node_modules/' \
+  || fail "jw-deploy.sh has no node_modules snapshot"
+code_lines deploy/jw-deploy.sh | grep -qF 'rsync -a --delete "$API/node_modules.prev/" "$API/node_modules/"' \
   && echo "  OK: node_modules restore present in rollback" \
-  || fail "deploy.yml rollback does not restore node_modules"
+  || fail "jw-deploy.sh rollback does not restore node_modules"
+
+for step in api-install api-rollback; do
+  code_lines .github/workflows/deploy.yml | grep -qE "sudo /usr/local/sbin/jw-deploy $step" \
+    && echo "  OK: deploy.yml calls jw-deploy $step" \
+    || fail "deploy.yml does not call jw-deploy $step"
+done
 
 echo ""
 echo "### 3.11 api tests run from the api/ directory"

@@ -103,4 +103,12 @@ describe("FN-6: итог выгрузки импорта", () => {
     expect(res.upload?.reason).toBeUndefined();
     clearSessionKey();
   });
+
+  // Н-1 (дейлик 21.11). Мутация: не переносить skipped — красный.
+  it("пропущенные выгрузкой (заперты, не читаются, только на устройстве) доходят до итога", async () => {
+    vi.spyOn(SyncService, "syncAllUnlinked").mockResolvedValue({ synced: 1, failed: 0, queued: 0, skipped: 2, skippedIds: ["doc_fn6i_f", "чужая"] });
+    const res = await importMigrationManifest(await manifestWith(["doc_fn6i_f"]), "u_fn6i");
+    expect(res.upload?.skipped).toBe(1); // прежняя заметка аккаунта к импорту не относится
+    clearSessionKey();
+  });
 });

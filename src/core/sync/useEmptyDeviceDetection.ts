@@ -40,6 +40,8 @@ export interface EmptyDeviceDetectionState {
   shouldPrompt: boolean;
   localCount: number;
   cloudCount: number;
+  /** Сколько из `cloudCount` не читаются: окно восстановления называет их отдельно. */
+  cloudUnreadable: number;
   /** RA1-5: облако не пустое, а на устройстве ещё ни одной записи. Баннер
    *  остаётся и после «Не сейчас» — до первой локальной записи. */
   showCloudBanner: boolean;
@@ -65,8 +67,8 @@ export function useEmptyDeviceDetection(opts?: { cloudOnlyWhenEmpty?: boolean })
   // (линтер `react-hooks/set-state-in-effect`, и до первого ответа был бы
   // кадр с чужими числами) — вместо этого числа принадлежат тому `uid`, при
   // котором прочитаны: чужой снимок просто не показан.
-  const [snapshot, setSnapshot] = useState<{ uid: string | null; local: number; cloud: number; prompt: boolean }>({ uid, local: 0, cloud: 0, prompt: false });
-  const mine = snapshot.uid === uid ? snapshot : { uid, local: 0, cloud: 0, prompt: false };
+  const [snapshot, setSnapshot] = useState<{ uid: string | null; local: number; cloud: number; unreadable: number; prompt: boolean }>({ uid, local: 0, cloud: 0, unreadable: 0, prompt: false });
+  const mine = snapshot.uid === uid ? snapshot : { uid, local: 0, cloud: 0, unreadable: 0, prompt: false };
   const localCount = mine.local;
   const cloudCount = mine.cloud;
   const shouldPrompt = mine.prompt;
@@ -78,11 +80,11 @@ export function useEmptyDeviceDetection(opts?: { cloudOnlyWhenEmpty?: boolean })
   const currentUidRef = useRef<string | null>(uid);
   useEffect(() => { currentUidRef.current = uid; }, [uid]);
 
-  const write = useCallback((ownerUid: string | null, patch: Partial<{ local: number; cloud: number; prompt: boolean }>) => {
+  const write = useCallback((ownerUid: string | null, patch: Partial<{ local: number; cloud: number; unreadable: number; prompt: boolean }>) => {
     if (currentUidRef.current !== ownerUid) return;
     setSnapshot(prev => (prev.uid === ownerUid
       ? { ...prev, ...patch }
-      : { uid: ownerUid, local: 0, cloud: 0, prompt: false, ...patch }));
+      : { uid: ownerUid, local: 0, cloud: 0, unreadable: 0, prompt: false, ...patch }));
   }, []);
 
   /** Локальное число записей — без чтения облака. */
@@ -94,7 +96,7 @@ export function useEmptyDeviceDetection(opts?: { cloudOnlyWhenEmpty?: boolean })
 
   const check = useCallback(async (opts?: { cloudOnlyWhenEmpty?: boolean }) => {
     if (!uid || isGuest) {
-      write(uid, { local: 0, cloud: 0, prompt: false });
+      write(uid, { local: 0, cloud: 0, unreadable: 0, prompt: false });
       return;
     }
 
@@ -103,7 +105,7 @@ export function useEmptyDeviceDetection(opts?: { cloudOnlyWhenEmpty?: boolean })
     // Vault check: wait for vault unlock if encryption enabled
     if (getEncryptionEnabled(uid) && !isVaultUnlocked()) {
       // BR-4: запертый сейф — счётчики прошлого аккаунта показывать нельзя.
-      write(uid, { local: 0, cloud: 0, prompt: false });
+      write(uid, { local: 0, cloud: 0, unreadable: 0, prompt: false });
       return;
     }
 
@@ -124,13 +126,18 @@ export function useEmptyDeviceDetection(opts?: { cloudOnlyWhenEmpty?: boolean })
       const { readCloudDocumentsPartial } = await import('../services/cloudListPartial');
       // DW6-5.4: облачное чтение шло без общего тормоза 429 — один отбитый запрос
       // убирал вопрос о восстановлении, как «облака нет».
-      const cloudLen = (await withRateLimitRetry(() => readCloudDocumentsPartial(uid))).docs.length;
+      const cloudList = await withRateLimitRetry(() => readCloudDocumentsPartial(uid));
+      // Н-3: на пустом устройстве нечитаемые заметки — тоже заметки: «облако пусто»
+      // было бы неправдой (окно восстановления назовёт их само). Если на устройстве
+      // что-то есть, они вопрос не навязывают: скачать их всё равно нельзя.
+      const unreadable = localLen === 0 ? cloudList.unreadable.length : 0;
+      const cloudLen = cloudList.docs.length + unreadable;
 
       // AG-RESTORE-1: Prompt if local device has fewer notes than the cloud.
       // RA1-5: отклонённая модалка гасит только вопрос; счётчики читаются и
       // дальше — из них живёт баннер на пустом главном.
       const isMissingCloudNotes = localLen < cloudLen && cloudLen > 0;
-      write(uid, { cloud: cloudLen, prompt: isMissingCloudNotes && !dismissed });
+      write(uid, { cloud: cloudLen, unreadable, prompt: isMissingCloudNotes && !dismissed });
     } catch (e) {
       // DW6-5.4: отказа чтения — «нет ответа», а не «облако пусто и вопроса нет»
       // (класс I7). Предложение и числа остаются как были: решение не принято,
@@ -191,6 +198,7 @@ export function useEmptyDeviceDetection(opts?: { cloudOnlyWhenEmpty?: boolean })
     shouldPrompt,
     localCount,
     cloudCount,
+    cloudUnreadable: mine.unreadable,
     showCloudBanner: Boolean(uid) && !isGuest && localCount === 0 && cloudCount > 0,
     dismiss,
     recheck: check,

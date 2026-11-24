@@ -65,4 +65,14 @@ describe('sus18: портрет — отказ чтения версии наз�
     await screen.findByTestId('md');
     expect(screen.queryByRole('alert')).toBeNull();
   });
+
+  // Мутация: убрать ветку saved — зелёный тост, красный тест.
+  it('портрет собран, но не сохранился → предупреждение, а не «обновлён»', async () => {
+    mockProfile.generate.mockResolvedValue({ ok: true, markdown: PORTRAIT, partial: false, saved: false });
+    render(<AuthorPortrait />);
+    await screen.findByTestId('md');
+    fireEvent.click(screen.getByRole('button', { name: /Обновить|Сгенерировать|Создать/ }));
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith(expect.stringContaining('не сохранился'), 'warning'));
+    expect(mockShowToast).not.toHaveBeenCalledWith(expect.anything(), 'success');
+  });
 });

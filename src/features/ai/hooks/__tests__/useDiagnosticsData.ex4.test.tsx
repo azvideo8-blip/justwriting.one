@@ -3,7 +3,7 @@
 // IndexedDB на чтении стора (отказ), тост, i18n, auth. Харнесс — из sus20.
 // Мутация на флаг: убрать setAiUsageFailed(true) / setStatsFailed(true) — красный.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, renderHook, act, screen, cleanup } from '@testing-library/react';
 import 'fake-indexeddb/auto';
 
 const mocks = vi.hoisted(() => ({
@@ -82,5 +82,18 @@ describe('EX-4: отказ ИИ-использования и статистик
       store === 'aiSummaries' ? Promise.reject(new Error('SYNTHETIC_IDB_READ')) : orig(store);
     render(<Harness tab="stats" />);
     expect(await screen.findByText('usage:false stats:true')).toBeTruthy();
+  });
+
+  // Н-1 (дейлик 21.11): пропущенные заметки ≠ «все выгружены».
+  // Мутация: убрать ветку skipped — зелёный тост, красный тест.
+  it.each([
+    [{ synced: 1, failed: 0, skipped: 2 }, 'settings_sync_all_skipped', 'warning'],
+    [{ synced: 1, failed: 0, skipped: 0 }, 'Все локальные заметки выгружены в облако', 'success'],
+  ])('выгрузка %o → %s', async (result, text, type) => {
+    const { SyncService } = await import('../../../../core/services/SyncService');
+    vi.spyOn(SyncService, 'syncAllUnlinked').mockResolvedValue(result);
+    const { result: hook } = renderHook(() => useDiagnosticsData(null, false, 'stats'));
+    await act(async () => { await hook.current.handleSyncAllToCloud(); });
+    expect(mocks.showToast.mock.calls.map(c => [c[0], c[1]])).toEqual([[text, type]]);
   });
 });

@@ -5,6 +5,11 @@ export interface UnsyncedLocalData {
   localOnly: number;
   /** Edits waiting in the sync queue: written locally, not yet in the cloud. */
   pending: number;
+  /** Linked notes whose cloud copy is behind and which no queue task will bring up (over the size limit). */
+  behind: number;
+  /** AI data not in the cloud: dialogues, memory, portrait (waiting, refused, too large).
+   *  null — its journal is unreadable: «не знаю», не ноль. */
+  ai: number | null;
   /** Unfinished drafts, which are never uploaded until the session is saved. */
   drafts: number;
   total: number;
@@ -45,7 +50,7 @@ export class LocalWipeFailedError extends Error {
  * everything stored: a note with a cloud copy is restored on the next sign-in.
  */
 export async function countUnsyncedLocalData(userId: string | undefined): Promise<UnsyncedLocalData> {
-  const empty: UnsyncedLocalData = { localOnly: 0, pending: 0, drafts: 0, total: 0 };
+  const empty: UnsyncedLocalData = { localOnly: 0, pending: 0, behind: 0, ai: 0, drafts: 0, total: 0 };
   if (!userId) return empty;
 
   const db = await getLocalDb(userId);
@@ -56,7 +61,21 @@ export async function countUnsyncedLocalData(userId: string | undefined): Promis
   const localOnly = docs.filter(d => d.guestId === userId && !d.linkedCloudId).length;
 
   const queue = await db.getAll('syncQueue');
-  const pending = queue.filter(i => !i.id.startsWith('lock_cloud_')).length;
+  const tasks = queue.filter(i => !i.id.startsWith('lock_cloud_'));
+  const pending = tasks.length;
+
+  // Заметка переросла лимит: облачная копия осталась на прежней версии, а в очередь
+  // её не ставят (StorageService, TOO_LARGE). Метка неизвестна — «отстаёт», только если
+  // заметка велика для выгрузки: остальным метку поставит ближайшая сверка.
+  const queued = new Set(tasks.map(i => i.documentId));
+  const behind = docs.filter(d => d.guestId === userId && Boolean(d.linkedCloudId) && !queued.has(d.id)
+    && (d.lastSyncedCloudVersion === undefined
+      ? d.isTooLargeForSync === true
+      : (d.currentVersion ?? 0) > d.lastSyncedCloudVersion)).length;
+
+  // Диалоги, память и портрет едут своим журналом, не очередью заметок.
+  const { getPendingUpsertKeySet } = await import('../../../core/services/LocalStoreSyncService');
+  const ai = getPendingUpsertKeySet(userId)?.size ?? null;
 
   const drafts = await db.getAll('drafts');
   const draftCount = drafts.filter(d => d.userId === userId && (d.content ?? '').trim().length > 0).length;
@@ -64,7 +83,9 @@ export async function countUnsyncedLocalData(userId: string | undefined): Promis
   return {
     localOnly,
     pending,
+    behind,
+    ai,
     drafts: draftCount,
-    total: localOnly + pending + draftCount,
+    total: localOnly + pending + behind + (ai ?? 0) + draftCount,
   };
 }
