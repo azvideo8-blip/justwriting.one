@@ -54,7 +54,7 @@ describe('SyncService Integration', () => {
     localStorage.setItem('auto_sync_enabled', 'true');
     const db = await getLocalDb(userId);
     await db.put('syncQueue', {
-      id: 'delete_cloud_slow', documentId: 'cloud_slow', type: 'delete' as const,
+      id: 'delete_cloud_slow', documentId: 'cloud_slow', type: 'delete' as const, revocable: true,
       createdAt: Date.now(), ownerId: userId,
     } as never);
 
@@ -103,7 +103,7 @@ describe('SyncService Integration', () => {
     await db.put('syncQueue', {
       id: 'delete_cloud_123',
       documentId: 'cloud_123',
-      type: 'delete' as const,
+      type: 'delete' as const, revocable: true,
       createdAt: Date.now(),
     });
 

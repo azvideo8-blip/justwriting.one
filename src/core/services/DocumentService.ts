@@ -409,6 +409,9 @@ export const DocumentService = {
 
   async restoreDocument(userId: string, documentId: string): Promise<void> {
     await DataProvider.updateDocument(userId, documentId, { trashedAt: null });
+    // Правка надгробия не трогает ни строки и не падает: «восстановлено» — только
+    // если строка жива (PR-1).
+    if (!(await DataProvider.getDocument(userId, documentId))) throw new Error('RESTORE_TARGET_GONE');
   },
 
   async deleteDocument(userId: string, documentId: string): Promise<void> {

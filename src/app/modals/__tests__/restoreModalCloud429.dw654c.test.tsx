@@ -5,6 +5,7 @@
 // Мутация: снять `withRateLimitRetry` вокруг `DocumentService.getUserDocuments` —
 // кейс 1 краснеет (один вызов и состояние ошибки).
 import React from 'react';
+import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render as rtlRender, screen } from '@testing-library/react';
 import { LanguageProvider } from '../../../shared/i18n';
@@ -31,6 +32,7 @@ vi.mock('../../../core/sync/useEmptyDeviceDetection', () => ({
   setRestoreDismissed: vi.fn(),
 }));
 
+import { getLocalDb } from '../../../core/storage/localDb';
 import { RestoreFromCloudModal } from '../RestoreFromCloudModal';
 import { DocumentService } from '../../../core/services/DocumentService';
 import { rateLimitTuning, withRateLimitRetry } from '../../../core/services/rateGate';
@@ -69,6 +71,20 @@ describe('DW6-5.4: 429 в окне восстановления — «помед
     expect(await screen.findByText(/\(3 заметок в облаке\)/), 'числа облака не показаны').toBeDefined();
     expect(screen.queryByText(/Не удалось загрузить количество/), '429 показан как сбой чтения').toBeNull();
     expect(vi.mocked(DocumentService.getUserDocuments).mock.calls.length, 'отбитый 429 не повторён').toBeGreaterThanOrEqual(2);
+  });
+
+  // PR-1 (стенд 25.11): удалённая, чьё удаление ждёт облака, в счёт не идёт — ни в
+  // полном списке, ни в частичном. Мутация: не отсеивать ждущих удаления — красный.
+  it.each([
+    ['полный список', () => vi.mocked(DocumentService.getUserDocuments).mockResolvedValue(cloudDocs(3))],
+    ['частичный', () => vi.mocked(DocumentService.getUserDocuments).mockRejectedValue(Object.assign(new Error('UNREADABLE_CLOUD_LIST: 1'), { name: 'UnreadableCloudListError', docs: cloudDocs(3), ids: ['bad'], uuids: ['bad'] }))],
+  ])('ждущая удаления заметка не предлагается: %s', async (_n, arrange) => {
+    arrange();
+    const db = await getLocalDb('u_restore_429');
+    await db.put('syncQueue', { id: 'delete_c_0', documentId: 'c_0', type: 'delete', createdAt: 1, ownerId: 'u_restore_429', revocable: true });
+    render(<RestoreFromCloudModal open onClose={() => {}} />);
+    expect(await screen.findByText(/2 заметок в облаке/)).toBeDefined();
+    await db.clear('syncQueue');
   });
 
   it('стойкий не-429 остаётся ошибкой чтения, а не нулями', async () => {

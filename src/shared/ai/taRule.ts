@@ -22,6 +22,8 @@ const E = '(?![а-яё])';
 // право», страх нехватки — «вдруг не хватит», «жалко тратить». Очерёдность
 // («в первую очередь…») не берём: чаще это дела, а не голос Родителя.
 const PRESSURE_RE = new RegExp(`${B}(?:должн[аоы]?|долж[её]н|надо|обязан[аоы]?|приходится|прид[её]тся|нельзя|не имею права|не имела права|не имел права|положено|так правильно|так принято|стыдно не|позвол(?:ить|яю|ила?|ю) себе|разреш(?:ить|аю|ила?|у) себе|не заслужил[аи]?|не заслуживаю|имею ли (?:я )?право|вдруг не хватит|жалко (?:тратить|денег)|стыдно тратить)${E}`, 'i');
+// К29-4: присказка — не давление. Только вводная: между знаками или в начале фразы.
+const SAYING_RE = /(^|[.!?,—–\n])\s*(?:надо же|надо сказать|надо признать|надо думать|надо полагать)(?=\s*(?:[.!?,…—–]|$))/gi;
 const PARENT_RE = /Родител/;
 const ADULT_RE = /Взросл/;
 
@@ -44,7 +46,7 @@ export function taStepOf(messages: readonly Msg[] | null | undefined): TaStep | 
     // «Ребёнок» модель пишет не всегда («та часть тебя, что устала» — стенд 18.11,
     // 2 из 3), поэтому его не требуем.
     if (step === 'parent' && PARENT_RE.test(prev) && !ADULT_RE.test(prev)) step = 'adult';
-    else if (PRESSURE_RE.test(m.content.toLowerCase()) && !replies.slice(-2).some(r => PARENT_RE.test(r))) step = 'parent';
+    else if (PRESSURE_RE.test(m.content.toLowerCase().replace(SAYING_RE, ' ')) && !replies.slice(-2).some(r => PARENT_RE.test(r))) step = 'parent';
     else step = null;
   }
   return step;

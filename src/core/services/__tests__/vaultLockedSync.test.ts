@@ -32,6 +32,7 @@ async function queueTask(documentId: string, type: 'document' | 'delete' = 'docu
     type,
     createdAt: Date.now(),
     ownerId: USER,
+    revocable: true,
   });
 }
 

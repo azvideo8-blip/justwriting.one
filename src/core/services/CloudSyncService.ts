@@ -50,6 +50,7 @@ import { withDocumentLock } from '../sync/withDocumentLock';
 import { logger } from '../../shared/errors/logger';
 import pLimit from 'p-limit';
 
+import { assertNotPendingRemoval, isPendingRemoval, pendingRemovalIds } from './syncQueueOps';
 import { getActiveEditorDocumentId } from '../sync/activeEditor';
 
 const _activeDownloadPromises = new Map<string, Promise<{ downloaded: number; skipped: number; failed: number; locked?: boolean }>>();
@@ -673,7 +674,9 @@ export const CloudSyncService = {
         if (r.status === 'fulfilled') downloaded++;
         else {
           const reasonStr = String((r.reason as { message?: string })?.message || r.reason);
-          if (reasonStr.startsWith('LOCK_HELD') || reasonStr.includes('LOCK_HELD')) {
+          if (isPendingRemoval(r.reason)) {
+            skipped++;
+          } else if (reasonStr.startsWith('LOCK_HELD') || reasonStr.includes('LOCK_HELD')) {
             skipped++;
             logger.info('downloadAllFromCloud', 'Download already in progress in another tab', { reason: reasonStr });
           } else {
@@ -808,8 +811,13 @@ export const CloudSyncService = {
           skipped++;
         } else {
           // NB-9 (ревью 0.11.24, N-2): битые версии новой заметки — в тот же счёт, что у связанных.
-          corrupted += (await withRateLimitRetry(() => downloadLimit(() => CloudSyncService.addLocalCopy(userId, uuid, cloudDoc)))).skippedVersions;
-          downloaded++;
+          try {
+            corrupted += (await withRateLimitRetry(() => downloadLimit(() => CloudSyncService.addLocalCopy(userId, uuid, cloudDoc)))).skippedVersions;
+            downloaded++;
+          } catch (e) {
+            if (!isPendingRemoval(e)) throw e;
+            skipped++;
+          }
         }
         handled.add(uuid);
         deferred.delete(uuid);
@@ -913,7 +921,11 @@ export const CloudSyncService = {
               } else {
                 remember(item.doc);
                 if (!linkedCloudMap.has(item.uuid) && !localUuidSet.has(item.uuid)) {
-                  if (downloadFailed.has(item.uuid)) {
+                  if (isPendingRemoval(downloadFailed.get(item.uuid))) {
+                    skipped++;
+                    handled.add(item.uuid);
+                    deferred.delete(item.uuid);
+                  } else if (downloadFailed.has(item.uuid)) {
                     const err = downloadFailed.get(item.uuid);
                     const reason = deterministicPullFailure(err);
                     // R11-2: заметку скачивает другая вкладка — пауза перед строкой,
@@ -1165,6 +1177,13 @@ export const CloudSyncService = {
       unreadableStarts = new Set(e.starts);
       blind = e.blind;
     }
+    // PR-1: строка, ждущая удаления, чужой заметке по времени не пара. По uuid — сама
+    // заметка: она жива на устройстве, и дренаж такую задачу снимает.
+    const removal = await pendingRemovalIds(userId);
+    if (removal.size > 0) {
+      const localUuids = new Set(localDocs.map(d => d.uuid).filter(Boolean));
+      cloudDocs = cloudDocs.filter(c => !removal.has(c.id) || (c.uuid !== undefined && localUuids.has(c.uuid)));
+    }
     // R-6: по неполному списку — только по uuid: совпадение по времени с одной
     // прочитанной строкой ничего не доказывает, пока нечитаемая может быть второй.
     const res = await relinkOrphaned(localDocs, cloudDocs, { uuidOnly: unreadableUuids !== null });
@@ -1199,6 +1218,7 @@ export const CloudSyncService = {
       const allLocal = await LocalStorageService.getDocumentsByOwner(userId);
       const existing = allLocal.find(d => d.linkedCloudId === cloudDocumentId);
       if (existing) return { localId: existing.id, skippedVersions: 0 };
+      await assertNotPendingRemoval(userId, cloudDocumentId);
 
       const cloudDoc = preRead ?? await DocumentService.getDocument(userId, cloudDocumentId);
       if (!cloudDoc) throw new Error('Cloud document not found');
@@ -1339,6 +1359,8 @@ export const CloudSyncService = {
           ...(cloudStampIso !== null ? { lastSeenCloudUpdatedAt: cloudStampIso } : {}),
         }, userId);
 
+        // PR-1: удалили, пока скачивали, — копию откатывает catch ниже.
+        await assertNotPendingRemoval(userId, cloudDocumentId);
         await LocalStorageService.updateLinkedCloudId(localId, cloudDocumentId, userId);
         
         useActivityLogStore.getState().addActivity(
@@ -1352,7 +1374,7 @@ export const CloudSyncService = {
       } catch (e) {
         // Ревью FD: 429 — не ошибка заметки, его повторит withRateLimitRetry; в журнал
         // ушло бы до шести строк на заметку со страницей nginx в каждой.
-        if (!isRateLimitedError(e)) reportError(e, { action: 'addLocalCopy', cloudDocumentId });
+        if (!isRateLimitedError(e) && !isPendingRemoval(e)) reportError(e, { action: 'addLocalCopy', cloudDocumentId });
         if (localId) {
           try { await LocalStorageService.deleteDocument(localId, userId); } catch (cleanupErr) { // намеренно: откат локальной копии при ошибке загрузки
             reportError(cleanupErr, { action: 'addLocalCopy_cleanup', localId });

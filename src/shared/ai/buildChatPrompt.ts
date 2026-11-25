@@ -6,10 +6,12 @@
 import { z } from 'zod';
 import { PERSONA_PROMPTS, TOPIC_GUARD, NOTES_GUARD_BASE, NOTES_GUARD_STRICT, NOTES_SEARCH_GUARD, OPEN_QUESTION_POOL, REFLECTION_GUIDE, REFLECTION_GUIDE_NOTE, leanReflectionGuide, SAFETY_GUIDE, EDITOR_PROMPT_BODY, EDITOR_EVAL_TAIL, EDITOR_LIST_TAIL } from './prompts.js';
 import { ARCHIVE_TURN_MARK, archiveAnswerRule } from './archiveAnswerRule.js';
-import { HYPOTHESIS_PERSONAS, HYPOTHESIS_TURN_MARK, HYPOTHESIS_RULE, HYPOTHESIS_DIRECT_MARK, HYPOTHESIS_RULE_DIRECT, HYPOTHESIS_BODY_LINE, HYPOTHESIS_BODY_RE } from './hypothesisRule.js';
+import { HYPOTHESIS_PERSONAS, HYPOTHESIS_TURN_MARK, HYPOTHESIS_RULE, HYPOTHESIS_DIRECT_MARK, HYPOTHESIS_RULE_DIRECT, HYPOTHESIS_LIGHT_MARK, HYPOTHESIS_RULE_LIGHT, HYPOTHESIS_BODY_LINE, HYPOTHESIS_BODY_RE } from './hypothesisRule.js';
 import { INSIGHT_RECALL_MARK, INSIGHT_RECALL_RULE } from './insightRecall.js';
 import { TA_STEP_LINES, taStepOf, type TaStep } from './taRule.js';
 import { ADDRESS_FORM_LINES, addressFormOf, type AddressForm } from './addressForm.js';
+import { AUTHOR_GENDER_LINES } from './authorGender.js';
+import { HYPO_WHY } from './chatShape.js';
 import { SUMMARY_TURN_LINE, summaryTurnDue } from './summaryTurn.js';
 import { evalAskMode, listAskMode } from './evalAsk.js';
 import { ENGLISH_NUDGE, questionOnly } from './languageNudge.js';
@@ -318,6 +320,10 @@ export function buildChatSystemPrompt(params: ChatPromptParams): string {
   if (documentContent && (!strictNote || directHypothesis) && crisis !== true && HYPOTHESIS_PERSONAS.includes(personaId) && documentContent.includes(HYPOTHESIS_TURN_MARK)) {
     base += `\n\n---\n${directHypothesis ? HYPOTHESIS_RULE_DIRECT : HYPOTHESIS_RULE}`;
     if (directHypothesis && HYPOTHESIS_BODY_RE.test(documentContent)) base += `\n${HYPOTHESIS_BODY_LINE}`;
+  } else if (documentContent && strictNote && crisis !== true && HYPOTHESIS_PERSONAS.includes(personaId) && documentContent.includes(HYPOTHESIS_LIGHT_MARK)) {
+    // К29-2: просьба прямая, опор из других дней нет — версии по самой записи, не отказ.
+    base += `\n\n---\n${HYPOTHESIS_RULE_LIGHT}`;
+    if (HYPOTHESIS_BODY_RE.test(documentContent)) base += `\n${HYPOTHESIS_BODY_LINE}`;
   }
 
   // Транзактный аналитик: шаг хода считает код по истории (taRule.ts) — модель
@@ -338,6 +344,8 @@ export function buildChatSystemPrompt(params: ChatPromptParams): string {
   // которые раньше перебивали правило. Только для русской реплики: английскому
   // ответу «ты/вы» не нужно.
   if (addressForm && personaId !== 'editor' && /[а-яё]/i.test(lastUserMessage ?? '')) {
+    // К29-1: род человека — рядом, тоже решён кодом. У Редактора своя строка «РОД АВТОРА».
+    base += `\n\n${AUTHOR_GENDER_LINES[authorGender ?? 'none']}`;
     base += `\n\n${ADDRESS_FORM_LINES[addressForm]}`;
   }
 
@@ -488,6 +496,7 @@ export const chatInputSchema = z.object({
     quoted: z.number().int().min(0).max(999),
     diverse: z.number().int().min(0).max(999),
     shown: z.number().int().min(0).max(999),
+    why: z.enum(HYPO_WHY).optional(),
   }).strict().nullish().catch(undefined),
   callType: z.enum(['auto_name', 'follow_up', 'query_expand', 'system_task']).nullish(),
   noteScope: z.object({

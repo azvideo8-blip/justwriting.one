@@ -85,6 +85,8 @@ async function settle<T>(p: Promise<T>, capMs = 200_000): Promise<T> {
   return value as T;
 }
 
+vi.mock('../../../shared/components/Toast', () => ({ useToast: () => ({ showToast: () => {} }) }));
+vi.mock('../../../shared/i18n', async importActual => ({ ...(await importActual<object>()), useLanguage: () => ({ t: (k: string) => k }) }));
 vi.mock('../../../core/sync/cloudSyncEnabled', () => ({ cloudSyncEnabled: () => env.syncOn }));
 vi.mock('../../../core/crypto/cryptoHelpers', () => ({
   getEncryptionEnabled: () => false,

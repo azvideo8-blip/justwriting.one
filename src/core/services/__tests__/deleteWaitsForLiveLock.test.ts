@@ -63,6 +63,8 @@ describe('A-2: deleteDocument never deletes outside the document lock', () => {
       .mockImplementation(async () => {
         const row = await (await getLocalDb(USER)).get('syncQueue', LOCK_KEY);
         lockOwnerAtDelete = row ? row.ownerToken ?? '(no token)' : null;
+        // Как настоящий (SB-2): удаление строки ставит задачу снести облачный ряд.
+        await (await getLocalDb(USER)).put('syncQueue', { id: 'delete_t', documentId: 'cloud1', type: 'delete', createdAt: 1, ownerId: USER, revocable: true });
         return true;
       });
     vi.mocked(CloudSyncService.removeCloudCopy).mockClear();

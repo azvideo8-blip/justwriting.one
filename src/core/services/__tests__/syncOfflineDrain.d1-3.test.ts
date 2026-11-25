@@ -48,7 +48,7 @@ beforeEach(async () => {
     id: `sync_${DOC}`, documentId: DOC, type: 'document', createdAt: Date.now(), ownerId: USER,
   } as never);
   await db.put('syncQueue', {
-    id: `sync_delete_${DOC}`, documentId: DOC, type: 'delete', createdAt: Date.now(), ownerId: USER,
+    id: `sync_delete_${DOC}`, documentId: DOC, type: 'delete', revocable: true, createdAt: Date.now(), ownerId: USER,
   } as never);
 });
 

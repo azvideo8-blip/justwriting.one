@@ -209,6 +209,7 @@ export const LocalDocumentService = {
             type: 'delete' as const,
             createdAt: Date.now(),
             ownerId: targetOwner,
+            revocable: true,
           })]
         : []),
       docStore.delete(id),

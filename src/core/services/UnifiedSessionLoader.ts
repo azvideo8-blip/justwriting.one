@@ -7,6 +7,7 @@ import { LocalVersionService } from './LocalVersionService';
 import { VersionService, isVersionContentTooLarge } from './VersionService';
 import { maybeDecrypt, DecryptionError, getEncryptionEnabled } from '../crypto/cryptoHelpers';
 import { toDate } from '../utils/dateUtils';
+import { pendingRemovalIds } from './syncQueueOps';
 import { reportError } from '../../shared/errors/reportError';
 import { getLocalDb } from '../storage/localDb';
 import { watchLocalDbStall } from '../storage/localDbStall';
@@ -51,6 +52,7 @@ export async function loadAllSessions(
   let cloudLoadFailed = false;
 
   const pendingDocIds = new Set<string>();
+  let removalIds = new Set<string>();
   try {
     // DY10-9: «Заметки» висели на чтении локальной базы без ошибки.
     const db = await watchLocalDbStall('loadAllSessions_openDb', getLocalDb(userId));
@@ -60,6 +62,7 @@ export async function loadAllSessions(
         pendingDocIds.add(item.documentId);
       }
     }
+    if (user) removalIds = await pendingRemovalIds(user.uid);
   } catch (err) {
     reportError(err, { action: 'loadAllSessions_syncQueue' });
   }
@@ -179,6 +182,7 @@ export async function loadAllSessions(
 
       const cloudSessions = cloudDocs
         .filter(cloudDoc => !localByCloudId.has(cloudDoc.id)
+          && !removalIds.has(cloudDoc.id)
           && !localUuids.has(cloudDoc.id)
           && !seenIds.has(cloudDoc.id))
         .map(cloudDoc => {

@@ -18,7 +18,7 @@
  * уже свёрнутый ответ. Здесь она живая и строчная.
  */
 
-import { countAbsentQuotes, RELATED_DAYS_HEAD } from './quoteGuard';
+import { countAbsentQuotes, countMisspelledQuotes, RELATED_DAYS_HEAD } from './quoteGuard';
 import { ANSWER_REF_RE, RESULTS_FOUND_RE, RESULTS_HEAD_RE, notesClaimWithoutRef } from './notesRefRule';
 
 const fold = (s: string): string => s.toLowerCase().replace(/ё/g, 'е');
@@ -59,6 +59,8 @@ export interface AnswerAudit {
   foreign_ids: number;
   /** MD-3: сколько кавычек клиент снимет как отсутствующие в материалах. */
   quote_unquoted: number;
+  /** К29-5: коротких цитат, где слово материалов искажено на одну букву. Только счёт. */
+  quote_misspelled: number;
   /**
    * К21-4: ответ пересказывает найденные записи, но не ссылается ни на одну —
    * 1, иначе 0. Тот же признак рисует пометку под ответом на клиенте.
@@ -224,6 +226,7 @@ export function auditAnswer(
     empty_claim_with_results: RESULTS_HEAD_RE.test(doc) && RESULTS_FOUND_RE.test(doc) && claimsEmptySearch(answer),
     foreign_ids: refs.size,
     quote_unquoted: countAbsentQuotes(answer, quoteMaterials ?? doc),
+    quote_misspelled: countMisspelledQuotes(answer, quoteMaterials ?? doc),
     notes_claim_no_ref: notesClaimWithoutRef(answer, doc) ? 1 : 0,
     ...groundingCounts(answer, doc),
     question_run: questionRun(answer, priorAssistant),

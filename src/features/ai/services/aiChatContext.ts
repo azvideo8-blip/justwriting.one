@@ -34,7 +34,7 @@ import { buildLiteRetrievalBlock } from './chatContext/liteRetrieval';
 import { buildTopicChronicleBlock } from './chatContext/topicChronicle';
 import { answerChronicleV2Enabled, chatHypothesesEnabled, chatInsightsEnabled } from '../../../core/sync/syncFlags';
 import { getChatExtrasEnabled } from '../../../core/ai/chatExtrasPreference';
-import { HYPOTHESIS_PERSONAS } from '../../../shared/ai/hypothesisRule';
+import { HYPOTHESIS_LIGHT_MARK, HYPOTHESIS_PERSONAS } from '../../../shared/ai/hypothesisRule';
 import { insightRecallBlock } from '../../../shared/ai/insightRecall';
 import { ARCHIVE_TURN_MARK } from '../../../shared/ai/archiveAnswerRule';
 import { buildHypothesisBlock, directHypothesisAsk, hypothesisAskOf } from './chatContext/hypothesisTurn';
@@ -751,22 +751,39 @@ export function useAIChatContext(personaId: string): {
       // опорой не бывает — опоры только из других дней.
       let directHyp: Awaited<ReturnType<typeof buildHypothesisBlock>> = null;
       let directStats: HypoStats | undefined;
-      if (!crisis && subjectId && !isAttachedExcluded && attachedBlock && directHypothesisAsk(text, effectivePersonaId)) {
-        const all = await AIEmbeddingService.getAll();
-        const own = all.find(e => e.documentId === subjectId)?.vectors ?? [];
-        const noteEmb = own.length > 0 ? own[0]!.map((_, i) => own.reduce((sum, v) => sum + (v[i] ?? 0), 0) / own.length) : undefined;
+      let lightHyp = false;
+      if (!crisis && !isAttachedExcluded && attachedBlock && directHypothesisAsk(text, effectivePersonaId, attachedContent)) {
         directStats = { cands: 0, picked: 0, quoted: 0, diverse: 0, shown: 0 };
-        directHyp = await buildHypothesisBlock({
-          text: `${attachedContent.slice(0, 1500)}\n\n${text}`.slice(0, 2000),
-          turnEmb: noteEmb, db, minTime: undefined, maxTime: undefined, injectedDocumentIds, allEmbeddings: all,
-          enabled: () => chatHypothesesEnabled(uid), pick: AIService.pickAnchors, direct: true, excludeIds: attachedIds, stats: directStats,
-        });
+        if (!(await chatHypothesesEnabled(uid).catch(() => false))) directStats.why = 'flag_off';
+        else {
+          if (subjectId) {
+            const all = await AIEmbeddingService.getAll();
+            let own = all.find(e => e.documentId === subjectId)?.vectors ?? [];
+            // К29-2 (владелец 25.11, вариант «а»): запись не разобрана — вектора нет. На прямую
+            // просьбу считаем его в этом же ходе, только для подбора опор, и не храним: запись
+            // разобранной не становится. Сбой — ход без опор, с облегчённым правилом.
+            // Ревью AP2: за время чтения флага заметку могли скрыть — провайдер её не получает.
+            if (own.length === 0 && hasIndexingConsent(uid) && !isExcludedFromAI(await db.get('documents', subjectId))) {
+              const subject = hid.visible.find(b => b.documentId === subjectId)?.content ?? '';
+              const res = await AIService.embed({ content: subject });
+              if (res.ok) own = res.vectors;
+            }
+            const noteEmb = own.length > 0 ? own[0]!.map((_, i) => own.reduce((sum, v) => sum + (v[i] ?? 0), 0) / own.length) : undefined;
+            directHyp = await buildHypothesisBlock({
+              text: `${attachedContent.slice(0, 1500)}\n\n${text}`.slice(0, 2000),
+              turnEmb: noteEmb, db, minTime: undefined, maxTime: undefined, injectedDocumentIds, allEmbeddings: all,
+              enabled: async () => true, pick: AIService.pickAnchors, direct: true, excludeIds: attachedIds, stats: directStats,
+            });
+          } else directStats.why = 'no_vector';
+          // Просьба прямая, опор нет — не отказ, а версии по самой записи.
+          lightHyp = directHyp === null;
+        }
       }
       const strictContext = related ? `${related.block}\n\n${noteBlock}` : noteBlock;
       return {
         userPortrait: strictPortrait,
         customPersona: customSystemPrompt,
-        searchContext: directHyp ? `${strictContext}\n\n${directHyp.block}` : strictContext,
+        searchContext: directHyp ? `${strictContext}\n\n${directHyp.block}` : lightHyp ? `${strictContext}\n\n${HYPOTHESIS_LIGHT_MARK}` : strictContext,
         documentMood: mood,
         memoryContext: null,
         injectedDocumentIds: [...new Set(injectedDocumentIds)],
@@ -1250,7 +1267,7 @@ export function useAIChatContext(personaId: string): {
       // записях — «когда впервые…?», «что я писала про…?» — сюда не попадает);
       // выдача полного поиска, если он был, остаётся. Без «почему» — не два хода подряд.
       // К26-1: прямая просьба о гипотезах — повод и при приложенной заметке, и подряд.
-      const hypothesisAsk = (!attached || directHypothesisAsk(text, effectivePersonaId)) && !noteIntentNoText && !crisis ? hypothesisAskOf(text, effectivePersonaId) : null;
+      const hypothesisAsk = (!attached || directHypothesisAsk(text, effectivePersonaId, attachedContent)) && !noteIntentNoText && !crisis ? hypothesisAskOf(text, effectivePersonaId) : null;
       const hypothesisWanted = hypothesisAsk !== null && (hypothesisAsk === 'why' || hypothesisAsk === 'direct' || !lastTurnHypothesisRef.current);
       if (hypothesisWanted) hypoStatsOut = { cands: 0, picked: 0, quoted: 0, diverse: 0, shown: 0 };
       const hypothesis = hypothesisWanted

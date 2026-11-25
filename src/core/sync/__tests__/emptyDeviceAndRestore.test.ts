@@ -9,6 +9,7 @@ import {
 } from '../useEmptyDeviceDetection';
 import { LocalStorageService } from '../../services/LocalStorageService';
 import { DocumentService } from '../../services/DocumentService';
+import { getLocalDb } from '../../storage/localDb';
 
 vi.mock('../../../features/auth/hooks/useAuthStatus', () => ({
   useAuthStatus: () => ({ user: { uid: 'user_restore_test' }, isGuest: false }),
@@ -120,5 +121,54 @@ describe('useEmptyDeviceDetection hook', () => {
     await waitFor(() => expect(result.current.showCloudBanner).toBe(true));
     expect(result.current.cloudCount).toBe(2);
   });
-});
 
+  // PR-1 (стенд 25.11): человек удалил единственную заметку, облако не ответило — окно
+  // звало «в облаке 1, загрузить?». Мутация: не отсеивать ждущих удаления — красный.
+  it('заметка, чьё удаление ждёт облака, не предлагается к загрузке', async () => {
+    const db = await getLocalDb('user_restore_test');
+    await db.put('syncQueue', { id: 'delete_cloud_1', documentId: 'cloud_1', type: 'delete', createdAt: 1, ownerId: 'user_restore_test', revocable: true });
+    vi.spyOn(LocalStorageService, 'getDocumentsByOwner').mockResolvedValue([]);
+    vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([{ id: 'cloud_1' }, { id: 'cloud_2' }] as never);
+
+    const { result } = renderHook(() => useEmptyDeviceDetection());
+    await waitFor(() => expect(result.current).toMatchObject({ cloudCount: 1, showCloudBanner: true }));
+    await db.clear('syncQueue');
+  });
+
+  // Ревью: дренаж снял строку и задачу, пока список читался. Мутация: не читать очередь до списка — красный.
+  it('удаление дошло, пока читался список, — заметка не предлагается', async () => {
+    const db = await getLocalDb('user_restore_test');
+    await db.put('syncQueue', { id: 'delete_cloud_1', documentId: 'cloud_1', type: 'delete', createdAt: 1, ownerId: 'user_restore_test', revocable: true });
+    vi.spyOn(LocalStorageService, 'getDocumentsByOwner').mockResolvedValue([]);
+    vi.spyOn(DocumentService, 'getUserDocuments').mockImplementation(async () => {
+      await db.clear('syncQueue');
+      return [{ id: 'cloud_1' }, { id: 'cloud_2' }] as never;
+    });
+    const { result } = renderHook(() => useEmptyDeviceDetection());
+    await waitFor(() => expect(result.current).toMatchObject({ cloudCount: 1, showCloudBanner: true }));
+  });
+
+  // Мутация: не читать очередь после списка — красный.
+  it('удаление поставлено, пока читался список, — заметка не предлагается', async () => {
+    const db = await getLocalDb('user_restore_test');
+    vi.spyOn(LocalStorageService, 'getDocumentsByOwner').mockResolvedValue([]);
+    vi.spyOn(DocumentService, 'getUserDocuments').mockImplementation(async () => {
+      await db.put('syncQueue', { id: 'delete_cloud_1', documentId: 'cloud_1', type: 'delete', createdAt: 1, ownerId: 'user_restore_test', revocable: true });
+      return [{ id: 'cloud_1' }, { id: 'cloud_2' }] as never;
+    });
+    const { result } = renderHook(() => useEmptyDeviceDetection());
+    await waitFor(() => expect(result.current).toMatchObject({ cloudCount: 1, showCloudBanner: true }));
+    await db.clear('syncQueue');
+  });
+
+  // Мутация: не отсеивать ждущих удаления среди нечитаемых — красный.
+  it('нечитаемая заметка, ждущая удаления, тоже не в счёт', async () => {
+    const db = await getLocalDb('user_restore_test');
+    await db.put('syncQueue', { id: 'delete_bad', documentId: 'bad', type: 'delete', createdAt: 1, ownerId: 'user_restore_test', revocable: true });
+    vi.spyOn(LocalStorageService, 'getDocumentsByOwner').mockResolvedValue([]);
+    vi.spyOn(DocumentService, 'getUserDocuments').mockRejectedValue(Object.assign(new Error('UNREADABLE_CLOUD_LIST: 2'), { name: 'UnreadableCloudListError', docs: [], ids: ['bad', 'bad2'], uuids: ['bad', 'bad2'] }));
+    const { result } = renderHook(() => useEmptyDeviceDetection());
+    await waitFor(() => expect(result.current).toMatchObject({ cloudCount: 1, cloudUnreadable: 1 }));
+    await db.clear('syncQueue');
+  });
+});

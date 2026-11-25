@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { DocumentService } from '../../../core/services/DocumentService';
 import { isUnreadableCloudList } from '../../../core/services/cloudListPartial';
+import { pendingRemovalIds } from '../../../core/services/syncQueueOps';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { VersionService } from '../../../core/services/VersionService';
@@ -73,6 +74,15 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
           if (isUnreadableCloudList(e)) cloudDocs = e.docs;
           reportError(e, { action: 'lifeLog/fetchCloudDocs' });
           didFail = true;
+        }
+      }
+
+      if (cloudDocs.length > 0) {
+        try {
+          const removal = await pendingRemovalIds(userId);
+          cloudDocs = cloudDocs.filter(d => !removal.has(d.id));
+        } catch (e) {
+          reportError(e, { action: 'lifeLog/pendingRemoval' });
         }
       }
 

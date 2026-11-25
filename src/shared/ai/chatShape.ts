@@ -16,7 +16,11 @@ const PERSONA_IDS = ['group_psychology', 'cbt', 'coach', 'editor', 'parts', 'ta'
  * служебный вызов, у скольких нашёлся отрывок, сколько осталось после фильтра
  * «опоры о разном», сколько показано. Только числа.
  */
-export interface HypoStats { cands: number; picked: number; quoted: number; diverse: number; shown: number }
+export interface HypoStats { cands: number; picked: number; quoted: number; diverse: number; shown: number; why?: HypoWhy | undefined }
+
+/** К29-2: почему блока опор нет. Только перечисление — текста в журнале нет. */
+export const HYPO_WHY = ['flag_off', 'no_vector', 'few_candidates', 'few_anchors'] as const;
+export type HypoWhy = (typeof HYPO_WHY)[number];
 
 export interface ChatShapeLog {
   persona: string;
@@ -69,7 +73,7 @@ export function chatShape(input: ChatShapeInput): ChatShapeLog {
     portraitChars: input.userPortrait?.length ?? 0,
     memoryChars: input.memoryContext?.length ?? 0,
     systemChars: input.system.length,
-    ...(input.hypoStats ? { hypo: { cands: input.hypoStats.cands, picked: input.hypoStats.picked, quoted: input.hypoStats.quoted, diverse: input.hypoStats.diverse, shown: input.hypoStats.shown } } : {}),
+    ...(input.hypoStats ? { hypo: { cands: input.hypoStats.cands, picked: input.hypoStats.picked, quoted: input.hypoStats.quoted, diverse: input.hypoStats.diverse, shown: input.hypoStats.shown, ...(input.hypoStats.why && HYPO_WHY.includes(input.hypoStats.why) ? { why: input.hypoStats.why } : {}) } } : {}),
     ...(input.documentContent?.includes(INSIGHT_RECALL_MARK) ? { recall: 1 } : {}),
   };
 }

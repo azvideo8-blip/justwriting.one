@@ -32,8 +32,8 @@ async function seed(db: Awaited<ReturnType<typeof getLocalDb>>) {
   await db.put('documents', { id: HID_ID, guestId: 'u1', title: 'Скрытая', currentVersion: 1, firstSessionAt: at, lastSessionAt: at, tags: [], excludedFromAI: true } as never);
   vi.spyOn(LocalVersionService, 'getLatestContent').mockImplementation(async (id: string) =>
     id === VIS_ID
-      ? 'Я назвала сумму и потом весь день прокручивала этот разговор.'
-      : 'Я согласился с ценой и подписал договор.');
+      ? 'Я назвала сумму. Потом я весь день прокручивала разговор. Вечером я устала.'
+      : 'Я согласился с ценой. Я подписал договор. Я уехал.');
 }
 
 describe('PR-10: скрытая заметка род не задаёт', () => {
@@ -46,8 +46,8 @@ describe('PR-10: скрытая заметка род не задаёт', () => 
     const ctx = await result.current.buildContext({
       text: 'собери пост',
       attached: { blocks: [
-        { documentId: VIS_ID, title: 'Видимая', content: 'Я назвала сумму и потом весь день прокручивала этот разговор.' },
-        { documentId: HID_ID, title: 'Скрытая', content: 'Я согласился с ценой и подписал договор.' },
+        { documentId: VIS_ID, title: 'Видимая', content: 'Я назвала сумму. Потом я весь день прокручивала разговор. Вечером я устала.' },
+        { documentId: HID_ID, title: 'Скрытая', content: 'Я согласился с ценой. Я подписал договор. Я уехал.' },
       ] },
       mood: undefined,
       messageHistory: [],
@@ -61,7 +61,7 @@ describe('PR-10: скрытая заметка род не задаёт', () => 
   });
 
   it('детектор по сырому смешанному тексту даёт null, по видимому — f', () => {
-    expect(detectAuthorGender('Я назвала сумму. Я согласился с ценой.')).toBeNull();
-    expect(detectAuthorGender('Я назвала сумму и прокручивала разговор.')).toBe('f');
+    expect(detectAuthorGender('Я назвала сумму. Я ждала. Я устала. Я согласился с ценой.')).toBeNull();
+    expect(detectAuthorGender('Я назвала сумму. Я ждала. Я устала.')).toBe('f');
   });
 });

@@ -203,7 +203,7 @@ describe('Phase 2 Sync Fix Tickets: SYNC-1, SYNC-2, SYNC-4', () => {
       await db.put('syncQueue', {
         id: 'del_1',
         documentId: 'doc_to_delete',
-        type: 'delete' as const,
+        type: 'delete' as const, revocable: true,
         createdAt: Date.now(),
         ownerId: userId,
       } as never);
@@ -228,7 +228,7 @@ describe('Phase 2 Sync Fix Tickets: SYNC-1, SYNC-2, SYNC-4', () => {
       await db.put('syncQueue', {
         id: 'del_fail',
         documentId: 'doc_fail',
-        type: 'delete' as const,
+        type: 'delete' as const, revocable: true,
         createdAt: Date.now(),
         ownerId: userId,
       } as never);

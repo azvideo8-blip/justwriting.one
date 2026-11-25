@@ -1,5 +1,6 @@
 import { getLocalDb } from '../storage/localDb';
 import { logger } from '../../shared/errors/logger';
+import { withDocumentLock } from '../sync/withDocumentLock';
 import { reportError } from '../../shared/errors/reportError';
 import { StorageService } from './StorageService';
 import { LocalDocumentService } from './LocalDocumentService';
@@ -279,17 +280,17 @@ export const SyncService = {
     // opts.force обходит тумблер только для явного действия человека; фоновый
     // дренаж (возврат сети, сохранение) его не передаёт — при выключенной
     // синхронизации очередь не уходит.
-    if (!opts?.force && !cloudSyncEnabled(userId)) {
-      return { drained: 0, failed: 0, skippedReason: 'sync_disabled' };
-    }
+    // PR-1: исключение — удаления: текста они не отправляют, а прямое удаление тумблер
+    // не читает, и отложенное не ушло бы никогда.
+    const deletesOnly = !opts?.force && !cloudSyncEnabled(userId);
     if (_syncInProgress.get(userId)) {
       return { drained: 0, failed: 0, skippedReason: 'in_progress' };
     }
     _syncInProgress.set(userId, true);
 
     try {
-      const res = await _drainPendingQueue(userId);
-      return res;
+      const res = await _drainPendingQueue(userId, deletesOnly);
+      return deletesOnly ? { ...res, skippedReason: res.skippedReason ?? 'sync_disabled' } : res;
     } finally {
       _syncInProgress.delete(userId); // [A-08] delete вместо set(false): очищаем Map, а не накапливаем false-записи
     }
@@ -573,7 +574,7 @@ export const SyncService = {
 
 };
 
-async function _drainPendingQueue(userId: string): Promise<SyncPendingResult> {
+async function _drainPendingQueue(userId: string, deletesOnly = false): Promise<SyncPendingResult> {
   // D1-3: офлайн — пауза, а не попытка. Каждый фон 120 с бросал «Not connected
   // to cloud» (транзиентная), и через 10 проходов задачи уходили в карантин.
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -593,7 +594,7 @@ async function _drainPendingQueue(userId: string): Promise<SyncPendingResult> {
   // field have no stamp and are treated as this user's: they can only have come
   // from this device's own earlier session.
   const foreign = queue.filter(item => item.ownerId !== undefined && item.ownerId !== userId);
-  if (foreign.length > 0) {
+  if (foreign.length > 0 && !deletesOnly) {
     reportError(
       new Error(`Sync queue holds ${foreign.length} task(s) belonging to another account`),
       { action: 'drainPendingQueue_foreignOwner', count: foreign.length },
@@ -605,7 +606,7 @@ async function _drainPendingQueue(userId: string): Promise<SyncPendingResult> {
     if (item.id.startsWith('lock_cloud_')) return false;
     if (item.dead) return false; // AUDIT-H4: карантинные задачи не дренируются
     if (item.ownerId !== undefined && item.ownerId !== userId) return false;
-    return true;
+    return !deletesOnly || item.type === 'delete';
   });
 
   if (pending.length === 0) return { drained: 0, failed: 0 };
@@ -632,13 +633,28 @@ async function _drainPendingQueue(userId: string): Promise<SyncPendingResult> {
   if (deleteTasks.length > 0) {
     const deleteResults = await Promise.allSettled(deleteTasks.map(task =>
       limit(async () => {
-        await CloudSyncService.removeCloudCopy(userId, task.documentId);
-        return task.id;
+        // Задача до 0.11.27: «Восстановить» её не снимало, и она снесла бы восстановленное.
+        // Снимаем не исполняя — заметка видна, удалить её можно ещё раз.
+        if (!task.revocable) {
+          reportError(new Error('Pre-0.11.27 removal dropped'), { action: 'drainPendingQueue_oldRemoval', documentId: task.documentId }, 'warning');
+          return task.id;
+        }
+        // PR-1: замок облачной строки — общий со скачиванием и восстановлением. Занят —
+        // задача ждёт следующего прохода.
+        return withDocumentLock<string | null>(task.documentId, async () => {
+          if (!(await db.get('syncQueue', task.id))) return null; // сняли восстановлением
+          // Удаление снимает локальную строку той же транзакцией, что ставит задачу
+          // (SB-2). Строка на устройстве есть — заметку вернули, задача устарела.
+          const alive = (await db.getAll('documents')).some(d => d.linkedCloudId === task.documentId || d.uuid === task.documentId);
+          if (alive) reportError(new Error('Stale removal dropped: the note is alive on this device'), { action: 'drainPendingQueue_staleRemoval', documentId: task.documentId }, 'warning');
+          else await CloudSyncService.removeCloudCopy(userId, task.documentId);
+          return task.id;
+        }, { queueOnHeld: false, onLockHeld: () => null, ownerId: userId });
       })
     ));
     for (const r of deleteResults) {
       if (r.status === 'fulfilled') {
-        syncedIds.push(r.value);
+        if (r.value !== null) syncedIds.push(r.value);
       } else {
         logger.error('drainPendingQueue_delete', 'Delete sync failed', { reason: String(r.reason) });
         const idx = deleteResults.indexOf(r);

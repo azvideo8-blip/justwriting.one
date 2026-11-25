@@ -97,7 +97,7 @@ describe('FN-6: итог syncAllUnlinked', () => {
   it('в очереди только удаление — synced 0, не «Синхронизировано: 1»', async () => {
     getDocumentsByOwner.mockResolvedValue([]);
     const db = await getLocalDb(USER);
-    await db.put('syncQueue', { id: 'sync_del_fn6', type: 'delete', documentId: 'cloud_x', ownerId: USER, attempts: 0, createdAt: Date.now() } as never);
+    await db.put('syncQueue', { id: 'sync_del_fn6', type: 'delete', revocable: true, documentId: 'cloud_x', ownerId: USER, attempts: 0, createdAt: Date.now() } as never);
     const res = await SyncService.syncAllUnlinked(USER);
     expect(await db.getAll('syncQueue'), 'удаление не снято — тест ничего не проверяет').toHaveLength(0);
     expect(res.synced).toBe(0);
@@ -119,7 +119,7 @@ describe('FN-6: итог syncAllUnlinked', () => {
   it('карантинные задачи (удаление и документ) не считаются ни ошибкой, ни ожиданием', async () => {
     getDocumentsByOwner.mockResolvedValue([]);
     const db = await getLocalDb(USER);
-    await db.put('syncQueue', { id: 'sync_dead_del', type: 'delete', documentId: 'cloud_dead', ownerId: USER, attempts: 5, dead: true, createdAt: Date.now() } as never);
+    await db.put('syncQueue', { id: 'sync_dead_del', type: 'delete', revocable: true, documentId: 'cloud_dead', ownerId: USER, attempts: 5, dead: true, createdAt: Date.now() } as never);
     await db.put('syncQueue', { id: 'sync_dead_doc', type: 'document', documentId: 'dead_doc', ownerId: USER, attempts: 5, dead: true, createdAt: Date.now() } as never);
     const res = await SyncService.syncAllUnlinked(USER);
     expect(await db.getAll('syncQueue'), 'карантин должен остаться в очереди — иначе тест ничего не проверяет').toHaveLength(2);

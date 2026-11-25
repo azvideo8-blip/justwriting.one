@@ -42,7 +42,8 @@ import {
 import { hiddenNoteIdsFromDocs } from '../utils/hiddenNoteIds';
 import { localDocIds } from '../utils/canonicalDocumentId';
 import { isPastedAttachmentId } from '../utils/isExcludedFromAI';
-import { detectAuthorGender } from '../../../shared/ai/authorGender';
+import { aiWrittenNoteIds, humanQuestions } from '../utils/aiAuthorship';
+import { detectAuthorGender, expandGenderForms } from '../../../shared/ai/authorGender';
 import type { AttachedNoteBlock } from '../utils/attachedNoteFormat';
 import { extractCitationIds } from '../services/chatContext/citations';
 import { sanitizeFirstSeenDates } from '../utils/dateGuard';
@@ -706,11 +707,21 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       const strictNote = turnMode === 'note' && visibleBlocks.length === 1 && visibleBlocks[0]!.content
         ? { noteId: visibleBlocks[0]!.documentId, noteText: visibleBlocks[0]!.content }
         : null;
+      // PR-10 (18.2) + К29-1: род человека — по его репликам и приложенной заметке, для
+      // всех характеров. Найденные записи, портрет, вставленный текст и текст ИИ не в счёт.
+      const aiWritten = aiWrittenNoteIds(visibleBlocks, question, baseMessages);
+      const authorGender = detectAuthorGender([
+        ...humanQuestions('', apiMessages),
+        ...visibleBlocks.filter(b => !isPastedAttachmentId(b.documentId) && !aiWritten.has(b.documentId)).map(b => b.content),
+      ].join('\n'))
+        // Редактор пишет пост от лица автора из материалов хода — там, как раньше, и берёт род, если больше негде.
+        ?? (!customPersona && personaId === 'editor' ? detectAuthorGender(searchContext) : null) ?? undefined;
       const citeIdSet = new Set(citeIds);
       const priorAssistantTexts = apiMessages.filter(m => m.role === 'assistant').map(m => m.content);
-      const repairRefs = (answerText: string) => strictNote
-        ? repairStrictNoteRefs(answerText, strictNote, priorAssistantTexts, citeIdSet)
-        : answerText;
+      const polishAnswer = (answerText: string) => expandGenderForms(
+        strictNote ? repairStrictNoteRefs(answerText, strictNote, priorAssistantTexts, citeIdSet) : answerText,
+        authorGender,
+      );
       // П-4: по графемам — slice мог разрезать эмодзи пополам.
       const safePortrait = userPortrait && userPortrait.length > 4_000 ? truncateText(userPortrait, 4_000, { maxCodeUnits: 4_000 }) : userPortrait;
 
@@ -728,9 +739,6 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
       const customSystemPrompt = customPersona;
       const effectivePersonaId = customPersona ? 'custom' : personaId;
-      // PR-10 (18.2): род автора — по формам прошедшего времени из материалов
-      // этого хода (приложенная заметка и найденные записи), не догадкой модели.
-      const authorGender = effectivePersonaId === 'editor' ? detectAuthorGender(searchContext) ?? undefined : undefined;
 
       // Response length and reasoning variables moved to top of sendMessage
 
@@ -757,7 +765,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             hypoStats,
             signal: controller.signal,
             onChunk: (partial, reasoning) => {
-              const cleanPartial = repairRefs(guardDates(
+              const cleanPartial = polishAnswer(guardDates(
                 sanitizeCitations(toolCallToSearchMarker(partial), citeIds, injectedTitles, materialsText, { personaId: effectivePersonaId, quoteMaterialsText: quoteMaterials, dropFabricatedSentences: archiveTurn })
               ));
               const cleanReasoning = reasoning
@@ -817,7 +825,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             }
             if (cleanAnswer) {
               setStreamingMessage(
-                repairRefs(guardDates(
+                polishAnswer(guardDates(
                   sanitizeCitations(cleanAnswer, citeIds, injectedTitles, materialsText, { personaId: effectivePersonaId, quoteMaterialsText: quoteMaterials, dropFabricatedSentences: archiveTurn })
                 ))
               );
@@ -861,7 +869,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         const guarded = guardDates(
           sanitizeCitations(s, citeIds, injectedTitles, materialsText, reasoningPart ? { reasoning: true } : { personaId: effectivePersonaId, quoteMaterialsText: quoteMaterials, dropFabricatedSentences: archiveTurn })
         );
-        return reasoningPart ? guarded : repairRefs(guarded);
+        return reasoningPart ? guarded : polishAnswer(guarded);
       };
       let savedText = clean(extractAnswer(fullText), false);
       const rawReasoning = extractReasoning(fullText);

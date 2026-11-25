@@ -11,6 +11,9 @@ vi.mock('../../services/draftWriter', async (importActual) => ({
   ...(await importActual<typeof import('../../services/draftWriter')>()),
   resolve: vi.fn(),
 }));
+const showToast = vi.hoisted(() => vi.fn());
+vi.mock('../../../../shared/components/Toast', () => ({ useToast: () => ({ showToast }) }));
+vi.mock('../../../../shared/i18n', () => ({ useLanguage: () => ({ t: (k: string) => k }) }));
 import { resolve } from '../../services/draftWriter';
 
 describe('DW-F-3: useDraftSession не подставляет устаревший ответ загрузки', () => {

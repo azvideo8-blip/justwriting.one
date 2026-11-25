@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuthStatus } from '../../features/auth/hooks/useAuthStatus';
 import { CloudSyncService } from '../../core/services/CloudSyncService';
 import { withRateLimitRetry } from '../../core/services/rateGate';
+import { pendingRemovalIds } from '../../core/services/syncQueueOps';
 import { emitDomainEvent } from '../../core/events/domainEvents';
 import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
 import { setCloudSyncEnabled } from '../../core/sync/cloudSyncEnabled';
@@ -77,12 +78,20 @@ export function RestoreFromCloudModal({
   const [cloudUnreadable, setCloudUnreadable] = useState(initialCloudUnreadable ?? 0);
   // Битый ряд не делает список пустым: прочитанные считаем, нечитаемые — отдельно.
   const readCloudDocs = useCallback(async (uid: string) => {
+    // PR-1: ждущие удаления не предлагаем — скачать их всё равно нельзя.
+    // Очередь — до и после списка: дренаж мог снять и строку, и задачу, пока список читался.
+    const before = pendingRemovalIds(uid);
+    before.catch(() => undefined); // отказ всплывёт ниже, вместе со списком
+    const kept = async <T,>(rows: T[], idOf: (r: T) => string) => {
+      const removal = new Set([...await before, ...await pendingRemovalIds(uid)]);
+      return rows.filter(r => !removal.has(idOf(r)));
+    };
     try {
       // DW6-5.4: 429 — «помедленнее», а не сбой чтения: список облака под общим
       // тормозом, как все остальные синхие чтения.
-      return { docs: await withRateLimitRetry(() => DocumentService.getUserDocuments(uid)), unreadable: 0 };
+      return { docs: await kept(await withRateLimitRetry(() => DocumentService.getUserDocuments(uid)), d => d.id), unreadable: 0 };
     } catch (e) {
-      if (isUnreadableCloudList(e)) return { docs: e.docs, unreadable: e.ids.length };
+      if (isUnreadableCloudList(e)) return { docs: await kept(e.docs, d => d.id), unreadable: (await kept(e.ids, id => id)).length };
       throw e;
     }
   }, []);

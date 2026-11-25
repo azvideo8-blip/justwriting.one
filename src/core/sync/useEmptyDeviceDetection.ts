@@ -126,12 +126,19 @@ export function useEmptyDeviceDetection(opts?: { cloudOnlyWhenEmpty?: boolean })
       const { readCloudDocumentsPartial } = await import('../services/cloudListPartial');
       // DW6-5.4: облачное чтение шло без общего тормоза 429 — один отбитый запрос
       // убирал вопрос о восстановлении, как «облака нет».
+      // PR-1 (стенд 25.11): удалённая заметка, чьё удаление ждёт облака, в облаке ещё
+      // жива — «в облаке N, загрузить?» звало вернуть то, что человек удалил. Очередь — до
+      // и после списка: дренаж мог снять и строку, и задачу, пока список читался.
+      const { pendingRemovalIds } = await import('../services/syncQueueOps');
+      const removalBefore = await pendingRemovalIds(uid);
       const cloudList = await withRateLimitRetry(() => readCloudDocumentsPartial(uid));
+      const removalAfter = await pendingRemovalIds(uid);
+      const kept = (id: string) => !removalBefore.has(id) && !removalAfter.has(id);
       // Н-3: на пустом устройстве нечитаемые заметки — тоже заметки: «облако пусто»
       // было бы неправдой (окно восстановления назовёт их само). Если на устройстве
       // что-то есть, они вопрос не навязывают: скачать их всё равно нельзя.
-      const unreadable = localLen === 0 ? cloudList.unreadable.length : 0;
-      const cloudLen = cloudList.docs.length + unreadable;
+      const unreadable = localLen === 0 ? cloudList.unreadable.filter(kept).length : 0;
+      const cloudLen = cloudList.docs.filter(d => kept(d.id)).length + unreadable;
 
       // AG-RESTORE-1: Prompt if local device has fewer notes than the cloud.
       // RA1-5: отклонённая модалка гасит только вопрос; счётчики читаются и

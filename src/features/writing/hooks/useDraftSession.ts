@@ -4,6 +4,8 @@ import { useTimerStore } from '../store/useTimerStore';
 import { useContentStore } from '../store/useContentStore';
 import { applyDraftToStores } from '../utils/draftUtils';
 import { applyDelete, markEditorTextOwner, resolve } from '../services/draftWriter';
+import { useToast } from '../../../shared/components/Toast';
+import { useLanguage } from '../../../shared/i18n';
 
 export interface DraftSessionState {
   hasDraft: boolean;
@@ -20,6 +22,8 @@ export interface DraftSessionState {
 export function useDraftSession(userId: string, isGuest: boolean): DraftSessionState {
   const [hasDraft, setHasDraft] = useState(false);
   const [draftInEditor, setDraftInEditor] = useState(false);
+  const { showToast } = useToast();
+  const { t } = useLanguage();
 
   // DW-F-3: ответ загрузки может прийти после смены аккаунта в этой вкладке —
   // подставлять его нельзя, текст прежнего человека окажется под новым.
@@ -29,9 +33,14 @@ export function useDraftSession(userId: string, isGuest: boolean): DraftSessionS
   const discardDraft = useCallback(async () => {
     // Шаг 6 DW-4: единственный вход удаления — `applyDelete`; подъём эпохи
     // (шаг 5) и стирание обоих локальных адресов — там же.
-    await applyDelete(userId, 'close', isGuest ? { guest: true } : {});
-    setHasDraft(false);
-  }, [userId, isGuest]);
+    // Облачная половина при отказе сама держит отметку досылки. Локальный отказ у аккаунта
+    // закрыт надгробием (`resolve` снесёт строку), у гостя надгробия нет — черновик на
+    // месте: полосу не гасим и говорим об этом.
+    const { localOk } = await applyDelete(userId, 'close', isGuest ? { guest: true } : {}); // намеренно: cloudOk — досылка стоит в очереди
+    const stays = isGuest && !localOk;
+    setHasDraft(stays);
+    if (stays) showToast(t('error_delete_failed'), 'error');
+  }, [userId, isGuest, showToast, t]);
 
   const handleCancel = useCallback(async () => {
     await discardDraft();

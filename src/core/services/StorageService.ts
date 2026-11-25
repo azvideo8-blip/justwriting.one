@@ -74,16 +74,22 @@ async function queueMetadataRetry(userId: string, localId: string): Promise<void
 async function queueCloudRemoval(userId: string, cloudId: string): Promise<void> {
   const db = await getLocalDb(userId);
   const existing = (await db.getAll('syncQueue')).find(t => t.type === 'delete' && t.documentId === cloudId);
-  if (existing && !existing.dead) return;
+  if (existing && !existing.dead && existing.revocable) return;
   // Повторное удаление оживляет задачу из карантина: мёртвая не дренируется, и
   // «из облака удалится позже» было бы неправдой (дейлик 25.11).
-  await db.put('syncQueue', existing ? { ...existing, dead: false, attempts: 0 } : {
+  // updatedAt — чтобы идущий проход, решивший снять прежнюю задачу, не снял новую (SB-1).
+  await db.put('syncQueue', existing ? { ...existing, dead: false, attempts: 0, revocable: true, updatedAt: Date.now() } : {
     id: `delete_${cloudId}_${Date.now()}`,
     documentId: cloudId,
     type: 'delete' as const,
     createdAt: Date.now(),
     ownerId: userId,
+    revocable: true,
   });
+}
+
+async function hasRemovalTask(userId: string, cloudId: string): Promise<boolean> {
+  return (await (await getLocalDb(userId)).getAll('syncQueue')).some(t => t.type === 'delete' && t.documentId === cloudId);
 }
 
 // Подтверждённое удаление: очередь больше не должна помнить про ряд, иначе
@@ -97,6 +103,18 @@ async function clearCloudRemovalTasks(userId: string, cloudId: string): Promise<
   await tx.done;
 }
 
+// Дождаться, пока удаление этой строки (другая вкладка, дренаж) закончится.
+async function withCloudRowLock(userId: string, cloudId: string, fn: () => Promise<void>): Promise<void> {
+  const startedAt = Date.now();
+  for (;;) {
+    const done = await withDocumentLock(cloudId, async () => { await fn(); return true; },
+      { queueOnHeld: false, onLockHeld: () => false, ownerId: userId });
+    if (done) return;
+    if (Date.now() - startedAt >= LOCK_TTL_MS * 2) throw new Error(`LOCK_HELD: cloud document ${cloudId} is busy`);
+    await new Promise(r => setTimeout(r, 500));
+  }
+}
+
 async function deleteDocumentUnlocked(userId: string, localId?: string, cloudId?: string): Promise<{ cloudSynced: boolean; derivativesOk: boolean; applied: boolean }> {
   const { cloudId: targetCloudId, failed: lookupFailed } = await resolveCloudId(userId, localId, cloudId);
   let derivativesOk = true;
@@ -108,12 +126,19 @@ async function deleteDocumentUnlocked(userId: string, localId?: string, cloudId?
   let cloudSynced = !lookupFailed;
   if (targetCloudId && !lookupFailed) {
     try {
-      await CloudSyncService.removeCloudCopy(userId, targetCloudId);
-      await clearCloudRemovalTasks(userId, targetCloudId);
+      // Замок облачной строки — общий со скачиванием, дренажом и восстановлением.
+      // Занят — задача уже стоит, облако доделает дренаж.
+      cloudSynced = await withDocumentLock(targetCloudId, async () => {
+        if (!(await hasRemovalTask(userId, targetCloudId))) return false; // сняли восстановлением
+        await CloudSyncService.removeCloudCopy(userId, targetCloudId);
+        await clearCloudRemovalTasks(userId, targetCloudId);
+        return true;
+      }, { queueOnHeld: false, onLockHeld: () => false, ownerId: userId });
     } catch (e) {
       cloudSynced = false;
+      // Задача уже стоит (поставлена до вызова облака); ставить её заново нельзя —
+      // за время вызова её могло снять восстановление.
       reportError(e, { action: 'deleteDocument_cloudDelete', documentId: targetCloudId });
-      await queueCloudRemoval(userId, targetCloudId);
     }
   }
   // DY6-5 (приёмка 26.10, Н-1): сигнал живёт в ядре — любое применённое удаление
@@ -176,16 +201,18 @@ export const StorageService = {
 
   async restoreDocument(userId: string, localId?: string, cloudId?: string): Promise<{ cloudSynced: boolean }> {
     const { cloudId: targetCloudId, failed: lookupFailed } = await resolveCloudId(userId, localId, cloudId);
-    // Восстановление сильнее прошлого «удалить навсегда»: задача, не доехавшая до
-    // облака, снесла бы восстановленную заметку (дейлик 25.11).
-    if (targetCloudId) await clearCloudRemovalTasks(userId, targetCloudId);
     if (localId) {
       await LocalDocumentService.restoreDocument(localId, userId);
     }
     let cloudSynced = true;
     if (targetCloudId && !userId.startsWith('guest')) {
       try {
-        await DocumentService.restoreDocument(userId, targetCloudId);
+        await withCloudRowLock(userId, targetCloudId, async () => {
+          // Восстановление сильнее прошлого «удалить навсегда»: задача, не доехавшая до
+          // облака, снесла бы восстановленную заметку (дейлик 25.11).
+          await clearCloudRemovalTasks(userId, targetCloudId);
+          await DocumentService.restoreDocument(userId, targetCloudId);
+        });
       } catch (e) {
         // Без локальной копии досылать нечего: ничего не изменилось — это отказ,
         // а не «отправится позже» (находка 19.11; вызывающие показывают ошибку).

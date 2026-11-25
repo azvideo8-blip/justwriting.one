@@ -2,7 +2,7 @@ import { getLocalDb } from '../../../../core/storage/localDb';
 import { AIEmbeddingService } from '../AIEmbeddingService';
 import { cosineSimilarity } from '../../../../shared/utils/vectorMath';
 import { reportError } from '../../../../shared/errors/reportError';
-import type { HypoStats } from '../../../../shared/ai/chatShape';
+import type { HypoStats, HypoWhy } from '../../../../shared/ai/chatShape';
 import { formatDateYYYYMMDD } from './corpusStats';
 import { loadAnalysedIds } from '../../utils/retrieval/docSnapshot';
 import { isExcludedFromAI } from '../../utils/isExcludedFromAI';
@@ -43,9 +43,12 @@ const REFLECT_MIN_CHARS = 60;
 // но именно о том, что делает этот ход.
 const DIRECT_RE = new RegExp(`${B}(?:гипотез[а-яё]*|верси[июй]|версиями|предположени[яй]|предположениями)${E}`, 'i');
 
-/** К26-1: прямая просьба о гипотезах — повод для хода с несколькими версиями. */
-export function directHypothesisAsk(text: string, personaId: string): boolean {
-  return HYPOTHESIS_PERSONAS.includes(personaId) && DIRECT_RE.test(text) && !GREY_ZONE_RE.test(text);
+/**
+ * К26-1: прямая просьба о гипотезах — повод для хода с несколькими версиями. Серая зона
+ * считается и в приложенной записи (ревью К29-2): на ней — протокол БЕЗОПАСНОСТЬ, не версии.
+ */
+export function directHypothesisAsk(text: string, personaId: string, attachedText = ''): boolean {
+  return HYPOTHESIS_PERSONAS.includes(personaId) && DIRECT_RE.test(text) && !GREY_ZONE_RE.test(text) && !GREY_ZONE_RE.test(attachedText);
 }
 // «Серая зона» кризиса: слова о нежелании жить или просыпаться, об исчезновении.
 // Детектор риска (detectRisk) ловит явный риск и на таких фразах молчит, а
@@ -188,9 +191,10 @@ export async function buildHypothesisBlock(deps: {
 }): Promise<HypothesisBlock | null> {
   const { text, turnEmb, db, minTime, maxTime, injectedDocumentIds, allEmbeddings, enabled, pick, direct, excludeIds } = deps;
   const excluded = new Set(excludeIds ?? []);
-  if (!turnEmb) return null;
+  const none = (why: HypoWhy) => { if (deps.stats) deps.stats.why = why; return null; };
+  if (!turnEmb) return none('no_vector');
   try {
-    if (!(await enabled().catch(() => false))) return null;
+    if (!(await enabled().catch(() => false))) return none('flag_off');
     const [allEmb, docs, analysed, summaries] = await Promise.all([
       allEmbeddings ?? AIEmbeddingService.getAll(),
       db.getAll('documents'),
@@ -210,7 +214,7 @@ export async function buildHypothesisBlock(deps: {
     }
     const candidates = hypothesisCandidates(turnEmb, notes, gists);
     if (deps.stats) deps.stats.cands = candidates.length;
-    if (candidates.length < HYPOTHESIS_MATERIAL.minCandidates) return null;
+    if (candidates.length < HYPOTHESIS_MATERIAL.minCandidates) return none('few_candidates');
     const noteById = new Map(notes.map(n => [n.id, n]));
     const pickedIds = await pick(text, candidates);
     const picked: PickedAnchor[] = pickedIds.flatMap(p => {
@@ -225,7 +229,8 @@ export async function buildHypothesisBlock(deps: {
     const anchors = diverse.length >= 2 ? diverse : [...diverse, ...picked.filter(p => !diverse.includes(p))].slice(0, 3);
     const result = buildAnchorBlock(candidates, anchors, notes, direct === true);
     if (deps.stats) Object.assign(deps.stats, { picked: pickedIds.length, quoted: picked.length, diverse: diverse.length, shown: result?.ids.length ?? 0 });
-    if (result) injectedDocumentIds.push(...result.ids);
+    if (!result) return none('few_anchors');
+    injectedDocumentIds.push(...result.ids);
     return result;
   } catch (e) {
     reportError(e, { action: '[useAIChatContext] hypothesis material failed' });

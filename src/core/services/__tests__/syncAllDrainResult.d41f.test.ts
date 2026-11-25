@@ -42,7 +42,7 @@ beforeEach(async () => {
   const db = await getLocalDb(USER);
   await db.clear('syncQueue');
   await db.put('syncQueue', {
-    id: 'sync_del_d41f', type: 'delete', documentId: 'cloud_d41f',
+    id: 'sync_del_d41f', type: 'delete', revocable: true, documentId: 'cloud_d41f',
     ownerId: USER, attempts: 0, createdAt: Date.now(),
   } as never);
 });

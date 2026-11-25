@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.11.27 — 2026-11-25
+
+- **[RU]** Удалённая навсегда заметка больше не возвращается, пока облако не приняло удаление: её нет ни в списке, ни в корзине, и загрузить её из облака не предлагают. Отложенное удаление уходит и при выключенной синхронизации. Удаления, которые ждали облака до этого обновления, отменены: такие заметки видны, удалите их ещё раз.
+- **[EN]** A permanently deleted note no longer comes back while the cloud has not accepted the deletion: it is not in the list or the trash, and you are not offered to download it. A pending deletion is sent even with sync turned off. Deletions that were waiting for the cloud before this update are cancelled: those notes are visible, please delete them again.
+- **[RU]** Собеседник определяет род по вашим репликам и приложенной заметке и больше не пишет «сделал(а)». Если род неясен, он говорит без родовых форм.
+- **[EN]** The companion works out grammatical gender from your messages and the attached note and no longer writes both endings in brackets. If it is unclear, it avoids gendered forms.
+- **[RU]** Проверка цитат больше не ломает фразы, где собеседник называет внутренний голос и даёт его мысль от первого лица. Слова, поданные как ваши, по-прежнему сверяются с записями.
+- **[EN]** Quote checking no longer breaks sentences where the companion names an inner voice and gives its thought in the first person. Words presented as yours are still checked against your notes.
+- **[RU]** «Повторить» у отложенных заметок говорит, почему отправить не вышло: сейф заперт, нет сети, синхронизация выключена или уже идёт.
+- **[EN]** “Retry” for postponed notes now says why sending did not work: the vault is locked, there is no network, sync is off or already running.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.11.26 — 2026-11-25
 
 - **[RU]** Метки: правка с двух устройств, из двух вкладок или две правки подряд больше не стирают друг друга, а «сохранено» появляется, только когда метка в облаке. Вкладку, открытую до обновления, перезагрузите.

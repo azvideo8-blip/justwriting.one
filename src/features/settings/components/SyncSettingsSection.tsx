@@ -103,7 +103,13 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
     setRetryingQuarantined(true);
     try {
       await SyncService.retryQuarantinedTasks(userId);
-      await SyncService.syncPending(userId);
+      const res = await SyncService.syncPending(userId);
+      // Ничего не ушло — не молчим: «Повторить» без слова выглядит как «готово».
+      if (res.failed > 0) showToast(t('sync_retry_failed'), 'error');
+      else if (res.skippedReason === 'vault_locked') showToast(t('settings_sync_vault_locked'), 'error');
+      else if (res.skippedReason === 'offline') showToast(t('sync_paused_no_network'), 'info');
+      else if (res.skippedReason === 'in_progress') showToast(t('sync_already_running'), 'info');
+      else if (res.skippedReason === 'sync_disabled') showToast(t('sync_queue_disabled'), 'info');
     } catch (err) {
       reportError(err, { action: 'retryQuarantined' });
       showToast(t('error_generic_action'), 'error');

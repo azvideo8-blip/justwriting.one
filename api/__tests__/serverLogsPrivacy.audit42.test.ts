@@ -293,7 +293,7 @@ describe('W-4: места печати сбоя провайдера', () => {
     // булевых и два числа. К21-4 добавляет пятое число — пересказ без ссылок,
     // AG-1/AG-2 (0.11.12) — ещё два числа: опора предложений и даты не по шапке.
     expect(Object.keys(parsed).sort()).toEqual([
-      'attached_claim_weak', 'date_off_header', 'either_or_end', 'empty_claim_with_results', 'finish', 'foreign_ids', 'ms', 'note_text_denied', 'notes_claim_no_ref', 'out_tokens', 'question_run', 'quote_unquoted', 'related_no_ref', 'weak_ref',
+      'attached_claim_weak', 'date_off_header', 'either_or_end', 'empty_claim_with_results', 'finish', 'foreign_ids', 'ms', 'note_text_denied', 'notes_claim_no_ref', 'out_tokens', 'question_run', 'quote_misspelled', 'quote_unquoted', 'related_no_ref', 'weak_ref',
     ]);
     expect(typeof parsed.weak_ref).toBe('number');
     expect(typeof parsed.date_off_header).toBe('number');
@@ -309,6 +309,8 @@ describe('W-4: места печати сбоя провайдера', () => {
     expect(parsed.empty_claim_with_results).toBe(false);
     expect(parsed.foreign_ids).toBe(0);
     expect(parsed.quote_unquoted).toBe(0);
+    // К29-5 (0.11.27): искажённое на букву слово автора в кавычках — число.
+    expect(parsed.quote_misspelled).toBe(0);
   });
 
   // MD-2: счётчики включаются — и всё равно не печатают ни ответа, ни текста

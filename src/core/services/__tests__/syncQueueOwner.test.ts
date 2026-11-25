@@ -22,7 +22,7 @@ describe('sync queue respects the owner', () => {
   it('does not run a task belonging to another account', async () => {
     const db = await getLocalDb(ME);
     await db.put('syncQueue', {
-      id: 'delete_theirs', documentId: 'cloud_theirs', type: 'delete',
+      id: 'delete_theirs', documentId: 'cloud_theirs', type: 'delete', revocable: true,
       createdAt: Date.now(), ownerId: SOMEONE_ELSE,
     } as never);
     const remove = vi.spyOn(CloudSyncService, 'removeCloudCopy').mockResolvedValue(undefined);
@@ -37,7 +37,7 @@ describe('sync queue respects the owner', () => {
   it('runs a task stamped with this account', async () => {
     const db = await getLocalDb(ME);
     await db.put('syncQueue', {
-      id: 'delete_mine', documentId: 'cloud_mine', type: 'delete',
+      id: 'delete_mine', documentId: 'cloud_mine', type: 'delete', revocable: true,
       createdAt: Date.now(), ownerId: ME,
     } as never);
     const remove = vi.spyOn(CloudSyncService, 'removeCloudCopy').mockResolvedValue(undefined);

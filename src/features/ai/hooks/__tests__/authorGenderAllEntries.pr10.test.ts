@@ -23,7 +23,7 @@ vi.mock('../../services/aiChatContext', () => ({
       userPortrait: null,
       customPersona: undefined,
       // женские формы — детектор обязан дать 'f'
-      searchContext: 'Я назвала сумму и потом весь день прокручивала этот разговор.',
+      searchContext: 'Я назвала сумму. Потом я весь день прокручивала разговор. Вечером я устала.',
       memoryContext: null,
       injectedDocumentIds: [],
       injectedTitles: [],

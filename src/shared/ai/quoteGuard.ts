@@ -40,9 +40,31 @@ const SPEECH_CUE_RE = /(?:^|[^а-яё])(?:пишешь|написала?|пис�
 
 // DG-3: речь — глагол речи о ком угодно перед цитатой или 1–2 лицо внутри неё.
 const SPEECH_VERBS = 'пишешь|пишет|написала?|написали|писала?|говоришь|говорит|говорила?|говорили|сказала?|сказали|ответила?|ответили|спросила?|спросили|добавила?|добавили|решила?|решили|заявила?|заявили|назвала?|называешь|формулируешь|произнесла|произн[её]с|твоими словами|твои слова';
-const SPEECH_ANY_RE = new RegExp(`(?:^|[^а-яё])(?:${SPEECH_VERBS})[^.!?«»“”"\\n]{0,40}$`);
+// К29-3 (случай #29): глагол речи — прямо перед кавычкой. Запятая, тире или двоеточие
+// посреди окна — уже другая фраза, и речь в ней не об этой цитате («пишешь о сыне, а
+// за этим стоит «…»»). Вводное «, что» и знак у самой кавычки — по-прежнему речь;
+// двоеточие у кавычки подаёт речь и через придаточное («сказал, когда вернулась: «…»»).
+const SPEECH_ANY_RE = new RegExp(`(?:^|[^а-яё])(?:${SPEECH_VERBS})(?:[^.!?«»“”"\\n,;:—–]{0,40}(?:,[ \\t]*(?:что|будто|как|мол))?[ \\t]*[,—–-]?|[^.!?«»“”"\\n]{0,40}:)[ \\t]*$`);
 // DY4: «…», — решила она. Глагол речи сразу после цитаты (через тире).
 const SPEECH_AFTER_RE = new RegExp(`^[ \\t,]*[—–-][ \\t]*(?:${SPEECH_VERBS})(?:[^а-яё]|$)`);
+// К29-3: кавычки у мысли от первого лица остаются только после «от/не/и…» (там без них фраза
+// ломается) и при явном признаке внутреннего голоса в той же строке. В начале фразы снятие
+// грамматику не ломает — там прежняя защита. Перечислять глаголы, которыми слова приписывают
+// человеку, бесполезно (три круга ревью): без признака кавычки снимаются.
+const INNER_RE = /(?:^|[^а-яё])(?:голос(?:а|ом|у|е)?|внутри|внутренн[а-яё]*|мысл(?:ь|и|ью|ей|ях)|часть|части|частью|звучит|шепчет|страх(?:а|ом|у)?|стыд(?:а|ом)?|вина|вины|виной|убеждени[а-яё]*|установк[а-яё]*|запрет[а-яё]*|родител[а-яё]*|реб[её]н[а-яё]*|взросл[а-яё]*|чувств(?:о|а|ом))(?![а-яё])/;
+// И не тогда, когда в строке или подводке над ней назван человек («ты/вы»), речь, запись или ссылка.
+const ATTRIBUTION_RE = new RegExp(`(?:^|[^а-яё])(?:${SPEECH_VERBS}|слов(?:а|о|ами|ом|ах|у)|запис[а-яё]*|заметк[а-яё]*|дневник[а-яё]*|строчк[а-яё]*|строк[а-яё]*|фраз[а-яё]*|цитат[а-яё]*|цитируешь|читаю|прозвучал[а-яё]*|написано|сказано|текст[а-яё]*|ты|вы)(?![а-яё])|\\[?#[a-z0-9_-]`, 'i');
+const LIST_MARK_RE = /^\s*(?:[-*•]|\d+[.)])\s+/;
+
+/** Строка цитаты и строка-подводка над ней; содержимое любых кавычек в счёт не идёт. */
+function contextOf(text: string, at: number): { line: string; above: string } {
+  const masked = text.replace(QUOTE_SPAN_RE, q => ' '.repeat(q.length)).toLowerCase();
+  const lineStart = masked.lastIndexOf('\n', at - 1) + 1;
+  const lineEnd = masked.indexOf('\n', at);
+  const above = masked.slice(0, lineStart).split('\n').filter(l => l.trim() !== '' && !LIST_MARK_RE.test(l)).pop() ?? '';
+  return { line: masked.slice(lineStart, lineEnd === -1 ? undefined : lineEnd), above };
+}
+const FIRST_PERSON_RE = /(?:^|[^а-яё])(?:я|мне|меня|мной|мой|моя|мо[её]|мои|моих|мы|нам|нас|наш|наша)(?=[^а-яё]|$)/;
 const PERSONAL_RE = /(?:^|[^а-яё])(?:я|мне|меня|мной|мой|моя|мо[её]|мои|моих|ты|тебе|тебя|тобой|твой|твоя|тво[её]|твои|мы|нам|нас|наш|наша)(?=[^а-яё]|$)/;
 
 /** Текст для сверки: регистр, ё/е, кавычки, пунктуация и пробелы свёрнуты. */
@@ -288,17 +310,27 @@ export function unquoteAbsent(
     const miss = n >= 8 ? 2 : n >= 4 ? 1 : 0;
     if (miss > 0 && cached(mm, `~${nq}`, () => bestInPhrases(qWords, mm.phrases, n + miss)) >= n - miss
       && !cached(mm, `^${nq}`, () => Number(personShifted(qWords, mm.phrases, n - miss)))) continue;
-    stripped.push(inner);
     let before = text.slice(last, at);
     let body = inner;
+    const after = text.slice(at + m[0].length, at + m[0].length + 40).toLowerCase();
+    const attributed = SPEECH_ANY_RE.test(window) || SPEECH_AFTER_RE.test(after);
+    const afterFunctionWord = FUNCTION_WORD_BEFORE_RE.test(before);
+    const atPhraseStart = /(?:^|[.!?\n])\s*$/.test(out + before);
     // DY4 (15.1а): без глагола речи «по смыслу» — только у пересказа, то есть
     // когда больше половины слов цитаты идут в материалах по порядку. Своё
     // толкование модели от первого лица теряет кавычки без пометки — иначе оно
     // читается пересказом слов человека.
     const personal = opts?.markPersonal !== false && PERSONAL_RE.test(inner.toLowerCase())
       && cached(mm, `p${nq}`, () => bestInPhrases(qWords, mm.phrases, Math.ceil(n * 1.5) + 2)) * 5 > n * 3;
-    const afterFunctionWord = FUNCTION_WORD_BEFORE_RE.test(before);
-    if (!afterFunctionWord && (SPEECH_ANY_RE.test(window) || SPEECH_AFTER_RE.test(text.slice(at + m[0].length, at + m[0].length + 40).toLowerCase()) || personal)) {
+    // К29-3: толкование модели после «от», «не», «и»: рядом назван внутренний голос, слова не
+    // поданы как слова человека и их не пересказывают. У Редактора и в ходе по записям
+    // (markPersonal: false) правило не действует: там кавычки — строка автора.
+    if (opts?.markPersonal !== false && !personal && afterFunctionWord && !/как\s*$/i.test(before) && FIRST_PERSON_RE.test(inner.toLowerCase())) {
+      const { line, above } = contextOf(text, at);
+      if (INNER_RE.test(line) && !ATTRIBUTION_RE.test(line) && !ATTRIBUTION_RE.test(above)) continue;
+    }
+    stripped.push(inner);
+    if (!afterFunctionWord && (attributed || personal)) {
       // «она сказала: «…»» → «она сказала, по смыслу: …»; в начале фразы — «По смыслу: …».
       // DE-5: перевод строки не снимаем — иначе абзац склеивался с предыдущим.
       before = before.replace(/[ \t:,]*$/, '');
@@ -310,7 +342,7 @@ export function unquoteAbsent(
         : sentenceStart
           ? `${before && !before.endsWith('\n') ? ' ' : ''}По смыслу: ${inner}`
           : `, по смыслу: ${inner}`;
-    } else if (!/(?:^|[.!?\n])\s*$/.test(out + before) && !/[:—–\-,(]\s*$/.test(before) && !afterFunctionWord) {
+    } else if (!atPhraseStart && !/[:—–\-,(]\s*$/.test(before) && !afterFunctionWord) {
       // К26-2 (случай #26): снятая цитата посреди фразы без знака перед ней —
       // «спроси себя «что будет, если…» и…» превращалось в сломанную фразу.
       // Двоеточие держит границу; слова не меняются.
@@ -345,6 +377,34 @@ export function dropFabricatedSentences(text: string, materials: string | null |
 /** Сколько кавычек правило сняло — счётчик для журнала, без правки текста. */
 export function countAbsentQuotes(text: string, materials: string | null | undefined): number {
   return unquoteAbsent(text, materials).stripped.length;
+}
+
+/**
+ * К29-5 (случай #29, 29.7): слово автора в кавычках с другой буквой. Страж цитаты в
+ * 1–3 слова не смотрит; здесь только счёт для `[chat-end]` — сколько коротких цитат
+ * нет в материалах, а слово на одну букву другое есть. Разница в последних двух
+ * буквах — падеж, не искажение.
+ */
+export function countMisspelledQuotes(text: string, materials: string | null | undefined): number {
+  const hay = normalizeQuoteText(materials ?? '');
+  if (!hay) return 0;
+  const vocab = new Set(hay.split(' '));
+  const oneLetterOff = (w: string) => {
+    for (const v of vocab) {
+      if (v.length !== w.length) continue;
+      let at = -1;
+      let diff = 0;
+      for (let i = 0; i < w.length && diff < 2; i++) if (w[i] !== v[i]) { diff++; at = i; }
+      if (diff === 1 && at < w.length - 2) return true;
+    }
+    return false;
+  };
+  return quoteSpans(text).filter(q => {
+    const ws = words(normalizeQuoteText(q.inner));
+    if (ws.length === 0 || ws.length >= MIN_WORDS) return false;
+    const absent = ws.filter(w => !vocab.has(w));
+    return absent.length === 1 && absent[0]!.length >= 5 && oneLetterOff(absent[0]!);
+  }).length;
 }
 
 /** Шапка блока фона (`relatedDays`): по ней строгий ход вынимает фон из материалов кавычек. */

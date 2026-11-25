@@ -4,7 +4,11 @@ import { getLocalDb } from '../../storage/localDb';
 
 const doc: { id: string; linkedCloudId?: string } = { id: 'loc1' };
 vi.mock('../LocalStorageService', () => ({
-  LocalStorageService: { getDocument: vi.fn(async () => ({ ...doc })), deleteDocument: vi.fn(async () => {}) },
+  LocalStorageService: { getDocument: vi.fn(async () => ({ ...doc })), // Как настоящий (SB-2): удаление строки ставит задачу снести облачный ряд.
+  deleteDocument: vi.fn(async (_id: string, owner: string, cloud: { cloudId?: string }) => {
+    await (await getLocalDb(owner)).put('syncQueue', { id: 'delete_t', documentId: cloud.cloudId!, type: 'delete', createdAt: 1, ownerId: owner, revocable: true });
+    return true;
+  }) },
 }));
 vi.mock('../CloudSyncService', () => ({ CloudSyncService: { removeCloudCopy: vi.fn(async () => {}) } }));
 

@@ -7,6 +7,31 @@ export function announceQueueChange(): void {
   } catch { /* non-critical */ }
 }
 
+/**
+ * PR-1: облачные заметки, чьё удаление принято на устройстве и ждёт облака. Один
+ * ответ для всех, кто показывает или скачивает облачные строки: такая строка в
+ * облаке ещё жива, но для человека заметки уже нет. Прячет только задача, которую
+ * дренаж исполнит: с отметкой revocable и не в карантине. Иначе заметку стало бы не увидеть.
+ */
+export async function pendingRemovalIds(userId: string): Promise<Set<string>> {
+  const queue = await (await getLocalDb(userId)).getAll('syncQueue');
+  return new Set(queue
+    .filter(t => t.revocable && !t.dead && (t.ownerId === undefined || t.ownerId === userId))
+    .map(t => t.documentId));
+}
+
+const PENDING_REMOVAL = 'PENDING_REMOVAL';
+
+export async function assertNotPendingRemoval(userId: string, cloudId: string): Promise<void> {
+  if ((await pendingRemovalIds(userId)).has(cloudId)) {
+    throw new Error(`${PENDING_REMOVAL}: cloud document ${cloudId} is waiting to be removed`);
+  }
+}
+
+export function isPendingRemoval(e: unknown): boolean {
+  return String((e as { message?: unknown } | null)?.message ?? e).startsWith(PENDING_REMOVAL);
+}
+
 export async function addToSyncQueue(documentId: string, ownerId?: string): Promise<void> {
   const db = await getLocalDb(ownerId);
   // The queue task inherits the note's owner. A task with no owner could be

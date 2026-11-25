@@ -51,7 +51,14 @@ vi.mock('@/core/services/CloudSyncService', () => ({
 }));
 vi.mock('@/shared/errors/reportError', () => ({ reportError: vi.fn() }));
 
+import { getLocalDb } from '@/core/storage/localDb';
 import { LifeLogPanel } from '@/features/writing/components/LifeLogPanel';
+
+// Как настоящий (SB-2): удаление строки ставит задачу снести облачный ряд.
+const localDeletes = (ok: boolean) => localDelete.mockImplementation(async (_id: string, owner: string) => {
+  await (await getLocalDb(owner)).put('syncQueue', { id: 'delete_t', documentId: 'cloud_d41a', type: 'delete', createdAt: 1, ownerId: owner, revocable: true });
+  return ok;
+});
 
 const wrapper = ({ children }: { children: ReactNode }) => h(ToastProvider, null, children);
 
@@ -72,7 +79,7 @@ beforeEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe('d41a: отказ уборки производных при удалении сессии назван, а не «Удалена»', () => {
   it('derivativesOk=false при живом облаке — warning partial, а не success', async () => {
-    localDelete.mockResolvedValue(false); // cascadeDeleteAIDerivatives: failed>0
+    localDeletes(false); // cascadeDeleteAIDerivatives: failed>0
     cloudRemove.mockResolvedValue(undefined);
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: 'session_delete' }));
@@ -90,7 +97,7 @@ describe('d41a: отказ уборки производных при удале
   });
 
   it('КОНТРОЛЬ: производные убраны, облако ответило — success «Сессия удалена»', async () => {
-    localDelete.mockResolvedValue(true);
+    localDeletes(true);
     cloudRemove.mockResolvedValue(undefined);
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: 'session_delete' }));
@@ -99,7 +106,7 @@ describe('d41a: отказ уборки производных при удале
   });
 
   it('КОНТРОЛЬ: облако отказало — warning «удалено здесь, досыл в очереди» (ветка cloudSynced держит)', async () => {
-    localDelete.mockResolvedValue(true);
+    localDeletes(true);
     cloudRemove.mockRejectedValue(new Error('MARKER_DAILY_CLOUD_DOWN'));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: 'session_delete' }));

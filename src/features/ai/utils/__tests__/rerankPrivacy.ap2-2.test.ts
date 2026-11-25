@@ -32,10 +32,10 @@ const doc = (id: string): LocalDocument => ({
   currentVersion: 1, totalWords: 20, totalDuration: 1, sessionsCount: 1,
   firstSessionAt: 1, lastSessionAt: 1, tags: [],
 });
-async function seed(id: string) {
+async function seed(id: string, mark = true) {
   const db = await getLocalDb();
   await db.put('documents', doc(id));
-  await markAllAnalysed(db);
+  if (mark) await markAllAnalysed(db);
   await db.put('versions', { id: `v-${id}`, documentId: id, version: 1,
     content: `прогресс развитие ${id === hidden ? marker : 'AP2_RERANK_VISIBLE'}`, guestId: uid,
     savedAt: 1, sessionStartedAt: 1, wordCount: 10, wordsAdded: 10, charsAdded: 50, duration: 1, wpm: 10 });
@@ -118,7 +118,9 @@ describe('AP2-2: настоящий MiniSearch и обработчик скры�
   }
 
   it('первая сборка, начатая до скрытия, не попадает в кэш', async () => {
-    for (let i = 0; i < 250; i++) await seed(`filler-${i}`);
+    // Отметка разбора обходит все заметки: в цикле это квадрат, под нагрузкой — таймаут.
+    for (let i = 0; i < 250; i++) await seed(`filler-${i}`, false);
+    await markAllAnalysed(await getLocalDb());
     const reading = vi.spyOn(LocalVersionService, 'getLatestContent');
     let built = false;
     const building = getMiniSearch(uid).then(ms => { built = true; return ms; });
