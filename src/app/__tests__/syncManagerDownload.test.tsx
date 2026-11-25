@@ -66,4 +66,13 @@ describe('SyncManager triggers pullNotes (S1-7)', () => {
 
     expect(pullNotes).toHaveBeenCalledWith('u_sync_test');
   });
+
+  // Дейлик 25.11: настройка старого вида (без uid) читается тем же чтением, что у
+  // отправки. Мутация: localStorage напрямую по ключу аккаунта — забора нет, красный.
+  it('настройка старого вида: забор на входе есть', async () => {
+    localStorage.clear();
+    localStorage.setItem(STORAGE_KEYS.LEGACY_AUTO_SYNC_ENABLED, 'true');
+    render(<SyncManager />);
+    await vi.waitFor(() => expect(pullNotes).toHaveBeenCalledWith('u_sync_test'));
+  });
 });

@@ -240,8 +240,9 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
     if (!item.cloudId) return;
     setSyncingId(item.id);
     try {
-      await StorageService.addLocalCopy(userId, item.cloudId);
-      showToast('Downloaded copy to device', 'success');
+      const { skippedVersions } = await StorageService.addLocalCopy(userId, item.cloudId);
+      if (skippedVersions > 0) showToast(t('storage_download_versions_skipped', { count: skippedVersions }), 'warning');
+      else showToast('Downloaded copy to device', 'success');
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, hasLocal: true, status: 'synced', localId: item.cloudId } : i));
     } catch (e) {
       reportError(e, { action: '[SyncDiagnostics] Download failed' });

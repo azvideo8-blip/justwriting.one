@@ -23,7 +23,7 @@ export async function addToSyncQueue(documentId: string, ownerId?: string): Prom
       documentId,
       type: 'document' as const,
       createdAt: Date.now(),
-      ownerId: doc?.guestId,
+      ownerId: doc?.guestId ?? ownerId,
     });
   } else {
     // SB-1: молодую задачу не переставляем (это и есть смысл окна в 60 с — не

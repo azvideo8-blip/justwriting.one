@@ -101,4 +101,11 @@ describe('SB-1 — сохранение во время выгрузки', () =>
     expect(await db.get('syncQueue', 'sync_d_requeue_inflight')).toBeDefined();
     expect(res.drained).toBe(0);
   });
+
+  // Дейлик 25.11. Мутация: `ownerId: doc?.guestId` — задача без владельца, красный.
+  it('строки заметки нет — владелец задачи всё равно назван', async () => {
+    await addToSyncQueue('d_absent', USER);
+    const db = await getLocalDb(USER);
+    expect((await db.get('syncQueue', 'sync_d_absent'))?.ownerId).toBe(USER);
+  });
 });

@@ -55,7 +55,7 @@ export function AIPage() {
     stop, pendingAttachments, removePendingAttachment, handlePasteAsNote,
     lastTurnScope, handleAnalyzeNote, handleRelateNote, handleLookWider,
     handleSuggestion, handleFeedback, handleRegenerate, handleSwitchVariant,
-    handleSaveInsight, saveInsightBusy, insightsButtonVisible,
+    handleSaveInsight, saveInsightBusy, insightsButtonVisible, insightCrisisIndexes,
     crisisActive, dismissCrisis,
     dialogue,
     dailyLimit,
@@ -178,6 +178,7 @@ export function AIPage() {
           onDeleteMessage={(index) => { void handleDeleteMessage(index); }}
           onFeedback={(v) => { void handleFeedback(v); }}
           onSaveInsight={insightsButtonVisible ? handleSaveInsight : undefined}
+          insightCrisisIndexes={insightCrisisIndexes}
           saveInsightBusy={saveInsightBusy}
           onRegenerate={() => { void handleRegenerate(); }}
           onSwitchVariant={(delta) => { void handleSwitchVariant(delta); }}

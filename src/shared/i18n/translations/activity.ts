@@ -35,6 +35,10 @@ export const activityTranslations: Translations = {
     ru: 'корзина очищена не полностью: удалено {success}, не удалось {failed}',
     en: 'trash partially cleared: {success} deleted, {failed} failed',
   },
+  activity_trash_cloud_pending: {
+    ru: 'корзина: удалено на этом устройстве, из облака удалится позже ({count})',
+    en: 'trash: deleted on this device, will be removed from the cloud later ({count})',
+  },
   // ─── cloud sync ───────────────────────────────────────────────────────────
   activity_cloud_downloaded_all: {
     ru: 'Загружено заметок из облака: {downloaded}',

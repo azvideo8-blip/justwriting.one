@@ -12,6 +12,12 @@ import '../../../core/services/LocalStoreSyncService';
 
 const USER = 'user_s28_lost';
 
+const auth = vi.hoisted(() => ({ user: null as { uid: string } | null }));
+vi.mock('../../../core/auth/supabaseAuthProvider', async importOriginal => ({
+  ...(await importOriginal<typeof import('../../../core/auth/supabaseAuthProvider')>()),
+  getCurrentUser: () => auth.user,
+}));
+
 vi.mock('../services/AuthService', () => ({
   AuthService: { wipeDeviceDataForUid: vi.fn(async () => {}) },
 }));
@@ -31,6 +37,7 @@ async function seedUserDb(): Promise<void> {
 
 beforeEach(async () => {
   vi.clearAllMocks();
+  auth.user = null;
   localStorage.clear();
   sessionStorage.clear();
   resetDbInstance();
@@ -57,6 +64,8 @@ describe('S-28: the lost-session wipe offer', () => {
       'auth_lost_session_wipe_hint',
       'warning',
       expect.objectContaining({ label: 'auth_lost_session_wipe_button' }),
+      // Дейлик 24.11: висело 3 с и пропадало насовсем. Мутация: убрать durationMs — красный.
+      { durationMs: 60_000 },
     );
     // Одноразово: ключ потрачен, при следующем старте предложение не повторится.
     expect(localStorage.getItem(STORAGE_KEYS.LOST_SESSION_UID)).toBeNull();
@@ -72,6 +81,36 @@ describe('S-28: the lost-session wipe offer', () => {
       message: expect.stringContaining('auth_lost_session_wipe_confirm_message'),
       destructive: true,
     }));
+  });
+
+  // Ревью 0.11.26: тост висит минуту и переживает вход. Мутации: убрать проверку до
+  // подтверждения / после него — красный.
+  it.each([['до подтверждения', 0], ['пока открыто подтверждение', 1]])('вошли %s — ничего не стирается', async (_when, confirms) => {
+    await seedUserDb();
+    localStorage.setItem(STORAGE_KEYS.LOST_SESSION_UID, USER);
+    const showToast = vi.fn();
+    await offerLostSessionWipe(showToast, t, confirm);
+    if (confirms === 0) auth.user = { uid: USER };
+    else confirm.mockImplementationOnce(async () => { auth.user = { uid: 'someone_else' }; return true; });
+    (showToast.mock.calls[0]![2] as { onClick: () => void }).onClick();
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith('auth_lost_session_wipe_signed_in', 'info'));
+    const { AuthService } = await import('../services/AuthService');
+    expect(AuthService.wipeDeviceDataForUid).not.toHaveBeenCalled();
+    expect(confirm).toHaveBeenCalledTimes(confirms);
+  });
+
+  // Мутация: не помнить, что уже стёрто, — второе подтверждение, красный.
+  it('стёрли — второе нажатие того же тоста ничего не делает', async () => {
+    await seedUserDb();
+    localStorage.setItem(STORAGE_KEYS.LOST_SESSION_UID, USER);
+    const showToast = vi.fn();
+    await offerLostSessionWipe(showToast, t, confirm);
+    const { onClick } = showToast.mock.calls[0]![2] as { onClick: () => void };
+    onClick();
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith('auth_lost_session_wipe_done', 'success'));
+    onClick();
+    await new Promise(r => setTimeout(r, 20));
+    expect(confirm).toHaveBeenCalledTimes(1);
   });
 
   // Ревью 0.11.25: журнал ИИ не читается — стирание не запирается: предложение одноразовое,

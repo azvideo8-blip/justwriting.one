@@ -126,7 +126,7 @@ describe('FEAT-5 Archive Trash Service', () => {
 
     const res = await emptyTrash([s1, s2], 'u1');
 
-    expect(res).toEqual({ successCount: 2, failCount: 0, deletedIds: ['s1', 's2'] });
+    expect(res).toEqual({ successCount: 2, failCount: 0, cloudPending: 0, deletedIds: ['s1', 's2'] });
     expect(StorageService.deleteDocument).toHaveBeenCalledTimes(2);
     expect(addActivitySpy).toHaveBeenCalledWith('activity_trash_cleared', { count: 2 }, 'info', 'archive');
   });
@@ -172,7 +172,7 @@ describe('FEAT-5 Archive Trash Service', () => {
       .mockResolvedValueOnce({ cloudSynced: true, derivativesOk: true, applied: true })
       .mockRejectedValueOnce(new Error('idb'));
     const res = await emptyTrash([makeSession({ id: 's1' }), makeSession({ id: 's2' })], 'u1');
-    expect(res).toEqual({ successCount: 1, failCount: 1, deletedIds: ['s1'] });
+    expect(res).toEqual({ successCount: 1, failCount: 1, cloudPending: 0, deletedIds: ['s1'] });
     expect(addActivitySpy).toHaveBeenCalledWith('activity_trash_cleared_partial', { success: 1, failed: 1 }, 'warning', 'archive');
   });
 
@@ -202,5 +202,22 @@ describe('FEAT-5 Archive Trash Service', () => {
     const { prunedCount, remainingSessions } = await pruneExpiredTrash([session], 'u1', now);
     expect(prunedCount).toBe(0);
     expect(remainingSessions.map(s => s.id)).toEqual(['prune_der_fail']);
+  });
+
+  // Дейлик 25.11 (Н-1): облако не приняло — отдельный счёт и строка журнала.
+  // Мутации: не считать cloudSynced в emptyTrash / в pruneExpiredTrash — красный.
+  it('отказ облака: emptyTrash и pruneExpiredTrash называют отложенное удаление', async () => {
+    const addActivitySpy = vi.spyOn(useActivityLogStore.getState(), 'addActivity');
+    const refused = { cloudSynced: false, derivativesOk: true, applied: true };
+    vi.mocked(StorageService.deleteDocument).mockResolvedValueOnce({ cloudSynced: true, derivativesOk: true, applied: true }).mockResolvedValueOnce(refused);
+    const res = await emptyTrash([makeSession({ id: 's_ok' }), makeSession({ id: 's_wait' })], 'u1');
+    expect(res).toEqual({ successCount: 2, failCount: 0, cloudPending: 1, deletedIds: ['s_ok', 's_wait'] });
+    expect(addActivitySpy).toHaveBeenCalledWith('activity_trash_cloud_pending', { count: 1 }, 'warning', 'archive');
+
+    addActivitySpy.mockClear();
+    const now = 1700000000000;
+    vi.mocked(StorageService.deleteDocument).mockResolvedValueOnce(refused);
+    await pruneExpiredTrash([makeSession({ id: 's_exp', trashedAt: now - 11 * 24 * 60 * 60 * 1000 })], 'u1', now);
+    expect(addActivitySpy.mock.calls).toEqual([['activity_trash_cloud_pending', { count: 1 }, 'warning', 'archive']]);
   });
 });

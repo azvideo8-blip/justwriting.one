@@ -22,6 +22,12 @@ vi.mock('@/core/sync/syncFlags', async (importOriginal) => {
   return { ...actual, chatInsightsEnabled: vi.fn() };
 });
 vi.mock('@/shared/errors/reportError', () => ({ reportError: vi.fn() }));
+const auth = vi.hoisted(() => ({ uid: 'u_di5' as string | undefined, cb: null as ((u: { uid: string } | null) => void) | null }));
+vi.mock('@/core/auth', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/core/auth')>()),
+  getCurrentUser: () => (auth.uid ? { uid: auth.uid } : null),
+  onAuthStateChange: (cb: (u: { uid: string } | null) => void) => { auth.cb = cb; return () => { auth.cb = null; }; },
+}));
 
 import { useSaveInsight } from '@/features/ai/hooks/useSaveInsight';
 import { AIService } from '@/features/ai/services/AIService';
@@ -29,6 +35,7 @@ import { chatInsightsEnabled } from '@/core/sync/syncFlags';
 import { AIChatMemoryService } from '@/features/ai/services/AIChatMemoryService';
 import { AIDialogueService } from '@/features/ai/services/AIDialogueService';
 import { AssistantTurn } from '@/features/ai/components/AIChatPresentational';
+import { AIChatMessages } from '@/features/ai/components/chat/AIChatMessages';
 import { LocalStoreSyncService } from '@/core/services/LocalStoreSyncService';
 import { getLocalDb, type AIDialogue } from '@/core/storage/localDb';
 import { LanguageProvider } from '@/shared/i18n';
@@ -40,6 +47,17 @@ const PREV_USER = 'Опять сначала почта, потом посуда
 
 let dlg: AIDialogue;
 
+const noop = () => {};
+const visual = { color: '#888', mono: 'К', role: { ru: 'Роль', en: 'Role' } };
+const chatProps = {
+  streamingMessage: null, streamingReasoning: null, isLoading: false, error: null, clearError: noop,
+  consentRequired: null, onOpenSettings: noop, convPersonaId: 'coach', convPersonaName: 'Коуч', convVisual: visual,
+  onCopyMessage: noop, onDeleteMessage: noop, onFeedback: noop, onRegenerate: noop, onSwitchVariant: noop,
+  onCreateNote: noop, onForcedSearch: noop, dailyLimitRemaining: 10, followUps: [], onSuggestion: noop, starters: [],
+  activeDialogueId: 'd3', activePersonaName: 'Коуч', headerVisual: visual, proactiveHint: null, setInputText: noop,
+  isMobile: false, messagesEndRef: { current: null }, previewSession: null, onClosePreview: noop, setCitationPreviewSession: noop,
+};
+
 function wrapper({ children }: { children: ReactNode }) {
   return <LanguageProvider>{children}</LanguageProvider>;
 }
@@ -49,7 +67,9 @@ beforeEach(async () => {
   vi.clearAllMocks();
   cleanup();
   localStorage.setItem('language', 'ru');
-  vi.mocked(chatInsightsEnabled).mockResolvedValue(true);
+  auth.uid = 'u_di5';
+  // Как настоящий: без uid флаг не спрашивают — false.
+  vi.mocked(chatInsightsEnabled).mockImplementation(async uid => !!uid);
   vi.mocked(AIService.pickInsight).mockResolvedValue({ ok: true, quote: QUOTE });
   vi.spyOn(LocalStoreSyncService, 'scheduleStoreSync').mockImplementation(() => {});
   const db = await getLocalDb();
@@ -141,6 +161,20 @@ describe('DI-5: useSaveInsight + кнопка', () => {
     expect(screen.queryByRole('button', { name: 'Сохранить вывод' })).toBeNull();
   });
 
+  // Дейлик 24.11 (Н-3). Мутация: читать флаг один раз (deps []) — красный.
+  it('uid пришёл после открытия страницы → кнопка появляется; вышли → пропадает', async () => {
+    auth.uid = undefined;
+    const { result, unmount } = renderHook(() => useSaveInsight(dlg), { wrapper });
+    await waitFor(() => expect(chatInsightsEnabled).toHaveBeenCalledWith(undefined));
+    expect(result.current.visible).toBe(false);
+    act(() => { auth.cb!({ uid: 'u_di5' }); });
+    await waitFor(() => expect(result.current.visible).toBe(true));
+    act(() => { auth.cb!(null); });
+    await waitFor(() => expect(result.current.visible).toBe(false));
+    unmount();
+    expect(auth.cb).toBeNull();
+  });
+
   it('двойной клик → один вызов модели и одна запись', async () => {
     const { result } = renderHook(() => useSaveInsight(dlg), { wrapper });
     await waitFor(() => expect(result.current.visible).toBe(true));
@@ -198,5 +232,33 @@ describe('DI-5: useSaveInsight + кнопка', () => {
     const mem = await db.getAll('aiChatMemory');
     expect(mem[0]?.context ?? '').not.toContain(BODY);
     expect(mem[0]?.sourceDocumentIds).toEqual(expect.arrayContaining(['uuid-1', 'uuid-att']));
+  });
+
+  // Владелец 25.11: ответ на кризисную реплику — без кнопки; соседний ответ — с ней.
+  // Мутации: не сбрасывать risky на обычной реплике; убрать проверку в handleSaveInsight;
+  // убрать has(i) в AIChatMessages — красный.
+  it('кризисная реплика: у ответа на неё кнопки нет, модель не зовётся', async () => {
+    const created = await AIDialogueService.create({
+      title: 'Синтетический разговор 3', personaId: 'coach', personaName: 'Коуч', personaEmoji: '🧭',
+      messages: [
+        { role: 'user', content: 'Я хочу умереть', type: 'chat' },
+        { role: 'assistant', content: REPLY, type: 'chat' },
+        { role: 'assistant', content: 'Служебная строка', type: 'system' },
+        { role: 'user', content: PREV_USER, type: 'chat' },
+        { role: 'assistant', content: REPLY, type: 'chat' },
+      ],
+    });
+    const d3 = (await AIDialogueService.get(created.id))!;
+    const { result } = renderHook(() => useSaveInsight(d3), { wrapper });
+    await waitFor(() => expect(result.current.visible).toBe(true));
+    expect([...result.current.crisisIndexes]).toEqual([1]);
+
+    act(() => { result.current.handleSaveInsight(1); });
+    await new Promise(r => setTimeout(r, 30));
+    expect(AIService.pickInsight).not.toHaveBeenCalled();
+    expect(await (await getLocalDb()).getAll('aiChatMemory')).toHaveLength(0);
+
+    render(<AIChatMessages {...chatProps} displayMessages={d3.messages} onSaveInsight={() => {}} insightCrisisIndexes={result.current.crisisIndexes} />, { wrapper });
+    expect(screen.getAllByRole('button', { name: 'Сохранить вывод' })).toHaveLength(1);
   });
 });

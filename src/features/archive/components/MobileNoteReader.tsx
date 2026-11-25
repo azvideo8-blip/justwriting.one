@@ -2,7 +2,7 @@
 // одной строки («‹ Заметки» · «ⓘ» · «⋯»), в теле только заголовок и текст.
 // Дата, слова, время чтения, метка, теги и разбор живут в «ⓘ», правка и
 // удаление — в «⋯» (тот же лист, что у строки заметки).
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { format } from 'date-fns';
 import { Info, MoreHorizontal, X, Lock, Sparkles, Loader2 } from 'lucide-react';
@@ -96,13 +96,23 @@ export function MobileNoteReader({
   const [creatingLabel, setCreatingLabel] = useState(false);
   const [newLabelName, setNewLabelName] = useState('');
   const [newLabelColor, setNewLabelColor] = useState<string>(LABEL_PRESET_COLORS[0]!);
+  const savingLabelRef = useRef(false);
+  const [savingLabel, setSavingLabel] = useState(false);
   const createLabel = async () => {
     const name = newLabelName.trim();
-    if (!name || !onAddLabel) return;
-    // Отказ сохранения (false) — форма открыта с введённым, тост ошибки.
-    if ((await onAddLabel({ name, color: newLabelColor })) === false) {
-      showToast(t('archive_label_save_failed'), 'error');
-      return;
+    // LB-1: пока сохранение в пути, форма закрыта для правки — введённое не теряется.
+    if (!name || !onAddLabel || savingLabelRef.current) return;
+    savingLabelRef.current = true;
+    setSavingLabel(true);
+    try {
+      // Отказ сохранения (false) — форма открыта с введённым, тост ошибки.
+      if ((await onAddLabel({ name, color: newLabelColor })) === false) {
+        showToast(t('archive_label_save_failed'), 'error');
+        return;
+      }
+    } finally {
+      savingLabelRef.current = false;
+      setSavingLabel(false);
     }
     setNewLabelName('');
     setNewLabelColor(LABEL_PRESET_COLORS[0]!);
@@ -332,6 +342,7 @@ export function MobileNoteReader({
                     <div className="mt-3 flex flex-col gap-3">
                       <input
                         value={newLabelName}
+                        readOnly={savingLabel}
                         onChange={e => setNewLabelName(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') void createLabel(); }}
                         placeholder={t('archive_label_name_placeholder')}
@@ -343,6 +354,7 @@ export function MobileNoteReader({
                           <button
                             key={c}
                             type="button"
+                            disabled={savingLabel}
                             onClick={() => setNewLabelColor(c)}
                             aria-label={c}
                             aria-pressed={newLabelColor === c}
@@ -360,7 +372,7 @@ export function MobileNoteReader({
                         </Button>
                         <Button
                           onClick={() => void createLabel()}
-                          disabled={!newLabelName.trim()}
+                          disabled={!newLabelName.trim() || savingLabel}
                           className="min-h-11 rounded-xl px-3 text-[15px] font-medium text-text-main disabled:opacity-40"
                         >
                           {t('common_save')}

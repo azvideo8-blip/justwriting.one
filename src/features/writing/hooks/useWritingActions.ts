@@ -73,8 +73,10 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
         content = await LocalVersionService.getLatestContent(localId);
       } else if (doc.cloudId) {
         try {
-          localId = (await StorageService.addLocalCopy(userId, doc.cloudId)).localId;
+          const copy = await StorageService.addLocalCopy(userId, doc.cloudId);
+          localId = copy.localId;
           content = await LocalVersionService.getLatestContent(localId);
+          if (copy.skippedVersions > 0) showToast(t('storage_download_versions_skipped', { count: copy.skippedVersions }), 'warning');
         } catch (e) {
           reportError(e, { action: 'writingActions/importCloudDoc' });
           throw e;

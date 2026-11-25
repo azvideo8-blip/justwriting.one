@@ -48,6 +48,8 @@ export interface AIChatMessagesProps {
   /** DI-5: индекс ответа в displayMessages; нет пропа — кнопки нет. */
   onSaveInsight?: ((messageIndex: number) => void) | undefined;
   saveInsightBusy?: boolean | undefined;
+  /** Ответы на кризисные реплики: кнопки «Сохранить вывод» у них нет. */
+  insightCrisisIndexes?: ReadonlySet<number> | undefined;
   onRegenerate: () => void;
   onSwitchVariant: (delta: number) => void;
   onCreateNote: (text: string) => void;
@@ -306,6 +308,7 @@ export function AIChatMessages(props: AIChatMessagesProps) {
     onFeedback,
   onSaveInsight,
   saveInsightBusy,
+  insightCrisisIndexes,
     onRegenerate,
     onSwitchVariant,
     onCreateNote,
@@ -421,7 +424,7 @@ export function AIChatMessages(props: AIChatMessagesProps) {
                   onCopy={() => onCopyMessage(msg.content)}
                   onDelete={() => onDeleteMessage(i)}
                   onFeedback={v => void onFeedback(v)}
-                  onSaveInsight={onSaveInsight ? () => onSaveInsight(i) : undefined}
+                  onSaveInsight={onSaveInsight && !insightCrisisIndexes?.has(i) ? () => onSaveInsight(i) : undefined}
                   saveInsightBusy={saveInsightBusy}
                   onRegenerate={i === lastAssistantIdx && !isLoading ? onRegenerate : undefined}
                   variants={msg.variants}

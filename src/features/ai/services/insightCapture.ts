@@ -62,8 +62,8 @@ export async function captureConfirmedInsight(input: {
     const prevUserApi = prevUser ? toApiContent(prevUser, undefined, parseOpts) : '';
     // 2. Только персоны с гипотезами: у редактора выводов о человеке нет.
     if (!HYPOTHESIS_PERSONAS.includes(personaId)) return 'none';
-    // 3. Кризисная реплика — не место для выводов.
-    if (detectRisk(userText).isRisk) return 'none';
+    // 3. Кризисная реплика и ответ на неё — не место для выводов (кнопки там тоже нет).
+    if (detectRisk(userText).isRisk || detectRisk(prevUser).isRisk) return 'none';
     // 4. Служебные запросы ИИ выключены в настройках.
     if (!getChatExtrasEnabled(uid)) return 'none';
     // 5. Человек действительно согласился (правило DI-1, без модели).

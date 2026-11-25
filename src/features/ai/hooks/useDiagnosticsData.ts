@@ -289,16 +289,18 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       const { docs: cloudDocs, unreadable } = await readCloudDocumentsPartial(user.uid);
       let imported = 0;
       let failed = 0;
+      let skipped = 0;
       for (const cloudDoc of cloudDocs) {
         try {
-          await StorageService.addLocalCopy(user.uid, cloudDoc.id);
+          skipped += (await StorageService.addLocalCopy(user.uid, cloudDoc.id)).skippedVersions;
           imported++;
         } catch (e) {
           reportError(e, { action: 'Import failed for doc', docId: cloudDoc.id });
           failed++;
         }
       }
-      showToast(`Импорт завершен: скачано ${imported} из ${cloudDocs.length} заметок. Ошибок: ${failed}`, failed > 0 ? 'warning' : 'success');
+      showToast(`Импорт завершен: скачано ${imported} из ${cloudDocs.length} заметок. Ошибок: ${failed}`, failed > 0 || skipped > 0 ? 'warning' : 'success');
+      if (skipped > 0) showToast(t('storage_download_versions_skipped', { count: skipped }), 'warning');
       // C4: «из N» — только прочитанные; нечитаемые ряды названы отдельно.
       if (unreadable.length > 0) showToast(t('restore_cloud_counts_partial', { count: String(unreadable.length) }), 'warning');
       setDiagnosticsKey(k => k + 1);

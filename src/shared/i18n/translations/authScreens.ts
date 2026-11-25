@@ -152,6 +152,10 @@ export const authScreensTranslations: Translations = {
     ru: 'Данные этого аккаунта удалены с устройства',
     en: 'This account’s data was deleted from this device',
   },
+  auth_lost_session_wipe_signed_in: {
+    ru: 'Вход уже выполнен — данные прежней сессии не тронуты',
+    en: 'You are already signed in — the previous session’s data was left as is',
+  },
   auth_lost_session_wipe_failed: {
     ru: 'Не удалось удалить данные с устройства — очисти данные сайта в браузере вручную',
     en: 'Could not delete the data from this device — clear this site’s data in your browser manually',

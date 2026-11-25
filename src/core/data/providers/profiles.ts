@@ -27,6 +27,40 @@ export async function updateProfile(userId: string, data: ProviderRecord): Promi
   if (error != null) throw error;
 }
 
+/**
+ * LB-1: метки пишутся целым списком, поэтому писатель читает список вместе с
+ * версией строки и пишет, только если версия та же. Своей колонки-версии у users
+ * нет — берётся системная `xmin` Postgres: её меняет любая запись в строку, чья
+ * бы она ни была (и прежнего клиента, и в другую колонку). null — строки нет.
+ */
+export async function getProfileLabels(userId: string): Promise<{ labels: unknown; version: string } | null> {
+  const { data, error } = await getSupabase()
+    .from('users')
+    .select('uid,labels,xmin')
+    .eq('uid', userId)
+    .maybeSingle();
+  if (error != null) throw error;
+  if (!ownRow(data, userId, 'uid')) return null;
+  const row = data as { labels: unknown; xmin: unknown };
+  return { labels: row.labels, version: String(row.xmin) };
+}
+
+/**
+ * LB-1: условная запись меток. false — строку с тех пор кто-то записал (или её
+ * нет): перечитать и повторить. Условие едет в адресе запроса, который nginx
+ * пишет в журнал доступа, — поэтому в нём только uid и версия, не сам список.
+ */
+export async function replaceProfileLabels(userId: string, version: string, next: unknown[]): Promise<boolean> {
+  const { data, error } = await getSupabase()
+    .from('users')
+    .update({ labels: next })
+    .eq('uid', userId)
+    .eq('xmin', version)
+    .select('uid');
+  if (error != null) throw error;
+  return data?.length === 1;
+}
+
 const PROFILE_RETRY_MIN_MS = 5_000;
 const PROFILE_RETRY_MAX_MS = 60_000;
 

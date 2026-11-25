@@ -2,9 +2,9 @@
 // DI-1. Итог ведёт useServiceAction: зелёный тост только после 'saved',
 // счётчик rawSuccessToasts этого файла не растёт. Занятость — busy, второй
 // клик не шлёт второй запрос (защита execute от параллельного вызова).
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { getLocalDb, type AIDialogue } from '../../../core/storage/localDb';
-import { getCurrentUser } from '../../../core/auth';
+import { getCurrentUser, onAuthStateChange } from '../../../core/auth';
 import { chatInsightsEnabled } from '../../../core/sync/syncFlags';
 import { HYPOTHESIS_PERSONAS } from '../../../shared/ai/hypothesisRule';
 import { codeConclusion } from '../../../shared/ai/insightConfirm';
@@ -13,9 +13,23 @@ import { AIChatMemoryService } from '../services/AIChatMemoryService';
 import { insightSources } from '../services/insightCapture';
 import { citesAnyId, HIDDEN_ANSWER_PLACEHOLDER, legacyNoteHidden, toApiContent } from '../utils/aiChatTransport';
 import { hiddenNoteIdsFromDocs } from '../utils/hiddenNoteIds';
+import { detectRisk } from '../utils/riskDetect';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { useToast } from '../../../shared/components/Toast';
 import { useLanguage } from '../../../shared/i18n';
+
+// Владелец 25.11: ответ на кризисную реплику — не место для выводов (правило 3
+// insightCapture); у такого ответа кнопки нет. Ход тот же — у всех вариантов ответа.
+function crisisReplyIndexes(dialogue: AIDialogue | null): ReadonlySet<number> {
+  const out = new Set<number>();
+  let risky = false;
+  (dialogue?.messages ?? []).forEach((m, i) => {
+    if (m.type === 'system') return;
+    if (m.role === 'user') risky = detectRisk(m.content).isRisk;
+    else if (risky) out.add(i);
+  });
+  return out;
+}
 
 export function useSaveInsight(dialogue: AIDialogue | null) {
   const { execute, isLoading } = useServiceAction();
@@ -23,14 +37,23 @@ export function useSaveInsight(dialogue: AIDialogue | null) {
   const { t } = useLanguage();
   const [flagOn, setFlagOn] = useState(false);
 
-  // Флаг читаем один раз при открытии страницы, не на каждый ход.
+  // Дейлик 24.11 (Н-3): uid зеркала авторизации приходит асинхронно — страница
+  // могла открыться раньше сессии (как в DialogueInsights).
+  const [uid, setUid] = useState<string | undefined>(() => getCurrentUser()?.uid);
+  useEffect(() => onAuthStateChange(u => setUid(u?.uid)), []);
+
+  // Флаг читаем при открытии страницы и при смене uid, не на каждый ход.
   useEffect(() => {
     let active = true;
-    void chatInsightsEnabled(getCurrentUser()?.uid).then(on => { if (active) setFlagOn(on); });
+    void chatInsightsEnabled(uid).then(on => { if (active) setFlagOn(on); });
     return () => { active = false; };
-  }, []);
+  }, [uid]);
+
+  const visible = flagOn && !!dialogue && HYPOTHESIS_PERSONAS.includes(dialogue.personaId);
+  const crisisIndexes = useMemo(() => crisisReplyIndexes(visible ? dialogue : null), [visible, dialogue]);
 
   const handleSaveInsight = useCallback((messageIndex: number) => {
+    if (crisisIndexes.has(messageIndex)) return;
     void execute(async () => {
       const msgs = dialogue?.messages ?? [];
       const reply = msgs[messageIndex];
@@ -72,8 +95,7 @@ export function useSaveInsight(dialogue: AIDialogue | null) {
         if (res === 'none') showToast(t('ai_insight_not_found'), 'info');
       },
     });
-  }, [dialogue, execute, showToast, t]);
+  }, [dialogue, crisisIndexes, execute, showToast, t]);
 
-  const visible = flagOn && !!dialogue && HYPOTHESIS_PERSONAS.includes(dialogue.personaId);
-  return { handleSaveInsight, busy: isLoading, visible };
+  return { handleSaveInsight, busy: isLoading, visible, crisisIndexes };
 }

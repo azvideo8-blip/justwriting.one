@@ -1,13 +1,16 @@
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { hasLocalDatabase } from '../../../core/storage/localDb';
 import { reportError } from '../../../shared/errors/reportError';
-import { CLOCK_SKEW_THRESHOLD_SEC } from '../../../core/auth/supabaseAuthProvider';
+import { CLOCK_SKEW_THRESHOLD_SEC, getCurrentUser } from '../../../core/auth/supabaseAuthProvider';
 
 type ShowToast = (
   message: string,
   type?: 'success' | 'error' | 'info' | 'warning',
   action?: { label: string; onClick: () => void },
+  options?: { durationMs?: number },
 ) => void;
+/** Предложение одноразовое: его надо успеть прочитать и нажать, 3 с мало. */
+const WIPE_OFFER_TOAST_MS = 60_000;
 type Translate = (key: string, params?: Record<string, string | number>) => string;
 type Confirm = (opts: { title: string; message?: string; confirmLabel?: string; destructive?: boolean }) => Promise<boolean>;
 
@@ -64,11 +67,22 @@ export async function offerLostSessionWipe(showToast: ShowToast, t: Translate, c
 
   if (!(await hasLocalDatabase(lostUid))) return;
 
+  // Тост переживает вход: пока он висит, могли войти — этим же аккаунтом (стёрли бы
+  // живой) или другим (уборка снимает и токен его сессии).
+  const signedIn = () => {
+    if (!getCurrentUser()) return false;
+    showToast(t('auth_lost_session_wipe_signed_in'), 'info');
+    return true;
+  };
+  let wiped = false;
+
   showToast(t('auth_lost_session_wipe_hint'), 'warning', {
     label: t('auth_lost_session_wipe_button'),
     onClick: () => {
+      if (wiped) return;
       void (async () => {
         try {
+          if (signedIn()) return;
           const { countUnsyncedLocalData } = await import('./unsyncedLocalData');
           const unsynced = await countUnsyncedLocalData(lostUid);
           const message = [
@@ -83,9 +97,10 @@ export async function offerLostSessionWipe(showToast: ShowToast, t: Translate, c
             confirmLabel: t('auth_lost_session_wipe_button'),
             destructive: true,
           });
-          if (!ok) return;
+          if (!ok || signedIn()) return;
           const { AuthService } = await import('../services/AuthService');
           await AuthService.wipeDeviceDataForUid(lostUid);
+          wiped = true;
           showToast(t('auth_lost_session_wipe_done'), 'success');
         } catch (e) {
           reportError(e, { action: 'lost_session_wipe' });
@@ -93,5 +108,5 @@ export async function offerLostSessionWipe(showToast: ShowToast, t: Translate, c
         }
       })();
     },
-  });
+  }, { durationMs: WIPE_OFFER_TOAST_MS });
 }

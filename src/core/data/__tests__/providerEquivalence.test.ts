@@ -143,6 +143,9 @@ const SCENARIOS: Array<{ name: string; run: (p: Provider) => Promise<unknown> }>
   { name: 'deleteVersionsBatch', run: p => p['deleteVersionsBatch']!('u1', 'doc_1', ['v3', 'v4']) },
   { name: 'getProfile', run: p => p['getProfile']!('u1') },
   { name: 'updateProfile', run: p => p['updateProfile']!('u1', { nickname: 'n', privacyAcceptedAt: 1756000000000 }) },
+  // LB-1: метки читаются вместе с версией строки (xmin) и пишутся под условием по ней.
+  { name: 'getProfileLabels', run: p => p['getProfileLabels']!('u1') },
+  { name: 'replaceProfileLabels', run: p => p['replaceProfileLabels']!('u1', '4711', [{ id: 'l1', name: 'c1', color: '#111', _encrypted: true }]) },
   { name: 'getUsers', run: p => p['getUsers']!(50) },
   { name: 'getDraft', run: p => p['getDraft']!('u1') },
   { name: 'saveDraft', run: p => p['saveDraft']!('u1', { title: 'd', content: 'cd' }) },

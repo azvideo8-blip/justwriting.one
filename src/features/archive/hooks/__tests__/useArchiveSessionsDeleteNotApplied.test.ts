@@ -51,6 +51,7 @@ vi.mock('../useArchiveWordCloud', () => ({
 }));
 
 import { deleteArchiveSession, trashArchiveSession } from '../../services/archiveCrud';
+import { StorageService } from '../../../../core/services/StorageService';
 
 describe('useArchiveSessions — delete not applied (F-1)', () => {
   beforeEach(() => {
@@ -96,5 +97,24 @@ describe('useArchiveSessions — delete not applied (F-1)', () => {
     mockShowToast.mockClear();
     await act(async () => { await result.current.handlePermanentDeleteSession(mockSession); });
     expect(mockShowToast.mock.calls).toEqual([['delete_local_only_queued', 'warning']]);
+  });
+
+  // Дейлик 25.11 (Н-1). Мутация: убрать ветку cloudPending — зелёный «Корзина очищена», красный.
+  it('отказ облака: «Очистить корзину» говорит то же, что удаление по одной', async () => {
+    const spy = vi.spyOn(StorageService, 'deleteDocument');
+    const mockUser = { uid: 'u_f1_test' } as unknown as AppUser;
+    const t = (k: string) => k;
+    const { result } = renderHook(() => useArchiveSessions(mockUser, 'u_f1_test', t));
+    await waitFor(() => expect(result.current.sessions).toHaveLength(1));
+
+    spy.mockResolvedValueOnce({ cloudSynced: false, derivativesOk: true, applied: true });
+    await act(async () => { await result.current.handleEmptyTrash([mockSession]); });
+    expect(mockShowToast.mock.calls).toEqual([['delete_local_only_queued', 'warning']]);
+    expect(result.current.sessions).toEqual([]);
+
+    mockShowToast.mockClear();
+    spy.mockResolvedValueOnce({ cloudSynced: true, derivativesOk: true, applied: true });
+    await act(async () => { await result.current.handleEmptyTrash([mockSession]); });
+    expect(mockShowToast.mock.calls).toEqual([['archive_trash_cleared', 'success']]);
   });
 });

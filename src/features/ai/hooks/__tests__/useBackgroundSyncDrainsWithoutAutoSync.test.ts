@@ -23,6 +23,9 @@ vi.mock('../../../../core/services/SyncService', () => ({
   },
 }));
 
+const mockRetryPurges = vi.fn().mockResolvedValue({ purged: 0, failed: 0, forgotten: 0, slowed: 0 });
+vi.mock('../../services/pendingLocalPurges', () => ({ retryPendingLocalPurges: (...a: unknown[]) => mockRetryPurges(...a) }));
+
 vi.mock('../../../../core/services/CloudSyncService', () => ({
   CloudSyncService: {
     restoreMissingDocuments: (...a: unknown[]) => mockRestore(...a),
@@ -45,6 +48,17 @@ describe('D-22 useBackgroundSync calls syncPending without force when cloudSyncE
     await vi.advanceTimersByTimeAsync(5_100);
 
     expect(mockSyncPending).toHaveBeenCalledWith('u_no_autosync_1');
+    expect(mockRestore).not.toHaveBeenCalled();
+  });
+
+  // Дейлик 24.11 (Н-1): уборка пересказа скрытой заметки локальная, тумблер выгрузки
+  // её не касается. Мутация: вернуть голый return — красный.
+  it('повторяет локальную уборку и при выключенной автосинхронизации', async () => {
+    renderHook(() => useBackgroundSync());
+    await vi.advanceTimersByTimeAsync(5_100);
+
+    expect(mockRetryPurges).toHaveBeenCalledTimes(1);
+    expect(mockRetryPurges).toHaveBeenCalledWith('u_no_autosync_1');
     expect(mockRestore).not.toHaveBeenCalled();
   });
 });

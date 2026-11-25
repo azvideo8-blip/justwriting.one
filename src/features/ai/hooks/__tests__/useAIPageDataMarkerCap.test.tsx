@@ -88,7 +88,7 @@ vi.mock('../../services/AIProfileFacetService', () => ({ AIProfileFacetService: 
 vi.mock('../../services/AIService', () => ({ AIService: { chat: vi.fn().mockResolvedValue({ ok: false, error: 'off' }) } }));
 vi.mock('../../utils/embeddingIndexer', () => ({ indexPending: vi.fn() }));
 vi.mock('../../../../core/data', () => ({ DataProvider: {} }));
-vi.mock('../../../../core/auth', () => ({ getCurrentUser: () => ({ uid: 'u1' }) }));
+vi.mock('../../../../core/auth', () => ({ getCurrentUser: () => ({ uid: 'u1' }), onAuthStateChange: () => () => {} }));
 vi.mock('../../../../core/ai/indexingConsent', () => ({
   getIndexingConsent: () => 'granted',
   setIndexingConsent: vi.fn(),

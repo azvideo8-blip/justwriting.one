@@ -34,6 +34,16 @@ const POLL_INTERVAL_MS = 120_000;
 const PULL_FIRST_WINDOW_MS = 24 * 60 * 60_000;
 const AI_RESTORE_RETRY_MS = 30 * 60_000;
 
+// EX-1: повторить локальную уборку, которая отказала (дайджест/грань/портрет).
+async function retryLocalPurges(uid: string): Promise<void> {
+  try {
+    const { retryPendingLocalPurges } = await import('../services/pendingLocalPurges');
+    await retryPendingLocalPurges(uid);
+  } catch (e) {
+    reportError(e, { action: 'backgroundSync_retryPendingLocalPurges' });
+  }
+}
+
 export function useBackgroundSync(): void {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -71,7 +81,13 @@ export function useBackgroundSync(): void {
         reportError(e, { action: 'backgroundSync_syncPending' });
       }
 
-      if (!cloudSyncEnabled(uid)) return;
+      // Дейлик 24.11 (Н-1): уборка локальная и от тумблера выгрузки не зависит.
+      // При включённой синхронизации она идёт в конце прохода — после забора из
+      // облака, который мог вернуть то, что убираем.
+      if (!cloudSyncEnabled(uid)) {
+        await retryLocalPurges(uid);
+        return;
+      }
       const { CloudSyncService } = await import('../../../core/services/CloudSyncService');
       // Лениво: сервис восстановления нужен только при включённой синхронизации,
       // а не на старте (бюджет стартового куска).
@@ -199,13 +215,7 @@ export function useBackgroundSync(): void {
       } catch (e) {
         reportError(e, { action: 'backgroundSync_retryPendingAnalysisDeletes' });
       }
-      // EX-1: повторить локальную уборку, которая отказала (дайджест/грань/портрет).
-      try {
-        const { retryPendingLocalPurges } = await import('../services/pendingLocalPurges');
-        await retryPendingLocalPurges(uid);
-      } catch (e) {
-        reportError(e, { action: 'backgroundSync_retryPendingLocalPurges' });
-      }
+      await retryLocalPurges(uid);
     } catch (e) {
       reportError(e, { action: 'backgroundSync_pass' });
     } finally {

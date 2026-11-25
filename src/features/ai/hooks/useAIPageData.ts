@@ -448,7 +448,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
 
   // DI-5: обработчик в своём файле — итог через useServiceAction, храповик
   // rawSuccessToasts не растёт.
-  const { handleSaveInsight, busy: saveInsightBusy, visible: insightsButtonVisible } = useSaveInsight(dialogue);
+  const { handleSaveInsight, busy: saveInsightBusy, visible: insightsButtonVisible, crisisIndexes: insightCrisisIndexes } = useSaveInsight(dialogue);
 
   const handleRegenerate = async () => {
     await regenerateLast();
@@ -631,7 +631,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     pendingAttachments, removePendingAttachment, handlePasteAsNote,
     lastTurnScope, handleAnalyzeNote, handleRelateNote, handleLookWider,
     handleSuggestion, handleFeedback, handleRegenerate, handleSwitchVariant,
-    handleSaveInsight, saveInsightBusy, insightsButtonVisible,
+    handleSaveInsight, saveInsightBusy, insightsButtonVisible, insightCrisisIndexes,
     crisisActive, dismissCrisis,
     dailyLimit,
     loadDialogues, openDialogueById, loadCustomPersonas,

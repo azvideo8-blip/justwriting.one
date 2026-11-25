@@ -38,7 +38,7 @@ import { getOrCreateGuestId } from '../core/storage/localDb';
 import { useBackgroundSync } from '../features/ai/hooks/useBackgroundSync';
 import { useOnlineStatus } from '../shared/hooks/useOnlineStatus';
 import { VAULT_UNLOCKED_EVENT } from '../core/crypto/useEncryptionStore';
-import { STORAGE_KEYS } from '../shared/constants/storageKeys';
+import { cloudSyncEnabled } from '../core/sync/cloudSyncEnabled';
 // BS (N-2): движок синхронизации грузится по требованию в эффектах ниже — ни один
 // из этих вызовов не нужен до первого рендера, а статическое ребро утаскивало за
 // собой CloudSyncService, LocalStoreSyncService и сегментный формат диалогов в
@@ -184,7 +184,7 @@ export function SyncManager() {
               void SyncService.syncPending(user.uid).catch(e =>
                 reportError(e, { action: 'sync_pending_on_vault_unlock' }),
               );
-              if (localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid)) === 'true') {
+              if (cloudSyncEnabled(user.uid)) {
                 void SyncService.pullNotes(user.uid).catch(e =>
                   reportError(e, { action: 'pull_notes_on_vault_unlock' }),
                 );
@@ -205,7 +205,7 @@ export function SyncManager() {
     if (isBrowserOnline && !prevBrowserOnline.current && user) {
       void syncEngine().then(SyncService => {
         SyncService.syncPending(user.uid).catch(e => reportError(e, { action: 'sync_manager_online_recovery' }));
-        if (localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid)) === 'true') {
+        if (cloudSyncEnabled(user.uid)) {
           SyncService.pullNotes(user.uid).catch(e => reportError(e, { action: 'pull_notes_online_recovery' }));
         }
       }).catch(e => reportError(e, { action: 'sync_engine_load_online_recovery' }));
@@ -217,7 +217,7 @@ export function SyncManager() {
   const initialSyncRanRef = useRef<string | null>(null);
   useEffect(() => {
     if (!user || initialSyncRanRef.current === user.uid) return;
-    if (localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid)) !== 'true') return;
+    if (!cloudSyncEnabled(user.uid)) return;
     initialSyncRanRef.current = user.uid;
     void syncEngine().then(SyncService =>
       // S1-6/S1-7: единая точка забора — по rev, если флаг включён и сервер
@@ -233,7 +233,7 @@ export function SyncManager() {
     const onVisibilityChange = () => {
       if (document.hidden) return;
       if (!user?.uid) return;
-      if (localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid)) !== 'true') return;
+      if (!cloudSyncEnabled(user.uid)) return;
       // S1-7: при заборе по rev отдельная проверка серверного курсора не нужна —
       // забор сам и есть проверка. Выключенный флаг — или сервер без 0045
       // (S1-13: сессия запомнила 42703) — оставляет старую проверку курсора:

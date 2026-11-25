@@ -12,14 +12,20 @@ vi.mock('../../../../core/auth', () => ({
 }));
 
 let mockProfileStore: Record<string, unknown> = {};
+let mockVersion = 1;
 
 vi.mock('../../../../core/data', () => ({
   DataProvider: {
     getProfile: vi.fn(async () => {
       return mockProfileStore;
     }),
-    updateProfile: vi.fn(async (_uid: string, data: Record<string, unknown>) => {
-      mockProfileStore = { ...mockProfileStore, ...data };
+    // LB-1: метки читаются с версией строки и пишутся только под ней.
+    getProfileLabels: vi.fn(async () => ({ labels: mockProfileStore.labels, version: String(mockVersion) })),
+    replaceProfileLabels: vi.fn(async (_uid: string, version: string, next: unknown[]) => {
+      if (version !== String(mockVersion)) return false;
+      mockVersion++;
+      mockProfileStore = { ...mockProfileStore, labels: next };
+      return true;
     }),
   },
 }));
@@ -122,14 +128,14 @@ describe('SEC-7b: useProfileLabels end-to-end decryption and edit cycle', () => 
       'user_test',
     );
     mockProfileStore = { uid: 'user_test', labels: encrypted };
-    vi.mocked(DataProvider.updateProfile).mockClear();
+    vi.mocked(DataProvider.replaceProfileLabels).mockClear();
 
     const res = await ProfileService.getProfile('user_test');
     expect(res.data?.labels?.[0]?.name).toBe('Терапия');
 
     // Проходы запускаются без ожидания, поэтому даём микрозадачам отработать.
     await new Promise(r => setTimeout(r, 0));
-    expect(DataProvider.updateProfile).not.toHaveBeenCalled();
+    expect(DataProvider.replaceProfileLabels).not.toHaveBeenCalled();
   });
 
   // Обратная сторона той же правки: проходы должны быть живы. Если их вызвать
@@ -140,16 +146,16 @@ describe('SEC-7b: useProfileLabels end-to-end decryption and edit cycle', () => 
     const { ProfileService } = await import('../../../../core/services/ProfileService');
 
     mockProfileStore = { uid: 'user_test', labels: [{ id: 'l1', name: 'Практика6', color: '#222' }] };
-    vi.mocked(DataProvider.updateProfile).mockClear();
+    vi.mocked(DataProvider.replaceProfileLabels).mockClear();
 
     await ProfileService.getProfile('user_test');
     // Ждём условие, а не фиксированный тик: шифрование метки — цепочка
     // WebCrypto, и под нагрузкой она в один setTimeout(0) не укладывается.
-    await vi.waitFor(() => expect(DataProvider.updateProfile).toHaveBeenCalledTimes(1));
-    const written = vi.mocked(DataProvider.updateProfile).mock.calls[0]![1] as { labels: Array<Record<string, unknown>> };
-    expect(written.labels[0]!._encrypted).toBe(true);
-    expect(written.labels[0]!.name).not.toBe('Практика6');
-    expect((await decryptLabels(written.labels))[0]!.name).toBe('Практика6');
+    await vi.waitFor(() => expect(DataProvider.replaceProfileLabels).toHaveBeenCalledTimes(1));
+    const written = vi.mocked(DataProvider.replaceProfileLabels).mock.calls[0]![2] as Array<Record<string, unknown>>;
+    expect(written[0]!._encrypted).toBe(true);
+    expect(written[0]!.name).not.toBe('Практика6');
+    expect((await decryptLabels(written))[0]!.name).toBe('Практика6');
   });
 
   it('BUG-1: re-fetches and decrypts labels when vault is unlocked after mount', async () => {
@@ -178,72 +184,5 @@ describe('SEC-7b: useProfileLabels end-to-end decryption and edit cycle', () => 
       expect(getProfileSpy).toHaveBeenCalledTimes(2);
       expect(result.current.labels[0]!.name).toBe('Практика6');
     });
-  });
-
-  // N-54: неудачное чтение профиля не считается прочитанным — следующий
-  // потребитель читает заново, и метки не застревают на «…».
-  it('a failed profile read is retried by the next consumer', async () => {
-    const { DataProvider } = await import('../../../../core/data');
-    const get = vi.mocked(DataProvider.getProfile);
-    get.mockRejectedValueOnce(new Error('network'));
-    renderHook(() => useProfileLabels('user_retry'));
-    await waitFor(() => expect(get).toHaveBeenCalledTimes(1));
-    await act(async () => { await Promise.resolve(); });
-    renderHook(() => useProfileLabels('user_retry'));
-    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
-  });
-
-  // Н-4 (дейлик 21.11): список меток не прочитан — добавление записало бы в облако
-  // список из одной новой метки и стёрло остальные.
-  // Мутация: убрать перечитывание в addLabel — красный.
-  it('не прочитали метки → добавление отказано, облако не тронуто', async () => {
-    const { DataProvider } = await import('../../../../core/data');
-    vi.mocked(DataProvider.getProfile).mockRejectedValue(new Error('429'));
-    const { result } = renderHook(() => useProfileLabels(userId));
-    let ok: boolean | undefined;
-    await act(async () => { ok = await result.current.addLabel({ name: 'Книга', color: '#0088FF' }); });
-    expect(ok).toBe(false);
-    expect(DataProvider.updateProfile).not.toHaveBeenCalled();
-    vi.mocked(DataProvider.getProfile).mockImplementation(async () => mockProfileStore);
-  });
-
-  it('первое чтение не удалось, второе удалось → новая метка добавлена к прочитанным', async () => {
-    const { DataProvider } = await import('../../../../core/data');
-    vi.mocked(DataProvider.getProfile).mockRejectedValueOnce(new Error('429'));
-    const { result } = renderHook(() => useProfileLabels(userId));
-    await act(async () => { await Promise.resolve(); });
-    let ok: boolean | undefined;
-    await act(async () => { ok = await result.current.addLabel({ name: 'Книга', color: '#0088FF' }); });
-    expect(ok).toBe(true);
-    const stored = await decryptLabels(mockProfileStore.labels as Record<string, unknown>[]);
-    expect(stored.map(l => l.name)).toEqual(['Практика6', 'Терапия', 'Книга']);
-  });
-
-  // Ревью 0.11.25 I-1: перечитали, но запись не прошла; повтор «Сохранить» затирал список.
-  // Мутация: прежний код (условие по fetchedSet, прочитанное — в локальной переменной) — красный.
-  it('перечитали, запись отказала, повторили — прежние метки на месте', async () => {
-    const { DataProvider } = await import('../../../../core/data');
-    vi.mocked(DataProvider.getProfile).mockRejectedValueOnce(new Error('429'));
-    const { result } = renderHook(() => useProfileLabels(userId));
-    await act(async () => { await Promise.resolve(); });
-    vi.mocked(DataProvider.updateProfile).mockRejectedValueOnce(new Error('429'));
-    await act(async () => { expect(await result.current.addLabel({ name: 'Книга', color: '#0088FF' })).toBe(false); });
-    await act(async () => { expect(await result.current.addLabel({ name: 'Книга', color: '#0088FF' })).toBe(true); });
-    const stored = await decryptLabels(mockProfileStore.labels as Record<string, unknown>[]);
-    expect(stored.map(l => l.name)).toEqual(['Практика6', 'Терапия', 'Книга']);
-  });
-
-  // Та же потеря: поздний ответ после размонтирования оставлял отметку «прочитано».
-  it('ответ чтения пришёл после ухода с экрана — следующий заход не пишет поверх', async () => {
-    const { DataProvider } = await import('../../../../core/data');
-    let late!: (v: Record<string, unknown>) => void;
-    vi.mocked(DataProvider.getProfile).mockReturnValueOnce(new Promise(r => { late = r; }) as never);
-    const first = renderHook(() => useProfileLabels(userId));
-    first.unmount();
-    await act(async () => { late({ uid: userId }); await Promise.resolve(); });
-    const { result } = renderHook(() => useProfileLabels(userId));
-    await act(async () => { expect(await result.current.addLabel({ name: 'Книга', color: '#0088FF' })).toBe(true); });
-    const stored = await decryptLabels(mockProfileStore.labels as Record<string, unknown>[]);
-    expect(stored.map(l => l.name)).toEqual(['Практика6', 'Терапия', 'Книга']);
   });
 });

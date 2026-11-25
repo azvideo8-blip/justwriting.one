@@ -239,12 +239,18 @@ export async function restoreArchiveSession(
   return result;
 }
 
+function logTrashCloudPending(count: number): void {
+  useActivityLogStore.getState().addActivity('activity_trash_cloud_pending', { count }, 'warning', 'archive');
+}
+
 export async function emptyTrash(
   trashedSessions: ArchiveSession[],
   userId: string
-): Promise<{ successCount: number; failCount: number; deletedIds: string[] }> {
+): Promise<{ successCount: number; failCount: number; cloudPending: number; deletedIds: string[] }> {
   let successCount = 0;
   let failCount = 0;
+  // Дейлик 25.11 (Н-1): с устройства удалено, облако не приняло — задача в очереди.
+  let cloudPending = 0;
   const deletedIds: string[] = [];
   for (const session of trashedSessions) {
     try {
@@ -253,6 +259,7 @@ export async function emptyTrash(
         failCount++;
       } else {
         successCount++;
+        if (!res.cloudSynced) cloudPending++;
         deletedIds.push(session.id);
       }
     } catch (e) {
@@ -264,7 +271,8 @@ export async function emptyTrash(
     failCount > 0 ? 'activity_trash_cleared_partial' : 'activity_trash_cleared',
     failCount > 0 ? { success: successCount, failed: failCount } : { count: successCount },
     failCount > 0 ? 'warning' : 'info', 'archive');
-  return { successCount, failCount, deletedIds };
+  if (cloudPending > 0) logTrashCloudPending(cloudPending);
+  return { successCount, failCount, cloudPending, deletedIds };
 }
 
 export async function deleteArchiveSession(
@@ -322,12 +330,16 @@ export async function pruneExpiredTrash(
   // N-50: из списка уходит только то, что действительно удалено. Неудалённое
   // остаётся видимым в корзине — иначе интерфейс говорил бы «удалено», а
   // заметка лежала бы и на устройстве, и в облаке. Повтор — при следующем открытии.
+  // Облако не приняло удаление — заметка уходит из списка, как при удалении по
+  // одной (задача в очереди), но журнал это называет (дейлик 25.11, Н-1).
   let prunedCount = 0;
+  let cloudPending = 0;
   if (expired.length > 0) {
     const results = await Promise.allSettled(expired.map(s => deleteArchiveSession(s, userId, { skipActivityLog: true })));
     results.forEach((r, i) => {
       if (r.status === 'fulfilled' && r.value.applied && r.value.derivativesOk !== false) {
         prunedCount++;
+        if (!r.value.cloudSynced) cloudPending++;
       } else {
         if (r.status === 'rejected') {
           reportError(r.reason, { action: 'pruneExpiredTrash_single', sessionId: expired[i]!.id });
@@ -337,5 +349,6 @@ export async function pruneExpiredTrash(
     });
   }
 
+  if (cloudPending > 0) logTrashCloudPending(cloudPending);
   return { prunedCount, remainingSessions };
 }

@@ -78,36 +78,46 @@ export async function decryptLabels(labels: Array<Record<string, unknown>>): Pro
   return Promise.all(labels.map(l => decryptLabel(l)));
 }
 
+type RawLabels = Array<Record<string, unknown>>;
+
+/**
+ * LB-1: разовый проход над списком меток. `fix` отдаёт исправленный список или
+ * null, если чинить нечего. Сначала — на списке вызывающего (здоровый профиль не
+ * стоит ни одного запроса), затем на свежем чтении, и запись идёт под версией
+ * строки этого чтения: проход запускают без ожидания, и список вызывающего к
+ * моменту записи уже мог устареть — раньше он ложился поверх свежей метки.
+ * Строку записали между чтением и записью — выходим, следующее чтение профиля
+ * запустит проход заново.
+ */
+async function rewriteLabels(
+  userId: string,
+  seen: RawLabels,
+  action: string,
+  fix: (labels: RawLabels) => Promise<RawLabels | null>,
+): Promise<boolean> {
+  if (!userId || userId.startsWith('guest') || !Array.isArray(seen) || seen.length === 0) return false;
+  if (!getEncryptionEnabled(userId) || !getSessionKey()) return false;
+  try {
+    if (!(await fix(seen))) return false;
+    const row = await DataProvider.getProfileLabels(userId);
+    if (!row || !Array.isArray(row.labels)) return false;
+    const fixed = await fix(row.labels as RawLabels);
+    return fixed ? await DataProvider.replaceProfileLabels(userId, row.version, fixed) : false;
+  } catch (err) {
+    reportError(err, { action, userId });
+    return false;
+  }
+}
+
 /**
  * Идемпотентная миграция существующих незашифрованных меток в профиле.
- * Выполняется один раз, когда сейф разблокирован и обнаружены незашифрованные метки.
+ * Выполняется, когда сейф разблокирован и обнаружены незашифрованные метки.
  */
-export async function migrateUnencryptedLabels(
-  userId: string,
-  rawLabels: Array<Record<string, unknown>>
-): Promise<boolean> {
-  if (!userId || userId.startsWith('guest') || !Array.isArray(rawLabels) || rawLabels.length === 0) {
-    return false;
-  }
-
-  if (!getEncryptionEnabled(userId) || !getSessionKey()) {
-    return false;
-  }
-
-  const hasUnencrypted = rawLabels.some(l => l._encrypted !== true);
-  if (!hasUnencrypted) {
-    return false;
-  }
-
-  try {
-    const decrypted = await decryptLabels(rawLabels);
-    const encrypted = await encryptLabels(decrypted, userId);
-    await DataProvider.updateProfile(userId, { labels: encrypted });
-    return true;
-  } catch (err) {
-    reportError(err, { action: 'migrateUnencryptedLabels', userId });
-    return false;
-  }
+export function migrateUnencryptedLabels(userId: string, rawLabels: RawLabels): Promise<boolean> {
+  return rewriteLabels(userId, rawLabels, 'migrateUnencryptedLabels', async labels =>
+    labels.some(l => l._encrypted !== true)
+      ? (await encryptLabels(await decryptLabels(labels), userId)) as unknown as RawLabels
+      : null);
 }
 
 /**
@@ -120,59 +130,23 @@ export async function migrateUnencryptedLabels(
  * Функция расшифровывает второй слой и сохраняет в облако правильно зашифрованный список.
  * При отсутствии двойного шифрования ничего в базу не пишет и возвращает false.
  */
-export async function repairDoubleEncryptedLabels(
-  userId: string,
-  rawLabels: Array<Record<string, unknown>>
-): Promise<boolean> {
-  if (!userId || userId.startsWith('guest') || !Array.isArray(rawLabels) || rawLabels.length === 0) {
-    return false;
-  }
-
-  if (!getEncryptionEnabled(userId)) {
-    return false;
-  }
-  const key = getSessionKey();
-  if (!key) {
-    return false;
-  }
-
-  try {
-    const decrypted = await decryptLabels(rawLabels);
+export function repairDoubleEncryptedLabels(userId: string, rawLabels: RawLabels): Promise<boolean> {
+  return rewriteLabels(userId, rawLabels, 'repairDoubleEncryptedLabels', async labels => {
+    const key = getSessionKey();
+    if (!key) return null;
     let hasDoubleEncrypted = false;
-    const repairedLabels: Label[] = [];
-
-    for (const label of decrypted) {
-      if (label._undecrypted) {
-        repairedLabels.push(label);
-        continue;
-      }
-
+    const repaired: Label[] = [];
+    for (const label of await decryptLabels(labels)) {
+      if (label._undecrypted) { repaired.push(label); continue; }
       let name = label.name;
       try {
-        const secondDecrypted = await decryptContent(name, key);
-        name = secondDecrypted;
+        name = await decryptContent(name, key);
         hasDoubleEncrypted = true;
       } catch {
         // Обычное одиночно зашифрованное имя: расшифровка не-шифротекста завершается с ошибкой
       }
-
-      repairedLabels.push({
-        id: label.id,
-        name,
-        color: label.color,
-      });
+      repaired.push({ id: label.id, name, color: label.color });
     }
-
-    if (!hasDoubleEncrypted) {
-      return false;
-    }
-
-    const encrypted = await encryptLabels(repairedLabels, userId);
-    await DataProvider.updateProfile(userId, { labels: encrypted });
-    return true;
-  } catch (err) {
-    reportError(err, { action: 'repairDoubleEncryptedLabels', userId });
-    return false;
-  }
+    return hasDoubleEncrypted ? (await encryptLabels(repaired, userId)) as unknown as RawLabels : null;
+  });
 }
-

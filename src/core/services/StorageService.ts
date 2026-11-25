@@ -73,9 +73,11 @@ async function queueMetadataRetry(userId: string, localId: string): Promise<void
 // строки нет вовсе (удаление только по облачному номеру).
 async function queueCloudRemoval(userId: string, cloudId: string): Promise<void> {
   const db = await getLocalDb(userId);
-  const queue = await db.getAll('syncQueue');
-  if (queue.some(t => t.type === 'delete' && t.documentId === cloudId)) return;
-  await db.put('syncQueue', {
+  const existing = (await db.getAll('syncQueue')).find(t => t.type === 'delete' && t.documentId === cloudId);
+  if (existing && !existing.dead) return;
+  // Повторное удаление оживляет задачу из карантина: мёртвая не дренируется, и
+  // «из облака удалится позже» было бы неправдой (дейлик 25.11).
+  await db.put('syncQueue', existing ? { ...existing, dead: false, attempts: 0 } : {
     id: `delete_${cloudId}_${Date.now()}`,
     documentId: cloudId,
     type: 'delete' as const,
@@ -174,6 +176,9 @@ export const StorageService = {
 
   async restoreDocument(userId: string, localId?: string, cloudId?: string): Promise<{ cloudSynced: boolean }> {
     const { cloudId: targetCloudId, failed: lookupFailed } = await resolveCloudId(userId, localId, cloudId);
+    // Восстановление сильнее прошлого «удалить навсегда»: задача, не доехавшая до
+    // облака, снесла бы восстановленную заметку (дейлик 25.11).
+    if (targetCloudId) await clearCloudRemovalTasks(userId, targetCloudId);
     if (localId) {
       await LocalDocumentService.restoreDocument(localId, userId);
     }

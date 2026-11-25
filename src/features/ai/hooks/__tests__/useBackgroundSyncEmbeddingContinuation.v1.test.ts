@@ -40,9 +40,8 @@ vi.mock('../../../../core/services/LocalStoreSyncService', () => ({
 vi.mock('../../services/pendingAnalysisDeletes', () => ({
   retryPendingAnalysisDeletes: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock('../../services/pendingLocalPurges', () => ({
-  retryPendingLocalPurges: vi.fn().mockResolvedValue({ purged: 0, failed: 0, forgotten: 0 }),
-}));
+const mockRetryPurges = vi.hoisted(() => vi.fn());
+vi.mock('../../services/pendingLocalPurges', () => ({ retryPendingLocalPurges: mockRetryPurges }));
 vi.mock('../../../../shared/activity/useActivityLogStore', () => ({
   useActivityLogStore: { getState: () => ({ addActivity: vi.fn() }) },
 }));
@@ -56,6 +55,7 @@ describe('В-1: фоновый проход продолжает догрузк�
     localStorage.clear();
     mockRestoreAi.mockResolvedValue({ skippedLocked: false, maxUpdatedAt: 0 });
     mockContinue.mockResolvedValue({ embeddings: 0, failed: 0, markedSynced: 0, finished: false });
+    mockRetryPurges.mockResolvedValue({ purged: 0, failed: 0, forgotten: 0 });
   });
 
   afterEach(() => {
@@ -74,6 +74,16 @@ describe('В-1: фоновый проход продолжает догрузк�
       'полный проход на сегодня уже был').toBe(false);
     expect(mockContinue).toHaveBeenCalledTimes(1);
     expect(mockContinue).toHaveBeenCalledWith(UID);
+  });
+
+  // Дейлик 24.11 (Н-1): при включённой синхронизации уборка — после забора из облака
+  // (он мог вернуть убираемое) и один раз за проход.
+  it('локальная уборка идёт после забора из облака, один раз', async () => {
+    renderHook(() => useBackgroundSync());
+    await vi.advanceTimersByTimeAsync(5_100);
+
+    expect(mockRetryPurges).toHaveBeenCalledTimes(1);
+    expect(mockRetryPurges.mock.invocationCallOrder[0]!).toBeGreaterThan(mockRestoreAi.mock.invocationCallOrder.at(-1)!);
   });
 
   it('зовёт продолжение каждым проходом, а не одним', async () => {

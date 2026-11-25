@@ -82,6 +82,19 @@ describe('useWritingActions.handleContinueDocument (S-8)', () => {
     expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ title: 'writing_cancel_confirm' }));
   });
 
+  // Дейлик 24.11 (Н-2): копия из облака приехала с дырой в истории — это названо.
+  // Мутация: не читать skippedVersions — красный.
+  it.each([[2, true], [0, false]])('пропущено версий при скачивании: %i → предупреждение %s', async (skippedVersions, warned) => {
+    vi.spyOn(StorageService, 'addLocalCopy').mockResolvedValue({ localId: 'doc_cloud', skippedVersions });
+    vi.spyOn(LocalVersionService, 'getLatestContent').mockResolvedValue('синтетический текст');
+    const { result } = renderActions();
+    await act(async () => {
+      await result.current.handleContinueDocument(noteDoc({ localId: undefined, cloudId: 'c1', storage: { local: false, cloud: true } } as never));
+    });
+    expect(useContentStore.getState().content).toBe('синтетический текст');
+    expect(mockShowToast.mock.calls.some(c => c[0] === 'storage_download_versions_skipped' && c[1] === 'warning')).toBe(warned);
+  });
+
   // R7Q-001: `total_words` в облаке — наивысшая отметка длины (0039, W-2), и забор
   // переносит её в локальную копию. По этой отметке раньше считалась отсечка хода:
   // заметку сократили с 350 слов до 120, человек дописал 40 — ход записал 0 слов,

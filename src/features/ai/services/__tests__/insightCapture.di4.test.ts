@@ -118,6 +118,10 @@ describe('DI-4: captureConfirmedInsight', () => {
     expect(AIService.pickInsight).not.toHaveBeenCalled();
     expect(await (await getLocalDb()).getAll('aiChatMemory')).toHaveLength(0);
     // Мутация: убрать шаг 3 (detectRisk) — красный.
+    // Ревью 0.11.26: согласие с ответом на кризисную реплику. Мутация: не смотреть prevUser — красный.
+    expect(await captureConfirmedInsight(input({ prevUser: 'Я хочу умереть' }))).toBe('none');
+    expect(AIService.pickInsight).not.toHaveBeenCalled();
+    expect(await (await getLocalDb()).getAll('aiChatMemory')).toHaveLength(0);
   });
 
   it('служебные запросы выключены в настройках — ничего не пишем', async () => {

@@ -14,7 +14,9 @@ import { generateDataKey } from '../encrypt';
 
 vi.mock('../../data', () => ({
   DataProvider: {
-    updateProfile: vi.fn().mockResolvedValue(undefined),
+    // LB-1: проход сам читает метки с версией строки и пишет под ней.
+    getProfileLabels: vi.fn(),
+    replaceProfileLabels: vi.fn().mockResolvedValue(true),
   },
 }));
 
@@ -89,18 +91,17 @@ describe('SEC-7: Label names end-to-end encryption', () => {
       { id: 'l1', name: 'Практика6', color: '#D04545' }, // unencrypted
     ];
 
+    vi.mocked(DataProvider.getProfileLabels).mockResolvedValue({ labels: rawLegacyLabels, version: '7' });
     const migrated = await migrateUnencryptedLabels('user_1', rawLegacyLabels);
     expect(migrated).toBe(true);
-    expect(DataProvider.updateProfile).toHaveBeenCalledWith('user_1', {
-      labels: [
-        expect.objectContaining({
-          id: 'l1',
-          color: '#D04545',
-          _encrypted: true,
-          name: expect.not.stringContaining('Практика6'),
-        }),
-      ],
-    });
+    expect(DataProvider.replaceProfileLabels).toHaveBeenCalledWith('user_1', '7', [
+      expect.objectContaining({
+        id: 'l1',
+        color: '#D04545',
+        _encrypted: true,
+        name: expect.not.stringContaining('Практика6'),
+      }),
+    ]);
 
     // Second run with already encrypted labels: no-op
     const encryptedLabels = await encryptLabels([{ id: 'l1', name: 'Практика6', color: '#D04545' }], 'user_1');
@@ -166,22 +167,21 @@ describe('SEC-7: Label names end-to-end encryption', () => {
         'user_1',
       );
 
+      vi.mocked(DataProvider.getProfileLabels).mockResolvedValue({ labels: [doubleEnc], version: '7' });
       const repaired = await repairDoubleEncryptedLabels('user_1', [doubleEnc as unknown as Record<string, unknown>]);
       expect(repaired).toBe(true);
-      expect(DataProvider.updateProfile).toHaveBeenCalledWith('user_1', {
-        labels: [
-          expect.objectContaining({
-            id: 'l1',
-            color: '#FF5500',
-            _encrypted: true,
-          }),
-        ],
-      });
+      expect(DataProvider.replaceProfileLabels).toHaveBeenCalledWith('user_1', '7', [
+        expect.objectContaining({
+          id: 'l1',
+          color: '#FF5500',
+          _encrypted: true,
+        }),
+      ]);
 
       // Verify the updated label payload in DataProvider decrypts cleanly in one pass to "Личное"
-      const updateCall = vi.mocked(DataProvider.updateProfile).mock.calls[0];
+      const updateCall = vi.mocked(DataProvider.replaceProfileLabels).mock.calls[0];
       expect(updateCall).toBeDefined();
-      const savedPayload = (updateCall![1] as { labels: Record<string, unknown>[] }).labels;
+      const savedPayload = updateCall![2] as Record<string, unknown>[];
       expect(savedPayload?.[0]).toBeDefined();
       const decrypted = await decryptLabel(savedPayload[0]!);
       expect(decrypted.name).toBe('Личное');
@@ -192,7 +192,7 @@ describe('SEC-7: Label names end-to-end encryption', () => {
       const repaired = await repairDoubleEncryptedLabels('user_1', [singleEnc as unknown as Record<string, unknown>]);
 
       expect(repaired).toBe(false);
-      expect(DataProvider.updateProfile).not.toHaveBeenCalled();
+      expect(DataProvider.replaceProfileLabels).not.toHaveBeenCalled();
     });
 
     it('returns false and does not write when vault is locked', async () => {
@@ -201,7 +201,7 @@ describe('SEC-7: Label names end-to-end encryption', () => {
 
       const repaired = await repairDoubleEncryptedLabels('user_1', [singleEnc as unknown as Record<string, unknown>]);
       expect(repaired).toBe(false);
-      expect(DataProvider.updateProfile).not.toHaveBeenCalled();
+      expect(DataProvider.replaceProfileLabels).not.toHaveBeenCalled();
     });
   });
 });

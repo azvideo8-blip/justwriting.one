@@ -85,6 +85,10 @@ export interface IDataProvider {
   // --- Profile & Admin Operations ---
   getProfile(userId: string): Promise<ProviderRecord | null>;
   updateProfile(userId: string, data: ProviderRecord): Promise<void>;
+  /** LB-1: метки и версия строки, под которой их можно записать; null — строки нет. */
+  getProfileLabels(userId: string): Promise<{ labels: unknown; version: string } | null>;
+  /** LB-1: запись меток, только если версия строки та же; false — строку уже записали. */
+  replaceProfileLabels(userId: string, version: string, next: unknown[]): Promise<boolean>;
   subscribeToProfile(userId: string, onUpdate: (data: ProviderRecord | null, unavailable?: boolean) => void): () => void;
   getUsers(limitCount: number): Promise<ProviderRecord[]>;
 

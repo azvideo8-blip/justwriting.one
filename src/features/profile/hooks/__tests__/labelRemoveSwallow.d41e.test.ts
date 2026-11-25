@@ -8,14 +8,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import 'fake-indexeddb/auto';
 import { renderHook, act, cleanup } from '@testing-library/react';
 
-const updateLabels = vi.hoisted(() => vi.fn());
+// LB-1: правка идёт через ProfileService.editLabels (прежде — updateLabels целым списком).
+const editLabels = vi.hoisted(() => vi.fn());
 const cloudClear = vi.hoisted(() => vi.fn(async () => {}));
 const localClear = vi.hoisted(() => vi.fn(async () => {}));
 
 vi.mock('@/core/services/ProfileService', () => ({
   ProfileService: {
     getProfile: vi.fn(async () => ({ data: { labels: [] }, error: null })),
-    updateLabels,
+    editLabels,
   },
 }));
 vi.mock('@/core/services/DocumentService', () => ({
@@ -33,11 +34,11 @@ const LABEL = { id: 'lab_d41e', name: 'MARKER_DAILY_LABEL', color: '#7D4FD1' };
 beforeEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe('d41e: отказ удаления метки не запускает зачистку метки в заметках', () => {
-  it('updateLabels отказал — clearLabelFromAllDocs не вызван, метка остаётся в профиле', async () => {
-    updateLabels.mockRejectedValue(new Error('MARKER_DAILY_CLOUD_DOWN'));
+  it('editLabels отказал — clearLabelFromAllDocs не вызван, метка остаётся в профиле', async () => {
+    editLabels.mockRejectedValue(new Error('MARKER_DAILY_CLOUD_DOWN'));
     const { result } = renderHook(() => useProfileLabels('u-d41e-red', [LABEL]));
     await act(async () => { await result.current.removeLabel('lab_d41e'); });
-    expect(updateLabels).toHaveBeenCalled();
+    expect(editLabels).toHaveBeenCalled();
     expect(
       cloudClear,
       'метка не удалена из профиля (отказ проглочен), но облачные заметки уже зачищаются — разрушительный шаг после отказа',
@@ -46,7 +47,7 @@ describe('d41e: отказ удаления метки не запускает �
   });
 
   it('КОНТРОЛЬ: профиль ответил — зачистка в облаке и локально выполняется', async () => {
-    updateLabels.mockResolvedValue(undefined);
+    editLabels.mockResolvedValue([]);
     const { result } = renderHook(() => useProfileLabels('u-d41e-ctl', [LABEL]));
     await act(async () => { await result.current.removeLabel('lab_d41e'); });
     expect(cloudClear).toHaveBeenCalledWith('u-d41e-ctl', 'lab_d41e');

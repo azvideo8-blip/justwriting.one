@@ -159,7 +159,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
   }, [selectedLabels, selectedTags, selectedDate, profileLabels, dateLocale]);
 
   const tagEditor = useTagEditor(userId, fetchSessions);
-  const labelEditor = useLabelEditor({ addLabel, updateLabel, removeLabel });
+  const labelEditor = useLabelEditor({ addLabel, updateLabel, removeLabel, labels: profileLabels });
 
   const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -411,6 +411,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                       editLabelName={labelEditor.editLabelName} setEditLabelName={labelEditor.setEditLabelName}
                       editLabelColor={labelEditor.editLabelColor} setEditLabelColor={labelEditor.setEditLabelColor}
                       onUpdateLabel={labelEditor.handleUpdateLabel} onDeleteLabel={id => void labelEditor.requestDeleteLabel(id)}
+                      savingNewLabel={labelEditor.savingNewLabel} savingEditedLabel={labelEditor.savingEditedLabel}
                       showControls={!!user} t={t}
                     />
                   </>

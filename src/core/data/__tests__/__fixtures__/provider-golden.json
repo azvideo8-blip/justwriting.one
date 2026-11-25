@@ -492,6 +492,69 @@
       }
     ]
   },
+  "getProfileLabels": {
+    "result": {
+      "version": "undefined"
+    },
+    "calls": [
+      {
+        "table": "users",
+        "chain": [
+          "select([\"uid,labels,xmin\"])"
+        ],
+        "payload": "uid,labels,xmin"
+      },
+      {
+        "table": "users",
+        "chain": [
+          "select([\"uid,labels,xmin\"])",
+          "eq([\"uid\",\"u1\"])",
+          "maybeSingle([])"
+        ]
+      }
+    ]
+  },
+  "replaceProfileLabels": {
+    "result": true,
+    "calls": [
+      {
+        "table": "users",
+        "chain": [
+          "update([{\"labels\":[{\"id\":\"l1\",\"name\":\"c1\",\"color\":\"#111\",\"_encrypted\":true}]}])"
+        ],
+        "payload": {
+          "labels": [
+            {
+              "id": "l1",
+              "name": "c1",
+              "color": "#111",
+              "_encrypted": true
+            }
+          ]
+        }
+      },
+      {
+        "table": "users",
+        "chain": [
+          "update([{\"labels\":[{\"id\":\"l1\",\"name\":\"c1\",\"color\":\"#111\",\"_encrypted\":true}]}])",
+          "eq([\"uid\",\"u1\"])",
+          "eq([\"xmin\",\"4711\"])",
+          "select([\"uid\"])"
+        ],
+        "payload": "uid"
+      },
+      {
+        "table": "users",
+        "chain": [
+          "update([{\"labels\":[{\"id\":\"l1\",\"name\":\"c1\",\"color\":\"#111\",\"_encrypted\":true}]}])",
+          "eq([\"uid\",\"u1\"])",
+          "eq([\"xmin\",\"4711\"])",
+          "select([\"uid\"])",
+          "<await>"
+        ]
+      }
+    ]
+  },
   "getUsers": {
     "result": [
       {

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.11.26 — 2026-11-25
+
+- **[RU]** Метки: правка с двух устройств, из двух вкладок или две правки подряд больше не стирают друг друга, а «сохранено» появляется, только когда метка в облаке. Вкладку, открытую до обновления, перезагрузите.
+- **[EN]** Labels: edits from two devices, two tabs or two quick edits no longer erase each other, and “saved” appears only once the label is in the cloud. Please reload any tab opened before the update.
+- **[RU]** На компьютере карандаш у метки и тега снова нажимается: раньше его перекрывала кнопка «Удалить».
+- **[EN]** On desktop the pencil next to a label or tag can be clicked again: the Delete button used to cover it.
+- **[RU]** «Очистить корзину»: если облако не приняло удаление, сказано, что из облака заметки удалятся позже. Восстановление заметки отменяет её отложенное удаление.
+- **[EN]** “Empty trash”: if the cloud did not accept the deletion, you are told the notes will be removed from the cloud later. Restoring a note cancels its pending deletion.
+- **[RU]** Скрыли заметку от ИИ, а её пересказ убрать сразу не вышло — приложение повторит и при выключенной синхронизации.
+- **[EN]** If you hide a note from the AI and its retelling could not be removed right away, the app now retries even with sync turned off.
+- **[RU]** «Продолжить» и скачивание заметки в диагностике называют версии, которые прочитать не удалось.
+- **[EN]** “Continue” and downloading a note in diagnostics now name the versions that could not be read.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.11.25 — 2026-11-24
 
 - **[RU]** «Выйти и удалить всё» теперь видит, что ещё не ушло в облако из диалогов, памяти и портрета, и предупреждает. Если проверить не удалось, об этом сказано, и без подтверждения ничего не стирается.

@@ -84,16 +84,18 @@ export function ArchiveTagBar({
               </span>
             </motion.button>
             {showControls && (
+              // Две кнопки 16 px вплотную, только десктоп: запас 44 px (IconButton) выключен —
+              // у «Удалить» он накрывал карандаш и половину самой фишки.
               <span className="hidden md:flex absolute -top-1.5 -right-1.5 opacity-0 group-hover/tag:opacity-100 transition-opacity gap-0.5">
                 <IconButton
                   onClick={e => { e.stopPropagation(); onStartRename(tag); }}
-                  className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/60 hover:text-text-main"
+                  className="after:hidden w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/60 hover:text-text-main"
                   label={t('archive_tag_rename')}
                   icon={<Pencil className="w-1.5 h-1.5" />}
                 />
                 <IconButton
                   onClick={e => { e.stopPropagation(); onDeleteTag(tag); }}
-                  className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/60 hover:text-accent-danger"
+                  className="after:hidden w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/60 hover:text-accent-danger"
                   label={t('archive_tag_delete')}
                   icon={<X className="w-1.5 h-1.5" />}
                 />

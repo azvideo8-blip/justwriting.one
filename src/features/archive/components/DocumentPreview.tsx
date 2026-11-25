@@ -108,6 +108,9 @@ export function DocumentPreview({
   const panelRef = useRef<HTMLDivElement>(null);
 
   const [creatingLabel, setCreatingLabel] = useState(false);
+
+  const savingLabelRef = useRef(false);
+  const [savingLabel, setSavingLabel] = useState(false);
   const [newLabelName, setNewLabelName] = useState('');
   const [newLabelColor, setNewLabelColor] = useState<string>(LABEL_PRESET_COLORS[0]!);
 
@@ -462,12 +465,21 @@ export function DocumentPreview({
   ];
 
   const handleCreateLabel = async () => {
+    // LB-1: пока сохранение в пути, форма закрыта для правки — введённое не теряется.
+    if (savingLabelRef.current) return;
     const trimmed = newLabelName.trim();
     if (trimmed) {
-      // Отказ сохранения (false) — форма открыта с введённым, тост ошибки.
-      if ((await onAddLabel?.({ name: trimmed, color: newLabelColor })) === false) {
-        showToast(t('archive_label_save_failed'), 'error');
-        return;
+      savingLabelRef.current = true;
+      setSavingLabel(true);
+      try {
+        // Отказ сохранения (false) — форма открыта с введённым, тост ошибки.
+        if ((await onAddLabel?.({ name: trimmed, color: newLabelColor })) === false) {
+          showToast(t('archive_label_save_failed'), 'error');
+          return;
+        }
+      } finally {
+        savingLabelRef.current = false;
+        setSavingLabel(false);
       }
       setNewLabelName('');
       setNewLabelColor(LABEL_PRESET_COLORS[0]!);
@@ -668,6 +680,7 @@ export function DocumentPreview({
                 <div className="flex items-center gap-1.5 px-2 py-1.5 border-t border-border-subtle mt-1 pt-2">
                   <input
                     value={newLabelName}
+                    readOnly={savingLabel}
                     onChange={e => setNewLabelName(e.target.value)}
                     autoFocus
                     placeholder={t('archive_label_name_placeholder')}
@@ -684,6 +697,7 @@ export function DocumentPreview({
                         key={c}
                         style={{ background: c }}
                         className={cn("w-3 h-3 rounded-full transition-colors p-0 min-w-0", newLabelColor === c && "ring-1 ring-offset-1 ring-offset-surface-card ring-text-main/40")}
+                        disabled={savingLabel}
                         onClick={() => setNewLabelColor(c)}
                         aria-label={t('archive_label_color_aria', { color: c })}
                       />
@@ -691,7 +705,7 @@ export function DocumentPreview({
                   </div>
                   <Button
                     onClick={() => void handleCreateLabel()}
-                    disabled={!newLabelName.trim()}
+                    disabled={!newLabelName.trim() || savingLabel}
                     className="text-label font-medium text-text-main/60 hover:text-text-main disabled:opacity-30"
                   >
                     {t('common_save')}

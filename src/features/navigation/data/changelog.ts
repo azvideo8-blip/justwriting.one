@@ -17,9 +17,20 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.26',
+    date: '2026-11-25',
+    items: [
+      { category: 'fix', ru: 'Метки: правка с двух устройств, из двух вкладок или две правки подряд больше не стирают друг друга, а «сохранено» появляется, только когда метка в облаке. Вкладку, открытую до обновления, перезагрузите.', en: 'Labels: edits from two devices, two tabs or two quick edits no longer erase each other, and “saved” appears only once the label is in the cloud. Please reload any tab opened before the update.' },
+      { category: 'fix', ru: 'На компьютере карандаш у метки и тега снова нажимается: раньше его перекрывала кнопка «Удалить».', en: 'On desktop the pencil next to a label or tag can be clicked again: the Delete button used to cover it.' },
+      { category: 'fix', ru: '«Очистить корзину»: если облако не приняло удаление, сказано, что из облака заметки удалятся позже. Восстановление заметки отменяет её отложенное удаление.', en: '“Empty trash”: if the cloud did not accept the deletion, you are told the notes will be removed from the cloud later. Restoring a note cancels its pending deletion.' },
+      { category: 'fix', ru: 'Скрыли заметку от ИИ, а её пересказ убрать сразу не вышло — приложение повторит и при выключенной синхронизации.', en: 'If you hide a note from the AI and its retelling could not be removed right away, the app now retries even with sync turned off.' },
+      { category: 'fix', ru: '«Продолжить» и скачивание заметки в диагностике называют версии, которые прочитать не удалось.', en: '“Continue” and downloading a note in diagnostics now name the versions that could not be read.' },
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.11.25',
     date: '2026-11-24',
-    announce: false,
     items: [
       { category: 'fix', ru: '«Выйти и удалить всё» теперь видит, что ещё не ушло в облако из диалогов, памяти и портрета, и предупреждает. Если проверить не удалось, об этом сказано, и без подтверждения ничего не стирается.', en: '“Sign out and delete all” now sees which dialogues, memories and the portrait have not reached the cloud yet, and warns you. If that could not be checked, you are told so and nothing is wiped without your confirmation.' },
       { category: 'fix', ru: 'Новая метка и достижения больше не затирают прежние, если список не прочитался из облака.', en: 'A new label and achievements no longer overwrite the existing ones when the list could not be read from the cloud.' },

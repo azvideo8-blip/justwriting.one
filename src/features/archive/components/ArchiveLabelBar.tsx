@@ -19,6 +19,9 @@ interface ArchiveLabelBarProps {
   newLabelColor: string;
   setNewLabelColor: (v: string) => void;
   onAddLabel: () => void;
+  /** Сохранение этой формы в пути: поля на месте, но не правятся. */
+  savingNewLabel?: boolean;
+  savingEditedLabel?: boolean;
   editingLabelId: string | null;
   setEditingLabelId: (id: string | null) => void;
   editLabelName: string;
@@ -42,6 +45,7 @@ export function ArchiveLabelBar({
   editLabelName, setEditLabelName,
   editLabelColor, setEditLabelColor,
   onUpdateLabel, onDeleteLabel,
+  savingNewLabel = false, savingEditedLabel = false,
   showControls, t: propT, variant = 'default',
 }: ArchiveLabelBarProps) {
   const sheet = variant === 'sheet';
@@ -61,6 +65,7 @@ export function ArchiveLabelBar({
             <div key={label.id} className="flex items-center gap-2 px-2 py-1 rounded-xl border border-border-subtle bg-surface-card">
               <input
                 value={editLabelName}
+                readOnly={savingEditedLabel}
                 onChange={e => setEditLabelName(e.target.value)}
                 autoFocus
                 aria-label={t('archive_label_name_aria')}
@@ -76,13 +81,14 @@ export function ArchiveLabelBar({
                   key={c}
                   style={{ background: c }}
                   className={cn("w-6 h-6 md:w-4 md:h-4 rounded-full transition-colors cursor-pointer p-0 min-w-0", editLabelColor === c && "ring-2 ring-offset-1 ring-offset-surface-card ring-text-main/40")}
+                  disabled={savingEditedLabel}
                   onClick={() => setEditLabelColor(c)}
                   aria-label={t('archive_label_color_aria', { color: c })}
                 />
                 ))}
               </div>
               <Button onClick={() => onUpdateLabel(label.id)}
-                disabled={!editLabelName.trim()}
+                disabled={!editLabelName.trim() || savingEditedLabel}
                 className="text-label font-medium text-text-main/60 hover:text-text-main disabled:opacity-30">
                 {t('common_save')}
               </Button>
@@ -109,16 +115,18 @@ export function ArchiveLabelBar({
               </span>
             </Button>
             {showControls && (
+              // Две кнопки 16 px вплотную, только десктоп: запас 44 px (IconButton) выключен —
+              // у «Удалить» он накрывал карандаш и половину самой фишки.
               <span className="hidden md:flex absolute -top-1.5 -right-1.5 opacity-0 group-hover/label:opacity-100 transition-opacity gap-0.5">
                 <IconButton
                   onClick={e => { e.stopPropagation(); setEditingLabelId(label.id); setEditLabelName(label.name); setEditLabelColor(label.color); }}
-                  className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/60 hover:text-text-main"
+                  className="after:hidden w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/60 hover:text-text-main"
                   label={t('archive_label_rename')}
                   icon={<Pencil className="w-1.5 h-1.5" />}
                 />
                 <IconButton
                   onClick={e => { e.stopPropagation(); onDeleteLabel(label.id); }}
-                  className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/60 hover:text-accent-danger"
+                  className="after:hidden w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/60 hover:text-accent-danger"
                   label={t('archive_label_delete')}
                   icon={<X className="w-1.5 h-1.5" />}
                 />
@@ -138,7 +146,8 @@ export function ArchiveLabelBar({
           {t('archive_tags_reset')} ✕
         </Button>
       )}
-      {showControls && !addingLabel && !editingLabelId && (
+      {/* Метку правили, а её удалили на другом устройстве — формы уже нет, кнопка нужна. */}
+      {showControls && !addingLabel && !labels.some(l => l.id === editingLabelId) && (
         <Button
           onClick={() => setAddingLabel(true)}
            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono text-text-main/60 hover:text-text-main border border-dashed border-border-subtle transition-colors"
@@ -150,6 +159,7 @@ export function ArchiveLabelBar({
         <div className="flex items-center gap-2 px-2 py-1 rounded-xl border border-border-subtle bg-surface-card">
           <input
             value={newLabelName}
+            readOnly={savingNewLabel}
             onChange={e => setNewLabelName(e.target.value)}
             placeholder={t('archive_label_name_placeholder')}
             aria-label={t('archive_label_name_placeholder')}
@@ -166,12 +176,13 @@ export function ArchiveLabelBar({
                 key={c}
                 style={{ background: c }}
                 className={cn("w-4 h-4 rounded-full transition-colors p-0 min-w-0", newLabelColor === c && "ring-2 ring-offset-1 ring-offset-surface-card ring-text-main/40")}
+                disabled={savingNewLabel}
                 onClick={() => setNewLabelColor(c)}
                 aria-label={t('archive_label_color_aria', { color: c })}
               />
             ))}
             <div className="relative">
-              <input type="color" defaultValue={newLabelColor} onChange={e => setNewLabelColor(e.target.value)} className="sr-only" id="new-label-color" />
+              <input type="color" disabled={savingNewLabel} defaultValue={newLabelColor} onChange={e => setNewLabelColor(e.target.value)} className="sr-only" id="new-label-color" />
               <label htmlFor="new-label-color"
                 className={cn("w-4 h-4 rounded-full border border-dashed border-border-subtle flex items-center justify-center cursor-pointer text-[9px] text-text-main/60 hover:border-text-main/40",
                   !LABEL_PRESET_COLORS.includes(newLabelColor) && "ring-2 ring-offset-1 ring-offset-surface-card"
@@ -184,7 +195,7 @@ export function ArchiveLabelBar({
           </div>
           <Button
             onClick={onAddLabel}
-            disabled={!newLabelName.trim()}
+            disabled={!newLabelName.trim() || savingNewLabel}
             className="text-label-sm font-medium text-text-main/60 hover:text-text-main disabled:opacity-30 transition-colors"
           >
             {t('common_save')}
