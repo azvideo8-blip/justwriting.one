@@ -24,6 +24,15 @@ const a11y = item('accessibility');
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.28',
+    date: '2026-11-26',
+    announce: false,
+    items: [
+      fix('Заметка, скрытая от ИИ или лежащая в корзине, больше не уходит модели из ИИ-панели на экране письма: действия ИИ для неё выключены. По ссылке на такую заметку ИИ её не прикладывает и не предлагает её тем.', 'A note hidden from AI or in the trash is no longer sent to the model from the AI panel on the writing screen: AI actions are off for it. Opening such a note by link no longer attaches it in the AI chat or suggests its topics.'),
+      fix('Исправлены мелкие недоработки.', 'Minor fixes.'),
+    ],
+  },
+  {
     version: '0.11.27',
     date: '2026-11-25',
     announce: false,

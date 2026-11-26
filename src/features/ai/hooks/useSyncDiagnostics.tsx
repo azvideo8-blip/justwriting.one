@@ -11,6 +11,7 @@ import { SyncService } from '../../../core/services/SyncService';
 import { StorageService } from '../../../core/services/StorageService';
 import { VersionService } from '../../../core/services/VersionService';
 import { getLocalDb } from '../../../core/storage/localDb';
+import { isExcludedFromAI, noteHiddenFromAI } from '../utils/isExcludedFromAI';
 import { toDate } from '../../../core/utils/dateUtils';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
@@ -37,6 +38,8 @@ export interface DiagnosticItem {
   status: 'synced' | 'pending' | 'mismatch' | 'local_only' | 'cloud_only' | 'cloud_missing' | 'cloud_unknown';
   cloudEncrypted?: boolean | undefined;
   date?: number | undefined;
+  /** HA-2: скрыта от ИИ или в корзине — разбор не предлагается. */
+  hiddenFromAI?: boolean | undefined;
 }
 
 export function useSyncDiagnostics({ userId }: { userId: string }) {
@@ -161,6 +164,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
           queueItemId,
           status,
           date: localDoc.lastSessionAt || localDoc.firstSessionAt || undefined,
+          hiddenFromAI: isExcludedFromAI(localDoc),
         });
       }
 
@@ -360,6 +364,12 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
     }
     setProcessingDocId(item.id);
     try {
+      // HA-2 (дейлик 26.11): скрытая от ИИ или выброшенная заметка не уходит модели — проверка
+      // до чтения текста, а не отказом записи разбора после отправки.
+      if (await noteHiddenFromAI(item.localId)) {
+        showToast(t('admin_sync_toast_ai_skipped'), 'warning');
+        return;
+      }
       const db = await getLocalDb();
       const versions = await db.getAllFromIndex('versions', 'by-document', item.localId);
       if (versions.length === 0) {

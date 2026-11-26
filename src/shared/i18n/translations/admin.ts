@@ -354,6 +354,7 @@ export const adminTranslations: Translations = {
   admin_sync_toast_decrypt_error: { ru: 'Ошибка расшифровки документа', en: 'Document decryption error' },
   admin_sync_toast_too_short: { ru: 'Текст документа слишком короткий для ИИ-анализа (минимум 50 символов)', en: 'Document text too short for AI analysis (min 50 chars)' },
   admin_sync_toast_ai_done: { ru: 'Анализ ИИ завершен успешно', en: 'AI analysis completed successfully' },
+  admin_sync_hidden_from_ai: { ru: 'Скрыта от ИИ', en: 'Hidden from AI' },
   admin_sync_toast_ai_skipped: { ru: 'Заметка исключена из ИИ или отсутствует на устройстве — разбор не сохранён', en: 'The note is excluded from AI or missing on this device — the analysis was not saved' },
   admin_sync_toast_ai_fail: { ru: 'Не удалось обработать: {error}', en: 'Failed to process: {error}' },
   admin_sync_toast_ai_error: { ru: 'Ошибка при запуске обработки ИИ', en: 'Error starting AI processing' },

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, X, Copy, Check, Loader2, Wand2, Lightbulb, Highlighter, RotateCcw, Heart, Trophy } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
@@ -10,6 +10,7 @@ import { IconButton } from '../../../shared/components/IconButton';
 import { Button } from '../../../shared/components/Button';
 import { getCurrentUser } from '../../../core/auth';
 import { aiErrorToText } from '../../../shared/ai/aiErrorUtils';
+import { noteHiddenFromAI } from '../utils/isExcludedFromAI';
 
 const AI_ACTIONS: { action: AIAction; icon: React.ReactNode; labelKey: string }[] = [
   { action: 'accents', icon: <Highlighter size={14} />, labelKey: 'ai_action_accents' },
@@ -24,15 +25,29 @@ interface AIPanelProps {
   onClose: () => void;
   content?: string | undefined;
   onApplyContent?: ((content: string) => void) | undefined;
+  /** HA-1: заметка в редакторе — скрытая от ИИ или в корзине не уходит модели. */
+  documentId?: string | null | undefined;
 }
 
 export interface AIPanelContentProps {
   content?: string | undefined;
   onApplyContent?: ((content: string) => void) | undefined;
+  documentId?: string | null | undefined;
 }
 
-export function AIPanelContent({ content = '', onApplyContent }: AIPanelContentProps = {}) {
+export function AIPanelContent({ content = '', onApplyContent, documentId }: AIPanelContentProps = {}) {
   const { t } = useLanguage();
+  // HA-1 (дейлик 26.11): скрытая от ИИ или выброшенная заметка не уходит модели.
+  // null — ещё проверяем: кнопки выключены, пока ответа нет.
+  const [hiddenFor, setHiddenFor] = useState<{ id: string | null; hidden: boolean } | null>(null);
+  useEffect(() => {
+    if (!documentId) return;
+    let live = true;
+    void noteHiddenFromAI(documentId).then(hidden => { if (live) setHiddenFor({ id: documentId, hidden }); });
+    return () => { live = false; };
+  }, [documentId]);
+  // Нет id — новый, несохранённый текст: скрывать нечего, ответ известен сразу.
+  const hidden = !documentId ? false : hiddenFor?.id === documentId ? hiddenFor.hidden : null;
 
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<Partial<Record<AIAction, string>>>({});
@@ -51,7 +66,7 @@ export function AIPanelContent({ content = '', onApplyContent }: AIPanelContentP
       setError(t('ai_error_offline'));
       return;
     }
-    if (!content.trim() || busy) return;
+    if (!content.trim() || busy || hidden !== false) return;
 
     const { remaining, useRequest: consumeRequest } = useAiLimitStore.getState();
     if (remaining <= 0) {
@@ -65,6 +80,12 @@ export function AIPanelContent({ content = '', onApplyContent }: AIPanelContentP
     setActiveAction(action);
     setError(null);
 
+    // Флаг могли поменять, пока панель открыта: проверка — прямо перед отправкой.
+    if (await noteHiddenFromAI(documentId)) {
+      setHiddenFor({ id: documentId ?? null, hidden: true });
+      setBusy(false);
+      return;
+    }
     const res: AIResult = await AIService.process(content, action);
 
     if (res.ok) {
@@ -75,7 +96,7 @@ export function AIPanelContent({ content = '', onApplyContent }: AIPanelContentP
       setError(aiErrorToText((res as { ok: false; error: string }).error, { t, isLoggedIn: !!getCurrentUser() }));
     }
     setBusy(false);
-  }, [content, busy, t, results]);
+  }, [content, busy, t, results, hidden, documentId]);
 
   const handleApply = useCallback(() => {
     if (!activeAction || !onApplyContent) return;
@@ -118,10 +139,16 @@ export function AIPanelContent({ content = '', onApplyContent }: AIPanelContentP
   const isApplied = activeAction ? appliedActions.has(activeAction) : false;
   const canApply = Boolean(activeResult && activeAction && !isApplied);
   const hasContent = Boolean(content.trim());
+  const blocked = busy || !hasContent || hidden !== false;
 
   return (
     <div className="flex-1 overflow-y-auto custom-scrollbar p-4 flex flex-col gap-4">
-      {!hasContent && (
+      {hidden === true && (
+        <div data-testid="ai-panel-note-hidden" className="text-xs text-text-main/60 text-center rounded-xl bg-text-main/[0.03] px-3 py-2.5 border border-border-subtle/30">
+          {t('ai_panel_note_hidden')}
+        </div>
+      )}
+      {!hasContent && hidden !== true && (
         <div className="text-xs text-text-main/60 text-center rounded-xl bg-text-main/[0.03] px-3 py-2.5 border border-border-subtle/30">
           {t('ai_no_content')}
         </div>
@@ -138,13 +165,13 @@ export function AIPanelContent({ content = '', onApplyContent }: AIPanelContentP
               variant="ghost"
               size="sm"
               onClick={() => void runAction(action, false)}
-              disabled={busy || !hasContent}
+              disabled={blocked}
               className={cn(
                 "flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium transition-colors",
                 isActive
                   ? "bg-brand-soft/15 text-brand-soft"
                   : "bg-text-main/[0.04] text-text-main/60 hover:bg-text-main/[0.08] hover:text-text-main/80",
-                (busy || !hasContent) && "opacity-50 cursor-not-allowed"
+                blocked && "opacity-50 cursor-not-allowed"
               )}
             >
               {isBusy ? <Loader2 size={14} className="animate-spin" /> : icon}
@@ -230,7 +257,7 @@ export function AIPanelContent({ content = '', onApplyContent }: AIPanelContentP
   );
 }
 
-export function AIPanel({ open, onClose, content, onApplyContent }: AIPanelProps) {
+export function AIPanel({ open, onClose, content, onApplyContent, documentId }: AIPanelProps) {
   const { t } = useLanguage();
   const { layoutMode } = useLayoutMode();
   const isMobile = layoutMode === 'mobile';
@@ -275,7 +302,7 @@ export function AIPanel({ open, onClose, content, onApplyContent }: AIPanelProps
               />
             </div>
 
-            <AIPanelContent content={content} onApplyContent={onApplyContent} />
+            <AIPanelContent content={content} onApplyContent={onApplyContent} documentId={documentId} />
           </motion.div>
         </>
       )}

@@ -214,6 +214,7 @@ export const writingTranslations: Translations = {
   ai_apply: { ru: 'Применить', en: 'Apply' },
   ai_applied: { ru: 'Применено', en: 'Applied' },
   ai_from_ai: { ru: 'от ИИ', en: 'from AI' },
+  ai_panel_note_hidden: { ru: 'Заметка скрыта от ИИ — действия ИИ для неё выключены', en: 'This note is hidden from AI — AI actions are off for it' },
   ai_no_content: { ru: 'Напиши текст, чтобы использовать ИИ', en: 'Write some text to use AI' },
   ai_error_auth: { ru: 'Нужна регистрация', en: 'Sign up required' },
   ai_error_session: { ru: 'Не удалось подтвердить сессию — похоже, пропала связь. Попробуй ещё раз.', en: 'Could not confirm your session — the connection seems to be down. Try again.' },

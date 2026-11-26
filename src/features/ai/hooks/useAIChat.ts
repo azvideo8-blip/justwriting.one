@@ -41,7 +41,7 @@ import {
 } from '../utils/aiChatTransport';
 import { hiddenNoteIdsFromDocs } from '../utils/hiddenNoteIds';
 import { localDocIds } from '../utils/canonicalDocumentId';
-import { isPastedAttachmentId } from '../utils/isExcludedFromAI';
+import { isExcludedFromAI, isPastedAttachmentId } from '../utils/isExcludedFromAI';
 import { aiWrittenNoteIds, humanQuestions } from '../utils/aiAuthorship';
 import { detectAuthorGender, expandGenderForms } from '../../../shared/ai/authorGender';
 import type { AttachedNoteBlock } from '../utils/attachedNoteFormat';
@@ -1079,7 +1079,10 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
   const prepareAttachment = useCallback(async (documentId: string): Promise<{ title: string; content: string; lastSessionAt?: number | undefined } | null> => {
     try {
       const doc = await LocalDocumentService.getDocument(documentId);
-      if (!doc) return null;
+      // HA-5 (дейлик 26.11): скрытая от ИИ или выброшенная заметка не прикладывается — ни
+      // карточкой с названием в поле ввода, ни текстом. Выбор заметки её и так не показывает;
+      // остался вход по адресу /ai?doc=…
+      if (!doc || isExcludedFromAI(doc)) return null;
       const content = await LocalVersionService.getLatestContent(documentId);
       if (!content) return null;
       // Дата заметки для шапки и правила: без последней сессии — дата создания, не «сегодня».

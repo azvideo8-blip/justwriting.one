@@ -54,6 +54,7 @@ const PRIMITIVES = new RegExp(
     'isExcludedFromAI',
     'dialogueFacetVisible',
     'usableMemories',
+    'noteHiddenFromAI',
   ].join('|')})\b`,
 );
 
@@ -146,8 +147,6 @@ const ALLOWED: Readonly<Record<string, string>> = {
     'экран «История жизни»: локальный показ, вызовов модели нет',
   'src/features/ai/components/ProfileFacets.tsx':
     'экран граней: показывает уже отфильтрованные грани и их улики; модели не отдаёт',
-  'src/features/ai/hooks/useAIPageData.ts':
-    'подсказки-стартеры по теме приложенной заметки: локальный текст кнопок, в промпт не идут',
   'src/features/ai/hooks/useDiagnosticsData.ts':
     'диагностика: количества и админ-действия, модель не зовёт',
   'src/features/ai/services/AIFacetJudgeService.ts':

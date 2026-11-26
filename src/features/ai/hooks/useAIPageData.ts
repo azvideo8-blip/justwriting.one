@@ -26,6 +26,7 @@ import { indexPending } from '../utils/embeddingIndexer';
 import { looksLikeNoteSearch, splitAttachedMessage, legacyNoteHidden } from '../utils/aiChatTransport';
 import { attachedTurn } from '../utils/attachedNoteFormat';
 import { citesHiddenNote } from '../utils/hiddenNoteIds';
+import { noteHiddenFromAI } from '../utils/isExcludedFromAI';
 import { useLanguage } from '../../../shared/i18n';
 import { noteMetaFor } from '../utils/noteMeta';
 import { followUpKey } from '../utils/followUpKey';
@@ -165,6 +166,11 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
       }
       try {
         const db = await getLocalDb();
+        // HA-3 (дейлик 26.11): тема скрытой от ИИ заметки не предлагается — по клику она ушла бы модели.
+        if (await noteHiddenFromAI(linkedDocId)) {
+          setStarters(CHAT_STARTERS);
+          return;
+        }
         const summary = await db.get('aiSummaries', linkedDocId);
         if (summary && summary.themes?.length) {
           const themes = summary.themes;

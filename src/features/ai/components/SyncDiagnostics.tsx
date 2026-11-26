@@ -271,6 +271,8 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                         <Loader2 size={14} className="animate-spin text-brand-soft" />
                         Processing...
                       </div>
+                    ) : item.hiddenFromAI ? (
+                      <span className="text-text-main/60 text-xs">{t('admin_sync_hidden_from_ai')}</span>
                     ) : item.hasLocal ? (
                       <Button
                         onClick={() => void handleProcessDocument(item)}
@@ -338,6 +340,8 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                         </div>
                       ) : processingDocId === item.id ? (
                         <Loader2 size={12} className="animate-spin text-brand-soft mx-auto" />
+                      ) : item.hiddenFromAI ? (
+                        <span className="text-text-main/60 text-label">{t('admin_sync_hidden_from_ai')}</span>
                       ) : item.hasLocal ? (
                         <Button
                           onClick={() => void handleProcessDocument(item)}

@@ -1,10 +1,9 @@
 import { getCurrentUser } from '../../../core/auth';
 import { getAiConsent } from '../../../core/ai/aiConsent';
-import { getLocalDb } from '../../../core/storage/localDb';
 import { MAX_AI_CONTENT_LENGTH } from '../../../shared/ai/buildChatPrompt';
 import { sameWords, stripFormatControls } from '../../../shared/ai/sameWords';
 import { transferPunctuation } from '../../../shared/ai/transferPunctuation';
-import { isExcludedFromAI } from '../utils/isExcludedFromAI';
+import { noteHiddenFromAI } from '../utils/isExcludedFromAI';
 import { useAiLimitStore } from '../store/useAiLimitStore';
 import { AIService } from './AIService';
 
@@ -58,13 +57,7 @@ export function willPunctuate(opts: { noteHidden?: boolean } = {}): { yes: boole
 /** Скрытая, выброшенная или непрочитанная заметка — true (fail-closed). Нужна и
  *  здесь, и панели записи (D-4) для ИИ-метки. */
 export async function isDictationNoteHidden(documentId: string | undefined): Promise<boolean> {
-  if (!documentId) return false; // новый, ещё не сохранённый текст: скрывать нечего
-  try {
-    const db = await getLocalDb();
-    return isExcludedFromAI(await db.get('documents', documentId));
-  } catch {
-    return true;
-  }
+  return noteHiddenFromAI(documentId);
 }
 
 export async function punctuateDictation(

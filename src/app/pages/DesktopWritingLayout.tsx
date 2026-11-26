@@ -1,6 +1,7 @@
 import { AIPanelContent } from '../../features/ai/components/AIPanel';
 import { SettingsPanelContent } from '../../features/settings/components/SettingsPanel';
 import { useContentStore } from '../../features/writing/store/useContentStore';
+import { useSessionMetaStore } from '../../features/writing/store/useSessionMetaStore';
 import React, { useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { cn } from '../../core/utils/utils';
@@ -31,7 +32,9 @@ import { useStartOnFirstInput } from '../../features/writing/hooks/useStartOnFir
 function LiveAIPanelContent() {
   const content = useContentStore(s => s.content);
   const setContent = useContentStore(s => s.setContent);
-  return <AIPanelContent content={content} onApplyContent={setContent} />;
+  // HA-1: та же заметка, что у диктовки (useDictation) — скрытую панель модели не отдаёт.
+  const documentId = useSessionMetaStore(s => s.savedDocumentId);
+  return <AIPanelContent content={content} onApplyContent={setContent} documentId={documentId} />;
 }
 
 /**

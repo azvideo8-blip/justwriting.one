@@ -1,3 +1,5 @@
+import { getLocalDb } from '../../../core/storage/localDb';
+
 export interface ExcludableDoc {
   excludedFromAI?: boolean | null | undefined;
   trashedAt?: number | string | null | undefined;
@@ -24,4 +26,18 @@ export function isExcludedFromAI(doc?: ExcludableDoc | null | undefined): boolea
 export const PASTED_ATTACHMENT_ID_PREFIX = 'pasted-';
 export function isPastedAttachmentId(id: string): boolean {
   return id.startsWith(PASTED_ATTACHMENT_ID_PREFIX);
+}
+
+/**
+ * HA-1/HA-2 (дейлик 26.11): одна проверка перед отправкой текста заметки модели.
+ * Нет id — новый, ещё не сохранённый текст: скрывать нечего. Сбой чтения — «скрыта»:
+ * «нет ответа» не значит «можно отправить».
+ */
+export async function noteHiddenFromAI(documentId: string | null | undefined): Promise<boolean> {
+  if (!documentId) return false;
+  try {
+    return isExcludedFromAI(await (await getLocalDb()).get('documents', documentId));
+  } catch {
+    return true;
+  }
 }
