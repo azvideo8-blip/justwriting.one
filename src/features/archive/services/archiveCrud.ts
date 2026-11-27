@@ -243,6 +243,26 @@ function logTrashCloudPending(count: number): void {
   useActivityLogStore.getState().addActivity('activity_trash_cloud_pending', { count }, 'warning', 'archive');
 }
 
+/**
+ * DA-6 (проход 27.11): корзину чистили по снимку, снятому при открытии экрана.
+ * Заметку, восстановленную тем временем в соседней вкладке или на другом
+ * устройстве (забор приносит её раз в проход), удаляли навсегда. Перед удалением
+ * строка перечитывается: восстановлена, исчезла или не прочиталась — не трогаем
+ * («нет ответа» ≠ «можно удалять»). Облачная заметка без локальной копии — по
+ * снимку, как раньше: локально перечитать нечего.
+ */
+async function stillTrashed(session: ArchiveSession, userId: string, minAgeMs = 0, now = Date.now()): Promise<boolean> {
+  if (!session._isLocal) return true;
+  try {
+    const fresh = await LocalDocumentService.getDocument(session.id, userId);
+    if (!fresh?.trashedAt) return false;
+    return minAgeMs === 0 || now - fresh.trashedAt > minAgeMs;
+  } catch (e) {
+    reportError(e, { action: 'stillTrashed_read', sessionId: session.id });
+    return false;
+  }
+}
+
 export async function emptyTrash(
   trashedSessions: ArchiveSession[],
   userId: string
@@ -254,6 +274,7 @@ export async function emptyTrash(
   const deletedIds: string[] = [];
   for (const session of trashedSessions) {
     try {
+      if (!(await stillTrashed(session, userId))) continue;
       const res = await deleteArchiveSession(session, userId, { skipActivityLog: true });
       if (!res.applied || res.derivativesOk === false) {
         failCount++;
@@ -334,6 +355,13 @@ export async function pruneExpiredTrash(
   // одной (задача в очереди), но журнал это называет (дейлик 25.11, Н-1).
   let prunedCount = 0;
   let cloudPending = 0;
+  if (expired.length > 0) {
+    // DA-6: срок проверяется по свежей строке — восстановленную не удаляем.
+    const holds = await Promise.all(expired.map(s => stillTrashed(s, userId, TRASH_EXPIRATION_MS, now)));
+    for (let i = expired.length - 1; i >= 0; i--) {
+      if (!holds[i]) remainingSessions.push(...expired.splice(i, 1));
+    }
+  }
   if (expired.length > 0) {
     const results = await Promise.allSettled(expired.map(s => deleteArchiveSession(s, userId, { skipActivityLog: true })));
     results.forEach((r, i) => {

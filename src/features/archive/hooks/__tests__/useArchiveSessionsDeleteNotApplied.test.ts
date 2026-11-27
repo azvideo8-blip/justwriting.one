@@ -51,6 +51,7 @@ vi.mock('../useArchiveWordCloud', () => ({
 }));
 
 import { deleteArchiveSession, trashArchiveSession } from '../../services/archiveCrud';
+import { LocalDocumentService } from '../../../../core/services/LocalDocumentService';
 import { StorageService } from '../../../../core/services/StorageService';
 
 describe('useArchiveSessions — delete not applied (F-1)', () => {
@@ -108,6 +109,8 @@ describe('useArchiveSessions — delete not applied (F-1)', () => {
     await waitFor(() => expect(result.current.sessions).toHaveLength(1));
 
     spy.mockResolvedValueOnce({ cloudSynced: false, derivativesOk: true, applied: true });
+    // DA-6: чистка перечитывает строку — она всё ещё в корзине.
+    vi.spyOn(LocalDocumentService, 'getDocument').mockResolvedValue({ id: mockSession.id, trashedAt: 1 } as never);
     await act(async () => { await result.current.handleEmptyTrash([mockSession]); });
     expect(mockShowToast.mock.calls).toEqual([['delete_local_only_queued', 'warning']]);
     expect(result.current.sessions).toEqual([]);
