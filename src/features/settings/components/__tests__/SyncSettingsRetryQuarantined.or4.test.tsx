@@ -39,6 +39,8 @@ describe('OR-4: «Повторить» называет итог', () => {
     [{ drained: 0, failed: 0, skippedReason: 'offline' }, 'sync_paused_no_network', 'info'],
     [{ drained: 0, failed: 0, skippedReason: 'in_progress' }, 'sync_already_running', 'info'],
     [{ drained: 0, failed: 0, skippedReason: 'sync_disabled' }, 'sync_queue_disabled', 'info'],
+    // DA-2: синхронизация выключена, удаления ушли — не «выключена».
+    [{ drained: 1, failed: 0, deletesOnly: true }, 'sync_queue_deletes_only', 'info'],
   ])('%j → %s', async (res, key, kind) => {
     h.syncPending.mockResolvedValue(res);
     await retry();

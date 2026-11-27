@@ -102,7 +102,9 @@ describe('удаление ждёт облака', () => {
     cloud.deleteDocument.mockResolvedValue(undefined);
 
     const res = await SyncService.syncPending(U);
-    expect(res).toMatchObject({ drained: 1, failed: 0, skippedReason: 'sync_disabled' });
+    // DA-2 (дейлик 27.11): удаление ушло — это проход, а не «синхронизация выключена».
+    expect(res).toMatchObject({ drained: 1, failed: 0, deletesOnly: true });
+    expect(res.skippedReason).toBeUndefined();
     expect(cloud.deleteDocument.mock.calls).toEqual([[U, CLOUD]]);
     expect(upload).not.toHaveBeenCalled();
     expect(relink).not.toHaveBeenCalled();
@@ -132,6 +134,15 @@ describe('удаление ждёт облака', () => {
 
   // Ревью 142fa421: проход решил снять старую задачу, а пока он выгружал заметки, человек
   // удалил ту же заметку. Мутация: не менять updatedAt при переводе задачи — красный.
+  it('синхронизация выключена и удалять нечего — «выключена», без признака удалений (DA-2)', async () => {
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(U), 'false');
+    const db = await getLocalDb(U);
+    await db.put('syncQueue', { id: 'sync_note', documentId: 'note', type: 'document', createdAt: 1, ownerId: U });
+    const res = await SyncService.syncPending(U);
+    expect(res).toMatchObject({ drained: 0, failed: 0, skippedReason: 'sync_disabled' });
+    expect(res.deletesOnly).toBeUndefined();
+  });
+
   it('удаление, поставленное посреди прохода, снимающего старую задачу, остаётся в очереди', async () => {
     localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(U), 'true');
     const db = await getLocalDb(U);

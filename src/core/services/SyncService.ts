@@ -89,6 +89,8 @@ export interface SyncPendingResult {
   drained: number;
   failed: number;
   skippedReason?: 'sync_disabled' | 'in_progress' | 'vault_locked' | 'offline' | undefined;
+  /** DA-2: синхронизация выключена, но удаления ушли (PR-1); правки ждут. */
+  deletesOnly?: true | undefined;
 }
 
 /**
@@ -290,7 +292,10 @@ export const SyncService = {
 
     try {
       const res = await _drainPendingQueue(userId, deletesOnly);
-      return deletesOnly ? { ...res, skippedReason: res.skippedReason ?? 'sync_disabled' } : res;
+      if (!deletesOnly || res.skippedReason) return res;
+      // DA-2 (дейлик 27.11, Н-2): «синхронизация выключена» — только когда не ушло
+      // ничего. Ушли удаления — это проход, а не отказ: правки ждут включения.
+      return res.drained > 0 || res.failed > 0 ? { ...res, deletesOnly: true } : { ...res, skippedReason: 'sync_disabled' };
     } finally {
       _syncInProgress.delete(userId); // [A-08] delete вместо set(false): очищаем Map, а не накапливаем false-записи
     }

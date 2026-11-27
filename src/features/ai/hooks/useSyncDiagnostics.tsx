@@ -341,6 +341,8 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
         showToast(t('settings_sync_vault_locked'), 'error');
       } else if (res.skippedReason === 'in_progress') {
         showToast(t('sync_already_running'), 'info');
+      } else if (res.deletesOnly && res.failed === 0) {
+        showToast(t('sync_queue_deletes_only'), 'info');
       } else if (res.failed > 0) {
         showToast(t('sync_queue_partial', { drained: String(res.drained), failed: String(res.failed) }), 'error');
       } else if (res.drained === 0) {
