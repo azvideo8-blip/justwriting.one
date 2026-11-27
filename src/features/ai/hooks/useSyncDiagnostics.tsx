@@ -399,6 +399,12 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
         return;
       }
 
+      // DA-6: между первой проверкой и отправкой — чтение версий и расшифровка;
+      // заметку могли скрыть за это время. Перечитываем прямо перед вызовом.
+      if (await noteHiddenFromAI(item.localId)) {
+        showToast(t('admin_sync_toast_ai_skipped'), 'warning');
+        return;
+      }
       const result = await AIService.summarize({ content });
       if (result.ok) {
         const summary: AIDocumentSummary = {
