@@ -13,6 +13,7 @@ const EMPTY: Label[] = [];
 // берёт ProfileService.editLabels из облака. Кэша на уровне модуля нет — он
 // переживал экран и становился базой следующей правки.
 const LABELS_RELOAD_MIN_MS = 30_000;
+const LABELS_VISIBLE_MIN_MS = 5_000;
 
 export function useProfileLabels(userId: string, initialLabels: Label[] = EMPTY) {
   // Свой список (чтение или итог правки) вместе с учёткой, которой он принадлежит:
@@ -72,15 +73,17 @@ export function useProfileLabels(userId: string, initialLabels: Label[] = EMPTY)
   // видела до перезагрузки — список читался один раз. Перечитываем при возврате во
   // вкладку и когда забор принёс изменения (не чаще раза в 30 с: событие частое).
   useEffect(() => {
-    let last = 0;
-    const reload = (action: string) => {
+    // Ревью DA-10: у возврата во вкладку и у события очереди — свои таймеры: частые
+    // события очереди (и свои сохранения) не съедают перечитку по возврату.
+    const last = { visible: 0, pulled: 0 };
+    const reload = (kind: keyof typeof last, minMs: number) => {
       const now = Date.now();
-      if (now - last < LABELS_RELOAD_MIN_MS) return;
-      last = now;
-      load(action);
+      if (now - last[kind] < minMs) return;
+      last[kind] = now;
+      load(`profileLabels/fetchProfile_${kind}`);
     };
-    const onVisible = () => { if (document.visibilityState === 'visible') reload('profileLabels/fetchProfile_visible'); };
-    const onQueue = () => reload('profileLabels/fetchProfile_pulled');
+    const onVisible = () => { if (document.visibilityState === 'visible') reload('visible', LABELS_VISIBLE_MIN_MS); };
+    const onQueue = () => reload('pulled', LABELS_RELOAD_MIN_MS);
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('sync-queue-changed', onQueue);
     return () => {

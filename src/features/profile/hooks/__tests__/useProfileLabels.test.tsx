@@ -209,4 +209,21 @@ describe('DA-10: список меток догоняет другое устр�
     await waitFor(() => expect(result.current.labels.map(l => l.id)).toEqual(['l1', 'l2']));
     vi.restoreAllMocks();
   });
+
+  // Ревью DA-10: событие очереди только что было — возврат во вкладку всё равно
+  // перечитывает. Мутация: общий таймер на оба события — красный.
+  it('возврат во вкладку сразу после события очереди — перечитывает', async () => {
+    const { result } = renderHook(() => useProfileLabels(userId));
+    await waitFor(() => expect(result.current.labels.map(l => l.id)).toEqual(['l1']));
+    const now = Date.now();
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(now + 60_000);
+    act(() => { window.dispatchEvent(new CustomEvent('sync-queue-changed')); });
+    await waitFor(() => expect(result.current.labels).toHaveLength(1));
+    mockProfileStore = { uid: userId, labels: [{ id: 'l1', name: 'Старая', color: '#111111' }, { id: 'l3', name: 'Третья', color: '#333333' }] };
+    clock.mockReturnValue(now + 61_000);
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' });
+    act(() => { document.dispatchEvent(new Event('visibilitychange')); });
+    await waitFor(() => expect(result.current.labels.map(l => l.id)).toEqual(['l1', 'l3']));
+    vi.restoreAllMocks();
+  });
 });
