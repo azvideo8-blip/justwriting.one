@@ -1006,8 +1006,11 @@ export function MassAnalyzeNotes() {
       // снимку в начале прохода и не перечитывал строку ни перед отправкой, ни
       // перед записью свода. Общий проход разбора перечитывает её перед каждым
       // шагом (NoteAnalysisService.analyze) — третьей копии цикла больше нет.
+      // Ревью DA-1: бюджет проверялся один раз, а проход брал 10 заметок — при 24/25
+      // уходило 10. Предел прохода — остаток бюджета.
+      const { spent, budget } = AIBackgroundBudget.budgetStatus();
       const result = await NoteAnalysisService.analyzePending({
-        limit: 10,
+        limit: Math.max(0, Math.min(10, budget - spent)),
         onProgress: p => setProgress(prev => ({ ...prev, done: p.done, total: p.total })),
       });
       setProgress(prev => ({ ...prev, failed: result.failed }));
@@ -1019,6 +1022,11 @@ export function MassAnalyzeNotes() {
         showToast('Все заметки уже проанализированы', 'success');
       } else if (result.stopped === 'daily' || result.stopped === 'rate' || result.stopped === 'global') {
         showToast('Превышен лимит запросов к ИИ', 'error');
+      } else if (result.stopped === 'consent') {
+        // Ревью DA-1: остановка по согласию или входу — названа, а не «завершён».
+        showToast(t('archive_preview_ai_consent_required'), 'error');
+      } else if (result.stopped === 'auth') {
+        showToast(t('auth_clock_skew_sign_in_again'), 'error');
       } else {
         showToast('Пакетный анализ завершён', result.failed > 0 || result.stopped !== null ? 'warning' : 'success');
       }

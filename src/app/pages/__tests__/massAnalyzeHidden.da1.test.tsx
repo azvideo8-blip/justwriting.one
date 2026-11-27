@@ -71,4 +71,18 @@ describe('DA-1: пакетный анализ перечитывает види�
     const db = await getLocalDb();
     expect(await db.get('aiSummaries', 'b')).toBeUndefined();
   }, 15_000);
+
+  // Ревью DA-1: бюджет проверялся один раз, проход брал 10 заметок. Мутация: limit 10
+  // без учёта остатка — красный.
+  it('остаток бюджета 1 — разбирается одна заметка', async () => {
+    const { AIBackgroundBudget } = await import('../../../features/ai/services/AIBackgroundBudget');
+    vi.spyOn(AIBackgroundBudget, 'budgetStatus').mockReturnValue({ spent: 24, budget: 25 });
+    summarize.mockResolvedValue({ ok: true, summary: { tone: 't', frequentWords: [], insights: [], themes: [], extractedFacts: [] } } as never);
+    render(<MassAnalyzeNotes />);
+    const button = await screen.findByRole('button', { name: /admin_mass_analyze_now/ });
+    await waitFor(() => expect(button).toBeEnabled());
+    fireEvent.click(button);
+    await waitFor(() => expect(showToast).toHaveBeenCalled(), { timeout: 10_000 });
+    expect(summarize).toHaveBeenCalledTimes(1);
+  }, 15_000);
 });
