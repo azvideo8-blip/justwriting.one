@@ -20,7 +20,7 @@ const doc = (id: string, over: object = {}) => ({ id, guestId: 'u1', title: `Н�
 beforeEach(async () => {
   const db = await getLocalDb();
   for (const s of ['documents', 'versions'] as const) await db.clear(s);
-  for (const [id, over] of [['n_visible', {}], ['n_hidden', { excludedFromAI: true }], ['n_trashed', { trashedAt: 1 }]] as const) {
+  for (const [id, over] of [['n_visible', { uuid: 'uuid_visible' }], ['n_hidden', { excludedFromAI: true, uuid: 'uuid_hidden' }], ['n_trashed', { trashedAt: 1 }]] as const) {
     await db.put('documents', doc(id, over) as never);
     await db.put('versions', { id: `v_${id}`, documentId: id, version: 1, content: TEXT, savedAt: 1, sessionStartedAt: 1, wordCount: 5, duration: 1, wpm: 1 } as never);
   }
@@ -35,5 +35,13 @@ describe('HA-5: прикрепление по ссылке и скрытая з�
   it('видимая — прикладывается (контроль)', async () => {
     const { result } = renderHook(() => useAIChat(null, 'coach'));
     expect(await result.current.prepareAttachment('n_visible')).toMatchObject({ title: 'Название n_visible', content: TEXT });
+  });
+
+  // DA-4 (ревью): ссылка /ai?doc= с постоянным номером. Мутация: искать только по
+  // локальному id — красный (видимая не прикладывается).
+  it('видимая по uuid — прикладывается; скрытая по uuid — нет', async () => {
+    const { result } = renderHook(() => useAIChat(null, 'coach'));
+    expect(await result.current.prepareAttachment('uuid_visible')).toMatchObject({ content: TEXT });
+    expect(await result.current.prepareAttachment('uuid_hidden')).toBeNull();
   });
 });

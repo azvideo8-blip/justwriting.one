@@ -33,6 +33,15 @@ describe('DA-4: заметка находится по любому своему
     expect(await noteHiddenFromAI('nobody')).toBe(true);
   });
 
+  // Ревью DA-4: uuid уникален (индекс), а linkedCloudId — нет; две строки — скрыта, если скрыта любая.
+  // Мутация: брать первую строку — красный.
+  it('две строки с одним linkedCloudId, одна скрыта — скрыта', async () => {
+    const db = await getLocalDb();
+    await db.put('documents', doc('local-4a', { linkedCloudId: 'cloud-4' }) as never);
+    await db.put('documents', doc('local-4b', { linkedCloudId: 'cloud-4', excludedFromAI: true }) as never);
+    expect(await noteHiddenFromAI('cloud-4')).toBe(true);
+  });
+
   it('строка по uuid — с локальным id (свод лежит под ним)', async () => {
     expect((await findNoteRow('uuid-1'))?.id).toBe('local-1');
   });

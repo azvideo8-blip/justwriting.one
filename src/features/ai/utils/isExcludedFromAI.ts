@@ -35,10 +35,15 @@ export function isPastedAttachmentId(id: string): boolean {
  * `docSnapshot`. Промах по ключу — поиск по двум другим. Не нашлась — undefined.
  */
 export async function findNoteRow(documentId: string): Promise<LocalNoteRow | undefined> {
+  return (await findNoteRows(documentId))[0];
+}
+
+/** Все строки, на которые ведёт номер: копия заметки может делить uuid с оригиналом. */
+async function findNoteRows(documentId: string): Promise<LocalNoteRow[]> {
   const db = await getLocalDb();
   const direct = await db.get('documents', documentId);
-  if (direct) return direct;
-  return (await db.getAll('documents')).find(d => d.uuid === documentId || d.linkedCloudId === documentId);
+  if (direct) return [direct];
+  return (await db.getAll('documents')).filter(d => d.uuid === documentId || d.linkedCloudId === documentId);
 }
 
 /**
@@ -49,7 +54,9 @@ export async function findNoteRow(documentId: string): Promise<LocalNoteRow | un
 export async function noteHiddenFromAI(documentId: string | null | undefined): Promise<boolean> {
   if (!documentId) return false;
   try {
-    return isExcludedFromAI(await findNoteRow(documentId));
+    // Несколько строк по одному номеру — скрыта, если скрыта любая (осторожная сторона).
+    const rows = await findNoteRows(documentId);
+    return rows.length === 0 || rows.some(r => isExcludedFromAI(r));
   } catch {
     return true;
   }
