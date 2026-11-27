@@ -186,3 +186,27 @@ describe('SEC-7b: useProfileLabels end-to-end decryption and edit cycle', () => 
     });
   });
 });
+
+// DA-10 (владелец 27.11): метка, созданная на другом устройстве, на открытой вкладке
+// не появлялась до перезагрузки. Мутация: снять подписку на sync-queue-changed — красный.
+describe('DA-10: список меток догоняет другое устройство', () => {
+  const userId = 'user_test';
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    mockCurrentUser = { uid: userId };
+    setEncryptionEnabled(userId, false);
+    mockProfileStore = { uid: userId, labels: [{ id: 'l1', name: 'Старая', color: '#111111' }] };
+  });
+
+  it('забор принёс изменения — список перечитан, новая метка видна', async () => {
+    const { result } = renderHook(() => useProfileLabels(userId));
+    await waitFor(() => expect(result.current.labels.map(l => l.id)).toEqual(['l1']));
+    // На телефоне создали метку; забор на этой вкладке принёс изменения.
+    mockProfileStore = { uid: userId, labels: [{ id: 'l1', name: 'Старая', color: '#111111' }, { id: 'l2', name: 'Новая', color: '#222222' }] };
+    const now = Date.now();
+    vi.spyOn(Date, 'now').mockReturnValue(now + 60_000);
+    act(() => { window.dispatchEvent(new CustomEvent('sync-queue-changed')); });
+    await waitFor(() => expect(result.current.labels.map(l => l.id)).toEqual(['l1', 'l2']));
+    vi.restoreAllMocks();
+  });
+});
