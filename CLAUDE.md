@@ -23,6 +23,8 @@ Rules for `/code-review`, `/security-review`, and any reviewer agent. (`REVIEW.m
 - Background/infra AI calls spending the user's chat quota; a refund that returns to a different pool than the one charged (`internal_chat` vs `bulk`); new error codes without consumers.
 - Client code reading a `VITE_` var that the build doesn't set.
 - A gate tightened without checking the real account state (it once removed the owner's admin tab).
+- A one-shot key or mark (an offer, a queued task, a "shown" flag) taken before success: a refusal the person did not choose (signed in, failure, wrong clock, offline) must put it back (DA-3, 0.11.29).
+- A loop over a snapshot (list → tens of seconds → send/write) that does not re-read its decision source (hidden from AI, trash, still exists) before each send and each write (DA-1, 0.11.29).
 
 **Evidence:** every finding cites `file:line` from the source, not an inference from a name. A defect next to the target is not the finding until it is followed to the place that actually reads or writes the data. A "missing handling" claim names the caller path that reaches it. A "pre-existing" bug is marked as such, not blamed on the diff.
 
