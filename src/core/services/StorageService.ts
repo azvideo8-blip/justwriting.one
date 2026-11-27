@@ -14,6 +14,7 @@ import { getEncryptionEnabled } from '../crypto/cryptoHelpers';
 import { isVersionContentTooLarge } from './VersionService';
 import { cloudSyncEnabled } from '../sync/cloudSyncEnabled';
 import { addToSyncQueue } from './syncQueueOps';
+import { getMetadataBase, rememberMetadataBase, type MetadataBase } from './metadataBase';
 
 export type { StorageState, SaveDocumentData } from './storageTypes';
 
@@ -151,7 +152,11 @@ async function deleteDocumentUnlocked(userId: string, localId?: string, cloudId?
 export const StorageService = {
   async saveNew(userId: string, data: SaveDocumentData): Promise<{ localId: string }> {
     // DY10-9: сохранение, вставшее на локальной базе, не молчит.
-    return watchLocalDbStall('saveNew', LocalStorageService.saveNew(userId, data));
+    const res = await watchLocalDbStall('saveNew', LocalStorageService.saveNew(userId, data));
+    // DA-11: следующее сохранение в этой сессии (дописал и сохранил снова, с меткой)
+    // сравнивает поля окна с тем, что сохранено сейчас.
+    rememberMetadataBase(res.localId, { title: data.title, tags: data.tags ?? [], labelId: data.labelId });
+    return res;
   },
 
   async saveVersion(userId: string, documentId: string, data: SaveDocumentData): Promise<SaveVersionResult> {
@@ -300,21 +305,38 @@ export type SaveVersionResult = {
  * DA-11 (владелец 27.11): название, теги и метка, изменённые в окне «Завершить» при
  * продолжении заметки, ложились только локально (LocalStorageService.saveVersionToLocal),
  * а в облако уходила одна версия — другие устройства их не видели никогда. Изменённые
- * поля метятся грязными (их же досылает дренаж, как правку из архива) и уходят сразу
- * после версии; отказ облака — задача в очереди.
+ * человеком поля (против значений на момент открытия, metadataBase) метятся грязными —
+ * их же досылает дренаж, как правку из архива — и уходят сразу после версии.
  */
-function changedMetadata(existing: LocalDocument, data: SaveDocumentData): MetadataField[] {
+function changedMetadata(base: MetadataBase | undefined, data: SaveDocumentData): MetadataField[] {
+  if (!base) return [];
   const fields: MetadataField[] = [];
-  if (data.title && data.title !== existing.title) fields.push('title');
-  const before = existing.tags ?? [];
-  if (data.tags !== undefined && (data.tags.length !== before.length || data.tags.some((t, i) => t !== before[i]))) fields.push('tags');
-  if (data.labelId !== undefined && data.labelId !== existing.labelId) fields.push('labelId');
+  if (data.title && data.title !== base.title) fields.push('title');
+  const tags = data.tags ?? base.tags;
+  if (tags.length !== base.tags.length || tags.some((t, i) => t !== base.tags[i])) fields.push('tags');
+  if (data.labelId !== undefined && data.labelId !== base.labelId) fields.push('labelId');
   return fields;
 }
 
-async function pushChangedMetadata(userId: string, documentId: string, cloudId: string, data: SaveDocumentData, fields: MetadataField[]): Promise<void> {
+async function markMetadataDirty(userId: string, documentId: string, fields: MetadataField[]): Promise<void> {
+  for (const field of fields) await LocalDocumentService.setMetadataDirty(documentId, true, userId, field);
+}
+
+// Ревью DA-11: шлём не только свои поля, а всё, что ждёт отправки (например,
+// «скрыть от ИИ», не дошедшее раньше), — иначе снятие отметки ниже потеряло бы его.
+// Значения — из свежей строки: она уже несёт сохранённые здесь название/теги/метку.
+async function pushDirtyMetadata(userId: string, documentId: string, cloudId: string): Promise<void> {
   try {
-    await DocumentService.updateMetadataFields(userId, cloudId, { title: data.title, tags: data.tags, labelId: data.labelId }, fields);
+    const fresh = await LocalDocumentService.getDocument(documentId, userId);
+    if (!fresh?.metadataDirty) return;
+    await DocumentService.updateMetadataFields(userId, cloudId, {
+      title: fresh.title,
+      tags: fresh.tags ?? [],
+      labelId: fresh.labelId,
+      excludedFromAI: fresh.excludedFromAI,
+      lastSessionAt: fresh.lastSessionAt,
+      trashedAt: fresh.trashedAt ?? null,
+    }, fresh.metadataDirtyFields);
     await LocalDocumentService.setMetadataDirty(documentId, false, userId);
   } catch (e) {
     reportError(e, { action: 'saveVersion_metadata', documentId });
@@ -334,8 +356,10 @@ async function _doSaveVersion(userId: string, documentId: string, data: SaveDocu
     throw new DOMException('Local save failed (quota exceeded)', 'QuotaExceededError');
   }
   const { newVersion, prevContent, existing } = res;
-  const metaFields = existing.linkedCloudId ? changedMetadata(existing, data) : [];
-  for (const field of metaFields) await LocalDocumentService.setMetadataDirty(documentId, true, userId, field);
+  const metaFields = existing.linkedCloudId ? changedMetadata(getMetadataBase(documentId), data) : [];
+  // Следующее сохранение в той же сессии сравнивается уже с этими значениями.
+  const base = getMetadataBase(documentId);
+  if (base) rememberMetadataBase(documentId, { title: data.title || base.title, tags: data.tags ?? base.tags, labelId: data.labelId ?? base.labelId });
 
   // Сигнал AI-домену (#105): правки должны догонять индекс эмбеддингов,
   // а не только при открытии страницы ИИ. Слушатель в features/ai вызывает
@@ -361,6 +385,7 @@ async function _doSaveVersion(userId: string, documentId: string, data: SaveDocu
 
   if (existing.linkedCloudId) {
     if (!cloudSyncEnabled(userId)) {
+      await markMetadataDirty(userId, documentId, metaFields);
       await addToSyncQueue(documentId, userId);
       return { forked: false, cloudSynced: false };
     }
@@ -372,10 +397,12 @@ async function _doSaveVersion(userId: string, documentId: string, data: SaveDocu
       newVersion,
       prevContent
     );
+    // Ревью DA-11: развилка — правка ушла копией, оригиналу её поля не нужны.
     if (result.forked) return { forked: true, forkTitle: result.forkTitle, cloudSynced: false };
-    // Версия не ушла — поля остаются грязными, их дошлёт тот же дренаж, что и версию.
+    // Версия не ушла — поля метятся и уходят тем же дренажом, что и версия.
+    await markMetadataDirty(userId, documentId, metaFields);
     if (metaFields.length > 0 && result.cloudSynced) {
-      await pushChangedMetadata(userId, documentId, existing.linkedCloudId, data, metaFields);
+      await pushDirtyMetadata(userId, documentId, existing.linkedCloudId);
     }
     return { forked: false, cloudSynced: result.cloudSynced, reason: result.reason };
   }

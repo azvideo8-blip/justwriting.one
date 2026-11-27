@@ -1,3 +1,4 @@
+import { rememberMetadataBase } from '../../../core/services/metadataBase';
 import React from 'react';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
@@ -110,6 +111,8 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       useTimerStore.setState({ wordGoal: 0, timerDuration: 0, sessionStartWords: baseline });
       useContentStore.getState().setTags(doc.tags);
       useContentStore.getState().setLabelId(doc.labelId);
+      // DA-11: что человек видел при открытии — с этим сравнивается правка в «Завершить».
+      rememberMetadataBase(localId, { title: doc.title ?? '', tags: doc.tags ?? [], labelId: doc.labelId });
       flow.setSetupMode(null);
       // Stay idle — user clicks Start to begin writing (same as Archive continue)
       setLifeLogVisible(false);
