@@ -251,30 +251,35 @@ function logTrashCloudPending(count: number): void {
  * («нет ответа» ≠ «можно удалять»). Облачная заметка без локальной копии — по
  * снимку, как раньше: локально перечитать нечего.
  */
-async function stillTrashed(session: ArchiveSession, userId: string, minAgeMs = 0, now = Date.now()): Promise<boolean> {
-  if (!session._isLocal) return true;
+async function trashState(session: ArchiveSession, userId: string, minAgeMs = 0, now = Date.now()): Promise<'trashed' | 'restored' | 'unreadable'> {
+  if (!session._isLocal) return 'trashed';
   try {
     const fresh = await LocalDocumentService.getDocument(session.id, userId);
-    if (!fresh?.trashedAt) return false;
-    return minAgeMs === 0 || now - fresh.trashedAt > minAgeMs;
+    if (!fresh?.trashedAt) return 'restored';
+    return minAgeMs === 0 || now - fresh.trashedAt > minAgeMs ? 'trashed' : 'restored';
   } catch (e) {
-    reportError(e, { action: 'stillTrashed_read', sessionId: session.id });
-    return false;
+    reportError(e, { action: 'trashState_read', sessionId: session.id });
+    return 'unreadable';
   }
 }
 
 export async function emptyTrash(
   trashedSessions: ArchiveSession[],
   userId: string
-): Promise<{ successCount: number; failCount: number; cloudPending: number; deletedIds: string[] }> {
+): Promise<{ successCount: number; failCount: number; cloudPending: number; deletedIds: string[]; restoredIds: string[] }> {
   let successCount = 0;
+  // Восстановлена тем временем — не удаляем и называем вызывающему: на экране она
+  // уже не в корзине. Не прочиталась — отказ, а не «очищено» (ревью DA-6).
+  const restoredIds: string[] = [];
   let failCount = 0;
   // Дейлик 25.11 (Н-1): с устройства удалено, облако не приняло — задача в очереди.
   let cloudPending = 0;
   const deletedIds: string[] = [];
   for (const session of trashedSessions) {
     try {
-      if (!(await stillTrashed(session, userId))) continue;
+      const state = await trashState(session, userId);
+      if (state === 'restored') { restoredIds.push(session.id); continue; }
+      if (state === 'unreadable') { failCount++; continue; }
       const res = await deleteArchiveSession(session, userId, { skipActivityLog: true });
       if (!res.applied || res.derivativesOk === false) {
         failCount++;
@@ -293,7 +298,7 @@ export async function emptyTrash(
     failCount > 0 ? { success: successCount, failed: failCount } : { count: successCount },
     failCount > 0 ? 'warning' : 'info', 'archive');
   if (cloudPending > 0) logTrashCloudPending(cloudPending);
-  return { successCount, failCount, cloudPending, deletedIds };
+  return { successCount, failCount, cloudPending, deletedIds, restoredIds };
 }
 
 export async function deleteArchiveSession(
@@ -357,9 +362,9 @@ export async function pruneExpiredTrash(
   let cloudPending = 0;
   if (expired.length > 0) {
     // DA-6: срок проверяется по свежей строке — восстановленную не удаляем.
-    const holds = await Promise.all(expired.map(s => stillTrashed(s, userId, TRASH_EXPIRATION_MS, now)));
+    const states = await Promise.all(expired.map(s => trashState(s, userId, TRASH_EXPIRATION_MS, now)));
     for (let i = expired.length - 1; i >= 0; i--) {
-      if (!holds[i]) remainingSessions.push(...expired.splice(i, 1));
+      if (states[i] !== 'trashed') remainingSessions.push(...expired.splice(i, 1));
     }
   }
   if (expired.length > 0) {

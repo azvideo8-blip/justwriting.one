@@ -168,9 +168,11 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
 
   const handleEmptyTrash = async (trashed: ArchiveSession[]) => {
     try {
-      const { failCount, cloudPending, deletedIds } = await emptyTrash(trashed, userId);
+      const { failCount, cloudPending, deletedIds, restoredIds } = await emptyTrash(trashed, userId);
       const gone = new Set(deletedIds);
-      setSessions(prev => prev.filter(x => !gone.has(x.id)));
+      const restored = new Set(restoredIds);
+      // DA-6: восстановленная тем временем заметка уходит из корзины на экране, а не из архива.
+      setSessions(prev => prev.filter(x => !gone.has(x.id)).map(x => (restored.has(x.id) ? { ...x, trashedAt: undefined } : x)));
       // N-50: «корзина очищена» — только если действительно очищена.
       if (failCount > 0) showToast(t('archive_trash_partial').replace('{count}', String(failCount)), 'error');
       else if (cloudPending > 0) showToast(t('delete_local_only_queued'), 'warning');
