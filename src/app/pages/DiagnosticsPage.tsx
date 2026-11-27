@@ -104,6 +104,31 @@ function RebuildTimelineButton() {
   );
 }
 
+/**
+ * DA-10 (владелец 27.11): выгрузка клала счётчики как есть — не посчитанные (их
+ * считает только вкладка «Статистика») уходили нулями, «заметок 0» при живых
+ * заметках. «Не прочиталось» ≠ «пусто»: такие счётчики — null с причиной.
+ * `browserOnline` — это navigator.onLine, а не связь с облаком.
+ */
+export function buildDiagnosticsReport(input: {
+  pendingCount: number;
+  stats: Record<string, number>;
+  statsLoaded: boolean;
+  statsFailed: boolean;
+}) {
+  const ready = input.statsLoaded && !input.statsFailed;
+  return {
+    userAgent: navigator.userAgent,
+    locale: navigator.language || 'unknown',
+    appVersion: APP_VERSION,
+    syncQueueLength: input.pendingCount,
+    browserOnline: navigator.onLine,
+    localStats: ready ? input.stats : null,
+    ...(ready ? {} : { localStatsMissing: input.statsFailed ? 'read_failed' : 'not_loaded_open_stats_tab' }),
+    timestamp: Date.now(),
+  };
+}
+
 export function DiagnosticsPage() {
   const { t, language } = useLanguage();
   // K-2/N-89: без явной локали числа и даты берут локаль машины, а не языка UI.
@@ -231,17 +256,7 @@ export function DiagnosticsPage() {
       // Задачи этого аккаунта, а не всего браузера: в дампе диагностики чужие
       // задачи выглядят как долг текущего пользователя.
       const pendingCount = await SyncService.getPendingCount(profile?.uid);
-      const cloudConnected = navigator.onLine;
-      
-      const report = {
-        userAgent: navigator.userAgent,
-        locale: navigator.language || 'unknown',
-        appVersion: APP_VERSION,
-        syncQueueLength: pendingCount,
-        isCloudConnected: cloudConnected,
-        localStats: stats,
-        timestamp: Date.now()
-      };
+      const report = buildDiagnosticsReport({ pendingCount, stats, statsLoaded, statsFailed });
 
       const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
