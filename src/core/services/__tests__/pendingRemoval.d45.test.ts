@@ -41,6 +41,7 @@ import { LocalDocumentService } from '../LocalDocumentService';
 import { loadAllSessions } from '../UnifiedSessionLoader';
 import { useLifeLog } from '../../../features/writing/hooks/useLifeLog';
 import { getSyncRevCursor } from '../../sync/revCursor';
+import { pendingRemovalIds } from '../syncQueueOps';
 import { setEncryptionEnabled, setProfileLoaded } from '../../crypto/cryptoHelpers';
 import { LanguageProvider } from '../../../shared/i18n';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
@@ -209,6 +210,14 @@ describe('удаление ждёт облака', () => {
     // Тот же uuid — сама заметка, она жива на устройстве: пара остаётся.
     await db.put('documents', { ...orphan, uuid: CLOUD } as never);
     expect((await CloudSyncService.relinkOrphanedDocuments(U)).relinked).toBe(1);
+  });
+
+  // DA-4 (дейлик 27.11): прячет только удаление — то же правило, что у дренажа.
+  // Мутация: снять type === 'delete' в pendingRemovalIds — красный.
+  it('отметка revocable не у удаления — заметку не прячет', async () => {
+    const db = await getLocalDb(U);
+    await db.put('syncQueue', { id: 'odd', documentId: 'cloud_odd', type: 'document', createdAt: 1, ownerId: U, revocable: true } as never);
+    expect((await pendingRemovalIds(U)).has('cloud_odd')).toBe(false);
   });
 
   it('задача другой учётки не прячет', async () => {

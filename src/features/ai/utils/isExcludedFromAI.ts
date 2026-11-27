@@ -1,4 +1,4 @@
-import { getLocalDb } from '../../../core/storage/localDb';
+import { getLocalDb, type LocalDocument as LocalNoteRow } from '../../../core/storage/localDb';
 
 export interface ExcludableDoc {
   excludedFromAI?: boolean | null | undefined;
@@ -29,14 +29,27 @@ export function isPastedAttachmentId(id: string): boolean {
 }
 
 /**
+ * DA-4 (дейлик 27.11): строка заметки по любому её номеру. Ссылки на заметку
+ * (`/ai?doc=` из граней, вложения чата) приходят то локальным id, то постоянным
+ * `uuid`, то `linkedCloudId` — так же, как их видят `hiddenNoteIdsFromDocs` и
+ * `docSnapshot`. Промах по ключу — поиск по двум другим. Не нашлась — undefined.
+ */
+export async function findNoteRow(documentId: string): Promise<LocalNoteRow | undefined> {
+  const db = await getLocalDb();
+  const direct = await db.get('documents', documentId);
+  if (direct) return direct;
+  return (await db.getAll('documents')).find(d => d.uuid === documentId || d.linkedCloudId === documentId);
+}
+
+/**
  * HA-1/HA-2 (дейлик 26.11): одна проверка перед отправкой текста заметки модели.
  * Нет id — новый, ещё не сохранённый текст: скрывать нечего. Сбой чтения — «скрыта»:
- * «нет ответа» не значит «можно отправить».
+ * «нет ответа» не значит «можно отправить». Заметка ищется по любому номеру (DA-4).
  */
 export async function noteHiddenFromAI(documentId: string | null | undefined): Promise<boolean> {
   if (!documentId) return false;
   try {
-    return isExcludedFromAI(await (await getLocalDb()).get('documents', documentId));
+    return isExcludedFromAI(await findNoteRow(documentId));
   } catch {
     return true;
   }

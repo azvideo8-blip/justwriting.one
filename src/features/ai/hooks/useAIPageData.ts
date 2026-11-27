@@ -26,7 +26,7 @@ import { indexPending } from '../utils/embeddingIndexer';
 import { looksLikeNoteSearch, splitAttachedMessage, legacyNoteHidden } from '../utils/aiChatTransport';
 import { attachedTurn } from '../utils/attachedNoteFormat';
 import { citesHiddenNote } from '../utils/hiddenNoteIds';
-import { noteHiddenFromAI } from '../utils/isExcludedFromAI';
+import { noteHiddenFromAI, findNoteRow } from '../utils/isExcludedFromAI';
 import { useLanguage } from '../../../shared/i18n';
 import { noteMetaFor } from '../utils/noteMeta';
 import { followUpKey } from '../utils/followUpKey';
@@ -171,7 +171,9 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
           setStarters(CHAT_STARTERS);
           return;
         }
-        const summary = await db.get('aiSummaries', linkedDocId);
+        // DA-4: ссылка может нести постоянный номер, а свод лежит под локальным id строки.
+        const row = await findNoteRow(linkedDocId);
+        const summary = row ? await db.get('aiSummaries', row.id) : undefined;
         if (summary && summary.themes?.length) {
           const themes = summary.themes;
           const dynamicStarters = themes.slice(0, 3).map((theme: string) => {

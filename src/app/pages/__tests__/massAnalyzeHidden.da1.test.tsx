@@ -46,7 +46,7 @@ beforeEach(async () => {
   await db.put('documents', doc('b', 1) as never);
   await db.put('versions', ver('a', TEXT_A) as never);
   await db.put('versions', ver('b', TEXT_B) as never);
-  save.mockImplementation(async s => { await (await getLocalDb()).put('aiSummaries', s as never); });
+  save.mockImplementation(async s => { await (await getLocalDb()).put('aiSummaries', s as never); return 'saved'; });
   summarize.mockImplementation(async ({ content }) => {
     // Пока модель разбирает первую заметку, вторую скрывают от ИИ.
     if (content.includes('MARKER_A')) {

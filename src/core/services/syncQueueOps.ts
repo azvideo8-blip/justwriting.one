@@ -16,7 +16,8 @@ export function announceQueueChange(): void {
 export async function pendingRemovalIds(userId: string): Promise<Set<string>> {
   const queue = await (await getLocalDb(userId)).getAll('syncQueue');
   return new Set(queue
-    .filter(t => t.revocable && !t.dead && (t.ownerId === undefined || t.ownerId === userId))
+    // DA-4 (дейлик 27.11): то же правило, что у дренажа (SyncService: type === 'delete').
+    .filter(t => t.type === 'delete' && t.revocable && !t.dead && (t.ownerId === undefined || t.ownerId === userId))
     .map(t => t.documentId));
 }
 
