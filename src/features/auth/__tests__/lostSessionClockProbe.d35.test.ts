@@ -7,7 +7,7 @@ import { offerLostSessionWipe } from '../services/lostSessionWipe';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 
 vi.mock('../../../core/storage/localDb', () => ({ hasLocalDatabase: async () => true }));
-vi.mock('../../../core/auth/supabaseAuthProvider', () => ({ CLOCK_SKEW_THRESHOLD_SEC: 300 }));
+vi.mock('../../../core/auth/supabaseAuthProvider', () => ({ CLOCK_SKEW_THRESHOLD_SEC: 300, getCurrentUser: () => null }));
 
 const t = (key: string) => key;
 const WIPE = 'auth_lost_session_wipe_hint';

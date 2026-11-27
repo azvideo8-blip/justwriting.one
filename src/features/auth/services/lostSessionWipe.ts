@@ -81,12 +81,22 @@ export async function offerLostSessionWipe(showToast: ShowToast, t: Translate, c
 
   if (!(await hasLocalDatabase(lostUid))) return;
 
+  // Ревью DA-3: вошли другим аккаунтом — предложение ждёт выхода молча, без тоста
+  // на каждой загрузке; тем же — база снова его, предложение снимается.
+  const current = getCurrentUser();
+  if (current) {
+    if (current.uid !== lostUid) rearm();
+    return;
+  }
+
   // Тост переживает вход: пока он висит, могли войти — этим же аккаунтом (стёрли бы
   // живой) или другим (уборка снимает и токен его сессии).
   const signedIn = () => {
-    if (!getCurrentUser()) return false;
+    const current = getCurrentUser();
+    if (!current) return false;
     showToast(t('auth_lost_session_wipe_signed_in'), 'info');
-    rearm();
+    // Вошли тем же аккаунтом — база снова живая, предлагать её стереть незачем.
+    if (current.uid !== lostUid) rearm();
     return true;
   };
   let wiped = false;

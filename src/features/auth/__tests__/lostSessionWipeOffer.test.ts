@@ -98,10 +98,37 @@ describe('S-28: the lost-session wipe offer', () => {
     const { AuthService } = await import('../services/AuthService');
     expect(AuthService.wipeDeviceDataForUid).not.toHaveBeenCalled();
     expect(confirm).toHaveBeenCalledTimes(confirms);
-    // DA-3 (дейлик 27.11, Н-3): отказ не по воле человека — предложение вернётся на
-    // следующей загрузке. Мутация: убрать rearm() из signedIn — красный.
+    // DA-3 (дейлик 27.11, Н-3): вошли другим аккаунтом — отказ не по воле человека,
+    // предложение вернётся; тем же — база снова его, предложение снимается (ревью DA-3:
+    // иначе оно предлагало стереть живой аккаунт на каждой загрузке).
+    // Мутации: убрать rearm() из signedIn — красный; rearm и для того же аккаунта — красный.
+    if (confirms === 1) {
+      expect(localStorage.getItem(STORAGE_KEYS.LOST_SESSION_UID)).toBe(USER);
+      expect(takeAccountChangeNotice()).toBe('lost_session');
+    } else {
+      expect(localStorage.getItem(STORAGE_KEYS.LOST_SESSION_UID)).toBeNull();
+      expect(takeAccountChangeNotice()).toBeNull();
+    }
+  });
+
+  it('при загрузке уже вошли другим аккаунтом — тоста нет, предложение ждёт выхода (ревью DA-3)', async () => {
+    await seedUserDb();
+    localStorage.setItem(STORAGE_KEYS.LOST_SESSION_UID, USER);
+    auth.user = { uid: 'someone_else' };
+    const showToast = vi.fn();
+    await offerLostSessionWipe(showToast, t, confirm);
+    expect(showToast).not.toHaveBeenCalled();
     expect(localStorage.getItem(STORAGE_KEYS.LOST_SESSION_UID)).toBe(USER);
-    expect(takeAccountChangeNotice()).toBe('lost_session');
+  });
+
+  it('при загрузке уже вошли тем же аккаунтом — тоста нет, предложение снято', async () => {
+    await seedUserDb();
+    localStorage.setItem(STORAGE_KEYS.LOST_SESSION_UID, USER);
+    auth.user = { uid: USER };
+    const showToast = vi.fn();
+    await offerLostSessionWipe(showToast, t, confirm);
+    expect(showToast).not.toHaveBeenCalled();
+    expect(localStorage.getItem(STORAGE_KEYS.LOST_SESSION_UID)).toBeNull();
   });
 
   // Мутация: не помнить, что уже стёрто, — второе подтверждение, красный.
