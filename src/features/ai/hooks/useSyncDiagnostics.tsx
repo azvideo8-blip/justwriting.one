@@ -213,7 +213,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
   const handleSyncItem = async (item: DiagnosticItem) => {
     if (!item.localId) return;
     if (hasEncryption && !getSessionKey()) {
-      showToast('⚠️ Please unlock your vault first', 'error');
+      showToast(t('admin_sync_toast_unlock_vault'), 'error');
       return;
     }
     setSyncingId(item.id);
@@ -246,7 +246,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
     try {
       const { skippedVersions } = await StorageService.addLocalCopy(userId, item.cloudId);
       if (skippedVersions > 0) showToast(t('storage_download_versions_skipped', { count: skippedVersions }), 'warning');
-      else showToast('Downloaded copy to device', 'success');
+      else showToast(t('admin_sync_toast_downloaded'), 'success');
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, hasLocal: true, status: 'synced', localId: item.cloudId } : i));
     } catch (e) {
       reportError(e, { action: '[SyncDiagnostics] Download failed' });
@@ -266,7 +266,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
     setSyncingId(item.id);
     try {
       await LocalDocumentService.unlinkFromCloud(item.localId);
-      showToast('Unlinked from cloud copy', 'success');
+      showToast(t('admin_sync_toast_unlinked'), 'success');
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'local_only', cloudId: undefined, hasCloud: false } : i));
     } catch (e) {
       reportError(e, { action: '[SyncDiagnostics] Unlink failed' });
@@ -279,7 +279,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
   const handleEncryptItem = async (item: DiagnosticItem) => {
     if (!item.cloudId) return;
     if (!getSessionKey()) {
-      showToast('⚠️ Please unlock your vault first', 'error');
+      showToast(t('admin_sync_toast_unlock_vault'), 'error');
       return;
     }
     setSyncingId(item.id);
@@ -305,7 +305,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, cloudEncrypted: true } : i));
     } catch (e) {
       reportError(e, { action: '[SyncDiagnostics] Encryption failed' });
-      showToast('Encryption failed. Make sure your vault is unlocked.', 'error');
+      showToast(t('admin_sync_toast_encrypt_failed'), 'error');
     } finally {
       setSyncingId(null);
     }
@@ -317,7 +317,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
     try {
       const db = await getLocalDb();
       await db.delete('syncQueue', item.queueItemId);
-      showToast('Cleared task from sync queue', 'success');
+      showToast(t('admin_sync_toast_task_cleared'), 'success');
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, inQueue: false, queueItemId: undefined, status: i.hasCloud ? (i.localVersion !== i.cloudVersion ? 'mismatch' : 'synced') : 'local_only' } : i));
     } catch (e) {
       reportError(e, { action: '[SyncDiagnostics] Clear queue item failed' });
