@@ -104,6 +104,8 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
 
     // отметка инкрементального забора данных ИИ с других устройств
     `ai_pull_since_${uid}`,
+    // DA-10: серверная отметка изменений, увиденная прошлым фоновым забором заметок
+    `bg_pull_seen_cursor_${uid}`,
     // DE-2: сколько проходов осиротевший head диалога уже держит курсор забора
     `ai_incomplete_holds_${uid}`,
     // выключатель подсказок и памяти ИИ (EA-18)
