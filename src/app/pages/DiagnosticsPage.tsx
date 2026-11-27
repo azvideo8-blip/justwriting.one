@@ -25,13 +25,9 @@ import { AuthorPortrait } from '../../features/ai/components/AuthorPortrait';
 import { Button } from '../../shared/components/Button';
 import { IconButton } from '../../shared/components/IconButton';
 import { useToast } from '../../shared/components/Toast';
-import { AIService } from '../../features/ai/services/AIService';
-import { isDayLimitError } from '../../features/ai/types/aiErrors';
-import { AISummaryService } from '../../features/ai/services/AISummaryService';
 import { isExcludedFromAI } from '../../features/ai/utils/isExcludedFromAI';
-import { getLocalDb, type AIDocumentSummary } from '../../core/storage/localDb';
+import { getLocalDb } from '../../core/storage/localDb';
 import { reportError } from '../../shared/errors/reportError';
-import { MAX_AI_CONTENT_LENGTH } from '../../shared/ai/buildChatPrompt';
 import { SyncService } from '../../core/services/SyncService';
 import { useLanguage } from '../../shared/i18n';
 import { useConfirmDialog } from '../../shared/components/ConfirmDialog';
@@ -926,7 +922,7 @@ export function DiagnosticsPage() {
 }
 
 import { AIBackgroundBudget } from '../../features/ai/services/AIBackgroundBudget';
-import { localDayKey } from '../../core/utils/dateUtils';
+import { NoteAnalysisService } from '../../features/ai/services/NoteAnalysisService';
 
 // UXFIX-3: Mass AI analysis of all unanalyzed notes
 export function MassAnalyzeNotes() {
@@ -984,93 +980,33 @@ export function MassAnalyzeNotes() {
       showToast('Данная функция работает только при подключении к сети', 'error');
       return;
     }
+    if (!AIBackgroundBudget.canSpend(1)) {
+      showToast('Достигнут дневной лимит бюджета ИИ (25/25)', 'error');
+      return;
+    }
     setRunning(true);
     setProgress({ done: 0, total: 10, failed: 0 });
     try {
-      const db = await getLocalDb();
-      const docs = await db.getAll('documents');
-      const summaries = await db.getAll('aiSummaries');
-      const analyzed = new Set(summaries.map(s => s.documentId));
-      // TH-3: тот же фильтр, что у noteAnalysis.findPending. Здесь лежала его
-      // копия без фильтра, и «Проанализировать» отправляла поставщику текст
-      // скрытой от ИИ и корзинной заметки.
-      const pending = docs.filter(d => !analyzed.has(d.id) && !isExcludedFromAI(d));
-
-      if (pending.length === 0) {
+      // DA-1 (дейлик 27.11, Н-1): свой цикл здесь решал «скрыта ли заметка» по
+      // снимку в начале прохода и не перечитывал строку ни перед отправкой, ни
+      // перед записью свода. Общий проход разбора перечитывает её перед каждым
+      // шагом (NoteAnalysisService.analyze) — третьей копии цикла больше нет.
+      const result = await NoteAnalysisService.analyzePending({
+        limit: 10,
+        onProgress: p => setProgress(prev => ({ ...prev, done: p.done, total: p.total })),
+      });
+      setProgress(prev => ({ ...prev, failed: result.failed }));
+      if (result.analyzed > 0) {
+        AIBackgroundBudget.spend(result.analyzed);
+        window.dispatchEvent(new Event('archive-refresh'));
+      }
+      if (result.analyzed + result.skipped + result.failed === 0 && result.stopped === null) {
         showToast('Все заметки уже проанализированы', 'success');
-        setRunning(false);
-        return;
+      } else if (result.stopped === 'daily' || result.stopped === 'rate' || result.stopped === 'global') {
+        showToast('Превышен лимит запросов к ИИ', 'error');
+      } else {
+        showToast('Пакетный анализ завершён', result.failed > 0 || result.stopped !== null ? 'warning' : 'success');
       }
-
-      const runLimit = Math.min(10, pending.length);
-      setProgress({ done: 0, total: runLimit, failed: 0 });
-      // Итог прохода: отказы и досрочная остановка — не «завершён» зелёным.
-      let runFailed = 0;
-      let stoppedEarly = false;
-
-      for (let i = 0; i < runLimit; i++) {
-        if (!AIBackgroundBudget.canSpend(1)) {
-          showToast('Достигнут дневной лимит бюджета ИИ (25/25)', 'error');
-          stoppedEarly = true;
-          break;
-        }
-
-        const doc = pending[i]!;
-        try {
-          const versions = await db.getAllFromIndex('versions', 'by-document', doc.id);
-          if (versions.length === 0) continue;
-          versions.sort((a, b) => b.version - a.version);
-          const content = versions[0]?.content ?? '';
-          if (content.length < 50) continue;
-
-          const noteDate = doc.lastSessionAt ? localDayKey(new Date(doc.lastSessionAt)) : undefined;
-
-          const result = await AIService.summarize({
-            content: content.slice(0, MAX_AI_CONTENT_LENGTH),
-            mood: doc.mood,
-            noteDate,
-          });
-
-            if (result.ok) {
-            const { sha256Hex } = await import('../../features/ai/utils/embeddingIndexer');
-            const hash = await sha256Hex(content);
-            const s: AIDocumentSummary = {
-              documentId: doc.id,
-              tone: result.summary.tone,
-              frequentWords: result.summary.frequentWords,
-              insights: result.summary.insights,
-              themes: result.summary.themes,
-              extractedFacts: result.summary.extractedFacts,
-              processedAt: Date.now(),
-              contentHash: hash,
-            };
-            if (result.summary.summary !== undefined) s.summary = result.summary.summary;
-            if (result.summary.commitments !== undefined) s.commitments = result.summary.commitments;
-            if (result.summary.valence !== undefined) s.valence = result.summary.valence;
-            if (result.summary.arousal !== undefined) s.arousal = result.summary.arousal;
-            if (result.summary.eventDate !== undefined) s.eventDate = result.summary.eventDate;
-            await AISummaryService.save(s);
-            AIBackgroundBudget.spend(1);
-            window.dispatchEvent(new Event('archive-refresh'));
-          } else {
-            setProgress(p => ({ ...p, failed: p.failed + 1 }));
-            runFailed++;
-            if (isDayLimitError(result.error) || result.error === 'RATE_LIMIT') {
-              showToast('Превышен лимит запросов к ИИ', 'error');
-              stoppedEarly = true;
-              break;
-            }
-          }
-        } catch {
-          setProgress(p => ({ ...p, failed: p.failed + 1 }));
-          runFailed++;
-        }
-        setProgress(p => ({ ...p, done: p.done + 1 }));
-        // Small delay between calls
-        await new Promise(r => setTimeout(r, 500));
-      }
-
-      showToast(`Пакетный анализ завершён`, runFailed > 0 || stoppedEarly ? 'warning' : 'success');
     } catch (e) {
       reportError(e, { action: 'diagnostics_mass_analyze' });
       showToast('Ошибка массового анализа', 'error');
