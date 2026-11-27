@@ -36,9 +36,9 @@
  {
   "id": "ss-04",
   "file": "src/core/services/SyncService.ts",
-  "line": 265,
-  "old": "    if (!opts?.force && !cloudSyncEnabled(userId)) {",
-  "new": "    if (opts?.force && !cloudSyncEnabled(userId)) {",
+  "line": 285,
+  "old": "    const deletesOnly = !opts?.force && !cloudSyncEnabled(userId);",
+  "new": "    const deletesOnly = false;",
   "why": "Background drains (network return, save) upload the queue while cloud sync is switched off — data leaves the device without consent (SEC-8).",
   "tests": [
    "src/core/services/__tests__/syncPhase2.test.ts",
@@ -181,8 +181,8 @@
  {
   "id": "st-03",
   "file": "src/core/services/StorageService.ts",
-  "line": 182,
-  "old": "        reportError(e, { action: 'restoreDocument_cloud', documentId: targetCloudId });\n        if (localId) await queueMetadataRetry(userId, localId);",
+  "line": 222,
+  "old": "        reportError(e, { action: 'restoreDocument_cloud', documentId: targetCloudId });\n        await queueMetadataRetry(userId, localId);",
   "new": "        reportError(e, { action: 'restoreDocument_cloud', documentId: targetCloudId });",
   "why": "Restore-from-trash that fails in the cloud is never retried: the note is live locally but stays trashed in the cloud (and on other devices) until purge.",
   "tests": [
@@ -192,8 +192,8 @@
  {
   "id": "st-04",
   "file": "src/core/services/StorageService.ts",
-  "line": 161,
-  "old": "        reportError(e, { action: 'trashDocument_cloud', documentId: targetCloudId });\n        if (localId) await queueMetadataRetry(userId, localId);",
+  "line": 193,
+  "old": "        reportError(e, { action: 'trashDocument_cloud', documentId: targetCloudId });\n        await queueMetadataRetry(userId, localId);",
   "new": "        reportError(e, { action: 'trashDocument_cloud', documentId: targetCloudId });",
   "why": "A cloud trash that fails offline is never retried: the note looks trashed here but stays live in the cloud and reappears on the next download/reconcile.",
   "tests": [
@@ -286,9 +286,9 @@
  {
   "id": "cr-05",
   "file": "src/core/services/ConflictResolver.ts",
-  "line": 255,
-  "old": "...(cloudTrashedMs ? { trashedAt: cloudTrashedMs } : {}),",
-  "new": "...(cloudTrashedMs ? {} : {}),",
+  "line": 268,
+  "old": "          else reconciled.trashedAt = cloudTrashedMs;",
+  "new": "          else { /* мутация: облачная корзина не применяется */ }",
   "why": "A note trashed on another device stays alive here after the conflict; reconcile no longer sees the cloud as newer, so it never gets trashed locally (N2-7).",
   "tests": [
    "src/core/services/__tests__/syncMutationSurvivors.test.ts"
@@ -374,9 +374,9 @@
  {
   "id": "csc-05",
   "file": "src/core/services/CloudSyncService.ts",
-  "line": 1232,
-  "old": "const existing = allLocal.find(d => d.linkedCloudId === cloudDocumentId);\n      if (existing) return existing.id;",
-  "new": "const existing = allLocal.find(d => d.linkedCloudId === cloudDocumentId);\n      if (existing?.id === '') return existing.id;",
+  "line": 1220,
+  "old": "      if (existing) return { localId: existing.id, skippedVersions: 0 };",
+  "new": "      if (existing?.id === '') return { localId: existing.id, skippedVersions: 0 };",
   "why": "addLocalCopy no longer short-circuits on an already-linked note: every second download of the same cloud doc creates another local copy — duplicate notes.",
   "tests": [
    "src/core/services/__tests__/syncMutationSurvivors.test.ts"
