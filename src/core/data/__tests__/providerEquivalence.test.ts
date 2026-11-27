@@ -27,7 +27,8 @@ function makeMockClient() {
       return terminal === 'maybeSingle' ? { data: v, error: null } : { data: [v], error: null };
     }
     if (table === 'users' || table === 'admin_users_view') {
-      const u = row({ uid: 'u1', email: 'e@x', created_at: '2026-01-01T00:00:00Z', encryption_salt: null });
+      // DA-4 (дейлик 27.11): xmin в ответе — иначе золотой закреплял версию "undefined".
+      const u = row({ uid: 'u1', email: 'e@x', created_at: '2026-01-01T00:00:00Z', encryption_salt: null, labels: [], xmin: '4242' });
       if (terminal === 'maybeSingle') return { data: u, error: null };
       return { data: [row({ uid: 'u1', email: 'e@x', role: 'user' })], error: null };
     }

@@ -80,3 +80,18 @@ describe('getProfileLabels: список вместе с версией стро
     await expect(getProfileLabels(UID)).rejects.toMatchObject({ message: 'boom' });
   });
 });
+
+// DA-4 (дейлик 27.11): строка есть, а xmin не пришёл — сбой чтения, а не версия
+// "undefined", по которой условная запись не совпала бы никогда.
+// Мутация: снять проверку xmin в getProfileLabels — красный.
+describe('getProfileLabels: версия строки', () => {
+  it('строка с xmin — версия строкой', async () => {
+    answer = { status: 200, body: { uid: UID, labels: [], xmin: '4711' } };
+    expect(await getProfileLabels(UID)).toEqual({ labels: [], version: '4711' });
+  });
+
+  it('строка без xmin — отказ, а не версия "undefined"', async () => {
+    answer = { status: 200, body: { uid: UID, labels: [] } };
+    await expect(getProfileLabels(UID)).rejects.toThrow('PROFILE_VERSION_MISSING');
+  });
+});

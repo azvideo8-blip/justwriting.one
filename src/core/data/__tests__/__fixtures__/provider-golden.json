@@ -449,6 +449,8 @@
       "uid": "u1",
       "email": "e@x",
       "createdAt": 1767225600000,
+      "labels": [],
+      "xmin": "4242",
       "id": "u1"
     },
     "calls": [
@@ -494,7 +496,8 @@
   },
   "getProfileLabels": {
     "result": {
-      "version": "undefined"
+      "labels": [],
+      "version": "4242"
     },
     "calls": [
       {
@@ -904,6 +907,8 @@
       "uid": "u1",
       "email": "e@x",
       "createdAt": 1767225600000,
+      "labels": [],
+      "xmin": "4242",
       "id": "u1"
     },
     "calls": [
@@ -951,6 +956,8 @@
       "uid": "u1",
       "email": "e@x",
       "createdAt": 1767225600000,
+      "labels": [],
+      "xmin": "4242",
       "id": "u1"
     },
     "calls": [
