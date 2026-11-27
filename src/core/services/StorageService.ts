@@ -1,5 +1,5 @@
 import { withDocumentLock, LOCK_TTL_MS } from '../sync/withDocumentLock';
-import { getLocalDb } from '../storage/localDb';
+import { getLocalDb, type LocalDocument, type MetadataField } from '../storage/localDb';
 import { emitDomainEvent } from '../events/domainEvents';
 import { LocalStorageService } from './LocalStorageService';
 import { LocalDocumentService } from './LocalDocumentService';
@@ -296,6 +296,32 @@ export type SaveVersionResult = {
   isTooLarge?: boolean | undefined;
 };
 
+/**
+ * DA-11 (владелец 27.11): название, теги и метка, изменённые в окне «Завершить» при
+ * продолжении заметки, ложились только локально (LocalStorageService.saveVersionToLocal),
+ * а в облако уходила одна версия — другие устройства их не видели никогда. Изменённые
+ * поля метятся грязными (их же досылает дренаж, как правку из архива) и уходят сразу
+ * после версии; отказ облака — задача в очереди.
+ */
+function changedMetadata(existing: LocalDocument, data: SaveDocumentData): MetadataField[] {
+  const fields: MetadataField[] = [];
+  if (data.title && data.title !== existing.title) fields.push('title');
+  const before = existing.tags ?? [];
+  if (data.tags !== undefined && (data.tags.length !== before.length || data.tags.some((t, i) => t !== before[i]))) fields.push('tags');
+  if (data.labelId !== undefined && data.labelId !== existing.labelId) fields.push('labelId');
+  return fields;
+}
+
+async function pushChangedMetadata(userId: string, documentId: string, cloudId: string, data: SaveDocumentData, fields: MetadataField[]): Promise<void> {
+  try {
+    await DocumentService.updateMetadataFields(userId, cloudId, { title: data.title, tags: data.tags, labelId: data.labelId }, fields);
+    await LocalDocumentService.setMetadataDirty(documentId, false, userId);
+  } catch (e) {
+    reportError(e, { action: 'saveVersion_metadata', documentId });
+    await addToSyncQueue(documentId, userId);
+  }
+}
+
 async function _doSaveVersion(userId: string, documentId: string, data: SaveDocumentData): Promise<SaveVersionResult> {
   const now = Date.now();
   const totalWords = data.documentWordCount ?? data.wordCount;
@@ -308,6 +334,8 @@ async function _doSaveVersion(userId: string, documentId: string, data: SaveDocu
     throw new DOMException('Local save failed (quota exceeded)', 'QuotaExceededError');
   }
   const { newVersion, prevContent, existing } = res;
+  const metaFields = existing.linkedCloudId ? changedMetadata(existing, data) : [];
+  for (const field of metaFields) await LocalDocumentService.setMetadataDirty(documentId, true, userId, field);
 
   // Сигнал AI-домену (#105): правки должны догонять индекс эмбеддингов,
   // а не только при открытии страницы ИИ. Слушатель в features/ai вызывает
@@ -345,6 +373,10 @@ async function _doSaveVersion(userId: string, documentId: string, data: SaveDocu
       prevContent
     );
     if (result.forked) return { forked: true, forkTitle: result.forkTitle, cloudSynced: false };
+    // Версия не ушла — поля остаются грязными, их дошлёт тот же дренаж, что и версию.
+    if (metaFields.length > 0 && result.cloudSynced) {
+      await pushChangedMetadata(userId, documentId, existing.linkedCloudId, data, metaFields);
+    }
     return { forked: false, cloudSynced: result.cloudSynced, reason: result.reason };
   }
   return { forked: false, cloudSynced: false };
