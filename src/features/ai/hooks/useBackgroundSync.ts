@@ -96,7 +96,7 @@ export function useBackgroundSync(): void {
       try {
         const { syncPullByRevEnabled } = await import('../../../core/sync/syncFlags');
         if (await syncPullByRevEnabled(uid) && !SyncService.isRevPullUnavailable(uid)) {
-          await SyncService.pullNotes(uid);
+          await SyncService.pullNotes(uid); // намеренно: фоновый проход — неприменённое оставляет курсор на месте и повторяется следующим проходом, сбои пишет сам забор
         } else {
           const { checkAndSyncCursor } = await import('../../../core/sync/changeCursor');
           await checkAndSyncCursor(uid);
