@@ -88,6 +88,22 @@ export function useBackgroundSync(): void {
         await retryLocalPurges(uid);
         return;
       }
+      // DA-10 (владелец 27.11): заметки забирались только на входе, по возврату во
+      // вкладку и сети — вкладка, всё время открытая на экране, не видела правок с
+      // телефона. Теперь каждый проход: по rev — один лёгкий запрос (повторный
+      // вызов, пока идёт прежний, ждёт его же); без rev — проверка курсора, как на
+      // видимости, а не полный проход.
+      try {
+        const { syncPullByRevEnabled } = await import('../../../core/sync/syncFlags');
+        if (await syncPullByRevEnabled(uid) && !SyncService.isRevPullUnavailable(uid)) {
+          await SyncService.pullNotes(uid);
+        } else {
+          const { checkAndSyncCursor } = await import('../../../core/sync/changeCursor');
+          await checkAndSyncCursor(uid);
+        }
+      } catch (e) {
+        reportError(e, { action: 'backgroundSync_pullNotes' });
+      }
       const { CloudSyncService } = await import('../../../core/services/CloudSyncService');
       // Лениво: сервис восстановления нужен только при включённой синхронизации,
       // а не на старте (бюджет стартового куска).

@@ -9,6 +9,9 @@ import { useBackgroundSync } from '../useBackgroundSync';
 const mockRestore = vi.fn();
 const mockRestoreAi = vi.fn();
 
+// DA-10: проход фона теперь и забирает заметки — флаг и курсор подменены, сети в тесте нет.
+vi.mock('../../../../core/sync/syncFlags', () => ({ syncPullByRevEnabled: async () => false }));
+vi.mock('../../../../core/sync/changeCursor', () => ({ checkAndSyncCursor: async () => undefined }));
 vi.mock('../../../../core/auth', () => ({
   getCurrentUser: () => ({ uid: 'u_throttle_1' }),
 }));
