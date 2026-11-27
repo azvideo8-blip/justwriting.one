@@ -1,5 +1,5 @@
 import { withDocumentLock, LOCK_TTL_MS } from '../sync/withDocumentLock';
-import { getLocalDb, type LocalDocument, type MetadataField } from '../storage/localDb';
+import { getLocalDb, type MetadataField } from '../storage/localDb';
 import { emitDomainEvent } from '../events/domainEvents';
 import { LocalStorageService } from './LocalStorageService';
 import { LocalDocumentService } from './LocalDocumentService';
