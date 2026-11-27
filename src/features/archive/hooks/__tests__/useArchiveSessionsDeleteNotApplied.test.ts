@@ -120,4 +120,23 @@ describe('useArchiveSessions — delete not applied (F-1)', () => {
     await act(async () => { await result.current.handleEmptyTrash([mockSession]); });
     expect(mockShowToast.mock.calls).toEqual([['archive_trash_cleared', 'success']]);
   });
+
+  // DA-7.2 (аудитор 27.11): ожидание замка строки до минуты — кнопка молча «висела».
+  // Мутация: снять withBusyNotice у корзины — красный.
+  it('операция дольше трёх секунд — сказано, что ждём; быстрая — молчим', async () => {
+    const mockUser = { uid: 'u_f1_test' } as unknown as AppUser;
+    const t = (k: string) => k;
+    const { result } = renderHook(() => useArchiveSessions(mockUser, 'u_f1_test', t));
+    await waitFor(() => expect(result.current.sessions).toHaveLength(1));
+    mockShowToast.mockClear();
+
+    vi.mocked(trashArchiveSession).mockImplementationOnce(() => new Promise(r => setTimeout(() => r({ cloudSynced: true } as never), 3_300)));
+    await act(async () => { await result.current.handleTrashSession(mockSession); });
+    expect(mockShowToast).toHaveBeenCalledWith('archive_busy_waiting', 'info');
+
+    mockShowToast.mockClear();
+    vi.mocked(trashArchiveSession).mockResolvedValueOnce({ cloudSynced: true } as never);
+    await act(async () => { await result.current.handleTrashSession(mockSession); });
+    expect(mockShowToast).not.toHaveBeenCalledWith('archive_busy_waiting', 'info');
+  });
 });
