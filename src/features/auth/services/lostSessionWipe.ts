@@ -1,6 +1,7 @@
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { hasLocalDatabase } from '../../../core/storage/localDb';
 import { reportError } from '../../../shared/errors/reportError';
+import { setAccountChangeNotice } from '../../../core/auth/accountReload';
 import { CLOCK_SKEW_THRESHOLD_SEC, getCurrentUser } from '../../../core/auth/supabaseAuthProvider';
 
 type ShowToast = (
@@ -57,11 +58,24 @@ export async function offerLostSessionWipe(showToast: ShowToast, t: Translate, c
   if (!uid) return;
 
   const lostUid = uid;
+  // DA-3 (дейлик 27.11, Н-3): ключ снимается сразу, а стереть базу потерянной
+  // сессии больше нечем. Отказ не по воле человека (вошли, сбой, часы) возвращает
+  // и ключ, и уведомление — предложение придёт на следующей загрузке. «Нет» в
+  // подтверждении и истёкший тост — решение человека, они одноразовые.
+  const rearm = () => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.LOST_SESSION_UID, lostUid);
+      setAccountChangeNotice('lost_session');
+    } catch (e) {
+      reportError(e, { action: 'lost_session_wipe_rearm' });
+    }
+  };
   // Дейлик 04.11 Н-1: обещание 0.11.4 — при неверных часах стереть не предлагаем.
   const skewSec = await serverClockSkewSec();
   if (skewSec !== null && Math.abs(skewSec) >= CLOCK_SKEW_THRESHOLD_SEC) {
     const { showClockSkewToast } = await import('./clockSkewToast');
     showClockSkewToast(showToast, t, skewSec, true);
+    rearm();
     return;
   }
 
@@ -72,6 +86,7 @@ export async function offerLostSessionWipe(showToast: ShowToast, t: Translate, c
   const signedIn = () => {
     if (!getCurrentUser()) return false;
     showToast(t('auth_lost_session_wipe_signed_in'), 'info');
+    rearm();
     return true;
   };
   let wiped = false;
@@ -105,6 +120,7 @@ export async function offerLostSessionWipe(showToast: ShowToast, t: Translate, c
         } catch (e) {
           reportError(e, { action: 'lost_session_wipe' });
           showToast(t('auth_lost_session_wipe_failed'), 'error');
+          rearm();
         }
       })();
     },

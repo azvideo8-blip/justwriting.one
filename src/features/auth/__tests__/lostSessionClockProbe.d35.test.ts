@@ -37,6 +37,9 @@ describe('Н-1: перед предложением стереть данные 
     expect(toasts.some(m => m.includes('auth_clock_skew_notice'))).toBe(true);
     expect(toasts.some(m => m.includes(SIGN_IN))).toBe(true);
     expect(toasts).not.toContain(WIPE);
+    // DA-3 (дейлик 27.11): неверные часы — не решение человека; предложение вернётся,
+    // когда часы поправят. Мутация: убрать rearm() у часов — красный.
+    expect(localStorage.getItem(STORAGE_KEYS.LOST_SESSION_UID)).toBe('u_d35');
   });
 
   it('часы отстают на 2 часа — то же', async () => {

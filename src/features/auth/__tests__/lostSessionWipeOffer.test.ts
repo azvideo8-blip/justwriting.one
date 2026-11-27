@@ -4,6 +4,7 @@ import { waitFor } from '@testing-library/react';
 import { getLocalDb, resetDbInstance, hasLocalDatabase } from '../../../core/storage/localDb';
 import { offerLostSessionWipe } from '../services/lostSessionWipe';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
+import { takeAccountChangeNotice } from '../../../core/auth/accountReload';
 // Счёт неотправленного грузит этот модуль по требованию; холодная загрузка съедает секунду waitFor.
 import '../../../core/services/LocalStoreSyncService';
 
@@ -97,6 +98,10 @@ describe('S-28: the lost-session wipe offer', () => {
     const { AuthService } = await import('../services/AuthService');
     expect(AuthService.wipeDeviceDataForUid).not.toHaveBeenCalled();
     expect(confirm).toHaveBeenCalledTimes(confirms);
+    // DA-3 (дейлик 27.11, Н-3): отказ не по воле человека — предложение вернётся на
+    // следующей загрузке. Мутация: убрать rearm() из signedIn — красный.
+    expect(localStorage.getItem(STORAGE_KEYS.LOST_SESSION_UID)).toBe(USER);
+    expect(takeAccountChangeNotice()).toBe('lost_session');
   });
 
   // Мутация: не помнить, что уже стёрто, — второе подтверждение, красный.
@@ -144,6 +149,9 @@ describe('S-28: the lost-session wipe offer', () => {
     await new Promise(r => setTimeout(r, 20));
     const { AuthService } = await import('../services/AuthService');
     expect(AuthService.wipeDeviceDataForUid, 'стёрто без подтверждения').not.toHaveBeenCalled();
+    // «Нет» — решение человека: предложение одноразовое (DA-3).
+    expect(localStorage.getItem(STORAGE_KEYS.LOST_SESSION_UID)).toBeNull();
+    expect(takeAccountChangeNotice()).toBeNull();
   });
 
   it('S-33: unsynced data on this device is named in the confirmation', async () => {
@@ -177,6 +185,8 @@ describe('S-28: the lost-session wipe offer', () => {
     await waitFor(() => expect(showToast).toHaveBeenCalledWith('auth_lost_session_wipe_failed', 'error'));
     const { AuthService } = await import('../services/AuthService');
     expect(AuthService.wipeDeviceDataForUid).not.toHaveBeenCalled();
+    // DA-3: сбой — не решение человека, предложение вернётся. Мутация: убрать rearm() из catch — красный.
+    expect(localStorage.getItem(STORAGE_KEYS.LOST_SESSION_UID)).toBe(USER);
     spy.mockRestore();
   });
 
