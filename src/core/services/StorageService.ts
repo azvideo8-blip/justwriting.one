@@ -337,7 +337,7 @@ async function pushDirtyMetadata(userId: string, documentId: string, cloudId: st
       lastSessionAt: fresh.lastSessionAt,
       trashedAt: fresh.trashedAt ?? null,
     }, fresh.metadataDirtyFields);
-    await LocalDocumentService.setMetadataDirty(documentId, false, userId);
+    await LocalDocumentService.clearMetadataDirtyFields(documentId, fresh.metadataDirtyFields, userId);
   } catch (e) {
     reportError(e, { action: 'saveVersion_metadata', documentId });
     await addToSyncQueue(documentId, userId);
@@ -356,9 +356,9 @@ async function _doSaveVersion(userId: string, documentId: string, data: SaveDocu
     throw new DOMException('Local save failed (quota exceeded)', 'QuotaExceededError');
   }
   const { newVersion, prevContent, existing } = res;
-  const metaFields = existing.linkedCloudId ? changedMetadata(getMetadataBase(documentId), data) : [];
-  // Следующее сохранение в той же сессии сравнивается уже с этими значениями.
   const base = getMetadataBase(documentId);
+  const metaFields = existing.linkedCloudId ? changedMetadata(base, data) : [];
+  // Следующее сохранение в той же сессии сравнивается уже с этими значениями.
   if (base) rememberMetadataBase(documentId, { title: data.title || base.title, tags: data.tags ?? base.tags, labelId: data.labelId ?? base.labelId });
 
   // Сигнал AI-домену (#105): правки должны догонять индекс эмбеддингов,

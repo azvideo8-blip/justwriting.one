@@ -112,7 +112,10 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       useContentStore.getState().setTags(doc.tags);
       useContentStore.getState().setLabelId(doc.labelId);
       // DA-11: что человек видел при открытии — с этим сравнивается правка в «Завершить».
-      rememberMetadataBase(localId, { title: doc.title ?? '', tags: doc.tags ?? [], labelId: doc.labelId });
+      // Ревью DA-11: из редактора, а не из строки — редактор обрезает теги (10 штук,
+      // 50 знаков), и сырые теги выдали бы обрезку за правку человека.
+      const shown = useContentStore.getState();
+      rememberMetadataBase(localId, { title: shown.title, tags: shown.tags, labelId: shown.labelId });
       flow.setSetupMode(null);
       // Stay idle — user clicks Start to begin writing (same as Archive continue)
       setLifeLogVisible(false);

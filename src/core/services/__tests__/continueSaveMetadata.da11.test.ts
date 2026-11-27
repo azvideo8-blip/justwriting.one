@@ -136,4 +136,19 @@ describe('DA-11: продолжение заметки отправляет из
     expect(meta.mock.calls[0]![2]).toMatchObject({ labelId: 'L_audio' });
     expect(meta.mock.calls[0]![3]).toEqual(['labelId']);
   });
+
+  // Повторное ревью DA-11: поле, помеченное, пока шла отправка (провалилась правка
+  // тегов в архиве), не снимается. Мутация: снимать всю отметку — красный.
+  it('поле, помеченное во время отправки, остаётся ждать', async () => {
+    vi.spyOn(CloudSyncService, 'syncVersionToCloud').mockResolvedValue({ forked: false, cloudSynced: true } as never);
+    vi.spyOn(DocumentService, 'updateMetadataFields').mockImplementation(async () => {
+      await LocalDocumentService.setMetadataDirty(docId, true, U, 'tags');
+    });
+
+    await save({ labelId: 'L1' });
+
+    const row = await LocalStorageService.getDocument(docId, U);
+    expect(row?.metadataDirty).toBe(true);
+    expect(row?.metadataDirtyFields).toEqual(['tags']);
+  });
 });

@@ -160,4 +160,17 @@ describe('useWritingActions.handleContinueDocument (S-8)', () => {
     expect(mockShowToast).toHaveBeenCalledWith('error_load_failed', 'error');
     expect(useContentStore.getState().content).toBe('');
   });
+
+  // DA-11: открытая заметка запоминает, что человек видит в редакторе, — тегами после
+  // обрезки редактора (10 штук). Мутации: не запоминать — красный; брать сырые теги — красный.
+  it('продолжение запоминает значения редактора как исходные для «Завершить»', async () => {
+    vi.spyOn(LocalVersionService, 'getLatestContent').mockResolvedValue('синтетический текст');
+    const many = Array.from({ length: 11 }, (_, i) => `t${i}`);
+    const { result } = renderActions();
+    await act(async () => {
+      await result.current.handleContinueDocument(noteDoc({ tags: many, labelId: 'L1' } as never));
+    });
+    const { getMetadataBase } = await import('../../../../core/services/metadataBase');
+    expect(getMetadataBase('doc_1')).toEqual({ title: 'Existing Note', tags: many.slice(0, 10), labelId: 'L1' });
+  });
 });
