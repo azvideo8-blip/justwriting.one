@@ -3,8 +3,12 @@
 A quiet writing app: a timer, a blank page, and an archive that remembers. An
 optional AI layer reads what you wrote and talks to you about it.
 
-Live at **https://justwriting.ru**. Private repository, one maintainer, one
-production user. A closed beta for 10–20 invited people is being prepared.
+Live at **https://justwriting.ru**. One maintainer. The source has been public
+since 25 November 2026; there is no licence file yet, so the code is readable but
+not licensed for reuse.
+
+Found a security problem? Please do not open a public issue — see
+[SECURITY.md](SECURITY.md#reporting-a-vulnerability).
 
 ---
 
@@ -19,6 +23,7 @@ production user. A closed beta for 10–20 invited people is being prepared.
 | Client | React 19 · TypeScript · Vite · Tailwind v4 · Zustand |
 | Tests | Vitest (`npm run test:ci`), SQL RLS tests, Playwright e2e |
 | Node | 22 (CI and the API service) |
+| CI | GitHub Actions on hosted runners; deploy is a separate manual run |
 
 There is no Firebase, no Firestore, no Cloud Functions and no Vercel: that stack
 was replaced in August 2026. The live headers come from nginx
@@ -76,10 +81,24 @@ With consent given, text reaches the (third-party) AI provider when:
 | Analyse a note | the note's full text | a button, per note or per archive |
 | Chat | your message, the persona, the portrait, retrieved note fragments | you, per message |
 | Semantic search | your query, then note cards for reranking | a search inside chat |
+| Writing-panel actions | the text in the editor | a button in the AI panel |
+| Dictation clean-up | the fragment you just dictated, to restore punctuation | dictating, when AI consent is given |
 
 Text reaches the provider on an explicit action: the timer that used to
 summarise notes by itself was removed in August 2026. Writing and saving a note
-send nothing.
+send nothing; dictating sends the dictated fragment for punctuation, and only
+with AI consent.
+
+**Voice input itself is the browser's.** Dictation uses the browser's built-in
+speech recognition (the Web Speech API). The app never sees audio, but the
+browser may: Chrome, for one, recognises speech on its vendor's servers.
+
+**A note can be hidden from AI.** A note marked "hidden from AI", or one in the
+trash, reaches the model by no path — analysis, chat, search, the portrait,
+quotes, suggestions, dictation. A failed read counts as hidden. A CI gate
+(`src/test/aiCallVisibilityGate.test.ts`) fails when a model call appears
+without that check. Chat search draws only on notes that have been analysed;
+a note's full text goes to the model only when you attach it to a message.
 
 **Search vectors are computed locally, not by the AI provider.** A small
 embedding server (`BAAI/bge-m3`, via Hugging Face's Text Embeddings Inference)
@@ -106,8 +125,7 @@ September 2026 move to local compute. The local server runs `BAAI/bge-m3`
 
 **The portrait is injected into every chat turn.** It is a psychological
 summary built from your analyses, and it is part of the system prompt on every
-message, not a page you visit. See `docs/protocols-2026-09-02.md` for the
-measurement protocol that will decide whether it stays.
+message, not a page you visit.
 
 ---
 
@@ -197,17 +215,21 @@ down with it.
 
 ```
 src/core/        storage, crypto, sync, data providers, auth — knows no features
-src/features/    admin, ai, archive, auth, encryption, navigation, profile, settings, writing
+src/features/    admin, ai, archive, auth, encryption, navigation, profile, settings, tour, writing
 src/shared/      i18n, components, utilities shared by everything
 src/app/         pages and composition — where features are allowed to meet
 api/             the Node service: AI endpoints, limits, CSP reports
 supabase/        migrations and the migration runner
 scripts/         gates, the post-deploy smoke check, one-off tools
-docs/            tickets, audit reports, measurement protocols
+docs/            public design notes: ADRs, security invariants, sync resilience
 ```
 
 `core` must not import from `features`. This is enforced by
 `import/no-restricted-paths` and by the cross-feature ratchet.
+
+How the parts fit together: [ARCHITECTURE.md](ARCHITECTURE.md). A generated map
+of every module: [CODE_MAP.md](CODE_MAP.md) (`npm run code-map`; a test fails
+when it is stale).
 
 ---
 

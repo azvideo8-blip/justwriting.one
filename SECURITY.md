@@ -8,7 +8,10 @@ repository stated that note text reached the AI provider "only on an explicit
 user action". That was false for six months — a background timer was sending it.
 The lesson is written down here because it governs how this file is maintained:
 **a promise this document makes that the code does not keep is worse than no
-document at all.** Every claim below was checked against the tree at `0.8.32`.
+document at all.** The whole file was last checked against the tree at
+`0.8.32`; on 27 November 2026, when the repository was public, the reporting
+section, the encryption numbers, the AI paths, rate limits and input caps were
+re-checked against `0.11.28`.
 
 ---
 
@@ -16,20 +19,16 @@ document at all.** Every claim below was checked against the tree at `0.8.32`.
 
 **Do not open a public issue.**
 
-1. **Preferred — GitHub private vulnerability reporting.** Use the *Report a
-   vulnerability* button under the repository's Security tab.
-   *Maintainer note: this must be switched on in Settings → Code security before
-   the first outside tester is invited; it is not on by default.*
-2. **Fallback — email.** `security@justwriting.ru`.
-   *Maintainer note: this alias does not exist yet and must be created, or this
-   line replaced with an address that does.*
+Use GitHub private vulnerability reporting: the *Report a vulnerability*
+button under the repository's Security tab. Only the maintainer sees the
+report.
 
 What helps: the version (shown in the sidebar), what you did, what you expected,
 what happened. A proof of concept is welcome but never required.
 
 **Please do not** run automated scanners against `justwriting.ru`, attempt
 denial of service, or access data belonging to anyone but yourself. The service
-runs on a single small VPS with one real user; load testing it is
+runs on a single small VPS; load testing it is
 indistinguishable from an attack.
 
 **What to expect.** A single maintainer, so: acknowledgement within 72 hours, an
@@ -76,6 +75,42 @@ change is wrong — not the postulate.
 You can verify that these hold by running `npm run postulates`. It executes the
 fault-injection matrix across all lifecycle sequences under both vault states,
 and runs the plaintext sweep against the database when `DATABASE_URL` is set.
+
+---
+
+## What reaches the AI provider, and what never does
+
+The postulates above say AI is the one disclosed exception. In practice:
+
+- **Only on an action by the person** — a button, a chat message, dictation
+  with AI consent. No timer or background job sends note text; a new automatic
+  call needs the maintainer's explicit decision.
+- **Notes hidden from AI never reach the model** — a note marked "hidden from
+  AI" or in the trash is excluded from analysis, chat, search, the portrait,
+  quotes, suggestions and dictation. A failed read counts as hidden.
+  `src/test/aiCallVisibilityGate.test.ts` fails the build when a model call
+  appears without that check; `src/test/aiStoreVisibilityGate.test.ts` does the
+  same for reads of derived AI data.
+- **Chat search draws only on analysed notes**; a note's full text goes to the
+  model only when the person attaches it to a message.
+- **Search vectors are computed on the same server**, not by the provider.
+- **Voice input is the browser's.** Dictation uses the browser's speech
+  recognition (Web Speech API): the app never receives audio, but the browser
+  may process it on its vendor's servers (Chrome does). Only the recognised
+  text reaches the app, and with AI consent a fragment of it goes to the
+  provider for punctuation.
+
+---
+
+## Repository and pipeline
+
+- Third-party GitHub Actions are pinned to a commit SHA, not a tag.
+- Secrets: every push is scanned with gitleaks over the pushed range, and the
+  full history is scanned daily.
+- Production dependency advisories of moderate severity or above block CI.
+- Deployment is a manual run; after it a smoke check verifies the live version, that
+  the page loads without script errors and that an unauthenticated AI call is
+  refused, and rolls back on failure.
 
 ---
 
@@ -181,9 +216,9 @@ Every AI endpoint enforces, in this order:
 - **Authentication** — a Supabase JWT, verified before anything else.
 - **Consent** — AI consent for analysis and chat, indexing consent for vectors.
   Refusal is a 403 with a distinct code, not a generic error.
-- **Schema validation** — Zod on every endpoint; content is capped at 50 000
-  characters.
-- **Prompt-injection screening** — a shared list of 21 patterns, Latin and
+- **Schema validation** — Zod on every endpoint; every text field has a length
+  cap (note text: 50 000 characters).
+- **Prompt-injection screening** — one shared list of patterns, Latin and
   Cyrillic, in `src/shared/ai/injectionPatterns.ts`, applied to custom system
   prompts and user messages. Invisible characters are normalised first, so a
   guard phrase cannot be broken up with zero-width joiners.
@@ -252,7 +287,8 @@ There is no third-party analytics, error-reporting or AI-observability service.
 ## Known open weaknesses
 
 Listed because a security document that hides them is worth less than none.
-Details and fix plans are in `docs/ag-audit-2026-09-03-tickets.md` and `docs/beta-postulate-closeout-tickets.md`.
+Audit reports and fix plans are kept in the maintainer's private notes; what
+matters to a user is summarised here.
 
 | | Weakness | Consequence |
 | :--- | :--- | :--- |
@@ -285,8 +321,7 @@ Weaknesses identified in previous security audits that have been resolved and ve
   A draft is an autosave of working state rather than a stored note: it is
   overwritten when the session ends and removed on sign-out with erasure. The
   `localStorage` copy is suppressed while encryption is on. If the threat model
-  tightens, encrypting it with the same helper is described in
-  `docs/audit-cleanup-plan.md` §3.10.
+  tightens, the same encryption helper can cover it.
 - **A stream that falls back mid-generation charges two slots.** The remaining
   case after refund-on-disconnect: the connection drops mid-stream and both
   attempts really did generate. Charging after the first upstream byte was
