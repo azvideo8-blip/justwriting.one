@@ -243,6 +243,39 @@ function personShifted(qWords: string[], phrases: Phrase[], need: number): boole
   return false;
 }
 
+/**
+ * Дейлик 28.11 (Н-3): допуск «одно-два слова мимо» не смотрел, какое слово мимо.
+ * Подмена лица или объекта («не хочу его видеть» → «её») — уже не огреха, а другой
+ * смысл в кавычках. Слова — после normalizeQuoteText (ё → е).
+ */
+const PRONOUN_PERSON: Record<string, string> = {};
+for (const [person, forms] of Object.entries({
+  '1': 'я меня мне мной мой моя мое мои моего моей моих',
+  '2': 'ты тебя тебе тобой твой твоя твое твои твоего твоей',
+  '3m': 'он его ему нем него нему',
+  '3f': 'она ее ей ею ней нее',
+  '1p': 'мы нас нам нами наш наша наше наши',
+  '2p': 'вы вас вам вами ваш ваша ваше ваши',
+  '3p': 'они их им ими них ним',
+})) for (const f of forms.split(' ')) PRONOUN_PERSON[f] = person;
+
+/**
+ * В фразе, где лежит почти вся цитата, местоимение заменено местоимением другого
+ * лица или рода («его» → «её»). «Свой»/«себя» не в списке: подходят к любому лицу
+ * («о своих клиентах» → «о моих» — огреха, не подмена).
+ */
+function pronounSwapped(qWords: string[], phrases: Phrase[], need: number): boolean {
+  for (const p of phrases) {
+    const have = new Set(p.words);
+    if (qWords.filter(w => have.has(w)).length < need) continue;
+    const quoteSet = new Set(qWords);
+    const lost = new Set(p.words.filter(w => !quoteSet.has(w)).map(w => PRONOUN_PERSON[w]).filter(Boolean));
+    if (lost.size === 0) continue;
+    if (qWords.some(w => !have.has(w) && PRONOUN_PERSON[w] && !lost.has(PRONOUN_PERSON[w]!))) return true;
+  }
+  return false;
+}
+
 /** Наибольшее число слов цитаты, идущих по порядку внутри ОДНОЙ фразы материалов. */
 function bestInPhrases(qWords: string[], phrases: Phrase[], span: number): number {
   let best = 0;
@@ -309,7 +342,8 @@ export function unquoteAbsent(
     const qWords = words(nq);
     const miss = n >= 8 ? 2 : n >= 4 ? 1 : 0;
     if (miss > 0 && cached(mm, `~${nq}`, () => bestInPhrases(qWords, mm.phrases, n + miss)) >= n - miss
-      && !cached(mm, `^${nq}`, () => Number(personShifted(qWords, mm.phrases, n - miss)))) continue;
+      && !cached(mm, `^${nq}`, () => Number(personShifted(qWords, mm.phrases, n - miss)))
+      && !cached(mm, `p${nq}`, () => Number(pronounSwapped(qWords, mm.phrases, n - miss)))) continue;
     let before = text.slice(last, at);
     let body = inner;
     const after = text.slice(at + m[0].length, at + m[0].length + 40).toLowerCase();
