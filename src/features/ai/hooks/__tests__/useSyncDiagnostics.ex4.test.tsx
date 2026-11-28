@@ -51,7 +51,7 @@ describe('EX-4: отказ чтения диагностики назван', ()
   // Дейлик 24.11 (Н-2). Мутация: не читать skippedVersions — красный.
   it.each([
     [3, 'storage_download_versions_skipped', 'warning'],
-    [0, 'Downloaded copy to device', 'success'],
+    [0, 'admin_sync_toast_downloaded', 'success'],
   ])('скачали копию, непрочитанных версий %i → %s', async (skippedVersions, text, kind) => {
     await seedLinked();
     getUserDocuments.mockResolvedValue([]);

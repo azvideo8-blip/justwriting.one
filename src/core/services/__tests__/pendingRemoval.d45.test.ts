@@ -41,6 +41,7 @@ import { LocalDocumentService } from '../LocalDocumentService';
 import { loadAllSessions } from '../UnifiedSessionLoader';
 import { useLifeLog } from '../../../features/writing/hooks/useLifeLog';
 import { getSyncRevCursor } from '../../sync/revCursor';
+import { pendingRemovalIds } from '../syncQueueOps';
 import { setEncryptionEnabled, setProfileLoaded } from '../../crypto/cryptoHelpers';
 import { LanguageProvider } from '../../../shared/i18n';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
@@ -102,7 +103,9 @@ describe('удаление ждёт облака', () => {
     cloud.deleteDocument.mockResolvedValue(undefined);
 
     const res = await SyncService.syncPending(U);
-    expect(res).toMatchObject({ drained: 1, failed: 0, skippedReason: 'sync_disabled' });
+    // DA-2 (дейлик 27.11): удаление ушло — это проход, а не «синхронизация выключена».
+    expect(res).toMatchObject({ drained: 1, failed: 0, deletesOnly: true });
+    expect(res.skippedReason).toBeUndefined();
     expect(cloud.deleteDocument.mock.calls).toEqual([[U, CLOUD]]);
     expect(upload).not.toHaveBeenCalled();
     expect(relink).not.toHaveBeenCalled();
@@ -132,6 +135,15 @@ describe('удаление ждёт облака', () => {
 
   // Ревью 142fa421: проход решил снять старую задачу, а пока он выгружал заметки, человек
   // удалил ту же заметку. Мутация: не менять updatedAt при переводе задачи — красный.
+  it('синхронизация выключена и удалять нечего — «выключена», без признака удалений (DA-2)', async () => {
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(U), 'false');
+    const db = await getLocalDb(U);
+    await db.put('syncQueue', { id: 'sync_note', documentId: 'note', type: 'document', createdAt: 1, ownerId: U });
+    const res = await SyncService.syncPending(U);
+    expect(res).toMatchObject({ drained: 0, failed: 0, skippedReason: 'sync_disabled' });
+    expect(res.deletesOnly).toBeUndefined();
+  });
+
   it('удаление, поставленное посреди прохода, снимающего старую задачу, остаётся в очереди', async () => {
     localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(U), 'true');
     const db = await getLocalDb(U);
@@ -198,6 +210,14 @@ describe('удаление ждёт облака', () => {
     // Тот же uuid — сама заметка, она жива на устройстве: пара остаётся.
     await db.put('documents', { ...orphan, uuid: CLOUD } as never);
     expect((await CloudSyncService.relinkOrphanedDocuments(U)).relinked).toBe(1);
+  });
+
+  // DA-4 (дейлик 27.11): прячет только удаление — то же правило, что у дренажа.
+  // Мутация: снять type === 'delete' в pendingRemovalIds — красный.
+  it('отметка revocable не у удаления — заметку не прячет', async () => {
+    const db = await getLocalDb(U);
+    await db.put('syncQueue', { id: 'odd', documentId: 'cloud_odd', type: 'document', createdAt: 1, ownerId: U, revocable: true } as never);
+    expect((await pendingRemovalIds(U)).has('cloud_odd')).toBe(false);
   });
 
   it('задача другой учётки не прячет', async () => {

@@ -16,6 +16,9 @@ const UID = 'u_v1_download';
 const mockRestoreAi = vi.fn();
 const mockContinue = vi.fn();
 
+// DA-10: проход фона теперь и забирает заметки — флаг и курсор подменены, сети в тесте нет.
+vi.mock('../../../../core/sync/syncFlags', () => ({ syncPullByRevEnabled: async () => false }));
+vi.mock('../../../../core/sync/changeCursor', () => ({ checkAndSyncCursor: async () => undefined }));
 vi.mock('../../../../core/auth', () => ({ getCurrentUser: () => ({ uid: UID }) }));
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../services/AIRestoreService', () => ({

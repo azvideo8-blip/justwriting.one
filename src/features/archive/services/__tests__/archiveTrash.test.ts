@@ -23,7 +23,8 @@ vi.mock('../../../../core/services/LocalDocumentService', () => ({
     trashDocument: vi.fn().mockResolvedValue(undefined),
     restoreDocument: vi.fn().mockResolvedValue(undefined),
     deleteDocument: vi.fn().mockResolvedValue(undefined),
-    getDocument: vi.fn().mockResolvedValue(null),
+    // DA-6: чистка корзины перечитывает строку — по умолчанию она всё ещё в корзине и давно.
+    getDocument: vi.fn().mockResolvedValue({ id: 'x', trashedAt: 1 }),
   },
 }));
 
@@ -126,7 +127,7 @@ describe('FEAT-5 Archive Trash Service', () => {
 
     const res = await emptyTrash([s1, s2], 'u1');
 
-    expect(res).toEqual({ successCount: 2, failCount: 0, cloudPending: 0, deletedIds: ['s1', 's2'] });
+    expect(res).toEqual({ successCount: 2, failCount: 0, cloudPending: 0, deletedIds: ['s1', 's2'], restoredIds: [] });
     expect(StorageService.deleteDocument).toHaveBeenCalledTimes(2);
     expect(addActivitySpy).toHaveBeenCalledWith('activity_trash_cleared', { count: 2 }, 'info', 'archive');
   });
@@ -172,7 +173,7 @@ describe('FEAT-5 Archive Trash Service', () => {
       .mockResolvedValueOnce({ cloudSynced: true, derivativesOk: true, applied: true })
       .mockRejectedValueOnce(new Error('idb'));
     const res = await emptyTrash([makeSession({ id: 's1' }), makeSession({ id: 's2' })], 'u1');
-    expect(res).toEqual({ successCount: 1, failCount: 1, cloudPending: 0, deletedIds: ['s1'] });
+    expect(res).toEqual({ successCount: 1, failCount: 1, cloudPending: 0, deletedIds: ['s1'], restoredIds: [] });
     expect(addActivitySpy).toHaveBeenCalledWith('activity_trash_cleared_partial', { success: 1, failed: 1 }, 'warning', 'archive');
   });
 
@@ -211,7 +212,7 @@ describe('FEAT-5 Archive Trash Service', () => {
     const refused = { cloudSynced: false, derivativesOk: true, applied: true };
     vi.mocked(StorageService.deleteDocument).mockResolvedValueOnce({ cloudSynced: true, derivativesOk: true, applied: true }).mockResolvedValueOnce(refused);
     const res = await emptyTrash([makeSession({ id: 's_ok' }), makeSession({ id: 's_wait' })], 'u1');
-    expect(res).toEqual({ successCount: 2, failCount: 0, cloudPending: 1, deletedIds: ['s_ok', 's_wait'] });
+    expect(res).toEqual({ successCount: 2, failCount: 0, cloudPending: 1, deletedIds: ['s_ok', 's_wait'], restoredIds: [] });
     expect(addActivitySpy).toHaveBeenCalledWith('activity_trash_cloud_pending', { count: 1 }, 'warning', 'archive');
 
     addActivitySpy.mockClear();
@@ -219,5 +220,49 @@ describe('FEAT-5 Archive Trash Service', () => {
     vi.mocked(StorageService.deleteDocument).mockResolvedValueOnce(refused);
     await pruneExpiredTrash([makeSession({ id: 's_exp', trashedAt: now - 11 * 24 * 60 * 60 * 1000 })], 'u1', now);
     expect(addActivitySpy.mock.calls).toEqual([['activity_trash_cloud_pending', { count: 1 }, 'warning', 'archive']]);
+  });
+});
+
+// DA-6 (проход 27.11): чистка по снимку удаляла навсегда заметку, восстановленную тем
+// временем в соседней вкладке или на другом устройстве. Мутация: снять stillTrashed — красный.
+describe('DA-6: корзина перечитывает строку перед удалением', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it.each([
+    ['восстановлена', { id: 's1' }],
+    ['исчезла', null],
+  ])('emptyTrash: заметка %s — не удаляется', async (_n, fresh) => {
+    const { LocalDocumentService } = await import('../../../../core/services/LocalDocumentService');
+    vi.mocked(LocalDocumentService.getDocument).mockResolvedValueOnce(fresh as never);
+    const res = await emptyTrash([makeSession({ id: 's1', trashedAt: 1 } as never)], 'u_test_1');
+    expect(StorageService.deleteDocument).not.toHaveBeenCalled();
+    expect(res.deletedIds).toEqual([]);
+  });
+
+  it('emptyTrash: строка не прочиталась — не удаляем и называем отказом', async () => {
+    const { LocalDocumentService } = await import('../../../../core/services/LocalDocumentService');
+    vi.mocked(LocalDocumentService.getDocument).mockRejectedValueOnce(new Error('IDB'));
+    const res = await emptyTrash([makeSession({ id: 's1', trashedAt: 1 } as never)], 'u_test_1');
+    expect(StorageService.deleteDocument).not.toHaveBeenCalled();
+    expect(res.failCount).toBe(1);
+  });
+
+  it('emptyTrash: восстановленная названа вызывающему', async () => {
+    const { LocalDocumentService } = await import('../../../../core/services/LocalDocumentService');
+    vi.mocked(LocalDocumentService.getDocument).mockResolvedValueOnce({ id: 's1' } as never);
+    const res = await emptyTrash([makeSession({ id: 's1', trashedAt: 1 } as never)], 'u_test_1');
+    expect(res.restoredIds).toEqual(['s1']);
+    expect(res.failCount).toBe(0);
+  });
+
+  it('pruneExpiredTrash: в снимке просрочена, а свежая строка восстановлена — остаётся', async () => {
+    const { LocalDocumentService } = await import('../../../../core/services/LocalDocumentService');
+    vi.mocked(LocalDocumentService.getDocument).mockResolvedValue({ id: 's1' } as never);
+    const now = Date.now();
+    const res = await pruneExpiredTrash([makeSession({ id: 's1', trashedAt: now - 11 * 24 * 3600_000 } as never)], 'u_test_1', now);
+    expect(StorageService.deleteDocument).not.toHaveBeenCalled();
+    expect(res.prunedCount).toBe(0);
+    expect(res.remainingSessions.map(s => s.id)).toEqual(['s1']);
+    vi.mocked(LocalDocumentService.getDocument).mockResolvedValue({ id: 'x', trashedAt: 1 } as never);
   });
 });

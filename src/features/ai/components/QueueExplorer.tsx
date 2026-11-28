@@ -68,6 +68,8 @@ export function QueueExplorer({ userId }: { userId: string }) {
       } else if (res.skippedReason === 'in_progress' || res.skippedReason === 'offline' || res.skippedReason === 'vault_locked') {
         // Ничего не ушло — это не «очередь пуста».
         showToast(t(res.skippedReason === 'in_progress' ? 'sync_already_running' : res.skippedReason === 'offline' ? 'admin_queue_toast_offline' : 'settings_sync_vault_locked'), res.skippedReason === 'in_progress' ? 'info' : 'error');
+      } else if (res.deletesOnly && res.failed === 0) {
+        showToast(t('sync_queue_deletes_only'), 'info');
       } else if (res.failed > 0) {
         showToast(t('sync_queue_partial', { drained: String(res.drained), failed: String(res.failed) }), 'error');
       } else if (res.drained === 0) {

@@ -1,5 +1,5 @@
 import { withDocumentLock, LOCK_TTL_MS } from '../sync/withDocumentLock';
-import { getLocalDb } from '../storage/localDb';
+import { getLocalDb, type MetadataField } from '../storage/localDb';
 import { emitDomainEvent } from '../events/domainEvents';
 import { LocalStorageService } from './LocalStorageService';
 import { LocalDocumentService } from './LocalDocumentService';
@@ -14,6 +14,7 @@ import { getEncryptionEnabled } from '../crypto/cryptoHelpers';
 import { isVersionContentTooLarge } from './VersionService';
 import { cloudSyncEnabled } from '../sync/cloudSyncEnabled';
 import { addToSyncQueue } from './syncQueueOps';
+import { getMetadataBase, rememberMetadataBase, type MetadataBase } from './metadataBase';
 
 export type { StorageState, SaveDocumentData } from './storageTypes';
 
@@ -151,7 +152,11 @@ async function deleteDocumentUnlocked(userId: string, localId?: string, cloudId?
 export const StorageService = {
   async saveNew(userId: string, data: SaveDocumentData): Promise<{ localId: string }> {
     // DY10-9: сохранение, вставшее на локальной базе, не молчит.
-    return watchLocalDbStall('saveNew', LocalStorageService.saveNew(userId, data));
+    const res = await watchLocalDbStall('saveNew', LocalStorageService.saveNew(userId, data));
+    // DA-11: следующее сохранение в этой сессии (дописал и сохранил снова, с меткой)
+    // сравнивает поля окна с тем, что сохранено сейчас.
+    rememberMetadataBase(res.localId, { title: data.title, tags: data.tags ?? [], labelId: data.labelId });
+    return res;
   },
 
   async saveVersion(userId: string, documentId: string, data: SaveDocumentData): Promise<SaveVersionResult> {
@@ -296,6 +301,49 @@ export type SaveVersionResult = {
   isTooLarge?: boolean | undefined;
 };
 
+/**
+ * DA-11 (владелец 27.11): название, теги и метка, изменённые в окне «Завершить» при
+ * продолжении заметки, ложились только локально (LocalStorageService.saveVersionToLocal),
+ * а в облако уходила одна версия — другие устройства их не видели никогда. Изменённые
+ * человеком поля (против значений на момент открытия, metadataBase) метятся грязными —
+ * их же досылает дренаж, как правку из архива — и уходят сразу после версии.
+ */
+function changedMetadata(base: MetadataBase | undefined, data: SaveDocumentData): MetadataField[] {
+  if (!base) return [];
+  const fields: MetadataField[] = [];
+  if (data.title && data.title !== base.title) fields.push('title');
+  const tags = data.tags ?? base.tags;
+  if (tags.length !== base.tags.length || tags.some((t, i) => t !== base.tags[i])) fields.push('tags');
+  if (data.labelId !== undefined && data.labelId !== base.labelId) fields.push('labelId');
+  return fields;
+}
+
+async function markMetadataDirty(userId: string, documentId: string, fields: MetadataField[]): Promise<void> {
+  for (const field of fields) await LocalDocumentService.setMetadataDirty(documentId, true, userId, field);
+}
+
+// Ревью DA-11: шлём не только свои поля, а всё, что ждёт отправки (например,
+// «скрыть от ИИ», не дошедшее раньше), — иначе снятие отметки ниже потеряло бы его.
+// Значения — из свежей строки: она уже несёт сохранённые здесь название/теги/метку.
+async function pushDirtyMetadata(userId: string, documentId: string, cloudId: string): Promise<void> {
+  try {
+    const fresh = await LocalDocumentService.getDocument(documentId, userId);
+    if (!fresh?.metadataDirty) return;
+    await DocumentService.updateMetadataFields(userId, cloudId, {
+      title: fresh.title,
+      tags: fresh.tags ?? [],
+      labelId: fresh.labelId,
+      excludedFromAI: fresh.excludedFromAI,
+      lastSessionAt: fresh.lastSessionAt,
+      trashedAt: fresh.trashedAt ?? null,
+    }, fresh.metadataDirtyFields);
+    await LocalDocumentService.clearMetadataDirtyFields(documentId, fresh.metadataDirtyFields, userId);
+  } catch (e) {
+    reportError(e, { action: 'saveVersion_metadata', documentId });
+    await addToSyncQueue(documentId, userId);
+  }
+}
+
 async function _doSaveVersion(userId: string, documentId: string, data: SaveDocumentData): Promise<SaveVersionResult> {
   const now = Date.now();
   const totalWords = data.documentWordCount ?? data.wordCount;
@@ -308,6 +356,10 @@ async function _doSaveVersion(userId: string, documentId: string, data: SaveDocu
     throw new DOMException('Local save failed (quota exceeded)', 'QuotaExceededError');
   }
   const { newVersion, prevContent, existing } = res;
+  const base = getMetadataBase(documentId);
+  const metaFields = existing.linkedCloudId ? changedMetadata(base, data) : [];
+  // Следующее сохранение в той же сессии сравнивается уже с этими значениями.
+  if (base) rememberMetadataBase(documentId, { title: data.title || base.title, tags: data.tags ?? base.tags, labelId: data.labelId ?? base.labelId });
 
   // Сигнал AI-домену (#105): правки должны догонять индекс эмбеддингов,
   // а не только при открытии страницы ИИ. Слушатель в features/ai вызывает
@@ -333,6 +385,7 @@ async function _doSaveVersion(userId: string, documentId: string, data: SaveDocu
 
   if (existing.linkedCloudId) {
     if (!cloudSyncEnabled(userId)) {
+      await markMetadataDirty(userId, documentId, metaFields);
       await addToSyncQueue(documentId, userId);
       return { forked: false, cloudSynced: false };
     }
@@ -344,7 +397,13 @@ async function _doSaveVersion(userId: string, documentId: string, data: SaveDocu
       newVersion,
       prevContent
     );
+    // Ревью DA-11: развилка — правка ушла копией, оригиналу её поля не нужны.
     if (result.forked) return { forked: true, forkTitle: result.forkTitle, cloudSynced: false };
+    // Версия не ушла — поля метятся и уходят тем же дренажом, что и версия.
+    await markMetadataDirty(userId, documentId, metaFields);
+    if (metaFields.length > 0 && result.cloudSynced) {
+      await pushDirtyMetadata(userId, documentId, existing.linkedCloudId);
+    }
     return { forked: false, cloudSynced: result.cloudSynced, reason: result.reason };
   }
   return { forked: false, cloudSynced: false };

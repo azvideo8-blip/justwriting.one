@@ -330,6 +330,15 @@ export const AIEmbeddingService = {
     let waiting = 0;
     for (let i = 0; i < pending.length; i++) {
       const emb = pending[i]!;
+      // DA-6 (проход 27.11): список снят в начале прохода; заметку могли скрыть от ИИ
+      // или выбросить, пока выгружались предыдущие. Перечитка прямо перед выгрузкой;
+      // не прочиталась — не выгружаем («нет ответа» ≠ «можно»).
+      try {
+        if (isExcludedFromAI(await db.get('documents', emb.documentId))) continue;
+      } catch (e) {
+        reportError(e, { action: 'embeddingSync_visibilityRead', documentId: emb.documentId });
+        continue;
+      }
 
       // save() подставляет documentUuid при записи, а этот путь — повторная
       // выгрузка отставших — раньше брал запись из хранилища как есть. У записей,

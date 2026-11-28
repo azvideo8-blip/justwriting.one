@@ -18,6 +18,7 @@ vi.mock('../../../../core/services/LocalDocumentService', () => ({
     updateTitle: vi.fn().mockResolvedValue(undefined),
     updateDate: vi.fn().mockResolvedValue(undefined),
     updateLabelId: vi.fn().mockResolvedValue(undefined),
+    getDocument: vi.fn().mockResolvedValue(null),
   },
 }));
 
@@ -253,5 +254,16 @@ describe('deleteArchiveSession', () => {
       e => e.message === 'activity_note_deleted' || e.message === 'activity_note_deleted_derivatives'
     );
     expect(deleteActivities).toHaveLength(0);
+  });
+});
+
+// DA-11 (разбор Fable 27.11): метку ставили в архиве по снимку списка, а заметку тем
+// временем связал дренаж — облачного вызова не было, метка оставалась локальной.
+// Мутация: брать облачный номер только из снимка — красный.
+describe('DA-11: правка в архиве берёт облачный номер из свежей строки', () => {
+  it('снимок без связи, строка уже связана — метка уходит в облако', async () => {
+    vi.mocked(LocalDocumentService.getDocument).mockResolvedValueOnce({ id: 's1', linkedCloudId: 'c9' } as never);
+    await updateArchiveField(makeSession({ _isLocal: true }), 'labelId', 'L1', mockUser, 'user1');
+    expect(DocumentService.updateLabelId).toHaveBeenCalledWith('user1', 'c9', 'L1');
   });
 });

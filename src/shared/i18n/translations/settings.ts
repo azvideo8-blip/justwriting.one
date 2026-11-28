@@ -321,6 +321,7 @@ export const settingsTranslations: Translations = {
   sync_queue_empty: { ru: 'Очередь пуста', en: 'Queue is empty' },
   sync_already_running: { ru: 'Синхронизация уже идёт — попробуй, когда она закончится', en: 'Sync is already running — try again once it finishes' },
   sync_queue_disabled: { ru: 'Автосинхронизация отключена в настройках', en: 'Auto-sync is disabled in settings' },
+  sync_queue_deletes_only: { ru: 'Удаления отправлены, правки ждут включения синхронизации', en: 'Deletions sent; edits wait until sync is turned on' },
   sync_quarantined_count: { ru: 'Ошибки синхронизации (задачи в карантине): {count}', en: 'Sync errors (quarantined tasks): {count}' },
   sync_quarantined_retry: { ru: 'Повторить', en: 'Retry' },
   settings_ai_withdraw_consent_title: {

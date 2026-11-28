@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.11.29 — 2026-11-27
+
+- **[RU]** Название, теги и метка, изменённые при продолжении заметки в окне «Завершить», теперь доходят до других устройств — раньше оставались только там, где их поменяли.
+- **[EN]** A title, tags and label changed in the “Finish” window while continuing a note now reach your other devices — before, they stayed only on the device where they were changed.
+- **[RU]** Открытая вкладка сама подтягивает правки, заметки и метки с других устройств — переключаться между вкладками больше не нужно.
+- **[EN]** An open tab now picks up edits, notes and labels from your other devices by itself — no need to switch tabs.
+- **[RU]** «Очистить корзину» больше не удаляет навсегда заметку, которую тем временем восстановили в соседней вкладке или на другом устройстве.
+- **[EN]** “Empty trash” no longer permanently deletes a note that was restored meanwhile in another tab or on another device.
+- **[RU]** Предложение стереть данные после оборвавшейся сессии возвращается, если в прошлый раз не получилось не по вашей воле.
+- **[EN]** The offer to erase data after a dropped session comes back if it did not work last time for reasons other than your choice.
+- **[RU]** «Повторить» при выключенной синхронизации говорит, что удаления отправлены, а правки ждут включения, — а не что ничего не произошло.
+- **[EN]** “Retry” with sync turned off now says the deletions were sent and edits wait for sync — instead of saying nothing happened.
+- **[RU]** Исправлены мелкие недоработки.
+- **[EN]** Minor fixes.
+
 ## 0.11.28 — 2026-11-26
 
 - **[RU]** Заметка, скрытая от ИИ или лежащая в корзине, больше не уходит модели из ИИ-панели на экране письма: действия ИИ для неё выключены. По ссылке на такую заметку ИИ её не прикладывает и не предлагает её тем.

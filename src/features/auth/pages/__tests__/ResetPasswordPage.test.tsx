@@ -218,8 +218,13 @@ describe('invite link while another account is signed in', () => {
     getSession.mockResolvedValueOnce({ data: { session: { user: { email: 'owner@example.com' } } } });
     renderPage(['/reset-password?token_hash=abc&type=invite']);
     await screen.findByTestId('invite-switch-account');
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
+    // DA-7.4 (флейк 27.11, 1 из 4752): диалог появляется при отрисовке, а слушатель
+    // клавиш вешается эффектом после неё — под нагрузкой Escape уходил раньше слушателя.
+    // Ждём навешивания повтором нажатия, без sleep.
+    await waitFor(() => {
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
+    });
     expect(verifyOtpForRecovery).not.toHaveBeenCalled();
   });
 

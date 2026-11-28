@@ -12,6 +12,9 @@ const EMPTY: Label[] = [];
 // LB-1: список здесь — только то, что на экране. Правка его не читает: базу
 // берёт ProfileService.editLabels из облака. Кэша на уровне модуля нет — он
 // переживал экран и становился базой следующей правки.
+const LABELS_RELOAD_MIN_MS = 30_000;
+const LABELS_VISIBLE_MIN_MS = 5_000;
+
 export function useProfileLabels(userId: string, initialLabels: Label[] = EMPTY) {
   // Свой список (чтение или итог правки) вместе с учёткой, которой он принадлежит:
   // после смены учётки чужой список не показывается.
@@ -65,6 +68,29 @@ export function useProfileLabels(userId: string, initialLabels: Label[] = EMPTY)
   }, [userId, accept]);
 
   useEffect(() => { load('profileLabels/fetchProfile'); }, [load]);
+
+  // DA-10 (владелец 27.11): метку, созданную на другом устройстве, открытая вкладка не
+  // видела до перезагрузки — список читался один раз. Перечитываем при возврате во
+  // вкладку и когда забор принёс изменения (не чаще раза в 30 с: событие частое).
+  useEffect(() => {
+    // Ревью DA-10: у возврата во вкладку и у события очереди — свои таймеры: частые
+    // события очереди (и свои сохранения) не съедают перечитку по возврату.
+    const last = { visible: 0, pulled: 0 };
+    const reload = (kind: keyof typeof last, minMs: number) => {
+      const now = Date.now();
+      if (now - last[kind] < minMs) return;
+      last[kind] = now;
+      load(`profileLabels/fetchProfile_${kind}`);
+    };
+    const onVisible = () => { if (document.visibilityState === 'visible') reload('visible', LABELS_VISIBLE_MIN_MS); };
+    const onQueue = () => reload('pulled', LABELS_RELOAD_MIN_MS);
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('sync-queue-changed', onQueue);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('sync-queue-changed', onQueue);
+    };
+  }, [load]);
 
   // BUG-1: When vault unlocks, re-fetch to replace '…' placeholders with decrypted labels
   useEffect(() => {

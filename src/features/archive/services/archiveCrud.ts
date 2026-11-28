@@ -86,13 +86,24 @@ export async function updateArchiveField(
   let cloudSyncFailed = false;
 
   if (session._isLocal) {
+    // DA-11 (разбор Fable 27.11): облачный номер — из свежей строки, а не из снимка
+    // списка. Заметку мог связать дренаж, пока экран был открыт: по снимку правка
+    // оставалась локальной навсегда. Не прочиталось — берём снимок, как раньше.
+    let linkedCloudId = session._linkedCloudId;
+    if (!linkedCloudId) {
+      try {
+        linkedCloudId = (await LocalDocumentService.getDocument(session.id, userId))?.linkedCloudId || undefined;
+      } catch (e) {
+        reportError(e, { action: 'updateArchiveField_linkRead', documentId: session.id });
+      }
+    }
     if (field === 'tags') {
       const tags = Array.isArray(value) ? value : [];
       await LocalDocumentService.updateTags(session.id, tags, userId);
-      if (session._linkedCloudId && user) {
-        await DocumentService.updateTags(user.uid, session._linkedCloudId, tags).catch(e => {
+      if (linkedCloudId && user) {
+        await DocumentService.updateTags(user.uid, linkedCloudId, tags).catch(e => {
           cloudSyncFailed = true;
-          reportError(e, { action: 'updateArchiveField_tags', documentId: session._linkedCloudId });
+          reportError(e, { action: 'updateArchiveField_tags', documentId: linkedCloudId });
           // Queue the LOCAL id — the drain (_drainPendingQueue -> addCloudCopy)
           // looks up a local IndexedDB document by this id, not a cloud one.
           void queueMetadataRetry(session.id, userId, 'tags');
@@ -101,10 +112,10 @@ export async function updateArchiveField(
     } else if (field === 'title') {
       const title = typeof value === 'string' ? value : '';
       await LocalDocumentService.updateTitle(session.id, title, userId);
-      if (session._linkedCloudId && user) {
-        await DocumentService.updateTitle(user.uid, session._linkedCloudId, title).catch(e => {
+      if (linkedCloudId && user) {
+        await DocumentService.updateTitle(user.uid, linkedCloudId, title).catch(e => {
           cloudSyncFailed = true;
-          reportError(e, { action: 'updateArchiveField_title', documentId: session._linkedCloudId });
+          reportError(e, { action: 'updateArchiveField_title', documentId: linkedCloudId });
           // Queue the LOCAL id — the drain (_drainPendingQueue -> addCloudCopy)
           // looks up a local IndexedDB document by this id, not a cloud one.
           void queueMetadataRetry(session.id, userId, 'title');
@@ -114,10 +125,10 @@ export async function updateArchiveField(
       if (!(value instanceof Date)) throw new Error('Expected Date for date field');
       const ts = value.getTime();
       await LocalDocumentService.updateDate(session.id, { lastSessionAt: ts }, userId);
-      if (session._linkedCloudId && user) {
-        await DocumentService.updateDate(user.uid, session._linkedCloudId, { lastSessionAt: value }).catch(e => {
+      if (linkedCloudId && user) {
+        await DocumentService.updateDate(user.uid, linkedCloudId, { lastSessionAt: value }).catch(e => {
           cloudSyncFailed = true;
-          reportError(e, { action: 'updateArchiveField_date', documentId: session._linkedCloudId });
+          reportError(e, { action: 'updateArchiveField_date', documentId: linkedCloudId });
           // Queue the LOCAL id — the drain (_drainPendingQueue -> addCloudCopy)
           // looks up a local IndexedDB document by this id, not a cloud one.
           void queueMetadataRetry(session.id, userId, 'lastSessionAt');
@@ -126,10 +137,10 @@ export async function updateArchiveField(
     } else if (field === 'labelId') {
       const labelId = typeof value === 'string' || value === undefined ? value : undefined;
       await LocalDocumentService.updateLabelId(session.id, labelId, userId);
-      if (session._linkedCloudId && user) {
-        await DocumentService.updateLabelId(user.uid, session._linkedCloudId, labelId).catch(e => {
+      if (linkedCloudId && user) {
+        await DocumentService.updateLabelId(user.uid, linkedCloudId, labelId).catch(e => {
           cloudSyncFailed = true;
-          reportError(e, { action: 'updateArchiveField_labelId', documentId: session._linkedCloudId });
+          reportError(e, { action: 'updateArchiveField_labelId', documentId: linkedCloudId });
           // Queue the LOCAL id — the drain (_drainPendingQueue -> addCloudCopy)
           // looks up a local IndexedDB document by this id, not a cloud one.
           void queueMetadataRetry(session.id, userId, 'labelId');
@@ -243,17 +254,43 @@ function logTrashCloudPending(count: number): void {
   useActivityLogStore.getState().addActivity('activity_trash_cloud_pending', { count }, 'warning', 'archive');
 }
 
+/**
+ * DA-6 (проход 27.11): корзину чистили по снимку, снятому при открытии экрана.
+ * Заметку, восстановленную тем временем в соседней вкладке или на другом
+ * устройстве (забор приносит её раз в проход), удаляли навсегда. Перед удалением
+ * строка перечитывается: восстановлена, исчезла или не прочиталась — не трогаем
+ * («нет ответа» ≠ «можно удалять»). Облачная заметка без локальной копии — по
+ * снимку, как раньше: локально перечитать нечего.
+ */
+async function trashState(session: ArchiveSession, userId: string, minAgeMs = 0, now = Date.now()): Promise<'trashed' | 'restored' | 'unreadable'> {
+  if (!session._isLocal) return 'trashed';
+  try {
+    const fresh = await LocalDocumentService.getDocument(session.id, userId);
+    if (!fresh?.trashedAt) return 'restored';
+    return minAgeMs === 0 || now - fresh.trashedAt > minAgeMs ? 'trashed' : 'restored';
+  } catch (e) {
+    reportError(e, { action: 'trashState_read', sessionId: session.id });
+    return 'unreadable';
+  }
+}
+
 export async function emptyTrash(
   trashedSessions: ArchiveSession[],
   userId: string
-): Promise<{ successCount: number; failCount: number; cloudPending: number; deletedIds: string[] }> {
+): Promise<{ successCount: number; failCount: number; cloudPending: number; deletedIds: string[]; restoredIds: string[] }> {
   let successCount = 0;
+  // Восстановлена тем временем — не удаляем и называем вызывающему: на экране она
+  // уже не в корзине. Не прочиталась — отказ, а не «очищено» (ревью DA-6).
+  const restoredIds: string[] = [];
   let failCount = 0;
   // Дейлик 25.11 (Н-1): с устройства удалено, облако не приняло — задача в очереди.
   let cloudPending = 0;
   const deletedIds: string[] = [];
   for (const session of trashedSessions) {
     try {
+      const state = await trashState(session, userId);
+      if (state === 'restored') { restoredIds.push(session.id); continue; }
+      if (state === 'unreadable') { failCount++; continue; }
       const res = await deleteArchiveSession(session, userId, { skipActivityLog: true });
       if (!res.applied || res.derivativesOk === false) {
         failCount++;
@@ -272,7 +309,7 @@ export async function emptyTrash(
     failCount > 0 ? { success: successCount, failed: failCount } : { count: successCount },
     failCount > 0 ? 'warning' : 'info', 'archive');
   if (cloudPending > 0) logTrashCloudPending(cloudPending);
-  return { successCount, failCount, cloudPending, deletedIds };
+  return { successCount, failCount, cloudPending, deletedIds, restoredIds };
 }
 
 export async function deleteArchiveSession(
@@ -334,6 +371,13 @@ export async function pruneExpiredTrash(
   // одной (задача в очереди), но журнал это называет (дейлик 25.11, Н-1).
   let prunedCount = 0;
   let cloudPending = 0;
+  if (expired.length > 0) {
+    // DA-6: срок проверяется по свежей строке — восстановленную не удаляем.
+    const states = await Promise.all(expired.map(s => trashState(s, userId, TRASH_EXPIRATION_MS, now)));
+    for (let i = expired.length - 1; i >= 0; i--) {
+      if (states[i] !== 'trashed') remainingSessions.push(...expired.splice(i, 1));
+    }
+  }
   if (expired.length > 0) {
     const results = await Promise.allSettled(expired.map(s => deleteArchiveSession(s, userId, { skipActivityLog: true })));
     results.forEach((r, i) => {

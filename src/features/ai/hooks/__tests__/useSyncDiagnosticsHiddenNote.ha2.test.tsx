@@ -67,6 +67,22 @@ describe('HA-2: разбор в Диагностике и скрытая зам�
     expect(summarize).not.toHaveBeenCalled();
   });
 
+  // DA-6 (проход 27.11): между первой проверкой и вызовом — чтение версий и расшифровка.
+  // Мутация: снять перечитку прямо перед summarize — красный.
+  it('скрыли, пока читались версии, — модели ничего не ушло', async () => {
+    await seed('doc_r');
+    const db = await getLocalDb();
+    const orig = db.getAllFromIndex.bind(db);
+    vi.spyOn(db, 'getAllFromIndex').mockImplementation((async (...args: Parameters<typeof db.getAllFromIndex>) => {
+      if (args[0] === 'versions') await db.put('documents', { ...(await db.get('documents', 'doc_r'))!, excludedFromAI: true } as never);
+      return orig(...args);
+    }) as never);
+    await run('doc_r');
+    expect(summarize).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith('admin_sync_toast_ai_skipped', 'warning');
+    vi.restoreAllMocks();
+  });
+
   it('видимая заметка — разбор уходит (контроль)', async () => {
     await seed('doc_v');
     const result = await run('doc_v');

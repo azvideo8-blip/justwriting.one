@@ -233,6 +233,7 @@ export const archiveTranslations: Translations = {
   archive_preview_tone: { ru: 'Тональность:', en: 'Tone:' },
   archive_preview_insights: { ru: 'Инсайты:', en: 'Insights:' },
   archive_preview_facts: { ru: 'Факты:', en: 'Facts:' },
+  archive_busy_waiting: { ru: 'Заметка занята другой операцией — ждём, это может занять до минуты', en: 'The note is busy with another operation — waiting, this can take up to a minute' },
   archive_preview_ai_consent_required: { ru: 'Для разбора требуется согласие на использование ИИ', en: 'AI consent is required for analysis' },
   reader_info: { ru: 'Инфо', en: 'Info' },
   archive_note_locked: { ru: 'Заметка заперта', en: 'Note is locked' },

@@ -110,6 +110,7 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
       else if (res.skippedReason === 'offline') showToast(t('sync_paused_no_network'), 'info');
       else if (res.skippedReason === 'in_progress') showToast(t('sync_already_running'), 'info');
       else if (res.skippedReason === 'sync_disabled') showToast(t('sync_queue_disabled'), 'info');
+      else if (res.deletesOnly) showToast(t('sync_queue_deletes_only'), 'info');
     } catch (err) {
       reportError(err, { action: 'retryQuarantined' });
       showToast(t('error_generic_action'), 'error');

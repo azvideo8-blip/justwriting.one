@@ -577,6 +577,24 @@ export const LocalDocumentService = {
     await tx.done;
   },
 
+  /**
+   * Ревью DA-11: снять отметку только с отправленных полей, одной транзакцией. Поле,
+   * помеченное, пока шла отправка, остаётся. `sent` undefined — отправлено всё.
+   */
+  async clearMetadataDirtyFields(id: string, sent: readonly MetadataField[] | undefined, ownerId?: string): Promise<void> {
+    const db = await getLocalDb(ownerId);
+    const tx = db.transaction('documents', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (!existing?.metadataDirty) { await tx.done; return; }
+    const left = sent === undefined || !existing.metadataDirtyFields
+      ? (sent === undefined ? [] : undefined)
+      : existing.metadataDirtyFields.filter(f => !sent.includes(f));
+    // Было «дослать всё», а отправили часть — остаётся «дослать всё».
+    const still = left === undefined || left.length > 0;
+    await tx.store.put({ ...existing, metadataDirty: still || undefined, metadataDirtyFields: still && left ? left : undefined });
+    await tx.done;
+  },
+
   async updateExcludedFromAI(id: string, excludedFromAI: boolean, ownerId?: string): Promise<void> {
     const db = await getLocalDb(ownerId);
     const tx = db.transaction('documents', 'readwrite');

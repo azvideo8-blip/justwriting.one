@@ -17,6 +17,9 @@ import { rebuildWordCloud } from './useArchiveWordCloud';
 import { reportMutationResult } from '../../../shared/mutationResult';
 import { loadState, type LoadState } from '../../../shared/loadState';
 
+// Не секунда: обычный поход в облако на медленной сети занимает 1–2 с, а замок держат дольше.
+const BUSY_NOTICE_MS = 3_000;
+
 export function useArchiveSessions(user: AppUser | null, userId: string, t: (key: string) => string) {
   const [sessions, setSessions] = useState<ArchiveSession[]>([]);
   // Итог последнего чтения отдельно от списка: список правят обработчики ниже,
@@ -109,10 +112,22 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
     setPreviewSession(prev => prev && prev.id === id ? { ...prev, ...patch } : prev);
   };
 
+  // DA-7.2 (аудитор 27.11): удаление и восстановление ждут замка строки до минуты
+  // (StorageService.withCloudRowLock) — кнопка молча «висела». Дольше трёх секунд —
+  // говорим, что ждём.
+  const withBusyNotice = async <T,>(work: Promise<T>): Promise<T> => {
+    const timer = setTimeout(() => showToast(t('archive_busy_waiting'), 'info'), BUSY_NOTICE_MS);
+    try {
+      return await work;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
   const handleTrashSession = async (s: ArchiveSession) => {
     try {
       const now = Date.now();
-      const res = await trashArchiveSession(s, userId);
+      const res = await withBusyNotice(trashArchiveSession(s, userId));
       setSessions(prev => prev.map(x => x.id === s.id ? { ...x, trashedAt: now } : x));
       if (previewSession?.id === s.id) setPreviewSession(null);
       if (res.cloudSynced) {
@@ -131,7 +146,7 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
     try {
       // Локальная копия восстановлена; облако не ответило — задача в очереди, и это
       // предупреждение, а не «восстановлено» (как у корзины выше).
-      const res = await restoreArchiveSession(s, userId);
+      const res = await withBusyNotice(restoreArchiveSession(s, userId));
       setSessions(prev => prev.map(x => x.id === s.id ? { ...x, trashedAt: undefined } : x));
       if (previewSession?.id === s.id) setPreviewSession(null);
       if (res.cloudSynced) showToast(t('archive_trash_restored'), 'success');
@@ -145,7 +160,7 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
 
   const handlePermanentDeleteSession = async (s: ArchiveSession) => {
     try {
-      const res = await deleteArchiveSession(s, userId);
+      const res = await withBusyNotice(deleteArchiveSession(s, userId));
       if (!res.applied) {
         showToast(t('delete_not_applied_uploading'), 'warning');
         return;
@@ -168,9 +183,11 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
 
   const handleEmptyTrash = async (trashed: ArchiveSession[]) => {
     try {
-      const { failCount, cloudPending, deletedIds } = await emptyTrash(trashed, userId);
+      const { failCount, cloudPending, deletedIds, restoredIds } = await emptyTrash(trashed, userId);
       const gone = new Set(deletedIds);
-      setSessions(prev => prev.filter(x => !gone.has(x.id)));
+      const restored = new Set(restoredIds);
+      // DA-6: восстановленная тем временем заметка уходит из корзины на экране, а не из архива.
+      setSessions(prev => prev.filter(x => !gone.has(x.id)).map(x => (restored.has(x.id) ? { ...x, trashedAt: undefined } : x)));
       // N-50: «корзина очищена» — только если действительно очищена.
       if (failCount > 0) showToast(t('archive_trash_partial').replace('{count}', String(failCount)), 'error');
       else if (cloudPending > 0) showToast(t('delete_local_only_queued'), 'warning');

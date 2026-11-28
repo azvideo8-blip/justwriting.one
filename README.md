@@ -16,7 +16,7 @@ Found a security problem? Please do not open a public issue — see
 
 | | |
 | :--- | :--- |
-| Version | `0.11.28` (`src/version.ts` is what the UI shows) |
+| Version | `0.11.29` (`src/version.ts` is what the UI shows) |
 | Hosting | single VPS in Russia — nginx, systemd, Docker |
 | Database | self-hosted Supabase (Postgres + GoTrue + PostgREST + Kong) |
 | AI provider | RouterAI, OpenAI-compatible API |

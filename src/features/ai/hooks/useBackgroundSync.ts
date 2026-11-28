@@ -88,6 +88,33 @@ export function useBackgroundSync(): void {
         await retryLocalPurges(uid);
         return;
       }
+      // DA-10 (владелец 27.11): заметки забирались только на входе, по возврату во
+      // вкладку и сети — вкладка, всё время открытая на экране, не видела правок с
+      // телефона. Теперь проход забирает и их, но дёшево: только видимая вкладка
+      // (скрытую догонит забор по видимости) и только если серверная отметка
+      // изменений ушла вперёд с прошлого фонового забора — два `limit 1`, а не
+      // забор: тот при заметке «только на устройстве» читает весь список облака
+      // (перепривязка), и раз в 120 с в каждой вкладке это было бы дорого.
+      if (typeof document === 'undefined' || !document.hidden) {
+        try {
+          const { fetchServerCursor, isServerCursorAhead } = await import('../../../core/sync/changeCursor');
+          const seenKey = `bg_pull_seen_cursor_${uid}`;
+          const server = await fetchServerCursor(uid);
+          if (isServerCursorAhead(server, localStorage.getItem(seenKey))) {
+            const { syncPullByRevEnabled } = await import('../../../core/sync/syncFlags');
+            if (await syncPullByRevEnabled(uid) && !SyncService.isRevPullUnavailable(uid)) {
+              await SyncService.pullNotes(uid); // намеренно: фоновый проход — неприменённое оставляет курсор на месте и повторяется по видимости и следующему изменению, сбои пишет сам забор
+            } else {
+              const { checkAndSyncCursor } = await import('../../../core/sync/changeCursor');
+              await checkAndSyncCursor(uid);
+            }
+            // Забор не бросил — эта отметка увидена. Бросил — повтор следующим проходом.
+            if (server) localStorage.setItem(seenKey, server);
+          }
+        } catch (e) {
+          reportError(e, { action: 'backgroundSync_pullNotes' });
+        }
+      }
       const { CloudSyncService } = await import('../../../core/services/CloudSyncService');
       // Лениво: сервис восстановления нужен только при включённой синхронизации,
       // а не на старте (бюджет стартового куска).

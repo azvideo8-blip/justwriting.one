@@ -109,7 +109,7 @@ beforeEach(async () => {
   prepareAttachment.mockResolvedValue(null);
   const db = await getLocalDb();
   for (const s of ['documents', 'aiSummaries'] as const) await db.clear(s);
-  for (const [id, over] of [['n_visible', {}], ['n_hidden', { excludedFromAI: true }], ['n_trashed', { trashedAt: 1 }], ['n_missing', null]] as const) {
+  for (const [id, over] of [['n_visible', { uuid: 'uuid_visible' }], ['n_hidden', { excludedFromAI: true }], ['n_trashed', { trashedAt: 1 }], ['n_missing', null]] as const) {
     if (over) await db.put('documents', doc(id, over) as never);
     await db.put('aiSummaries', { documentId: id, summary: 's', themes: [THEME], tone: '', frequentWords: [], insights: [], extractedFacts: [], processedAt: 1 } as never);
   }
@@ -118,6 +118,13 @@ beforeEach(async () => {
 describe('HA-3: стартеры по теме приложенной заметки', () => {
   it('видимая заметка — стартер по теме (контроль: путь жив)', async () => {
     const { result } = renderHook(() => useAIPageData('n_visible'));
+    await waitFor(() => expect(result.current.starters.join(' ')).toContain(THEME));
+  });
+
+  // DA-4 (дейлик 27.11): ссылка по постоянному номеру, свод — под локальным id.
+  // Мутация: читать свод по присланному номеру — красный.
+  it('видимая заметка по uuid — стартер по теме', async () => {
+    const { result } = renderHook(() => useAIPageData('uuid_visible'));
     await waitFor(() => expect(result.current.starters.join(' ')).toContain(THEME));
   });
 

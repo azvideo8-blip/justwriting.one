@@ -24,6 +24,19 @@ const a11y = item('accessibility');
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.11.29',
+    date: '2026-11-27',
+    announce: false,
+    items: [
+      fix('Название, теги и метка, изменённые при продолжении заметки в окне «Завершить», теперь доходят до других устройств — раньше оставались только там, где их поменяли.', 'A title, tags and label changed in the “Finish” window while continuing a note now reach your other devices — before, they stayed only on the device where they were changed.'),
+      better('Открытая вкладка сама подтягивает правки, заметки и метки с других устройств — переключаться между вкладками больше не нужно.', 'An open tab now picks up edits, notes and labels from your other devices by itself — no need to switch tabs.'),
+      fix('«Очистить корзину» больше не удаляет навсегда заметку, которую тем временем восстановили в соседней вкладке или на другом устройстве.', '“Empty trash” no longer permanently deletes a note that was restored meanwhile in another tab or on another device.'),
+      fix('Предложение стереть данные после оборвавшейся сессии возвращается, если в прошлый раз не получилось не по вашей воле.', 'The offer to erase data after a dropped session comes back if it did not work last time for reasons other than your choice.'),
+      fix('«Повторить» при выключенной синхронизации говорит, что удаления отправлены, а правки ждут включения, — а не что ничего не произошло.', '“Retry” with sync turned off now says the deletions were sent and edits wait for sync — instead of saying nothing happened.'),
+      fix('Исправлены мелкие недоработки.', 'Minor fixes.'),
+    ],
+  },
+  {
     version: '0.11.28',
     date: '2026-11-26',
     announce: false,

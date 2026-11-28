@@ -42,6 +42,10 @@ export async function getProfileLabels(userId: string): Promise<{ labels: unknow
   if (error != null) throw error;
   if (!ownRow(data, userId, 'uid')) return null;
   const row = data as { labels: unknown; xmin: unknown };
+  // DA-4 (дейлик 27.11): строка есть, а версии нет — это сбой чтения, а не версия
+  // "undefined": условная запись по ней не совпала бы никогда, и метки нельзя было
+  // бы сохранить с советом «попробуй ещё раз».
+  if (row.xmin === null || row.xmin === undefined || row.xmin === '') throw new Error('PROFILE_VERSION_MISSING');
   return { labels: row.labels, version: String(row.xmin) };
 }
 
