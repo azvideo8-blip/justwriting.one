@@ -93,7 +93,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
         throw new Error('Refusing to open empty editor for non-empty note');
       }
 
-      // R7Q-001: отсечка хода — по фактическому тексту, как в `useSessionContinue`.
+      // R7Q-001: отсечка хода — по фактическому тексту.
       // `doc.totalWords` для этого не годится: в облаке это наивысшая отметка длины
       // (0039, W-2), и после сокращения заметки ход писался бы в ноль.
       const baseline = countWords(content);

@@ -99,7 +99,6 @@
   "src/features/writing/hooks/useDraftAutosave.ts|useDraftAutosave|doAutosaveLocal|remoteOk": 2,
   "src/features/writing/hooks/useDraftAutosave.ts|useDraftAutosave|persistDraft|remoteOk": 1,
   "src/features/writing/hooks/useDraftCore.ts|useDraftCore|saveFn|localOk": 1,
-  "src/features/writing/hooks/useSessionContinue.ts|useSessionContinue|StorageService.addLocalCopy|skippedVersions": 1,
   "src/features/writing/hooks/useWritingActions.ts|useWritingActions|cleanupDraftsAfterSave|cloudSynced": 2,
   "src/features/writing/services/draftWriter.ts|flushPendingCloudDelete|applyDelete|cloudOk": 1,
   "src/features/writing/services/draftWriter.ts|flushPendingCloudDelete|applyDelete|localOk": 1,
