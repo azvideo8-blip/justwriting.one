@@ -282,10 +282,9 @@ export function useAIChatContext(personaId: string): {
   incrementMessageCount(): void;
   getMessageCount(): number;
 } {
-  const portraitCacheRef = useRef<string | null | undefined>(undefined);
   const facetsCacheRef = useRef<{ facets: Awaited<ReturnType<typeof AIProfileFacetService.getAll>> | null }>({ facets: null });
   const docsCacheRef = useRef<Map<string, { id: string; title?: string; lastSessionAt?: number; firstSessionAt?: number }> | null>(null);
-  const doorsCacheRef = useRef<{ hint: string } | null>(null);
+  const doorsCacheRef = useRef<{ hint: string; noteIds: string[] } | null>(null);
   const messageCountRef = useRef(0);
   const attachedNoteRef = useRef<AttachedNoteRef | null>(null);
   const stickyTurnsRef = useRef(0);
@@ -501,12 +500,12 @@ export function useAIChatContext(personaId: string): {
 
     // 1. Fetch portrait and custom persona concurrently
     const isPreset = PRESET_PERSONAS.some(p => p.id === personaId);
-    const portraitPromise = portraitCacheRef.current !== undefined
-      ? Promise.resolve(portraitCacheRef.current)
-      : AIProfileService.getPortrait().then(p => { portraitCacheRef.current = p; return p; }, (e: unknown) => {
+    // Дейлик 28.11 (класс Н-1): портрет держался в кэше на весь разговор — заметку
+    // скрыли, уборка вычистила из портрета её выводы, а разговор слал модели старый.
+    // Чтение — одно обращение к локальной базе, поэтому каждый ход читает заново.
+    const portraitPromise = AIProfileService.getPortrait().then(p => p, (e: unknown) => {
         // NB-12 сделал отказ чтения громким для экрана портрета; ход чата из-за
-        // него не падает — идёт без портрета, сбой записан (ревью 0.11.24). В кэш
-        // сессии не кладём: следующий ход прочитает снова.
+        // него не падает — идёт без портрета, сбой записан (ревью 0.11.24).
         // Запертый сейф — ожидаемо, не сбой (после открытия следующий ход прочитает).
         if (/LOCKED|session key not available/.test(String(e))) return null;
         reportAIDegradation({
@@ -1445,11 +1444,30 @@ export function useAIChatContext(personaId: string): {
       const isPsychePersona = ['group_psychology', 'cbt', 'coach'].includes(effectivePersonaId);
       if (isPresetId && isPsychePersona) {
         try {
-          const cachedDoors = doorsCacheRef.current;
+          let cachedDoors = doorsCacheRef.current;
+          // Дейлик 28.11 (Н-1): наблюдение кэшировалось на весь диалог — заметку, скрытую
+          // посреди разговора, вывод по ней сопровождал каждый ход. Как у граней (DY6-4):
+          // перед каждым ходом перечитываем заметки, вошедшие в вывод; скрыта, в корзине,
+          // исчезла или не прочиталась — считаем заново по свежему списку.
+          if (cachedDoors && cachedDoors.noteIds.length > 0) {
+            let stale = false;
+            try {
+              const rows = await Promise.all(cachedDoors.noteIds.map(id => db.get('documents', id)));
+              stale = rows.some(r => isExcludedFromAI(r));
+            } catch {
+              stale = true;
+            }
+            if (stale) {
+              doorsCacheRef.current = null;
+              docsCacheRef.current = null;
+              cachedDoors = null;
+            }
+          }
           let doorHint = '';
           if (cachedDoors) {
             doorHint = cachedDoors.hint;
           } else {
+            let usedIds: string[] = [];
             const cachedDocsMap = docsCacheRef.current;
             let docsList: { id: string; title?: string; lastSessionAt?: number; firstSessionAt?: number }[] = [];
             if (cachedDocsMap) {
@@ -1461,22 +1479,24 @@ export function useAIChatContext(personaId: string): {
               docsCacheRef.current = map;
             }
             if (docsList.length > 0) {
-              const perNote: { doors: ReturnType<typeof analyzeDoors>; ts: number }[] = [];
+              const perNote: { doors: ReturnType<typeof analyzeDoors>; ts: number; id: string }[] = [];
               // TR-9 (ревью 0.11.14): «двери» читают текст — только разобранных и не скрытых.
               const doorsAnalysed = await loadAnalysedIds();
               for (const d of docsList) {
                 if (!doorsAnalysed.has(d.id) || isExcludedFromAI(d as LocalDocument)) continue;
                 const content = await LocalVersionService.getLatestContent(d.id);
                 if (!content) continue;
-                perNote.push({ doors: analyzeDoors(content), ts: d.lastSessionAt ?? d.firstSessionAt ?? 0 });
+                perNote.push({ doors: analyzeDoors(content), ts: d.lastSessionAt ?? d.firstSessionAt ?? 0, id: d.id });
               }
               perNote.sort((a, b) => b.ts - a.ts);
-              const doorsResult = aggregateDoors(perNote.slice(0, 20));
+              const used = perNote.slice(0, 20);
+              usedIds = used.map(n => n.id);
+              const doorsResult = aggregateDoors(used);
               if (!doorsResult.lowData && doorsResult.thinnestDoor && doorsResult.dominantDoor) {
                 doorHint = `\n\nНаблюдение: в записях пользователь чаще опирается на ${doorLabel(doorsResult.dominantDoor)}; ${doorLabel(doorsResult.thinnestDoor)} звучат реже. Если уместно — мягко, гипотезой пригласи заметить ${doorLabel(doorsResult.thinnestDoor)} за ${doorLabel(doorsResult.dominantDoor)}; не дави, дай возможность отказаться.`;
               }
             }
-            doorsCacheRef.current = { hint: doorHint };
+            doorsCacheRef.current = { hint: doorHint, noteIds: usedIds };
           }
           if (doorHint) {
             searchContext = searchContext ? `${doorHint}\n\n${searchContext}` : doorHint;
