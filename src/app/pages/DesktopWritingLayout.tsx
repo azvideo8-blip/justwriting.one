@@ -29,7 +29,7 @@ import { hasOnlyTouchPointer } from '../../shared/utils/touchPointer';
 import { useStartOnFirstInput } from '../../features/writing/hooks/useStartOnFirstInput';
 // Текст нужен только ИИ-панели: подписка здесь, а не в раскладке, иначе на
 // каждое нажатие перерисовывалась вся раскладка с нижней панелью (EA-9).
-function LiveAIPanelContent() {
+export function LiveAIPanelContent() {
   const content = useContentStore(s => s.content);
   const setContent = useContentStore(s => s.setContent);
   // HA-1: та же заметка, что у диктовки (useDictation) — скрытую панель модели не отдаёт.
