@@ -164,6 +164,21 @@ jobs:
     - name: Mobile hard-coded colour gate (MF-24)
       run: node scripts/check-mobile-colors.mjs
     - run: npm run test:ci
+    # 2026-11-28 (аудитор + владелец): свип поломок синка шёл только в недельных
+    # воротах — пять поломок не применялись три недели (0.11.4 → DA-9), и никто не
+    # видел. Теперь — в каждой сборке ветки, меняющей файлы синка. «Не применилась»
+    # свип и так считает красным (sync-mutation-sweep.sh). На main база = HEAD — пропуск.
+    - name: Sync mutation sweep (when sync files change)
+      run: |
+        set -euo pipefail
+        git fetch --no-tags --quiet origin +refs/heads/main:refs/remotes/origin/main || true
+        base=$(git merge-base origin/main HEAD 2>/dev/null || true)
+        if [ -z "$base" ] || [ "$base" = "$(git rev-parse HEAD)" ]; then echo "нечего сравнивать — пропуск"; exit 0; fi
+        if git diff --name-only "$base" HEAD | grep -Eq '^(src/core/services/(SyncService|StorageService|CloudSyncService|ConflictResolver|LocalDocumentService|LocalStorageService|syncQueueOps)\.ts|src/core/sync/|scripts/mutations/sync-sweep\.json|scripts/sync-mutation-sweep\.sh)'; then
+          npm run sweep:sync
+        else
+          echo "файлы синка не менялись — пропуск"
+        fi
     # S-42.3: каждый паттерн детектора кризиса держится хотя бы одной фразой корпуса.
     - name: Crisis pattern coverage (S-42)
       run: npx tsx scripts/crisis-pattern-coverage.mjs
@@ -245,7 +260,13 @@ jobs:
         # 2026-11-03 (0.11.5): 4300000 → 4400000, решение владельца. Факт 4310058
         # против 4297945 на 0.11.4 (+12 КБ): клиент SYNC2 (sync_push), мутатор
         # черновика DW-4, правки ИИ; всё ленивое — стартовый gzip 100055.
-        MAX_TOTAL_JS=4400000  # сумма dist/assets/*.js fail-порог (4.4M — владелец 2026-11-03 для 0.11.5: 4 310 058)
+        # 2026-11-28 (0.11.30, аудитор + владелец): бюджет мерит код, а не прозу.
+        # Тексты «Что нового» (оба языка) живут в ленивом куске ChangelogPage-*.js —
+        # 503 640 из 4 387 511 на 0.11.29, и в 0.11.27 ради бюджета сокращали журнал.
+        # Кусок журнала вынут из суммы и держит свой потолок; сумма кода опущена:
+        # факт без него 3 883 871 + ~2 % → 3 960 000.
+        MAX_TOTAL_JS=3960000  # сумма dist/assets/*.js без ChangelogPage-*.js, fail-порог
+        MAX_CHANGELOG_JS=700000  # ChangelogPage-*.js (тексты выпусков), fail-порог
         MAX_CSS=185000     # *.css fail-порог (байты)
         fail=0
         for f in dist/assets/index-*.js; do
@@ -257,7 +278,10 @@ jobs:
           sz=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f")
           [ "$sz" -gt "$MAX_VENDOR" ] && { echo "::error::$f > $MAX_VENDOR ($sz)"; fail=1; }
         done
-        total_js=$(cat dist/assets/*.js | wc -c | tr -d ' ')
+        changelog_js=$(cat dist/assets/ChangelogPage-*.js 2>/dev/null | wc -c | tr -d ' ')
+        total_js=$(( $(cat dist/assets/*.js | wc -c | tr -d ' ') - changelog_js ))
+        echo "changelog js: $changelog_js"
+        [ "$changelog_js" -gt "$MAX_CHANGELOG_JS" ] && { echo "::error::changelog js $changelog_js > $MAX_CHANGELOG_JS"; fail=1; }
         echo "total js: $total_js"
         [ "$total_js" -gt "$MAX_TOTAL_JS" ] && { echo "::error::total js $total_js > $MAX_TOTAL_JS"; fail=1; }
         for f in dist/assets/*.css; do
