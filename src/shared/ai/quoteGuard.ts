@@ -271,7 +271,7 @@ function pronounSwapped(qWords: string[], phrases: Phrase[], need: number): bool
     const quoteSet = new Set(qWords);
     const lost = new Set(p.words.filter(w => !quoteSet.has(w)).map(w => PRONOUN_PERSON[w]).filter(Boolean));
     if (lost.size === 0) continue;
-    if (qWords.some(w => !have.has(w) && PRONOUN_PERSON[w] && !lost.has(PRONOUN_PERSON[w]!))) return true;
+    if (qWords.some(w => !have.has(w) && PRONOUN_PERSON[w] !== undefined && !lost.has(PRONOUN_PERSON[w]!))) return true;
   }
   return false;
 }
