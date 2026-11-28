@@ -7,7 +7,7 @@
   "f064": "Поля version нет (F-064): манифест службы не участвует ни в одном релизном процессе, а «1.0.0» вечно выглядел версией API, которой никто не сверяет. Замер npm 10.9.9 на копии: npm ci ставит 75 пакетов и с private: true, и без него (exit 0 в обоих случаях) — поле private тут не ради npm, а ради того, что этот манифест не публикуется. Версия приложения живёт в src/version.ts, package.json и public/sw.js — её держит вместе тест src/test/versionConsistency.test.ts (G-3), сюда она не переносится намеренно.",
   "dependencies": {
     "@ai-sdk/openai": "3.0.131",
-    "@supabase/supabase-js": "2.118.0",
+    "@supabase/supabase-js": "2.119.2",
     "ai": "6.0.315",
     "isomorphic-dompurify": "3.23.0",
     "jose": "6.2.13",
