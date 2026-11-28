@@ -367,7 +367,10 @@ export function dropFabricatedSentences(text: string, materials: string | null |
   const { stripped } = unquoteAbsent(text, materials, { markPersonal: false });
   if (stripped.length === 0) return text;
   const heads = stripped.map(q => q.slice(0, 24));
-  const parts = text.split(/(?<=[.!?…])(\s+)/);
+  // Дейлик 28.11 (Н-2): граница куска — и конец строки. Заголовок и жирная подводка
+  // точки не имеют: выдумка в них склеивалась со следующей, дословной строкой, и
+  // уходили обе.
+  const parts = text.split(/((?<=[.!?…])\s+|\s*\n\s*)/);
   const kept = parts.filter((part, i) => i % 2 === 1 || !heads.some(h => part.includes(h))).join('').trim();
   // Всё ответа держалось на выдуманных цитатах — пустой ответ хуже: остаётся
   // прежняя чистка (кавычки сняты, слова на месте).
